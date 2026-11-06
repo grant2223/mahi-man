@@ -1,0 +1,272 @@
+import { useEffect, useState } from "react";
+import { api, sb, type JobType, type Suburb } from "../lib/supabase";
+import { useSession } from "../lib/session";
+import { money, shrinkImage, validAbn } from "../lib/format";
+import { Icon, Screen, SearchPicker, Tile, useToast } from "../ui/kit";
+
+export interface Steps { photo: boolean; id_and_bank: boolean; abn: boolean; area: boolean; jobs: boolean }
+type StepKey = keyof Steps | "insurance";
+
+const STEP_INFO: { key: keyof Steps; title: string; hint: string }[] = [
+  { key: "photo", title: "Your photo", hint: "Customers see it before you arrive" },
+  { key: "id_and_bank", title: "ID check and bank", hint: "Passport or licence, then any Australian account" },
+  { key: "abn", title: "Your ABN", hint: "Free to get, takes 10 minutes online" },
+  { key: "area", title: "Where you work", hint: "Your suburb and how far you'll travel" },
+  { key: "jobs", title: "Jobs you'll do", hint: "Cleaning, tip runs, flat-pack and more" },
+];
+
+export function Signup({ steps, onChanged }: { steps: Steps; onChanged: () => void }) {
+  const [open, setOpen] = useState<StepKey | null>(null);
+  const done = STEP_INFO.filter((s) => steps[s.key]).length;
+  const next = STEP_INFO.find((s) => !steps[s.key])?.key;
+
+  return (
+    <>
+      <section className="hero">
+        <div className="hero-top">
+          <span className="wordmark">oddjobs.</span>
+          <span className="t15 light" style={{ color: "rgba(255,255,255,0.85)" }}>Worker</span>
+        </div>
+        <h1 className="mid">Get ready<br />to earn</h1>
+        <div className="row" style={{ alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontSize: 40, fontWeight: 600, letterSpacing: -1.5, color: "var(--lime)" }}>{done} of 5</span>
+          <span className="t15 light" style={{ color: "rgba(255,255,255,0.88)" }}>done. {5 - done} {5 - done === 1 ? "step" : "steps"} to your first job.</span>
+        </div>
+        <div className="progress" style={{ gridTemplateColumns: "repeat(5, minmax(0,1fr))" }}>
+          {STEP_INFO.map((s) => <span key={s.key} className={steps[s.key] ? "on" : ""} />)}
+        </div>
+      </section>
+
+      <div className="ticket" style={{ marginTop: -76 }}>
+        {STEP_INFO.map((s, i) => (
+          <button key={s.key} className={s.key === next ? "li current" : "li"} onClick={() => setOpen(s.key)}>
+            {steps[s.key] ? <span style={{ width: 24, display: "flex", justifyContent: "center" }}>{Icon.tick("var(--emerald)", 24)}</span> : <span className="n">{i + 1}</span>}
+            <span className="t"><b>{s.title}</b><span>{s.hint}</span></span>
+            {s.key === next ? <span className="btn primary small">Add</span> : steps[s.key] ? <span className="small muted">Edit</span> : null}
+          </button>
+        ))}
+      </div>
+
+      <section className="row" style={{ margin: "22px 20px 0", alignItems: "flex-start", gap: 14 }}>
+        {Icon.shield("var(--ink)")}
+        <span className="stack" style={{ flex: 1, gap: 4 }}>
+          <span className="t17 w5">Liability insurance <span className="light muted">optional</span></span>
+          <span className="small light muted" style={{ lineHeight: 1.45 }}>Upload your certificate to unlock mowing and power-tool jobs.</span>
+        </span>
+        <button className="btn stone small" onClick={() => setOpen("insurance")}>Upload</button>
+      </section>
+
+      <div className="footer"><button className="link quiet" onClick={() => sb.auth.signOut()}>Sign out</button></div>
+
+      {open === "photo" && <PhotoStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
+      {open === "id_and_bank" && <PayoutStep done={steps.id_and_bank} onBack={() => setOpen(null)} />}
+      {open === "abn" && <AbnStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
+      {open === "area" && <AreaStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
+      {open === "jobs" && <JobsStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
+      {open === "insurance" && <InsuranceStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
+    </>
+  );
+}
+
+export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+  const { session, profile, reload } = useSession();
+  const [name, setName] = useState(profile?.full_name ?? "");
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  async function save() {
+    if (!session) return;
+    setBusy(true); setErr("");
+    try {
+      if (name.trim().split(/\s+/).length < 2) throw new Error("Add your first and last name");
+      let photo_path = profile?.photo_path ?? null;
+      if (file) {
+        const blob = await shrinkImage(file, 800);
+        photo_path = `${session.user.id}/face-${Date.now()}.jpg`;
+        const { error } = await sb.storage.from("avatars").upload(photo_path, blob, { contentType: "image/jpeg" });
+        if (error) throw error;
+      }
+      if (!photo_path) throw new Error("Add a clear photo of your face");
+      const { error } = await sb.from("profiles").update({ full_name: name.trim(), photo_path }).eq("id", session.user.id);
+      if (error) throw error;
+      await reload();
+      onSaved();
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+  return (
+    <Screen title="Your photo" onBack={onBack}>
+      <div className="screen-body" style={{ padding: 16 }}>
+        <div className="row" style={{ gap: 16, marginBottom: 16 }}>
+          {preview ? <span className="tile" style={{ width: 96, height: 96 }}><img src={preview} alt="" /></span> : <Tile name={name || "?"} photo={profile?.photo_path} size={96} />}
+          <label className="btn stone small" style={{ cursor: "pointer" }}>
+            {Icon.camera()} {profile?.photo_path || preview ? "Change photo" : "Add photo"}
+            <input type="file" accept="image/*" capture="user" hidden onChange={(e) => {
+              const f = e.target.files?.[0]; if (!f) return; setFile(f); setPreview(URL.createObjectURL(f));
+            }} />
+          </label>
+        </div>
+        <p className="small light muted" style={{ lineHeight: 1.45 }}>A clear, front-on photo of your face. Customers see it so they know who's at the door.</p>
+        <label className="field"><span className="k">Full name</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
+        {err && <p className="err">{err}</p>}
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}><button className="btn primary" disabled={busy} onClick={save}>Save</button></div>
+      </div>
+    </Screen>
+  );
+}
+
+function PayoutStep({ done, onBack }: { done: boolean; onBack: () => void }) {
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+  return (
+    <Screen title="ID check and bank" onBack={onBack}>
+      <div className="screen-body" style={{ padding: 16 }}>
+        <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>{done ? "You're verified and your bank is set up." : "One short form checks your ID and sets up where your pay goes. It takes about 3 minutes."}</p>
+        <ul className="t15 light" style={{ paddingLeft: 18, lineHeight: 1.7, marginTop: 0 }}>
+          <li>Passport or driver licence, plus a quick selfie</li>
+          <li>Any Australian bank account (BSB and number)</li>
+          <li>Run securely by Stripe. We never see your bank details.</li>
+        </ul>
+        {err && <p className="err">{err}</p>}
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>
+          <button className="btn primary" disabled={busy} onClick={async () => {
+            setBusy(true); setErr("");
+            try {
+              const r = await api<{ url: string }>("worker_payouts", { return_url: location.origin + "/work?payouts=1" });
+              location.href = r.url;
+            } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
+          }}>{done ? "Update details" : "Start"} {Icon.arrow("#fff")}</button>
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function AbnStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+  const [abn, setAbn] = useState("");
+  const [err, setErr] = useState("");
+  useEffect(() => { sb.from("workers").select("abn").single().then(({ data }) => data?.abn && setAbn(data.abn)); }, []);
+  return (
+    <Screen title="Your ABN" onBack={onBack}>
+      <div className="screen-body" style={{ padding: 16 }}>
+        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>You work for yourself, so you need an ABN. It's free from the government and takes about 10 minutes.</p>
+        <label className="field"><span className="k">ABN (11 digits)</span><input inputMode="numeric" value={abn} onChange={(e) => setAbn(e.target.value)} placeholder="51 824 753 556" /></label>
+        {err && <p className="err">{err}</p>}
+        <div className="row between" style={{ marginTop: 16 }}>
+          <a className="link" href="https://www.abr.gov.au/business-super-funds-charities/applying-abn" target="_blank" rel="noreferrer">Don't have one? Get it free</a>
+          <button className="btn primary" onClick={async () => {
+            if (!validAbn(abn)) return setErr("That ABN doesn't look right. Check the 11 digits.");
+            try { await api("worker_save", { abn }); onSaved(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+          }}>Save</button>
+        </div>
+      </div>
+    </Screen>
+  );
+}
+
+function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+  const [suburbs, setSuburbs] = useState<Suburb[]>([]);
+  const [base, setBase] = useState<number | null>(null);
+  const [radius, setRadius] = useState(15);
+  const [vehicle, setVehicle] = useState(false);
+  const [pick, setPick] = useState<null | "suburb" | "radius" | "vehicle">(null);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    sb.from("suburbs").select("id,name").order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
+    sb.from("workers").select("base_suburb_id,radius_km,has_vehicle").single().then(({ data }) => {
+      if (data) { setBase(data.base_suburb_id); setRadius(data.radius_km); setVehicle(data.has_vehicle); }
+    });
+  }, []);
+  const radii = [5, 10, 15, 20, 30, 50];
+  return (
+    <Screen title="Where you work" onBack={onBack}>
+      <div className="screen-body" style={{ padding: 16 }}>
+        <div className="stack">
+          <button className="field" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={base ? "v" : "v ph"}>{suburbs.find((s) => s.id === base)?.name ?? "Pick your suburb"}</span></button>
+          <button className="field" onClick={() => setPick("radius")}><span className="k">How far you'll travel</span><span className="v">Up to {radius} km</span></button>
+          <button className="field" onClick={() => setPick("vehicle")}><span className="k">Ute or trailer</span><span className="v">{vehicle ? "Yes, I have one" : "No"}</span></button>
+        </div>
+        <p className="small light muted" style={{ lineHeight: 1.45 }}>Tip runs and mowing need a vehicle. Jobs nobody takes within 10 minutes are shown to workers further away too.</p>
+        {err && <p className="err">{err}</p>}
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
+          <button className="btn primary" disabled={!base} onClick={async () => {
+            try { await api("worker_save", { base_suburb_id: base, radius_km: radius, has_vehicle: vehicle }); onSaved(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+          }}>Save</button>
+        </div>
+      </div>
+      {pick === "suburb" && <SearchPicker title="Your suburb" placeholder="Search Cairns suburbs" value={base ? [base] : []} options={suburbs.map((s) => ({ id: s.id, label: s.name }))} onChange={(v) => setBase(Number(v[0]))} onClose={() => setPick(null)} />}
+      {pick === "radius" && <SearchPicker title="How far you'll travel" value={[radius]} options={radii.map((r) => ({ id: r, label: `Up to ${r} km` }))} onChange={(v) => setRadius(Number(v[0]))} onClose={() => setPick(null)} />}
+      {pick === "vehicle" && <SearchPicker title="Ute or trailer" value={[vehicle ? 1 : 0]} options={[{ id: 1, label: "Yes, I have one" }, { id: 0, label: "No" }]} onChange={(v) => setVehicle(v[0] === 1)} onClose={() => setPick(null)} />}
+    </Screen>
+  );
+}
+
+function JobsStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+  const { session } = useSession();
+  const [types, setTypes] = useState<JobType[]>([]);
+  const [mine, setMine] = useState<number[] | null>(null);
+  const [ins, setIns] = useState(false);
+  const [veh, setVeh] = useState(false);
+  useEffect(() => {
+    sb.from("job_types").select("*").eq("active", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
+    sb.from("worker_job_types").select("job_type_id").then(({ data }) => setMine((data ?? []).map((r) => r.job_type_id)));
+    sb.from("workers").select("insurance_expiry,has_vehicle").single().then(({ data }) => {
+      setIns(!!data?.insurance_expiry && new Date(data.insurance_expiry) >= new Date());
+      setVeh(!!data?.has_vehicle);
+    });
+  }, []);
+  if (mine === null || !session) return null;
+  return (
+    <SearchPicker title="Jobs you'll do" multi placeholder="Search jobs" value={mine}
+      options={types.map((t) => {
+        const need = [t.needs_insurance && !ins ? "insurance" : "", t.needs_vehicle && !veh ? "a vehicle" : ""].filter(Boolean).join(" and ");
+        return { id: t.id, label: t.name, hint: need ? `Needs ${need} first` : `You earn ${money(t.price_cents)}`, disabled: !!need };
+      })}
+      onClose={onBack}
+      onChange={async (v) => {
+        const ids = v.map(Number);
+        await sb.from("worker_job_types").delete().eq("worker_id", session.user.id);
+        if (ids.length) await sb.from("worker_job_types").insert(ids.map((id) => ({ worker_id: session.user.id, job_type_id: id })));
+        await api("worker_status");
+        onSaved();
+      }} />
+  );
+}
+
+function InsuranceStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+  const { session } = useSession();
+  const toast = useToast();
+  const [file, setFile] = useState<File | null>(null);
+  const [expiry, setExpiry] = useState("");
+  const [current, setCurrent] = useState<{ path: string | null; expiry: string | null }>({ path: null, expiry: null });
+  const [err, setErr] = useState("");
+  useEffect(() => { sb.from("workers").select("insurance_path,insurance_expiry").single().then(({ data }) => data && setCurrent({ path: data.insurance_path, expiry: data.insurance_expiry })); }, []);
+  return (
+    <Screen title="Liability insurance" onBack={onBack}>
+      <div className="screen-body" style={{ padding: 16 }}>
+        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Public liability cover from about $180 a year unlocks mowing and power-tool jobs. Upload your certificate of currency.</p>
+        {current.expiry && <p className="t15 em">On file, valid until {new Date(current.expiry).toLocaleDateString("en-AU")}</p>}
+        <div className="stack">
+          <label className="field" style={{ cursor: "pointer" }}>
+            <span className="k">Certificate (PDF or photo)</span>
+            <span className={file ? "v" : "v ph"}>{file?.name ?? "Choose file"}</span>
+            <input type="file" accept="application/pdf,image/*" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+          </label>
+          <label className="field"><span className="k">Expiry date</span><input type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} /></label>
+        </div>
+        {err && <p className="err">{err}</p>}
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>
+          <button className="btn primary" disabled={!file || !expiry} onClick={async () => {
+            if (!session || !file) return;
+            if (new Date(expiry) < new Date()) return setErr("That certificate has expired");
+            const ext = file.name.split(".").pop() || "pdf";
+            const path = `${session.user.id}/cert-${Date.now()}.${ext}`;
+            const { error } = await sb.storage.from("insurance").upload(path, file);
+            if (error) return setErr(error.message);
+            try { await api("worker_save", { insurance_path: path, insurance_expiry: expiry }); toast("Saved"); onSaved(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+          }}>Save</button>
+        </div>
+      </div>
+    </Screen>
+  );
+}

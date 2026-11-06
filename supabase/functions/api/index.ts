@@ -1,0 +1,236 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.49.4";
+import { admin, releaseJob, setting, stripe } from "./payments.ts";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+const ok = (body: unknown) => new Response(JSON.stringify(body), { headers: { ...cors, "Content-Type": "application/json" } });
+const fail = (msg: string, status = 400) =>
+  new Response(JSON.stringify({ error: msg }), { status, headers: { ...cors, "Content-Type": "application/json" } });
+
+function validAbn(abn: string): boolean {
+  const d = abn.replace(/\s/g, "");
+  if (!/^\d{11}$/.test(d)) return false;
+  const w = [10, 1, 3, 5, 7, 9, 11, 13, 15, 17, 19];
+  const n = d.split("").map(Number);
+  n[0] -= 1;
+  return n.reduce((s, x, i) => s + x * w[i], 0) % 89 === 0;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  try {
+    const auth = req.headers.get("Authorization") ?? "";
+    const userClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, {
+      global: { headers: { Authorization: auth } },
+    });
+    const { data: { user } } = await userClient.auth.getUser();
+    if (!user) return fail("Please sign in again", 401);
+    const body = await req.json();
+    const { data: me } = await admin.from("profiles").select("*").eq("id", user.id).single();
+
+    switch (body.action) {
+      // ---------- Customer ----------
+      case "pay_job": {
+        const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).eq("customer_id", user.id).single();
+        if (!job) return fail("Job not found");
+        if (job.status !== "awaiting_payment") return fail("This job is already paid");
+        const s = stripe();
+        let pi;
+        if (job.payment_intent_id) pi = await s.paymentIntents.retrieve(job.payment_intent_id);
+        if (!pi || pi.status === "canceled") {
+          pi = await s.paymentIntents.create({
+            amount: job.price_cents + job.fee_cents,
+            currency: "aud",
+            capture_method: "manual",
+            automatic_payment_methods: { enabled: true },
+            description: "Odd Jobs booking",
+            metadata: { job_id: job.id, kind: "job" },
+          });
+          await admin.from("jobs").update({ payment_intent_id: pi.id }).eq("id", job.id);
+        }
+        return ok({ client_secret: pi.client_secret, publishable_key: await setting("stripe_publishable_key") });
+      }
+      case "payment_done": {
+        const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).eq("customer_id", user.id).single();
+        if (!job?.payment_intent_id) return fail("Job not found");
+        if (job.status !== "awaiting_payment") return ok({ status: job.status });
+        const pi = await stripe().paymentIntents.retrieve(job.payment_intent_id);
+        if (pi.status !== "requires_capture") return fail("Your card was not approved. Try another card.");
+        await admin.from("jobs").update({ status: "searching", searching_at: new Date().toISOString() }).eq("id", job.id);
+        return ok({ status: "searching" });
+      }
+      case "pay_extra": {
+        const { data: er } = await admin.from("extra_requests").select("*, jobs!inner(customer_id,status)")
+          .eq("id", body.request_id).single();
+        if (!er || er.jobs.customer_id !== user.id) return fail("Request not found");
+        if (er.status !== "pending") return fail("This request is already answered");
+        const s = stripe();
+        let pi = er.payment_intent_id ? await s.paymentIntents.retrieve(er.payment_intent_id) : null;
+        if (!pi || pi.status === "canceled") {
+          pi = await s.paymentIntents.create({
+            amount: er.amount_cents,
+            currency: "aud",
+            capture_method: "manual",
+            automatic_payment_methods: { enabled: true },
+            description: "Odd Jobs extra",
+            metadata: { job_id: er.job_id, request_id: er.id, kind: "extra" },
+          });
+          await admin.from("extra_requests").update({ payment_intent_id: pi.id }).eq("id", er.id);
+        }
+        return ok({ client_secret: pi.client_secret, publishable_key: await setting("stripe_publishable_key") });
+      }
+      case "extra_done": {
+        const { data: er } = await admin.from("extra_requests").select("*, jobs!inner(customer_id,extra_cents)")
+          .eq("id", body.request_id).single();
+        if (!er || er.jobs.customer_id !== user.id || !er.payment_intent_id) return fail("Request not found");
+        if (er.status === "approved") return ok({});
+        const pi = await stripe().paymentIntents.retrieve(er.payment_intent_id);
+        if (pi.status !== "requires_capture") return fail("Your card was not approved. Try another card.");
+        await admin.from("extra_requests").update({ status: "approved", decided_at: new Date().toISOString() }).eq("id", er.id);
+        await admin.from("jobs").update({ extra_cents: er.jobs.extra_cents + er.amount_cents }).eq("id", er.job_id);
+        return ok({});
+      }
+      case "confirm_job": {
+        const { data: job } = await admin.from("jobs").select("customer_id,status").eq("id", body.job_id).single();
+        if (!job || job.customer_id !== user.id) return fail("Job not found");
+        if (job.status !== "finished") return fail("This job is not finished yet");
+        await releaseJob(body.job_id);
+        return ok({ status: "confirmed" });
+      }
+      case "cancel_job": {
+        const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
+        if (!job || job.customer_id !== user.id) return fail("Job not found");
+        const s = stripe();
+        const now = new Date().toISOString();
+        if (["awaiting_payment", "searching"].includes(job.status)) {
+          if (job.payment_intent_id) {
+            const pi = await s.paymentIntents.retrieve(job.payment_intent_id);
+            if (["requires_capture", "requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status)) {
+              await s.paymentIntents.cancel(job.payment_intent_id);
+            }
+          }
+          await admin.from("jobs").update({ status: "cancelled", cancelled_at: now }).eq("id", job.id);
+          return ok({ charged_cents: 0 });
+        }
+        if (job.status === "accepted") {
+          const callout = Number(await setting("callout_cents"));
+          const keep = job.fee_cents + callout;
+          const pi = await s.paymentIntents.capture(job.payment_intent_id, { amount_to_capture: keep });
+          const { data: w } = await admin.from("workers").select("stripe_account_id").eq("id", job.worker_id).single();
+          if (w?.stripe_account_id && callout > 0) {
+            await s.transfers.create({
+              amount: callout,
+              currency: "aud",
+              destination: w.stripe_account_id,
+              source_transaction: typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id,
+              metadata: { job_id: job.id, kind: "callout" },
+            }, { idempotencyKey: `callout-${job.id}` });
+          }
+          await admin.from("jobs").update({ status: "cancelled", cancelled_at: now }).eq("id", job.id);
+          return ok({ charged_cents: keep });
+        }
+        return fail("The job has started. Use Get help and we will sort it out.");
+      }
+
+      // ---------- Worker ----------
+      case "worker_payouts": {
+        const { data: w } = await admin.from("workers").select("*").eq("id", user.id).single();
+        if (!w) return fail("Start your worker sign-up first");
+        const s = stripe();
+        let acct = w.stripe_account_id;
+        if (!acct) {
+          const a = await s.accounts.create({
+            type: "express",
+            country: "AU",
+            email: user.email,
+            business_type: "individual",
+            capabilities: { transfers: { requested: true } },
+            business_profile: { mcc: "7349", product_description: "Odd jobs booked through Odd Jobs Cairns" },
+            metadata: { user_id: user.id },
+          });
+          acct = a.id;
+          await admin.from("workers").update({ stripe_account_id: acct }).eq("id", user.id);
+        }
+        const link = await s.accountLinks.create({
+          account: acct,
+          type: "account_onboarding",
+          refresh_url: body.return_url,
+          return_url: body.return_url,
+        });
+        return ok({ url: link.url });
+      }
+      case "worker_save": {
+        // ABN is checked here so a typo never blocks a payout later.
+        if (body.abn !== undefined && body.abn !== "" && !validAbn(body.abn)) return fail("That ABN doesn't look right. Check the 11 digits.");
+        const patch: Record<string, unknown> = {};
+        for (const k of ["abn", "has_vehicle", "base_suburb_id", "radius_km", "insurance_path", "insurance_expiry"]) {
+          if (body[k] !== undefined) patch[k] = k === "abn" ? String(body.abn).replace(/\s/g, "") : body[k];
+        }
+        await admin.from("workers").update(patch).eq("id", user.id);
+        return ok(await refreshWorker(user.id));
+      }
+      case "worker_status": {
+        return ok(await refreshWorker(user.id));
+      }
+
+      // ---------- Admin ----------
+      case "admin_resolve": {
+        if (!me?.is_admin) return fail("Admins only", 403);
+        const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
+        if (!job) return fail("Job not found");
+        if (body.outcome === "pay") {
+          await releaseJob(job.id);
+        } else if (body.outcome === "refund") {
+          const s = stripe();
+          const ids = [job.payment_intent_id];
+          const { data: extras } = await admin.from("extra_requests").select("payment_intent_id").eq("job_id", job.id).eq("status", "approved");
+          for (const e of extras ?? []) if (e.payment_intent_id) ids.push(e.payment_intent_id);
+          for (const id of ids) {
+            if (!id) continue;
+            const pi = await s.paymentIntents.retrieve(id);
+            if (pi.status === "requires_capture") await s.paymentIntents.cancel(id);
+            else if (pi.status === "succeeded") await s.refunds.create({ payment_intent: id }, { idempotencyKey: `refund-${id}` });
+          }
+          await admin.from("jobs").update({ status: "refunded" }).eq("id", job.id);
+        } else return fail("Pick pay or refund");
+        await admin.from("incidents").update({ resolved: true }).eq("job_id", job.id);
+        return ok({});
+      }
+      default:
+        return fail("Unknown action");
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return fail(msg, 500);
+  }
+});
+
+async function refreshWorker(id: string) {
+  const { data: w } = await admin.from("workers").select("*").eq("id", id).single();
+  const { data: p } = await admin.from("profiles").select("*").eq("id", id).single();
+  const { count } = await admin.from("worker_job_types").select("*", { count: "exact", head: true }).eq("worker_id", id);
+  let payoutsReady = false;
+  if (w?.stripe_account_id && Deno.env.get("STRIPE_SECRET_KEY")) {
+    const a = await stripe().accounts.retrieve(w.stripe_account_id);
+    payoutsReady = !!(a.details_submitted && a.payouts_enabled);
+  }
+  const steps = {
+    photo: !!p?.photo_path && !!p?.full_name,
+    id_and_bank: payoutsReady,
+    abn: !!w?.abn,
+    area: !!w?.base_suburb_id,
+    jobs: (count ?? 0) > 0,
+  };
+  const approved = Object.values(steps).every(Boolean) && !w?.suspended;
+  await admin.from("workers").update({
+    payouts_ready: payoutsReady,
+    id_verified: payoutsReady,
+    approved,
+    online: approved ? w?.online : false,
+  }).eq("id", id);
+  return { steps, approved, suspended: w?.suspended ?? false };
+}
