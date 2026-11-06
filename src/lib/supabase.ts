@@ -25,6 +25,8 @@ export interface Job {
   fee_cents: number;
   extra_cents: number;
   status: JobStatus;
+  payment_intent_id: string | null;
+  eta_at: string | null;
   created_at: string;
   searching_at: string | null;
   accepted_at: string | null;
@@ -61,6 +63,9 @@ export async function rpc<T = unknown>(fn: string, args: Record<string, unknown>
   if (error) throw new Error(error.message);
   return data as T;
 }
+
+// Pilot jobs: no card hold, the customer pays the worker directly.
+export const isDirectPay = (j: { fee_cents: number; payment_intent_id: string | null }) => j.fee_cents === 0 && !j.payment_intent_id;
 
 export function avatarUrl(path: string | null | undefined): string | null {
   if (!path) return null;

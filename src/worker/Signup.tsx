@@ -15,10 +15,11 @@ const STEP_INFO: { key: keyof Steps; title: string; hint: string }[] = [
   { key: "jobs", title: "Jobs you'll do", hint: "Cleaning, tip runs, flat-pack and more" },
 ];
 
-export function Signup({ steps, onChanged }: { steps: Steps; onChanged: () => void }) {
+export function Signup({ steps, pilot, onChanged }: { steps: Steps; pilot: boolean; onChanged: () => void }) {
   const [open, setOpen] = useState<StepKey | null>(null);
-  const done = STEP_INFO.filter((s) => steps[s.key]).length;
-  const next = STEP_INFO.find((s) => !steps[s.key])?.key;
+  const info = STEP_INFO.map((s) => (pilot && s.key === "id_and_bank" ? { ...s, title: "Approval", hint: "We check your photo and ABN, usually within a day" } : s));
+  const done = info.filter((s) => steps[s.key]).length;
+  const next = info.find((s) => !steps[s.key] && !(pilot && s.key === "id_and_bank"))?.key ?? info.find((s) => !steps[s.key])?.key;
 
   return (
     <>
@@ -33,16 +34,16 @@ export function Signup({ steps, onChanged }: { steps: Steps; onChanged: () => vo
           <span className="t15 light" style={{ color: "rgba(255,255,255,0.88)" }}>done. {5 - done} {5 - done === 1 ? "step" : "steps"} to your first job.</span>
         </div>
         <div className="progress" style={{ gridTemplateColumns: "repeat(5, minmax(0,1fr))" }}>
-          {STEP_INFO.map((s) => <span key={s.key} className={steps[s.key] ? "on" : ""} />)}
+          {info.map((s) => <span key={s.key} className={steps[s.key] ? "on" : ""} />)}
         </div>
       </section>
 
       <div className="ticket" style={{ marginTop: -76 }}>
-        {STEP_INFO.map((s, i) => (
+        {info.map((s, i) => (
           <button key={s.key} className={s.key === next ? "li current" : "li"} onClick={() => setOpen(s.key)}>
             {steps[s.key] ? <span style={{ width: 24, display: "flex", justifyContent: "center" }}>{Icon.tick("var(--emerald)", 24)}</span> : <span className="n">{i + 1}</span>}
             <span className="t"><b>{s.title}</b><span>{s.hint}</span></span>
-            {s.key === next ? <span className="btn primary small">Add</span> : steps[s.key] ? <span className="small muted">Edit</span> : null}
+            {pilot && s.key === "id_and_bank" && !steps[s.key] ? <span className="small muted">Waiting</span> : s.key === next ? <span className="btn primary small">Add</span> : steps[s.key] ? <span className="small muted">Edit</span> : null}
           </button>
         ))}
       </div>
@@ -59,7 +60,7 @@ export function Signup({ steps, onChanged }: { steps: Steps; onChanged: () => vo
       <div className="footer"><button className="link quiet" onClick={() => sb.auth.signOut()}>Sign out</button></div>
 
       {open === "photo" && <PhotoStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
-      {open === "id_and_bank" && <PayoutStep done={steps.id_and_bank} onBack={() => setOpen(null)} />}
+      {open === "id_and_bank" && (pilot ? <ApprovalStep done={steps.id_and_bank} onBack={() => setOpen(null)} /> : <PayoutStep done={steps.id_and_bank} onBack={() => setOpen(null)} />)}
       {open === "abn" && <AbnStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
       {open === "area" && <AreaStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
       {open === "jobs" && <JobsStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
@@ -110,6 +111,17 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
         <label className="field"><span className="k">Full name</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}><button className="btn primary" disabled={busy} onClick={save}>Save</button></div>
+      </div>
+    </Screen>
+  );
+}
+
+function ApprovalStep({ done, onBack }: { done: boolean; onBack: () => void }) {
+  return (
+    <Screen title="Approval" onBack={onBack}>
+      <div className="screen-body" style={{ padding: 16 }}>
+        <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>{done ? "You're approved." : "Finish your photo, ABN, area and jobs. We then check your details and approve you, usually within a day."}</p>
+        <p className="t15 light muted" style={{ lineHeight: 1.45 }}>During the Cairns pilot, customers pay you directly when each job is done, by PayID or cash. Keep 100% of the job price.</p>
       </div>
     </Screen>
   );

@@ -14,14 +14,14 @@ const OFFER_SECONDS = 60;
 export function Work() {
   const { session, profile, ready, reload } = useSession();
   const [auth, setAuth] = useState(false);
-  const [status, setStatus] = useState<{ steps: Steps; approved: boolean; suspended: boolean } | null>(null);
+  const [status, setStatus] = useState<{ steps: Steps; approved: boolean; suspended: boolean; pilot: boolean } | null>(null);
   const [current, setCurrent] = useState<Job | null | undefined>(undefined);
   const [err, setErr] = useState("");
 
   const refresh = useCallback(async () => {
     if (!session) return;
     try {
-      const s = await api<{ steps: Steps; approved: boolean; suspended: boolean }>("worker_status");
+      const s = await api<{ steps: Steps; approved: boolean; suspended: boolean; pilot: boolean }>("worker_status");
       setStatus(s);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     const { data } = await sb.from("jobs").select("*").eq("worker_id", session.user.id).in("status", ["accepted", "in_progress"])
@@ -57,7 +57,7 @@ export function Work() {
           ))}
           <Perf />
           <div className="row between" style={{ padding: "8px 16px 18px" }}>
-            <span className="small light muted" style={{ maxWidth: 160, lineHeight: 1.4 }}>Paid to your bank after each job is confirmed.</span>
+            <span className="small light muted" style={{ maxWidth: 160, lineHeight: 1.4 }}>Paid for every job you finish.</span>
             <button className="btn primary" onClick={async () => {
               if (!session) return setAuth(true);
               await rpc("become_worker"); await reload();
@@ -77,11 +77,11 @@ export function Work() {
     <div className="app"><section className="hero"><span className="wordmark">oddjobs.</span><h1 className="mid">Account paused</h1>
       <p className="lede">Your worker account is paused. Email hello@findfitpeople.com and we'll sort it out.</p></section></div>
   );
-  if (!status.approved) return <div className="app"><Signup steps={status.steps} onChanged={refresh} /></div>;
-  return <div className="app"><Home onTaken={refresh} /></div>;
+  if (!status.approved) return <div className="app"><Signup steps={status.steps} pilot={status.pilot} onChanged={refresh} /></div>;
+  return <div className="app"><Home pilot={status.pilot} onTaken={refresh} /></div>;
 }
 
-function Home({ onTaken }: { onTaken: () => void }) {
+function Home({ pilot, onTaken }: { pilot: boolean; onTaken: () => void }) {
   const toast = useToast();
   const now = useNow(1000);
   const [online, setOnline] = useState(false);
@@ -145,7 +145,7 @@ function Home({ onTaken }: { onTaken: () => void }) {
           </div>
           <span className="label" style={{ marginBottom: 10 }}>You earn</span>
           <span className="big lime" style={{ fontSize: 120, letterSpacing: -6, marginLeft: -4, display: "block" }}>{money(offer.earn_cents)}</span>
-          <span className="sub" style={{ marginTop: 14 }}>Paid to your bank once the customer confirms</span>
+          <span className="sub" style={{ marginTop: 14 }}>{pilot ? "Paid by the customer when the job's done" : "Paid to your bank once the customer confirms"}</span>
         </section>
         <div className="ticket" style={{ marginTop: -80 }}>
           <div className="grid3" style={{ padding: "18px 16px 16px" }}>

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
+import { api, isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { elapsed, firstName, money2 } from "../lib/format";
@@ -27,7 +27,7 @@ export function Track({ id }: { id: string }) {
   const load = useCallback(async () => {
     const { data } = await sb.from("jobs").select("*").eq("id", id).single();
     if (!data) return;
-    const j = data as Job & { eta_at: string | null };
+    const j = data as Job;
     setJob(j);
     if (!jt) {
       const { data: t } = await sb.from("job_types").select("*").eq("id", j.job_type_id).single();
@@ -60,7 +60,8 @@ export function Track({ id }: { id: string }) {
 
   if (!job || !jt || !session) return <div className="app"><section className="hero short"><button className="wordmark" onClick={() => go("/")}>oddjobs.</button></section></div>;
 
-  const eta = (job as Job & { eta_at: string | null }).eta_at;
+  const eta = job.eta_at;
+  const direct = isDirectPay(job);
   const wName = worker ? firstName(worker.full_name) : "Your worker";
   const stepIdx = { awaiting_payment: 0, searching: 0, accepted: 2, in_progress: 3, finished: 4, confirmed: 4, disputed: 4, cancelled: 0, refunded: 4 }[job.status];
   const pendingExtra = extras.find((e) => e.status === "pending");
@@ -68,14 +69,14 @@ export function Track({ id }: { id: string }) {
 
   async function confirm() {
     setBusy(true);
-    try { await api("confirm_job", { job_id: id }); toast("Paid. Thanks for using oddjobs."); await load(); }
+    try { await api("confirm_job", { job_id: id }); toast(direct ? "Done. Thanks for using oddjobs." : "Paid. Thanks for using oddjobs."); await load(); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
   let label = "", big = "", bigUnit = "", sub = "";
   switch (job.status) {
     case "awaiting_payment": label = "Not booked yet"; big = money2(total); sub = "Hold the payment to send it to workers"; break;
-    case "searching": label = "Finding someone nearby"; big = elapsed(job.searching_at ?? job.created_at, now); sub = "Usually a few minutes. You're only charged once it's done."; break;
+    case "searching": label = "Finding someone nearby"; big = elapsed(job.searching_at ?? job.created_at, now); sub = direct ? "Usually a few minutes." : "Usually a few minutes. You're only charged once it's done."; break;
     case "accepted": {
       const mins = eta ? Math.max(0, Math.round((new Date(eta).getTime() - now) / 60000)) : 0;
       if (job.asap) { label = `${wName} is on the way`; big = String(mins); bigUnit = "min"; }
@@ -83,9 +84,9 @@ export function Track({ id }: { id: string }) {
       break;
     }
     case "in_progress": label = `${wName} is working`; big = elapsed(job.started_at!, now); sub = `Up to ${Number(jt.max_hours)} hrs`; break;
-    case "finished": label = "Job done"; big = money2(total); sub = "Check the photos, then confirm to pay"; break;
-    case "confirmed": label = "Paid and done"; big = money2(total); sub = `Thanks for booking ${jt.name.toLowerCase()}`; break;
-    case "disputed": label = "We're looking into it"; big = "Held"; sub = "Your money stays held until it's sorted. We'll message you."; break;
+    case "finished": label = "Job done"; big = money2(total); sub = direct ? `Check the photos, pay ${wName} directly, then confirm` : "Check the photos, then confirm to pay"; break;
+    case "confirmed": label = direct ? "Done" : "Paid and done"; big = money2(total); sub = `Thanks for booking ${jt.name.toLowerCase()}`; break;
+    case "disputed": label = "We're looking into it"; big = direct ? "Checking" : "Held"; sub = direct ? "We'll look at the photos and messages and contact you." : "Your money stays held until it's sorted. We'll message you."; break;
     case "cancelled": label = "Cancelled"; big = "—"; sub = "This booking was cancelled"; break;
     case "refunded": label = "Refunded"; big = money2(total); sub = "Your money has been returned"; break;
   }
@@ -160,7 +161,10 @@ export function Track({ id }: { id: string }) {
               <span className="t15 light muted" style={{ lineHeight: 1.45 }}>"{pendingExtra.reason}"</span>
               <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
                 <button className="btn stone small" onClick={async () => { await rpc("decline_extra", { p_request: pendingExtra.id }); load(); }}>Decline</button>
-                <button className="btn primary small" onClick={() => setScreen({ extra: pendingExtra })}>Approve</button>
+                <button className="btn primary small" onClick={async () => {
+                  if (!direct) return setScreen({ extra: pendingExtra });
+                  try { await rpc("approve_extra_pilot", { p_request: pendingExtra.id }); toast("Approved"); load(); } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+                }}>Approve</button>
               </div>
             </div>
           </>
@@ -184,10 +188,10 @@ export function Track({ id }: { id: string }) {
           <>
             <Perf />
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 12 }}>
-              <span className="small light muted" style={{ lineHeight: 1.45 }}>If you don't confirm or report a problem, payment releases automatically 48 hours after the job was finished.</span>
+              <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${wName} ${money2(total)} directly (PayID or cash), then confirm. If you don't confirm or report a problem, the job closes after 48 hours.` : "If you don't confirm or report a problem, payment releases automatically 48 hours after the job was finished."}</span>
               <div className="row between">
                 <button className="link quiet" onClick={() => setScreen("report")}>Report a problem</button>
-                <button className="btn primary" disabled={busy} onClick={confirm}>{busy ? "Paying…" : "Confirm and pay"}</button>
+                <button className="btn primary" disabled={busy} onClick={confirm}>{busy ? "Saving…" : direct ? "Confirm it's done" : "Confirm and pay"}</button>
               </div>
             </div>
           </>
@@ -209,8 +213,8 @@ export function Track({ id }: { id: string }) {
         <section className="row" style={{ margin: "22px 20px 0", alignItems: "flex-start", gap: 14 }}>
           {Icon.lock("var(--ink)")}
           <span className="stack" style={{ gap: 3 }}>
-            <span className="t17 w5">{money2(total)} held, not paid</span>
-            <span className="small light muted" style={{ lineHeight: 1.45 }}>{worker ? wName : "Your worker"} is paid only after you confirm the job is done.</span>
+            <span className="t17 w5">{direct ? `Pay ${money2(total)} when it's done` : `${money2(total)} held, not paid`}</span>
+            <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${worker ? wName : "your worker"} directly by PayID or cash once the job is finished. Never before.` : `${worker ? wName : "Your worker"} is paid only after you confirm the job is done.`}</span>
           </span>
         </section>
       )}
@@ -287,12 +291,12 @@ function CancelScreen({ job, onBack, onDone }: { job: Job; onBack: () => void; o
   const [busy, setBusy] = useState(false);
   const [callout, setCallout] = useState(1500);
   useEffect(() => { sb.from("settings").select("value").eq("key", "callout_cents").single().then(({ data }) => data && setCallout(Number(data.value))); }, []);
-  const free = job.status !== "accepted";
+  const free = job.status !== "accepted" || isDirectPay(job);
   return (
     <Screen title="Cancel booking" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>
-          {free ? "No one has taken it yet, so cancelling is free. The hold on your card is released."
+          {free ? (isDirectPay(job) ? "Cancelling is free. Your worker will be told straight away." : "No one has taken it yet, so cancelling is free. The hold on your card is released.")
             : `Someone is already on the way. Cancelling now costs ${money2(job.fee_cents + callout)}: the booking fee plus ${money2(callout)} to the worker for their trip. The rest is released.`}
         </p>
         {err && <p className="err">{err}</p>}

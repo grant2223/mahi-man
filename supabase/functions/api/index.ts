@@ -104,8 +104,12 @@ Deno.serve(async (req) => {
       case "cancel_job": {
         const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
         if (!job || job.customer_id !== user.id) return fail("Job not found");
-        const s = stripe();
         const now = new Date().toISOString();
+        if (!job.payment_intent_id && ["awaiting_payment", "searching", "accepted"].includes(job.status)) {
+          await admin.from("jobs").update({ status: "cancelled", cancelled_at: now }).eq("id", job.id);
+          return ok({ charged_cents: 0 });
+        }
+        const s = stripe();
         if (["awaiting_payment", "searching"].includes(job.status)) {
           if (job.payment_intent_id) {
             const pi = await s.paymentIntents.retrieve(job.payment_intent_id);
@@ -184,6 +188,8 @@ Deno.serve(async (req) => {
         if (!job) return fail("Job not found");
         if (body.outcome === "pay") {
           await releaseJob(job.id);
+        } else if (body.outcome === "refund" && !job.payment_intent_id) {
+          await admin.from("jobs").update({ status: "refunded" }).eq("id", job.id);
         } else if (body.outcome === "refund") {
           const s = stripe();
           const ids = [job.payment_intent_id];
@@ -199,6 +205,11 @@ Deno.serve(async (req) => {
         } else return fail("Pick pay or refund");
         await admin.from("incidents").update({ resolved: true }).eq("job_id", job.id);
         return ok({});
+      }
+      case "admin_approve_worker": {
+        if (!me?.is_admin) return fail("Admins only", 403);
+        await admin.from("workers").update({ admin_approved: !!body.approved }).eq("id", body.worker_id);
+        return ok(await refreshWorker(body.worker_id));
       }
       default:
         return fail("Unknown action");
@@ -218,9 +229,10 @@ async function refreshWorker(id: string) {
     const a = await stripe().accounts.retrieve(w.stripe_account_id);
     payoutsReady = !!(a.details_submitted && a.payouts_enabled);
   }
+  const pilot = (await setting("pilot_mode")) === "true";
   const steps = {
     photo: !!p?.photo_path && !!p?.full_name,
-    id_and_bank: payoutsReady,
+    id_and_bank: pilot ? !!w?.admin_approved : payoutsReady,
     abn: !!w?.abn,
     area: !!w?.base_suburb_id,
     jobs: (count ?? 0) > 0,
@@ -228,9 +240,9 @@ async function refreshWorker(id: string) {
   const approved = Object.values(steps).every(Boolean) && !w?.suspended;
   await admin.from("workers").update({
     payouts_ready: payoutsReady,
-    id_verified: payoutsReady,
+    id_verified: payoutsReady || !!w?.admin_approved,
     approved,
     online: approved ? w?.online : false,
   }).eq("id", id);
-  return { steps, approved, suspended: w?.suspended ?? false };
+  return { steps, approved, suspended: w?.suspended ?? false, pilot };
 }

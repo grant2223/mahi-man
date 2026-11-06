@@ -16,6 +16,7 @@ export function Book() {
   const [types, setTypes] = useState<JobType[]>([]);
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
   const [fee, setFee] = useState(15);
+  const [pilot, setPilot] = useState(false);
   const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
   const [open, setOpen] = useState<null | "job" | "where" | "when" | "auth">(null);
   const [payJob, setPayJob] = useState<string | null>(null);
@@ -25,13 +26,15 @@ export function Book() {
   useEffect(() => {
     sb.from("job_types").select("*").eq("active", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
     sb.from("suburbs").select("id,name").order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
-    sb.from("settings").select("value").eq("key", "fee_percent").single().then(({ data }) => data && setFee(Number(data.value)));
+    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode"]).then(({ data }) => {
+      for (const r of data ?? []) { if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true"); }
+    });
   }, []);
   useEffect(() => { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d)); }, [d]);
 
   const jt = types.find((t) => t.id === d.jobTypeId) ?? null;
   const suburb = suburbs.find((s) => s.id === d.suburbId) ?? null;
-  const feeCents = jt ? Math.round((jt.price_cents * fee) / 100) : 0;
+  const feeCents = jt && !pilot ? Math.round((jt.price_cents * fee) / 100) : 0;
   const total = jt ? jt.price_cents + feeCents : 0;
   const ready = !!jt && !!suburb && d.address.trim().length >= 3 && (d.asap || !!d.startAt);
 
@@ -48,7 +51,7 @@ export function Book() {
         p_job_type: d.jobTypeId, p_suburb: d.suburbId, p_address: d.address, p_notes: d.notes,
         p_asap: d.asap, p_start_at: d.asap ? new Date().toISOString() : new Date(d.startAt).toISOString(),
       });
-      setPayJob(id);
+      if (pilot) { sessionStorage.removeItem(DRAFT_KEY); go(`/job/${id}`); } else setPayJob(id);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
@@ -96,10 +99,10 @@ export function Book() {
               <span className="small w5 em">{jt ? `Fixed price, up to ${hours(jt.max_hours)}` : "Fixed price"}</span>
               <span className="price">{jt ? money2(total) : "$—"}</span>
             </span>
-            {jt && <span className="small light muted" style={{ textAlign: "right", lineHeight: 1.5 }}>Job {money2(jt.price_cents)}<br />Fee {money2(feeCents)}</span>}
+            {jt && !pilot && <span className="small light muted" style={{ textAlign: "right", lineHeight: 1.5 }}>Job {money2(jt.price_cents)}<br />Fee {money2(feeCents)}</span>}
           </div>
           <div className="row between" style={{ marginTop: 6 }}>
-            <span className="small light muted" style={{ maxWidth: 150, lineHeight: 1.4 }}>Held until you confirm it's done.</span>
+            <span className="small light muted" style={{ maxWidth: 150, lineHeight: 1.4 }}>{pilot ? "Pay your worker directly when it's done." : "Held until you confirm it's done."}</span>
             <button className="btn primary" disabled={busy} onClick={book}>Book it {Icon.arrow("#fff")}</button>
           </div>
           {err && <p className="err">{err}</p>}
@@ -118,7 +121,7 @@ export function Book() {
 
       {open === "job" && (
         <SearchPicker title="What needs doing?" placeholder="Search jobs" value={d.jobTypeId ? [d.jobTypeId] : []}
-          options={types.map((t) => ({ id: t.id, label: t.name, hint: `${money2(t.price_cents + Math.round((t.price_cents * fee) / 100))} · up to ${hours(t.max_hours)} · ${t.description}` }))}
+          options={types.map((t) => ({ id: t.id, label: t.name, hint: `${money2(t.price_cents + (pilot ? 0 : Math.round((t.price_cents * fee) / 100)))} · up to ${hours(t.max_hours)} · ${t.description}` }))}
           onChange={(v) => setD({ ...d, jobTypeId: Number(v[0]) })} onClose={() => setOpen(null)} />
       )}
       {open === "where" && <WhereScreen suburbs={suburbs} draft={d} onSave={(p) => { setD({ ...d, ...p }); setOpen(null); }} onBack={() => setOpen(null)} />}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
+import { isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { elapsed, firstName, money, shrinkImage } from "../lib/format";
 import { Icon, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
@@ -54,7 +54,7 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
-  const heroLabel = j.status === "accepted" ? "Head to the job" : j.status === "in_progress" ? "Working for" : "Waiting for the customer";
+  const heroLabel = j.status === "accepted" ? "Head to the job" : j.status === "in_progress" ? "Working for" : isDirectPay(j) ? "Get paid" : "Waiting for the customer";
   const heroBig = j.status === "in_progress" ? elapsed(j.started_at!, now) : money(earn);
 
   return (
@@ -71,7 +71,7 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
         </div>
         <span className="sub">
           {j.status === "in_progress" ? <>You earn <span style={{ color: "var(--lime)", fontWeight: 500 }}>{money(earn)}</span> when the customer confirms</>
-            : j.status === "finished" ? "They have 48 hours to confirm, then you're paid automatically"
+            : j.status === "finished" ? (isDirectPay(j) ? `Collect ${money(earn)} from the customer now: PayID or cash` : "They have 48 hours to confirm, then you're paid automatically")
               : "Ask for their 4-digit start code when you arrive"}
         </span>
       </section>
@@ -202,7 +202,7 @@ function ExtraScreen({ jobId, onBack, onDone }: { jobId: string; onBack: () => v
   return (
     <Screen title="Ask for more" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
-        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>If the job is bigger than booked, ask here. The customer approves it in the app and pays by card. Never take cash.</p>
+        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>If the job is bigger than booked, ask here. The customer approves it in the app before you do the extra work, so there's no arguing on the doorstep.</p>
         <div className="stack">
           <label className="field"><span className="k">Extra amount ($)</span><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))} placeholder="30" /></label>
           <label className="field"><span className="k">Why</span><textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Second bathroom wasn't in the booking" /></label>

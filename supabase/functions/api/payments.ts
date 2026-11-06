@@ -21,10 +21,15 @@ export async function setting(key: string): Promise<string> {
 // Capture every held payment on a job and pay the worker. Used by customer confirm,
 // the 48 hour auto-release and admin "pay the worker" on a dispute.
 export async function releaseJob(jobId: string): Promise<void> {
-  const s = stripe();
   const { data: job } = await admin.from("jobs").select("*").eq("id", jobId).single();
   if (!job) throw new Error("Job not found");
   if (!["finished", "disputed"].includes(job.status)) throw new Error("This job is not ready to pay out");
+  // Pilot jobs have no card hold: the customer pays the worker directly, so confirming only closes the job.
+  if (!job.payment_intent_id) {
+    await admin.from("jobs").update({ status: "confirmed", confirmed_at: new Date().toISOString() }).eq("id", jobId);
+    return;
+  }
+  const s = stripe();
   const { data: worker } = await admin.from("workers").select("stripe_account_id").eq("id", job.worker_id).single();
   if (!worker?.stripe_account_id) throw new Error("The worker has no payout account");
 

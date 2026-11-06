@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, sb, type JobType } from "../lib/supabase";
+import { api, avatarUrl, sb, type JobType } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money2 } from "../lib/format";
@@ -44,21 +44,29 @@ export function Admin() {
 }
 
 function Overview() {
-  const [s, setS] = useState({ live: 0, searching: 0, weekJobs: 0, weekFees: 0, workers: 0, online: 0, problems: 0 });
+  const [s, setS] = useState({ live: 0, searching: 0, weekJobs: 0, weekFees: 0, workers: 0, online: 0, problems: 0, accept: "—", repeat: 0, cancelled: 0 });
   useEffect(() => {
     (async () => {
       const since = new Date(Date.now() - 7 * 864e5).toISOString();
-      const [live, searching, week, workers, online, problems] = await Promise.all([
+      const [live, searching, week, workers, online, problems, recent] = await Promise.all([
         sb.from("jobs").select("id", { count: "exact", head: true }).in("status", ["accepted", "in_progress", "finished"]),
         sb.from("jobs").select("id", { count: "exact", head: true }).eq("status", "searching"),
         sb.from("jobs").select("fee_cents").eq("status", "confirmed").gte("confirmed_at", since),
         sb.from("workers").select("id", { count: "exact", head: true }).eq("approved", true),
         sb.from("workers").select("id", { count: "exact", head: true }).eq("online", true),
         sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
+        sb.from("jobs").select("customer_id,status,searching_at,accepted_at").gte("created_at", since),
       ]);
+      const r = recent.data ?? [];
+      const waits = r.filter((j) => j.searching_at && j.accepted_at).map((j) => (new Date(j.accepted_at!).getTime() - new Date(j.searching_at!).getTime()) / 60000);
+      const per: Record<string, number> = {};
+      r.forEach((j) => { per[j.customer_id] = (per[j.customer_id] ?? 0) + 1; });
       setS({
         live: live.count ?? 0, searching: searching.count ?? 0, weekJobs: week.data?.length ?? 0,
         weekFees: (week.data ?? []).reduce((a, j) => a + j.fee_cents, 0), workers: workers.count ?? 0, online: online.count ?? 0, problems: problems.count ?? 0,
+        accept: waits.length ? `${Math.round(waits.reduce((a, b) => a + b, 0) / waits.length)} min` : "—",
+        repeat: Object.values(per).filter((n) => n > 1).length,
+        cancelled: r.filter((j) => j.status === "cancelled").length,
       });
     })();
   }, []);
@@ -66,7 +74,10 @@ function Overview() {
     <div className="stats">
       <Stat n={s.searching} l="Waiting for a worker" />
       <Stat n={s.live} l="Jobs underway" />
-      <Stat n={s.weekJobs} l="Jobs paid, last 7 days" />
+      <Stat n={s.weekJobs} l="Jobs done, last 7 days" />
+      <Stat n={s.accept} l="Average wait for a worker, 7 days" />
+      <Stat n={s.repeat} l="Customers who booked again, 7 days" />
+      <Stat n={s.cancelled} l="Cancelled, 7 days" />
       <Stat n={money2(s.weekFees)} l="Your fees, last 7 days" />
       <Stat n={s.workers} l="Approved workers" />
       <Stat n={s.online} l="Workers online now" />
@@ -168,17 +179,20 @@ function Workers() {
   return (
     <div className="table-wrap">
       <table>
-        <thead><tr><th>Name</th><th>Suburb</th><th>ABN</th><th>ID and bank</th><th>Insurance</th><th>Status</th><th>Action</th></tr></thead>
+        <thead><tr><th>Photo</th><th>Name</th><th>Suburb</th><th>ABN</th><th>Checked by you</th><th>Insurance</th><th>Status</th><th>Action</th></tr></thead>
         <tbody>
           {rows.map((r) => {
-            const w = r as { id: string; abn: string | null; payouts_ready: boolean; approved: boolean; suspended: boolean; online: boolean;
-              insurance_path: string | null; insurance_expiry: string | null; profiles: { full_name: string }; suburbs: { name: string } | null };
+            const w = r as { id: string; abn: string | null; payouts_ready: boolean; admin_approved: boolean; approved: boolean; suspended: boolean; online: boolean;
+              insurance_path: string | null; insurance_expiry: string | null; profiles: { full_name: string; photo_path: string | null }; suburbs: { name: string } | null };
             return (
               <tr key={w.id}>
+                <td>{w.profiles.photo_path ? <a href={avatarUrl(w.profiles.photo_path)!} target="_blank" rel="noreferrer"><img src={avatarUrl(w.profiles.photo_path)!} alt="" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 4, display: "block" }} /></a> : "—"}</td>
                 <td>{w.profiles.full_name}</td>
                 <td>{w.suburbs?.name ?? "—"}</td>
                 <td>{w.abn ?? "—"}</td>
-                <td>{w.payouts_ready ? <span className="badge g">Verified</span> : <span className="badge">Not yet</span>}</td>
+                <td><button className={w.admin_approved ? "btn stone small" : "btn primary small"} onClick={async () => {
+                  try { await api("admin_approve_worker", { worker_id: w.id, approved: !w.admin_approved }); toast("Saved"); load(); } catch (e) { toast((e as Error).message); }
+                }}>{w.admin_approved ? "Approved" : "Approve"}</button></td>
                 <td>{w.insurance_path ? (
                   <button className="link" onClick={async () => { const { data } = await sb.storage.from("insurance").createSignedUrl(w.insurance_path!, 600); if (data) window.open(data.signedUrl); }}>
                     To {w.insurance_expiry ? new Date(w.insurance_expiry).toLocaleDateString("en-AU") : "?"}
@@ -192,7 +206,7 @@ function Workers() {
               </tr>
             );
           })}
-          {rows.length === 0 && <tr><td colSpan={7} className="muted">No workers yet.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={8} className="muted">No workers yet.</td></tr>}
         </tbody>
       </table>
     </div>
@@ -259,6 +273,7 @@ function Settings() {
     });
   }, []);
   const F: [string, string, string][] = [
+    ["pilot_mode", "Pilot mode", ""],
     ["fee_percent", "Booking fee (% added to the job price)", "15"],
     ["callout_cents", "Late-cancel payment to worker (cents)", "1500"],
     ["auto_release_hours", "Auto-pay if customer doesn't confirm (hours)", "48"],
@@ -268,13 +283,20 @@ function Settings() {
   const changed = F.some(([k]) => vals[k] !== orig[k]);
   return (
     <div style={{ maxWidth: 560 }} className="stack">
-      {F.map(([k, l, ph]) => (
+      {F.map(([k, l, ph]) => k === "pilot_mode" ? (
+        <label key={k} className="field" style={{ background: "var(--card)" }}><span className="k">{l}</span>
+          <select value={vals[k] ?? "true"} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} style={{ border: 0, background: "transparent", fontSize: 18, fontWeight: 500, padding: 0 }}>
+            <option value="true">On: no card, no fee, customers pay workers directly</option>
+            <option value="false">Off: card held, 15% fee, paid out by Stripe</option>
+          </select></label>
+      ) : (
         <label key={k} className="field" style={{ background: "var(--card)" }}><span className="k">{l}</span>
           <input value={vals[k] ?? ""} placeholder={ph} onChange={(e) => setVals({ ...vals, [k]: e.target.value.trim() })} /></label>
       ))}
       <div className="row" style={{ justifyContent: "flex-end" }}>
         <button className="btn primary" disabled={!changed} onClick={async () => {
           if (vals.stripe_publishable_key && !vals.stripe_publishable_key.startsWith("pk_")) return toast("The publishable key starts with pk_");
+          if (vals.pilot_mode === "false" && !vals.stripe_publishable_key) return toast("Add the Stripe publishable key before turning pilot mode off");
           for (const [k] of F) if (vals[k] !== orig[k]) {
             const { error } = await sb.from("settings").update({ value: vals[k] }).eq("key", k);
             if (error) return toast(error.message);
