@@ -244,8 +244,8 @@ function Home({ types, cats, popular, priceOf, onPick, signedIn }: {
           </span>
         </div>
         <div className="path-switch" role="tablist" aria-label="What are you here for?">
-          <button className="on" role="tab" aria-selected="true">Need a job done</button>
-          <button role="tab" aria-selected="false" onClick={() => go("/work")}>Want to earn</button>
+          <button className="on" role="tab" aria-selected="true">I have work</button>
+          <button role="tab" aria-selected="false" onClick={() => go("/work")}>I want work</button>
         </div>
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 78, height: 186 }} />
         <h1 style={{ position: "relative", fontSize: 52, margin: "22px 0 12px" }}>Need a<br />hand?</h1>

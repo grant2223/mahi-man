@@ -49,8 +49,8 @@ export function Work() {
             <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>
           </div>
           <div className="path-switch" role="tablist" aria-label="What are you here for?">
-            <button role="tab" aria-selected="false" onClick={() => go("/")}>Need a job done</button>
-            <button className="on" role="tab" aria-selected="true">Want to earn</button>
+            <button role="tab" aria-selected="false" onClick={() => go("/")}>I have work</button>
+            <button className="on" role="tab" aria-selected="true">I want work</button>
           </div>
           <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 80, height: 186 }} />
           <h1 style={{ position: "relative", marginTop: 22 }}>Earn on<br />your time</h1>
