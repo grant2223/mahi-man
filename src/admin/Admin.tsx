@@ -174,7 +174,7 @@ function Problems() {
               <td>{new Date(i.created_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</td>
               <td><span className={`badge ${i.kind === "emergency" ? "r" : "y"}`}>{i.kind}</span></td>
               <td>{i.reporter?.full_name}</td>
-              <td>{i.jobs ? `${i.jobs.job_types.name} · ${i.jobs.status}` : "—"}</td>
+              <td>{i.jobs ? `${i.jobs.job_types.name}, ${i.jobs.status}` : "—"}</td>
               <td style={{ maxWidth: 320 }}>{i.reason ? <b className="w5">{i.reason}. </b> : null}{i.details}</td>
               <td style={{ whiteSpace: "nowrap" }}>
                 {i.resolved ? <span className="badge g">{i.outcome ? DECIDE_LABEL[i.outcome] ?? "Resolved" : "Resolved"}</span>
@@ -253,11 +253,11 @@ function DisputeDecide({ inc, onBack }: { inc: Incident; onBack: () => void }) {
     const reported = isCust === custIsReporter;
     return (
       <div className="dd-side">
-        <span className="dd-k">{isCust ? "Customer" : "Worker"} · {p?.full_name ?? ""}</span>
+        <span className="dd-k">{isCust ? "Customer" : "Worker"}: {p?.full_name ?? ""}</span>
         {reported
-          ? <><b>{inc.reason}{inc.fix ? ` · wants: ${inc.fix}` : ""}</b><span className="dd-q">"{inc.details}"</span></>
+          ? <><b>{inc.reason}{inc.fix ? `. Wants: ${inc.fix}` : ""}</b><span className="dd-q">"{inc.details}"</span></>
           : inc.response ? <><b>Their side</b><span className="dd-q">"{inc.response}"</span></> : <><b>No reply yet</b><span className="dd-q">They have 24 hours from the report to reply.</span></>}
-        <span className="dd-m">{p?.rating ? `${p.rating} rating · ` : ""}{p?.jobs ?? 0} jobs · {p?.id_status === "verified" ? "ID verified" : "not ID verified"}</span>
+        <span className="dd-m">{p?.rating ? `${p.rating} rating, ` : ""}{p?.jobs ?? 0} jobs, {p?.id_status === "verified" ? "ID verified" : "not ID verified"}</span>
       </div>
     );
   };
@@ -279,8 +279,8 @@ function DisputeDecide({ inc, onBack }: { inc: Incident; onBack: () => void }) {
       <div className="row between" style={{ alignItems: "flex-end", marginBottom: 16 }}>
         <span className="stack" style={{ gap: 4 }}>
           <button className="link" style={{ alignSelf: "flex-start" }} onClick={onBack}>All disputes</button>
-          <span className="dd-title">{job.job_types.name} · {money2(full)}</span>
-          <span className="t15 light muted">{job.suburbs?.name} · {new Date(job.start_at).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })} · reported by {inc.reporter?.full_name} at {new Date(inc.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span>
+          <span className="dd-title">{job.job_types.name}, {money2(full)}</span>
+          <span className="t15 light muted">{job.suburbs?.name}, {new Date(job.start_at).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}. Reported by {inc.reporter?.full_name} at {new Date(inc.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span>
         </span>
         {inc.decide_by && <span className="w5" style={{ color: "#8a5a10" }}>Decide by {new Date(inc.decide_by).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>}
       </div>
@@ -292,16 +292,16 @@ function DisputeDecide({ inc, onBack }: { inc: Incident; onBack: () => void }) {
             {photos.length ? (
               <div className="dd-photos">{photos.map((p) => <a key={p.url} href={p.url} target="_blank" rel="noreferrer" title={p.label}>{p.video ? <video src={p.url} muted playsInline /> : <img src={p.url} alt={p.label} />}</a>)}</div>
             ) : <span className="dd-q">No photos.</span>}
-            {photos.length > 0 && <span className="dd-m">{["Before", "After", "Report"].map((l) => `${l} (${photos.filter((p) => p.label === l).length})`).join(" · ")}</span>}
+            {photos.length > 0 && <span className="dd-m">{["Before", "After", "Report"].map((l) => `${l} (${photos.filter((p) => p.label === l).length})`).join(", ")}</span>}
           </div>
           <div className="dd-sec">
             <b>What was booked</b>
-            <span className="dd-q">Included: {job.job_types.included?.join(", ")}{extras.length ? ` · Extra approved: ${extras.map((e) => `${e.reason} ${money2(e.amount_cents)}`).join(", ")}` : ""}</span>
+            <span className="dd-q">Included: {job.job_types.included?.join(", ")}{extras.length ? `. Extra approved: ${extras.map((e) => `${e.reason} ${money2(e.amount_cents)}`).join(", ")}` : ""}</span>
           </div>
           <div className="dd-sec">
             <b>Messages</b>
             {msgs.length ? msgs.map((m, i) => (
-              <span key={i} className="dd-q"><span className="w5">{m.sender_id === job.customer_id ? cName : wName}, {new Date(m.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span> · {m.body}</span>
+              <span key={i} className="dd-q"><span className="w5">{m.sender_id === job.customer_id ? cName : wName}, {new Date(m.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span>: {m.body}</span>
             )) : <span className="dd-q">No messages.</span>}
           </div>
         </div>
@@ -393,7 +393,7 @@ function IdChecks({ onChanged }: { onChanged: () => void }) {
         {rows.map((r) => (
           <button key={r.id} className="li" style={r.id === sel ? { background: "var(--emerald-tint)" } : undefined} onClick={() => setSel(r.id)}>
             {r.profiles.photo_path ? <img src={avatarUrl(r.profiles.photo_path)!} alt="" style={{ width: 44, height: 44, borderRadius: 4, objectFit: "cover" }} /> : <span className="tile" style={{ width: 44, height: 44 }} />}
-            <span className="t"><b style={{ fontSize: 16 }}>{r.profiles.full_name}</b><span>{r.profiles.is_worker ? "Worker" : "Customer"} · {r.doc_type} · {ago(r.created_at)}</span></span>
+            <span className="t"><b style={{ fontSize: 16 }}>{r.profiles.full_name}</b><span>{r.profiles.is_worker ? "Worker" : "Customer"}, {r.doc_type}, {ago(r.created_at)}</span></span>
           </button>
         ))}
       </div>
@@ -402,7 +402,7 @@ function IdChecks({ onChanged }: { onChanged: () => void }) {
           <div className="row between" style={{ alignItems: "flex-start", flexWrap: "wrap" }}>
             <span className="stack" style={{ gap: 2 }}>
               <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: -0.6 }}>{cur.profiles.full_name}</span>
-              <span className="t15 light muted">{cur.profiles.is_worker ? "Worker" : "Customer"} · {cur.country} {cur.doc_type.toLowerCase()} · sent {ago(cur.created_at)}</span>
+              <span className="t15 light muted">{cur.profiles.is_worker ? "Worker" : "Customer"}, {cur.country} {cur.doc_type.toLowerCase()}, sent {ago(cur.created_at)}</span>
             </span>
             <span className="stack" style={{ gap: 4, alignItems: "flex-end" }}>
               <span className="small muted">Profile photo</span>
@@ -461,7 +461,7 @@ function Reports({ onChanged }: { onChanged: () => void }) {
               <td><span className={`badge ${r.status === "open" ? "r" : ""}`}>{r.reason}</span></td>
               <td>{r.target?.full_name ?? "—"}{r.target?.suspended && <span className="badge r" style={{ marginLeft: 6 }}>Paused</span>}</td>
               <td>{r.reporter?.full_name ?? "Deleted account"}</td>
-              <td>{r.jobs ? `${r.jobs.job_types.name} · ${r.jobs.status}` : "—"}</td>
+              <td>{r.jobs ? `${r.jobs.job_types.name}, ${r.jobs.status}` : "—"}</td>
               <td style={{ maxWidth: 300 }}>{r.details || "—"}</td>
               <td style={{ whiteSpace: "nowrap" }}>
                 {r.status !== "open" ? <span className="badge g">{r.status === "actioned" ? "Actioned" : "Dismissed"}</span> : (
@@ -514,7 +514,7 @@ function People() {
                 <td>{p.is_worker ? (p.approved ? <span className="badge g">Worker, ready</span> : <span className="badge">Worker, signing up</span>) : "Customer"}</td>
                 <td><span className={`badge ${ID_BADGE[p.id_status]?.[0] ?? ""}`}>{ID_BADGE[p.id_status]?.[1] ?? p.id_status}</span></td>
                 <td>{p.abn ?? "—"}</td>
-                <td>{p.jobs_posted} booked · {p.jobs_worked} worked</td>
+                <td>{p.jobs_posted} booked, {p.jobs_worked} worked</td>
                 <td>{new Date(p.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</td>
                 <td><button className={p.suspended ? "btn primary small" : "btn stone small"} onClick={async () => {
                   try { await rpc("admin_set_suspended", { p_user: p.id, p_suspended: !p.suspended }); toast("Saved"); load(); } catch (e) { toast((e as Error).message); }

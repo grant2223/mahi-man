@@ -66,7 +66,7 @@ export function Work() {
           </div>
           <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 80, height: 186 }} />
           <h1 style={{ position: "relative", marginTop: 22 }}>Earn on<br />your time</h1>
-          <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Switch on when you're free, take the jobs you want, keep 100% of the job price.</p>
+          <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Go online when you're free. Keep 100% of the price.</p>
         </section>
         <div className="ticket">
           {[["Cleaning", "Units, houses, Airbnb turnovers"], ["Moving and tip runs", "Lifting, loading, one-ute runs"], ["Flat-pack and yard work", "Assembly, tidy-ups, mowing"]].map(([t, s]) => (
@@ -166,7 +166,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 150, right: -30 }} />
         <h1 className="mid" style={{ position: "relative", margin: "18px 0 8px" }}>{online ? <>Jobs<br />near you</> : <>You're<br />offline</>}</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 210 }}>
-          {online ? (offers.length ? `${offers.length} open near you. You keep the full price.` : "None open right now. We check every few seconds.") : "Switch on when you're free to take jobs."}
+          {online ? (offers.length ? `${offers.length} open near you. You keep the full price.` : "No jobs open right now.") : "Switch on when you're free to take jobs."}
         </p>
       </section>
 
@@ -174,7 +174,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <div className="wrap-list">
           {wrapups.map((j) => (
             <button key={j.id} className="wrap-row" onClick={() => onOpen(j)}>
-              <span className="t"><b>{WRAP_LABEL[j.status] ?? "Open"}</b><span>{(j as Job & { job_types?: { name: string } }).job_types?.name ?? "Job"} · {money(j.price_cents + j.extra_cents)} · {new Date(j.finished_at ?? j.created_at).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" })}</span></span>
+              <span className="t"><b>{WRAP_LABEL[j.status] ?? "Open"}</b><span>{(j as Job & { job_types?: { name: string } }).job_types?.name ?? "Job"}, {money(j.price_cents + j.extra_cents)}, {new Date(j.finished_at ?? j.created_at).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" })}</span></span>
               {Icon.chevron("var(--faint)")}
             </button>
           ))}
@@ -188,9 +188,9 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
           </span>
           <span className="t">
             <b>{o.job_name}</b>
-            <span>{o.suburb} · {o.distance_km} km</span>
-            <span>{startLabel(o)} · up to {hours(o.max_hours)}</span>
-            {o.customer_verified ? <span className="ver">{Icon.shieldTick("var(--emerald)", 15)}{o.customer_name} · Verified</span> : <span className="unver">{o.customer_name} · Not verified</span>}
+            <span>{o.suburb}, {o.distance_km} km</span>
+            <span>{startLabel(o)}, up to {hours(o.max_hours)}</span>
+            {o.customer_verified ? <span className="ver">{Icon.shieldTick("var(--emerald)", 15)}{o.customer_name}</span> : <span className="unver">{o.customer_name}, not verified</span>}
           </span>
           <span className="p">{money(o.earn_cents)}</span>
         </button>
@@ -202,7 +202,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
             <span className="stack" style={{ gap: 2 }}><span className="small muted">Earned this week</span><span className="price" style={{ fontSize: 44 }}>{money2(week)}</span></span>
           </div>
           <Perf />
-          <div className="pad t15 light muted" style={{ paddingTop: 8, lineHeight: 1.45 }}>Go online to see jobs. You choose which ones to take, and passing is always fine.</div>
+          <div className="pad t15 light muted" style={{ paddingTop: 8, lineHeight: 1.45 }}>Go online to see jobs. Take only the ones you want.</div>
         </div>
       )}
       <History />
@@ -285,7 +285,7 @@ function OfferScreen({ o, pilot, onBack, onPass, onTaken, onGone }: { o: Offer; 
               <span style={{ fontSize: 18, fontWeight: 500 }}>{o.customer_name}</span>
               {o.customer_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not verified</span>}
             </span>
-            <span className="small light muted">{o.customer_rating ? `${o.customer_rating} from workers · ` : ""}{o.customer_jobs} job{o.customer_jobs === 1 ? "" : "s"} posted · Joined {since}</span>
+            <span className="small light muted">{o.customer_rating ? `${o.customer_rating} from workers, ` : ""}{o.customer_jobs} job{o.customer_jobs === 1 ? "" : "s"} posted, joined {since}</span>
           </span>
         </div>
         <div className="stack" style={{ background: "var(--card)", padding: "20px 20px 24px", gap: 22 }}>

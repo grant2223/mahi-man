@@ -116,7 +116,7 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
             }} />
           </label>
         </div>
-        <p className="small light muted" style={{ lineHeight: 1.45 }}>A clear, front-on photo of your face. Customers see it so they know who's at the door.</p>
+        <p className="small light muted" style={{ lineHeight: 1.45 }}>A clear photo of your face. Customers see it before you arrive.</p>
         <label className="field"><span className="k">Full name</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}><button className="btn primary" disabled={busy} onClick={save}>Save</button></div>
@@ -129,8 +129,8 @@ function ApprovalStep({ onBack }: { onBack: () => void }) {
   return (
     <Screen title="ID verified" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
-        <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>Your ID is verified. Customers see the ID verified badge on your profile.</p>
-        <p className="t15 light muted" style={{ lineHeight: 1.45 }}>During the Cairns pilot, customers pay you directly when each job is done, by PayID or cash. Keep 100% of the job price.</p>
+        <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>Your ID is verified.</p>
+        <p className="t15 light muted" style={{ lineHeight: 1.45 }}>Customers pay you directly by PayID or cash when each job is done. You keep 100%.</p>
       </div>
     </Screen>
   );
@@ -142,7 +142,7 @@ function PayoutStep({ done, onBack }: { done: boolean; onBack: () => void }) {
   return (
     <Screen title="ID check and bank" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
-        <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>{done ? "You're verified and your bank is set up." : "One short form checks your ID and sets up where your pay goes. It takes about 3 minutes."}</p>
+        <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>{done ? "You're verified and your bank is set up." : "Check your ID and set up your pay. About 3 minutes."}</p>
         <ul className="t15 light" style={{ paddingLeft: 18, lineHeight: 1.7, marginTop: 0 }}>
           <li>Passport or driver licence, plus a quick selfie</li>
           <li>Any Australian bank account (BSB and number)</li>
@@ -172,12 +172,12 @@ export function AbnStep({ onBack, onSaved }: { onBack: () => void; onSaved: () =
   return (
     <Screen title="ABN and PayID" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16, background: "var(--card)" }}>
-        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>You work for yourself, so you need an ABN. It's free from the government and takes about 10 minutes.</p>
+        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>You work for yourself, so you need an ABN. It's free and takes about 10 minutes.</p>
         <label className="field"><span className="k">ABN (11 digits)</span><input inputMode="numeric" value={abn} onChange={(e) => setAbn(e.target.value)} placeholder="51 824 753 556" /></label>
         <a className="link" style={{ display: "inline-block", margin: "10px 0 22px" }} href="https://www.abr.gov.au/business-super-funds-charities/applying-abn" target="_blank" rel="noreferrer">Don't have one? Get it free</a>
-        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Customers pay you straight to your PayID when the job is done. They only see it once you've finished their job.</p>
+        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Customers pay your PayID when the job is done. They only see it then.</p>
         <label className="field"><span className="k">PayID: your mobile, email or ABN</span><input value={payid} onChange={(e) => setPayid(e.target.value)} placeholder="0412 345 678" autoCapitalize="none" /></label>
-        <p className="small light muted" style={{ margin: "8px 2px 0", lineHeight: 1.45 }}>Set up a PayID in your banking app if you haven't yet. It takes a minute.</p>
+        <p className="small light muted" style={{ margin: "8px 2px 0", lineHeight: 1.45 }}>No PayID? Set one up in your banking app.</p>
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 18 }}>
           <button className="btn primary" disabled={busy} onClick={async () => {
@@ -215,7 +215,7 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
           <button className="field" onClick={() => setPick("radius")}><span className="k">How far you'll travel</span><span className="v">Up to {radius} km</span></button>
           <button className="field" onClick={() => setPick("vehicle")}><span className="k">Ute or trailer</span><span className="v">{vehicle ? "Yes, I have one" : "No"}</span></button>
         </div>
-        <p className="small light muted" style={{ lineHeight: 1.45 }}>Tip runs and mowing need a vehicle. Jobs nobody takes within 10 minutes are shown to workers further away too.</p>
+        <p className="small light muted" style={{ lineHeight: 1.45 }}>Tip runs and mowing need a vehicle.</p>
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
           <button className="btn primary" disabled={!base} onClick={async () => {
@@ -273,7 +273,7 @@ function InsuranceStep({ onBack, onSaved }: { onBack: () => void; onSaved: () =>
   return (
     <Screen title="Liability insurance" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
-        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Public liability cover from about $180 a year unlocks mowing and power-tool jobs. Upload your certificate of currency.</p>
+        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Public liability cover (from about $180 a year) unlocks mowing and power-tool jobs.</p>
         {current.expiry && <p className="t15 em">On file, valid until {new Date(current.expiry).toLocaleDateString("en-AU")}</p>}
         <div className="stack">
           <label className="field" style={{ cursor: "pointer" }}>

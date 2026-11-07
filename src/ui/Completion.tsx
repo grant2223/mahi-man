@@ -68,7 +68,7 @@ export function ReviewView({ jobId, jobName, done, person, about, other, isWorke
   return (
     <div className="app">
       <section className="hero cp-hero" style={{ paddingBottom: 26 }}>
-        <span className="row t15 light" style={{ gap: 8, color: "rgba(255,255,255,0.85)" }}>{Icon.tick("var(--lime)", 16)}{done} · {jobName}</span>
+        <span className="row t15 light" style={{ gap: 8, color: "rgba(255,255,255,0.85)" }}>{Icon.tick("var(--lime)", 16)}{jobName}, {done.toLowerCase()}</span>
         <h1 className="mid" style={{ margin: "14px 0 0" }}>{isWorker ? `How was ${other}?` : `How did ${other} go?`}</h1>
       </section>
       <div className="cp-sec" style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
@@ -76,7 +76,7 @@ export function ReviewView({ jobId, jobName, done, person, about, other, isWorke
         <span className="stack" style={{ gap: 3 }}>
           <span style={{ fontSize: 19, fontWeight: 500 }}>{person?.full_name ?? other}</span>
           {person?.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
-          <span className="t14 light muted">{person?.rating ? `${person.rating} rating · ` : ""}{person?.jobs_done ?? 0} jobs</span>
+          <span className="t14 light muted">{person?.rating ? `${person.rating} rating, ` : ""}{person?.jobs_done ?? 0} jobs</span>
         </span>
       </div>
       <div className="cp-sec" style={{ borderTop: "1px solid var(--line)", gap: 14 }}>
@@ -175,7 +175,7 @@ export function ProblemScreen({ job, jobName, otherName, isWorker, onBack, onDon
 
   return (
     <div className="screen" role="dialog" aria-label="Report a problem" style={{ background: "var(--card)" }}>
-      <StepHero title="Report a problem" sub={`${jobName} · with ${otherName}`} onBack={onBack} />
+      <StepHero title="Report a problem" sub={`${jobName} with ${otherName}`} onBack={onBack} />
       <div className="screen-body" style={{ padding: "22px 16px 0", display: "flex", flexDirection: "column", gap: 22, background: "var(--card)" }}>
         <div className="stack" style={{ gap: 8 }}>
           <span className="cp-label">What went wrong?</span>
@@ -245,7 +245,7 @@ export function DisputeView({ job, jobName, otherName, isWorker, onChanged, foot
   const big = decideBy ? decideBy.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }) : "Soon";
   const mine = d.reporter_is_me;
   const steps = [
-    { done: true, title: mine ? "You reported it" : `${d.reporter_name} reported a problem`, note: `${when(d.created_at)} · ${d.reason}` },
+    { done: true, title: mine ? "You reported it" : `${d.reporter_name} reported a problem`, note: `${d.reason}, ${when(d.created_at)}` },
     d.response
       ? { done: true, title: mine ? `${otherName} gave their side` : "You gave your side", note: when(d.responded_at!) }
       : { done: false, title: mine ? `${otherName} gives their side` : "Give your side", note: d.respond_by ? `By ${when(d.respond_by)}` : "Within 24 hours" },

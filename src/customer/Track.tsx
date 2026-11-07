@@ -202,7 +202,7 @@ export function Track({ id }: { id: string }) {
               <span className="stack" style={{ gap: 3, flex: 1 }}>
                 <span style={{ fontSize: 19, fontWeight: 500 }}>{worker.full_name}</span>
                 {worker.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not verified</span>}
-                <span className="small light muted">{worker.rating ? `${worker.rating} rating · ` : "New worker · "}{worker.jobs_done} jobs done</span>
+                <span className="small light muted">{worker.rating ? `${worker.rating} rating, ` : "New worker, "}{worker.jobs_done} jobs done</span>
               </span>
             </div>
             {["accepted", "in_progress", "finished", "disputed"].includes(job.status) && (
@@ -291,7 +291,7 @@ export function Track({ id }: { id: string }) {
           {Icon.lock("var(--ink)")}
           <span className="stack" style={{ gap: 3 }}>
             <span className="t17 w5">{direct ? `Pay ${money2(total)} when it's done` : `${money2(total)} held, not paid`}</span>
-            <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${worker ? wName : "your worker"} directly by PayID or cash once the job is finished. Never before.` : `${worker ? wName : "Your worker"} is paid only after you confirm the job is done.`}</span>
+            <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${worker ? wName : "your worker"} by PayID or cash once the job is finished.` : `${worker ? wName : "Your worker"} is paid only after you confirm the job is done.`}</span>
           </span>
         </section>
       )}

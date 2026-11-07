@@ -21,7 +21,7 @@ export function AuthScreen({ title, reason, onDone, onBack }: { title: string; r
         if (pw.length < 8) throw new Error("Use at least 8 characters for your password");
         const { data, error } = await sb.auth.signUp({ email: email.trim(), password: pw, options: { data: { full_name: name.trim() }, emailRedirectTo: location.href } });
         if (error) throw error;
-        if (!data.session) { setNote("Check your email and tap the link to finish. Then come back here."); return; }
+        if (!data.session) { setNote("Check your email and tap the link to finish."); return; }
         onDone();
       } else if (mode === "in") {
         const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password: pw });

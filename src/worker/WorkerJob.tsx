@@ -89,7 +89,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         {told ? (
           <div className="cp-sec">
             <span className="cp-title" style={{ marginBottom: 2 }}>Check your bank, then confirm</span>
-            <span className="t16 light muted" style={{ lineHeight: 1.45 }}>PayID usually lands in under a minute. Once you confirm, the job closes and you both leave a review.</span>
+            <span className="t16 light muted" style={{ lineHeight: 1.45 }}>Once you confirm, the job closes and you both leave a review.</span>
           </div>
         ) : (
           <>
@@ -98,7 +98,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
               {Icon.card("var(--emerald)")}
               <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>
                 <span style={{ fontSize: 17, fontWeight: 500 }}>{payid ? `${cName} can see your PayID` : "Add your PayID"}</span>
-                <span className="t15 light muted">{payid ? `${showPayid(payid)} · shown only now the job is finished` : `No PayID saved. Ask ${cName} for cash, or send it in Messages.`}</span>
+                <span className="t15 light muted">{payid ? showPayid(payid) : `No PayID saved. Ask ${cName} for cash, or send it in Messages.`}</span>
               </span>
             </div>
           </>
@@ -240,7 +240,7 @@ function PhotoScreen({ jobId, kind, onBack, onDone }: { jobId: string; kind: "be
     <Screen title={kind === "before" ? "Before photos" : "After photos"} onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>
-          {kind === "before" ? "Show how things look before you start. These protect you if anything is questioned later." : "Show the finished job, the same spots as before. The customer sees these before confirming."}
+          {kind === "before" ? "Show how it looks before you start. These protect you." : "Show the finished job, the same spots as before. The customer sees these before confirming."}
         </p>
         <label className="btn stone" style={{ cursor: "pointer" }}>{Icon.camera()} Take or add photos
           <input type="file" accept="image/*" capture="environment" multiple hidden onChange={(e) => setFiles([...files, ...Array.from(e.target.files ?? [])])} />
@@ -275,7 +275,7 @@ function ExtraScreen({ jobId, onBack, onDone }: { jobId: string; onBack: () => v
   return (
     <Screen title="Ask for more" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
-        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>If the job is bigger than booked, ask here. The customer approves it in the app before you do the extra work, so there's no arguing on the doorstep.</p>
+        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Job bigger than booked? Ask here. The customer approves it before you do the extra work.</p>
         <div className="stack">
           <label className="field"><span className="k">Extra amount ($)</span><input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))} placeholder="30" /></label>
           <label className="field"><span className="k">Why</span><textarea value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Second bathroom wasn't in the booking" /></label>

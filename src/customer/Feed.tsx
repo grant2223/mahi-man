@@ -56,7 +56,7 @@ export function Feed() {
         </div>
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 168, right: -32 }} />
         <h1 className="mid" style={{ position: "relative", margin: "22px 0 10px" }}>Want more<br />mahi?</h1>
-        <p className="lede" style={{ position: "relative", maxWidth: 200 }}>These people need help now. Are you available?</p>
+        <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Local jobs, open now.</p>
       </section>
 
       <div className="feed-filter">
@@ -82,7 +82,7 @@ export function Feed() {
             <span className="t">
               <span className="cat-label">{j.category ?? "Job"}</span>
               <b>{j.job_name}</b>
-              <span>{j.suburb} · {j.asap ? "Now" : dayTime(j.start_at)}</span>
+              <span>{j.suburb}, {j.asap ? "Now" : dayTime(j.start_at)}</span>
             </span>
             <span className="p">{money(j.pay_cents)}</span>
           </button>
@@ -90,7 +90,7 @@ export function Feed() {
         {jobs && shown.length === 0 && (
           <div className="feed-empty">
             <b>{cat === "all" ? "No open jobs right now" : `No ${catName.toLowerCase()} jobs right now`}</b>
-            <span>New jobs come in through the day. Get set up now so you can take the next one the moment it lands.</span>
+            <span>New jobs come in through the day. Get set up to take the next one.</span>
             <div className="row" style={{ gap: 10, marginTop: 6 }}>
               {cat !== "all" && <button className="btn stone" onClick={() => setCat("all")}>See all jobs</button>}
               <button className="btn primary" onClick={() => go("/work")}>Get set up {Icon.arrow("#fff")}</button>
@@ -99,8 +99,8 @@ export function Feed() {
         )}
         <p className="small light muted" style={{ margin: "18px 20px calc(var(--safe-bottom) + 24px)", lineHeight: 1.5 }}>
           <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
-          {"  ·  "}<a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
-          {"  ·  "}<a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
+          <span className="sep" /><a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
+          <span className="sep" /><a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
         </p>
       </div>
 

@@ -415,3 +415,5 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .quick-grid button { height: 52px; border: 0; border-radius: var(--r-control); background: var(--ground); color: var(--ink); font: inherit; font-size: 18px; font-weight: 500; cursor: pointer; }
 .quick-grid button.on { background: var(--emerald); color: #fff; }
 .t13 { font-size: 13px; }
+
+.sep { display: inline-block; width: 18px; }

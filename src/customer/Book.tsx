@@ -218,9 +218,9 @@ export function Book() {
           <div className="stack" style={{ padding: "18px 16px 20px", gap: 6 }}>
             <span className="small w5 em">{jt.custom_price ? "Your price, fixed" : `Fixed price, up to ${hours(jt.max_hours)}`}</span>
             <span className="price">{money2(total)}</span>
-            {!pilot && <span className="small light muted">Job {money2(jt.price_cents)} · Booking fee {money2(total - jt.price_cents)}</span>}
+            {!pilot && <span className="small light muted">Job {money2(jt.price_cents)} + booking fee {money2(total - jt.price_cents)}</span>}
             <span className="t15 light muted" style={{ marginTop: 8, lineHeight: 1.45 }}>
-              {pilot ? "Pay your worker directly, PayID or cash, once the job is done. Never before." : "Your card is held, not charged, until you confirm the job is done."}
+              {pilot ? "Pay your worker by PayID or cash once it's done." : "Your card is held, not charged, until you confirm the job is done."}
             </span>
           </div>
         </div>
@@ -233,7 +233,7 @@ export function Book() {
           <button className="btn primary" disabled={busy} onClick={book}>{busy ? "Booking…" : "Book it"} {Icon.arrow("#fff")}</button>
         </div>
         {auth && (
-          <AuthScreen title="Almost booked" reason="Create an account so your worker can find you and you can track the job. Your photos are saved."
+          <AuthScreen title="Almost booked" reason="Create an account to track your job. Your photos are saved."
             onBack={() => setAuth(false)} onDone={() => { setAuth(false); window.setTimeout(book, 300); }} />
         )}
         {payJob && <PayScreen jobId={payJob} amountLabel={money2(total)} onBack={() => setPayJob(null)}
@@ -305,7 +305,7 @@ function Home({ types, cats, popular, priceOf, onPick, signedIn }: {
                   return (
                     <button key={t.id} className="pop-row" onClick={() => onPick(t)}>
                       {t.photo_path ? <span className="pic" style={bg(t.photo_path)} /> : <span className="pic sq"><CatIcon name={c?.icon} size={28} /></span>}
-                      <span className="t"><b>{t.name}</b><span>{c?.name ?? "Job"} · up to {hours(t.max_hours)}</span></span>
+                      <span className="t"><b>{t.name}</b><span>{c?.name ?? "Job"}, up to {hours(t.max_hours)}</span></span>
                       <span className="p">{money(priceOf(t))}</span>
                     </button>
                   );
@@ -314,8 +314,8 @@ function Home({ types, cats, popular, priceOf, onPick, signedIn }: {
             )}
             <p className="small light muted" style={{ margin: "10px 4px 0", lineHeight: 1.5 }}>
               <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
-              {"  ·  "}<a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
-              {"  ·  "}<a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
+              <span className="sep" /><a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
+              <span className="sep" /><a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
             </p>
           </>
         ) : null}
@@ -332,7 +332,7 @@ function JobCard({ t, i, price, onPick }: { t: JobType; i: number; price: number
       <span className="meta">
         <span className="t">
           <b>{t.name}</b>
-          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Up to {hours(t.max_hours)} · {short}</span>
+          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Up to {hours(t.max_hours)}, {short}</span>
         </span>
         <span className="p">{money(price)}</span>
       </span>
@@ -374,7 +374,7 @@ function PriceStep({ jt, catName, catIcon, value, onChange }: { jt: JobType; cat
           <span className="row t15 light" style={{ gap: 8, color: "rgba(255,255,255,0.88)" }}><CatIcon name={catIcon} size={18} />{catName}</span>
         </div>
         <h1 style={{ marginTop: 18 }}>Set your price</h1>
-        <p>How much are you paying for the work to be completed?</p>
+        <p>What will you pay?</p>
       </section>
       <div className="price-body">
         <label htmlFor="amt" className="t15 muted">You pay</label>
@@ -399,7 +399,7 @@ function PriceStep({ jt, catName, catIcon, value, onChange }: { jt: JobType; cat
         </div>
         <div className="cp-note" style={{ padding: "22px 0 0" }}>
           {Icon.clockLine("var(--muted)")}
-          <span>General help in Cairns is usually about $45 an hour. A fair price gets taken faster.</span>
+          <span>Cairns help is usually about $45 an hour. Fair prices get taken faster.</span>
         </div>
         {err && <p className="err" style={{ margin: "12px 0 0" }}>{err}</p>}
       </div>
@@ -426,7 +426,7 @@ function DetailsStep({ jt, d, setD, photos, video, addFiles, removeMedia, err, s
   const [dictate, setDictate] = useState(false);
   const next = () => {
     if (!photos.length) return setErr("Add at least one photo so workers can see the job.");
-    if (d.details.trim().length < 15) return setErr("Say exactly what you want done. A sentence or two is plenty.");
+    if (d.details.trim().length < 15) return setErr("Say what you want done.");
     setErr("");
     go("/book/where");
   };
@@ -454,7 +454,7 @@ function DetailsStep({ jt, d, setD, photos, video, addFiles, removeMedia, err, s
           {video ? (
             <div className="media-grid">
               <div className="m"><video src={video.url} muted playsInline /><button className="x" onClick={() => removeMedia(video.id)} aria-label="Remove video">{Icon.x("#fff", 16)}</button></div>
-              <span className="small light muted" style={{ gridColumn: "span 2", alignSelf: "center" }}>Video added. Workers can watch it before they take the job.</span>
+              <span className="small light muted" style={{ gridColumn: "span 2", alignSelf: "center" }}>Video added.</span>
             </div>
           ) : (
             <button className="wide-btn" onClick={() => videoIn.current?.click()}>
@@ -463,7 +463,7 @@ function DetailsStep({ jt, d, setD, photos, video, addFiles, removeMedia, err, s
             </button>
           )}
           <input ref={videoIn} type="file" accept="video/*" hidden onChange={(e) => { addFiles(e.target.files, "video"); e.target.value = ""; }} />
-          <span className="small light muted">Show the worst of it. Workers decide from these.</span>
+          <span className="small light muted">Show the worst of it.</span>
         </div>
 
         <div className="sec">
@@ -482,7 +482,7 @@ function DetailsStep({ jt, d, setD, photos, video, addFiles, removeMedia, err, s
             <textarea ref={detailsBox} value={d.details} onChange={(e) => setD({ ...d, details: e.target.value })} style={{ minHeight: 110 }}
               placeholder="For example: shower screen has build-up, needs a proper scrub. Benches and stovetop degreased. Products are under the sink." />
           </label>
-          {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and start talking. Your words appear in the box.</span>}
+          {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk.</span>}
         </div>
 
         {(jt.included?.length > 0 || jt.excluded?.length > 0) && (
@@ -559,7 +559,7 @@ function WhenStep({ jt, suburb, d, setD, bar }: {
   };
   return (
     <div className="app">
-      <StepHero step={3} of={4} title="When?" sub={`${jt.name}${suburb ? ` · ${suburb.name}` : ""}`} onBack={() => history.back()} />
+      <StepHero step={3} of={4} title="When?" sub={`${jt.name}${suburb ? ` in ${suburb.name}` : ""}`} onBack={() => history.back()} />
       <div className="step-body" style={{ padding: 0, gap: 0 }}>
         <button className={d.asap ? "choice on" : "choice"} onClick={() => setD({ ...d, asap: true })}>
           <span className="t"><b>As soon as possible</b><span>The first free local takes it, usually within 10 min</span></span>

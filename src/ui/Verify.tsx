@@ -69,7 +69,7 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
         <section className="hero" style={{ padding: "calc(var(--safe-top) + 60px) 20px 40px" }}>
           {Icon.clock("var(--lime)")}
           <h1 style={{ margin: "18px 0 8px", fontSize: 44 }}>Sent for<br />checking</h1>
-          <p className="lede" style={{ maxWidth: 300 }}>A real person checks it, usually within a few hours. You'll see the result here.</p>
+          <p className="lede" style={{ maxWidth: 300 }}>We check it by hand, usually within a few hours.</p>
         </section>
         <p className="t15 light muted" style={{ margin: "20px 20px 0", lineHeight: 1.45 }}>
           If a photo is blurry we'll tell you exactly what to retake. Your ID photos are deleted as soon as they're checked.
@@ -89,7 +89,7 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
           sub={status === "retake" ? `Please retake: ${profile?.id_note ?? "the photo wasn't clear"}.`
             : status === "rejected" ? `Not approved: ${profile?.id_note ?? "try a different ID"}. You can try again.`
             : status === "pending" ? "We're checking your last one. Sending again replaces it."
-            : "About 2 minutes. Everyone on More Mahi sees the ID verified badge on your profile."} />
+            : "About 2 minutes. You get an ID verified badge."} />
         <div className="step-body" style={{ gap: 22 }}>
           <div className="sec" style={{ gap: 14 }}>
             <h2>You'll need</h2>
@@ -112,7 +112,7 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
               </span>
             </button>
           </div>
-          <p className="small light muted" style={{ margin: 0, lineHeight: 1.45 }}>Only the More Mahi team sees your ID, to check it. It's never shown to customers or workers, and it's deleted once checked.</p>
+          <p className="small light muted" style={{ margin: 0, lineHeight: 1.45 }}>Only the More Mahi team sees your ID. It's deleted once checked.</p>
           {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
         </div>
       </div>
