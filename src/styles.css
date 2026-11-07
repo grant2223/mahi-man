@@ -290,3 +290,8 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .legal h2 { margin: 26px 0 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.4px; }
 .legal p, .legal li { font-size: 16px; font-weight: 300; line-height: 1.55; }
 .legal ul { padding-left: 20px; }
+
+/* Two paths at the top of home and work: book a job or earn */
+.path-switch { position: relative; z-index: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; margin-top: 16px; padding: 4px; border-radius: var(--r-control); background: rgba(0,0,0,0.22); }
+.path-switch button { height: 48px; border: 0; border-radius: 3px; background: transparent; color: #fff; font-size: 16px; font-weight: 500; cursor: pointer; }
+.path-switch button.on { background: #fff; color: var(--emerald); box-shadow: 0 1px 2px rgba(0,0,0,0.18); }

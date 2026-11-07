@@ -243,8 +243,12 @@ function Home({ types, cats, popular, priceOf, onPick, signedIn }: {
             {!signedIn && <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>}
           </span>
         </div>
-        <img className="mascot" src="/mascot.png" alt="" />
-        <h1 style={{ position: "relative", fontSize: 52, margin: "26px 0 12px" }}>Need a<br />hand?</h1>
+        <div className="path-switch" role="tablist" aria-label="What are you here for?">
+          <button className="on" role="tab" aria-selected="true">Need a job done</button>
+          <button role="tab" aria-selected="false" onClick={() => go("/work")}>Want to earn</button>
+        </div>
+        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 78, height: 186 }} />
+        <h1 style={{ position: "relative", fontSize: 52, margin: "22px 0 12px" }}>Need a<br />hand?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 165, marginBottom: 22 }}>Fixed price. A local on the way in minutes.</p>
         <label className="search-hero">
           {Icon.search("var(--muted)")}
@@ -280,8 +284,7 @@ function Home({ types, cats, popular, priceOf, onPick, signedIn }: {
             {top.length > 0 && <h2 className="gap-top">{popular.length ? "Booked most this week" : "Quick jobs"}</h2>}
             {top.map((t, i) => <JobCard key={t.id} t={t} i={i + 1} price={priceOf(t)} onPick={() => onPick(t)} />)}
             <p className="small light muted" style={{ margin: "10px 4px 0", lineHeight: 1.5 }}>
-              <a href="/work" onClick={(e) => { e.preventDefault(); go("/work"); }}>Want to earn? Work with More Mahi</a>
-              {"  ·  "}<a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
+              <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
               {"  ·  "}<a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
               {"  ·  "}<a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
             </p>

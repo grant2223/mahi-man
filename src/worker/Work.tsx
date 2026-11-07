@@ -48,8 +48,12 @@ export function Work() {
             <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
             <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>
           </div>
-          <img className="mascot" src="/mascot.png" alt="" style={{ top: 80, height: 200 }} />
-          <h1 style={{ position: "relative" }}>Earn on<br />your time</h1>
+          <div className="path-switch" role="tablist" aria-label="What are you here for?">
+            <button role="tab" aria-selected="false" onClick={() => go("/")}>Need a job done</button>
+            <button className="on" role="tab" aria-selected="true">Want to earn</button>
+          </div>
+          <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 80, height: 186 }} />
+          <h1 style={{ position: "relative", marginTop: 22 }}>Earn on<br />your time</h1>
           <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Switch on when you're free, take the jobs you want, keep 100% of the job price.</p>
         </section>
         <div className="ticket">
@@ -65,7 +69,6 @@ export function Work() {
             }}>Start {Icon.arrow("#fff")}</button>
           </div>
         </div>
-        <div className="footer"><button className="link quiet" onClick={() => go("/")}>Need a job done instead?</button></div>
         {auth && <AuthScreen title="Earn with More Mahi" reason="Create your account. Next you'll add a photo and verify your ID." onBack={() => setAuth(false)}
           onDone={async () => { setAuth(false); await rpc("become_worker"); await reload(); }} />}
       </div>
