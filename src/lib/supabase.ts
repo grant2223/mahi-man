@@ -34,6 +34,14 @@ export interface Job {
   started_at: string | null;
   finished_at: string | null;
   confirmed_at: string | null;
+  customer_paid_at: string | null;
+  worker_received_at: string | null;
+}
+
+export interface Dispute {
+  reporter_is_me: boolean; reporter_name: string; reason: string; fix: string | null; details: string; created_at: string;
+  respond_by: string | null; response: string | null; responded_at: string | null; decide_by: string | null; resolved: boolean;
+  outcome: string | null; amount_cents: number | null; decision_note: string | null; decided_at: string | null;
 }
 
 export interface JobType {
@@ -41,7 +49,7 @@ export interface JobType {
   needs_insurance: boolean; needs_vehicle: boolean; active: boolean; sort: number;
   category_id: number | null; photo_path: string | null; included: string[]; excluded: string[];
 }
-export interface Category { id: number; name: string; photo_path: string | null; sort: number; active: boolean }
+export interface Category { id: number; name: string; icon: string; photo_path: string | null; sort: number; active: boolean }
 export interface Suburb { id: number; name: string }
 export type IdStatus = "none" | "pending" | "verified" | "retake" | "rejected";
 export interface Profile {

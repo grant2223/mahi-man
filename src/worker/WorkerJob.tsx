@@ -5,10 +5,11 @@ import { elapsed, firstName, money, shrinkImage } from "../lib/format";
 import { Icon, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
 import { ChatScreen } from "../ui/Chat";
 import { ReportScreen } from "../ui/Report";
+import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen as JobProblem, ReviewView, showPayid } from "../ui/Completion";
 
 interface Extra { id: string; amount_cents: number; reason: string; status: string }
 
-export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void }) {
+export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: () => void; onLeave: () => void }) {
   const { session } = useSession();
   const toast = useToast();
   const [brief, setBrief] = useState<{ kind: string; url: string }[]>([]);
@@ -21,6 +22,8 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
   const [extras, setExtras] = useState<Extra[]>([]);
   const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after">(null);
   const [busy, setBusy] = useState(false);
+  const [payid, setPayid] = useState<string | null>(null);
+  const [report, setReport] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await sb.from("jobs").select("*").eq("id", job.id).single();
@@ -29,13 +32,14 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
     setPhotos({ before: (ph ?? []).filter((p) => p.kind === "before").length, after: (ph ?? []).filter((p) => p.kind === "after").length });
     const { data: ex } = await sb.from("extra_requests").select("id,amount_cents,reason,status").eq("job_id", job.id).order("created_at");
     setExtras((ex ?? []) as Extra[]);
-    if (data && ["confirmed", "cancelled", "refunded", "disputed"].includes(data.status)) onChanged();
+    if (data && data.status === "cancelled") onChanged();
   }, [job.id, onChanged]);
 
   useEffect(() => {
     sb.from("job_types").select("*").eq("id", job.job_type_id).single().then(({ data }) => setJt(data as JobType));
     sb.from("suburbs").select("name").eq("id", job.suburb_id).single().then(({ data }) => setSuburb(data?.name ?? ""));
     rpc<PersonCard[]>("person_card", { p_person: job.customer_id }).then((c) => setCust(c[0] ?? null));
+    sb.from("workers").select("payid").single().then(({ data }) => setPayid(data?.payid ?? null));
     sb.from("job_media").select("path,kind,sort").eq("job_id", job.id).order("sort").then(async ({ data }) => {
       const rows = (data ?? []) as { path: string; kind: string }[];
       const urls = await mediaUrls(rows.map((r) => r.path));
@@ -59,6 +63,59 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
     setBusy(true);
     try { await rpc("finish_job", { p_job: j.id }); toast("Done. The customer has been asked to confirm."); await load(); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+
+  const approved = extras.filter((e) => e.status === "approved");
+  const leaveLink = <button className="link quiet" style={{ margin: "0 16px 16px", alignSelf: "flex-start" }} onClick={onLeave}>See new jobs</button>;
+  const problem = report && <JobProblem job={j} jobName={jt.name} otherName={cName} isWorker onBack={() => setReport(false)} onDone={() => { setReport(false); load(); }} />;
+
+  if (j.status === "disputed" || j.status === "refunded") {
+    return <><DisputeView job={j} jobName={jt.name} otherName={cName} isWorker onChanged={load} footer={leaveLink} />{problem}</>;
+  }
+
+  if (j.status === "confirmed") {
+    return <ReviewView jobId={j.id} jobName={jt.name} done={`${money(earn)} received`} person={cust} other={cName} isWorker
+      about={`Tell other workers about ${cName}`} onDone={onChanged} />;
+  }
+
+  if (j.status === "finished" && isDirectPay(j)) {
+    const told = !!j.customer_paid_at;
+    const at = told ? new Date(j.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" }) : "";
+    return (
+      <>
+        <DoneHero jobName={jt.name} step={3} big={money(earn)} lime
+          label={told ? `${cName} says they've paid you` : "Get paid"}
+          sub={told ? `Marked paid at ${at}` : `Collect it from ${cName} now, by PayID or cash`} />
+        {told ? (
+          <div className="cp-sec">
+            <span className="cp-title" style={{ marginBottom: 2 }}>Check your bank, then confirm</span>
+            <span className="t16 light muted" style={{ lineHeight: 1.45 }}>PayID usually lands in under a minute. Once you confirm, the job closes and you both leave a review.</span>
+          </div>
+        ) : (
+          <>
+            <PriceRows title={`What ${cName} pays you`} jobName={jt.name} priceCents={j.price_cents} extras={approved} totalLabel="Total" />
+            <div className="cp-payid">
+              {Icon.card("var(--emerald)")}
+              <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>
+                <span style={{ fontSize: 17, fontWeight: 500 }}>{payid ? `${cName} can see your PayID` : "Add your PayID"}</span>
+                <span className="t15 light muted">{payid ? `${showPayid(payid)} · shown only now the job is finished` : `No PayID saved. Ask ${cName} for cash, or send it in Messages.`}</span>
+              </span>
+            </div>
+          </>
+        )}
+        <Note icon="clock">{told ? "If you don't answer within 24 hours, we take it as received." : `Waiting for ${cName} to check your after photos and pay. If they do nothing for 48 hours, the job closes as done.`}</Note>
+        {leaveLink}
+        <ActionBar>
+          <button className="btn stone" style={{ flex: 1 }} onClick={() => setReport(true)}>{told ? "Not received" : "Not paid?"}</button>
+          <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={async () => {
+            setBusy(true);
+            try { await rpc("worker_confirm_received", { p_job: j.id }); await load(); }
+            catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+          }}>{busy ? "Saving…" : told ? "Payment received" : "I've been paid"}</button>
+        </ActionBar>
+        {problem}
+      </>
+    );
   }
 
   const heroLabel = j.status === "accepted" ? "Head to the job" : j.status === "in_progress" ? "Working for" : isDirectPay(j) ? "Get paid" : "Waiting for the customer";

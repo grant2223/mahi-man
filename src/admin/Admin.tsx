@@ -4,7 +4,9 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money2, shrinkImage } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
-import { Logo, SearchPicker, useToast } from "../ui/kit";
+import { CatIcon, Icon, Logo, SearchPicker, useToast } from "../ui/kit";
+
+const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
 type Tab = "overview" | "jobs" | "ids" | "reports" | "problems" | "people" | "types" | "settings";
 
@@ -144,45 +146,193 @@ function Jobs() {
   );
 }
 
+interface Incident {
+  id: string; created_at: string; kind: string; details: string; resolved: boolean; reason: string | null; fix: string | null; media: string[];
+  response: string | null; responded_at: string | null; decide_by: string | null; outcome: string | null; reporter_id: string;
+  reporter: { full_name: string } | null;
+  jobs: { id: string; status: string; price_cents: number; fee_cents: number; extra_cents: number; customer_id: string; worker_id: string | null;
+    address: string; start_at: string; payment_intent_id: string | null; job_types: { name: string; included: string[] }; suburbs: { name: string } } | null;
+}
+
 function Problems() {
   const toast = useToast();
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+  const [rows, setRows] = useState<Incident[]>([]);
+  const [open, setOpen] = useState<Incident | null>(null);
   const load = useCallback(() => {
-    sb.from("incidents").select("*, reporter:profiles(full_name), jobs(id,status,price_cents,fee_cents,extra_cents,job_types(name))")
-      .order("created_at", { ascending: false }).limit(100).then(({ data }) => setRows((data ?? []) as Record<string, unknown>[]));
+    sb.from("incidents").select("*, reporter:profiles(full_name), jobs(id,status,price_cents,fee_cents,extra_cents,customer_id,worker_id,address,start_at,payment_intent_id,job_types(name,included),suburbs(name))")
+      .order("resolved").order("created_at", { ascending: false }).limit(100).then(({ data }) => setRows((data ?? []) as unknown as Incident[]));
   }, []);
   useEffect(() => { load(); }, [load]);
+  if (open) return <DisputeDecide inc={open} onBack={() => { setOpen(null); load(); }} />;
   return (
     <div className="table-wrap">
       <table>
-        <thead><tr><th>When</th><th>Type</th><th>From</th><th>Job</th><th>Details</th><th>Action</th></tr></thead>
+        <thead><tr><th>When</th><th>Type</th><th>From</th><th>Job</th><th>What went wrong</th><th>Action</th></tr></thead>
         <tbody>
-          {rows.map((r) => {
-            const i = r as { id: string; created_at: string; kind: string; details: string; resolved: boolean; reporter: { full_name: string };
-              jobs: { id: string; status: string; price_cents: number; fee_cents: number; extra_cents: number; job_types: { name: string } } | null };
-            return (
-              <tr key={i.id}>
-                <td>{new Date(i.created_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</td>
-                <td><span className={`badge ${i.kind === "emergency" ? "r" : "y"}`}>{i.kind}</span></td>
-                <td>{i.reporter?.full_name}</td>
-                <td>{i.jobs ? `${i.jobs.job_types.name} · ${i.jobs.status}` : "—"}</td>
-                <td style={{ maxWidth: 320 }}>{i.details}</td>
-                <td style={{ whiteSpace: "nowrap" }}>
-                  {i.resolved ? <span className="badge g">Resolved</span> : i.jobs?.status === "disputed" ? (
-                    <span className="row" style={{ gap: 6 }}>
-                      <button className="btn primary small" onClick={async () => { try { await api("admin_resolve", { job_id: i.jobs!.id, outcome: "pay" }); toast("Worker paid"); load(); } catch (e) { toast((e as Error).message); } }}>Pay worker</button>
-                      <button className="btn stone small" onClick={async () => { try { await api("admin_resolve", { job_id: i.jobs!.id, outcome: "refund" }); toast("Customer refunded"); load(); } catch (e) { toast((e as Error).message); } }}>Refund</button>
-                    </span>
-                  ) : (
-                    <button className="btn stone small" onClick={async () => { await sb.from("incidents").update({ resolved: true }).eq("id", i.id); toast("Saved"); load(); }}>Mark resolved</button>
-                  )}
-                </td>
-              </tr>
-            );
-          })}
+          {rows.map((i) => (
+            <tr key={i.id}>
+              <td>{new Date(i.created_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</td>
+              <td><span className={`badge ${i.kind === "emergency" ? "r" : "y"}`}>{i.kind}</span></td>
+              <td>{i.reporter?.full_name}</td>
+              <td>{i.jobs ? `${i.jobs.job_types.name} · ${i.jobs.status}` : "—"}</td>
+              <td style={{ maxWidth: 320 }}>{i.reason ? <b className="w5">{i.reason}. </b> : null}{i.details}</td>
+              <td style={{ whiteSpace: "nowrap" }}>
+                {i.resolved ? <span className="badge g">{i.outcome ? DECIDE_LABEL[i.outcome] ?? "Resolved" : "Resolved"}</span>
+                  : i.jobs?.status === "disputed" ? <button className="btn primary small" onClick={() => setOpen(i)}>Decide</button>
+                  : <button className="btn stone small" onClick={async () => { await sb.from("incidents").update({ resolved: true }).eq("id", i.id); toast("Saved"); load(); }}>Mark resolved</button>}
+              </td>
+            </tr>
+          ))}
           {rows.length === 0 && <tr><td colSpan={6} className="muted">No problems reported.</td></tr>}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+const DECIDE_LABEL: Record<string, string> = {
+  pay_full: "Paid in full", return_finish: "Worker finishes it, paid in full", part: "Part payment", nothing: "Nothing owed", agreed: "Agreed between them",
+};
+
+interface Side { full_name: string; id_status: string; rating: number | null; jobs: number }
+
+function DisputeDecide({ inc, onBack }: { inc: Incident; onBack: () => void }) {
+  const toast = useToast();
+  const job = inc.jobs!;
+  const [cust, setCust] = useState<Side | null>(null);
+  const [work, setWork] = useState<Side | null>(null);
+  const [photos, setPhotos] = useState<{ url: string; label: string; video: boolean }[]>([]);
+  const [msgs, setMsgs] = useState<{ sender_id: string; body: string; created_at: string }[]>([]);
+  const [extras, setExtras] = useState<{ reason: string; amount_cents: number }[]>([]);
+  const [outcome, setOutcome] = useState("");
+  const [amount, setAmount] = useState("");
+  const [note, setNote] = useState("");
+  const [pause, setPause] = useState("none");
+  const [pick, setPick] = useState<null | "outcome" | "pause">(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const full = job.price_cents + job.extra_cents;
+  const custIsReporter = inc.reporter_id === job.customer_id;
+
+  useEffect(() => {
+    const side = async (id: string | null, set: (s: Side) => void) => {
+      if (!id) return;
+      const { data: p } = await sb.from("profiles").select("full_name,id_status").eq("id", id).single();
+      const card = await rpc<{ rating: number | null; jobs_done: number }[]>("person_card", { p_person: id }).catch(() => []);
+      set({ full_name: p?.full_name ?? "", id_status: p?.id_status ?? "none", rating: card[0]?.rating ?? null, jobs: Number(card[0]?.jobs_done ?? 0) });
+    };
+    side(job.customer_id, setCust); side(job.worker_id, setWork);
+    (async () => {
+      const { data: ph } = await sb.from("job_photos").select("kind,path").eq("job_id", job.id).order("created_at");
+      const out: { url: string; label: string; video: boolean }[] = [];
+      for (const p of ph ?? []) {
+        const { data } = await sb.storage.from("job-photos").createSignedUrl(p.path, 3600);
+        if (data?.signedUrl) out.push({ url: data.signedUrl, label: p.kind === "before" ? "Before" : "After", video: false });
+      }
+      if (inc.media?.length) {
+        const { data } = await sb.storage.from("job-media").createSignedUrls(inc.media, 3600);
+        for (const d of data ?? []) if (d.signedUrl) out.push({ url: d.signedUrl, label: "Report", video: /\.(mp4|mov|m4v|webm)$/i.test(d.path ?? "") });
+      }
+      setPhotos(out);
+    })();
+    sb.from("messages").select("sender_id,body,created_at").eq("job_id", job.id).order("created_at").then(({ data }) => setMsgs(data ?? []));
+    sb.from("extra_requests").select("reason,amount_cents").eq("job_id", job.id).eq("status", "approved").then(({ data }) => setExtras(data ?? []));
+  }, [job.id, job.customer_id, job.worker_id, inc.media]);
+
+  const cName = cust?.full_name.split(" ")[0] ?? "Customer";
+  const wName = work?.full_name.split(" ")[0] ?? "Worker";
+  const OUTCOMES = [
+    { id: "pay_full", label: `${wName} paid in full`, hint: money2(full) },
+    { id: "return_finish", label: `${wName} finishes it, paid in full`, hint: "The job goes back to waiting for payment" },
+    { id: "part", label: "Part payment", hint: job.payment_intent_id ? "Not available on card jobs yet" : "You set the amount", disabled: !!job.payment_intent_id },
+    { id: "nothing", label: "Nothing owed", hint: job.payment_intent_id ? "The customer is refunded" : "The job closes with nothing to pay" },
+  ];
+  const sideBlock = (who: "customer" | "worker") => {
+    const isCust = who === "customer";
+    const p = isCust ? cust : work;
+    const reported = isCust === custIsReporter;
+    return (
+      <div className="dd-side">
+        <span className="dd-k">{isCust ? "Customer" : "Worker"} · {p?.full_name ?? ""}</span>
+        {reported
+          ? <><b>{inc.reason}{inc.fix ? ` · wants: ${inc.fix}` : ""}</b><span className="dd-q">"{inc.details}"</span></>
+          : inc.response ? <><b>Their side</b><span className="dd-q">"{inc.response}"</span></> : <><b>No reply yet</b><span className="dd-q">They have 24 hours from the report to reply.</span></>}
+        <span className="dd-m">{p?.rating ? `${p.rating} rating · ` : ""}{p?.jobs ?? 0} jobs · {p?.id_status === "verified" ? "ID verified" : "not ID verified"}</span>
+      </div>
+    );
+  };
+
+  async function save() {
+    setErr("");
+    if (!outcome) return setErr("Pick an outcome.");
+    if (outcome === "part" && !(Number(amount) > 0)) return setErr("Enter the part amount.");
+    if (note.trim().length < 10) return setErr("Write a note to both of them.");
+    setBusy(true);
+    try {
+      await api("admin_resolve", { job_id: job.id, outcome, note: note.trim(), amount_cents: Math.round(Number(amount) * 100), pause_user: pause === "none" ? null : pause });
+      toast("Saved"); onBack();
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
+  }
+
+  return (
+    <div className="dd">
+      <div className="row between" style={{ alignItems: "flex-end", marginBottom: 16 }}>
+        <span className="stack" style={{ gap: 4 }}>
+          <button className="link" style={{ alignSelf: "flex-start" }} onClick={onBack}>All disputes</button>
+          <span className="dd-title">{job.job_types.name} · {money2(full)}</span>
+          <span className="t15 light muted">{job.suburbs?.name} · {new Date(job.start_at).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })} · reported by {inc.reporter?.full_name} at {new Date(inc.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span>
+        </span>
+        {inc.decide_by && <span className="w5" style={{ color: "#8a5a10" }}>Decide by {new Date(inc.decide_by).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</span>}
+      </div>
+      <div className="dd-grid">
+        <div className="dd-main">
+          <div className="dd-two">{sideBlock("customer")}{sideBlock("worker")}</div>
+          <div className="dd-sec">
+            <b>Photos</b>
+            {photos.length ? (
+              <div className="dd-photos">{photos.map((p) => <a key={p.url} href={p.url} target="_blank" rel="noreferrer" title={p.label}>{p.video ? <video src={p.url} muted playsInline /> : <img src={p.url} alt={p.label} />}</a>)}</div>
+            ) : <span className="dd-q">No photos.</span>}
+            {photos.length > 0 && <span className="dd-m">{["Before", "After", "Report"].map((l) => `${l} (${photos.filter((p) => p.label === l).length})`).join(" · ")}</span>}
+          </div>
+          <div className="dd-sec">
+            <b>What was booked</b>
+            <span className="dd-q">Included: {job.job_types.included?.join(", ")}{extras.length ? ` · Extra approved: ${extras.map((e) => `${e.reason} ${money2(e.amount_cents)}`).join(", ")}` : ""}</span>
+          </div>
+          <div className="dd-sec">
+            <b>Messages</b>
+            {msgs.length ? msgs.map((m, i) => (
+              <span key={i} className="dd-q"><span className="w5">{m.sender_id === job.customer_id ? cName : wName}, {new Date(m.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span> · {m.body}</span>
+            )) : <span className="dd-q">No messages.</span>}
+          </div>
+        </div>
+        <div className="dd-panel">
+          <span className="dd-title" style={{ fontSize: 20 }}>Your decision</span>
+          <label className="stack" style={{ gap: 8 }}>
+            <span className="w5 t15">Outcome</span>
+            <button className="cp-select" onClick={() => setPick("outcome")}><span className={outcome ? "" : "ph"}>{OUTCOMES.find((o) => o.id === outcome)?.label ?? "Choose an outcome"}</span>{Icon.down("var(--ink)")}</button>
+          </label>
+          {outcome === "part" && (
+            <label className="stack" style={{ gap: 8 }}>
+              <span className="w5 t15">{cName} pays {wName}</span>
+              <input className="cp-select" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} placeholder={`Less than ${money2(full)}`} />
+            </label>
+          )}
+          <label className="stack" style={{ gap: 8 }}>
+            <span className="w5 t15">Note to both</span>
+            <textarea className="cp-text" value={note} onChange={(e) => setNote(e.target.value)} maxLength={1000} />
+          </label>
+          <label className="stack" style={{ gap: 8 }}>
+            <span className="w5 t15">Pause an account</span>
+            <button className="cp-select" onClick={() => setPick("pause")}><span>{pause === "none" ? "No one" : pause === job.customer_id ? `${cust?.full_name} (customer)` : `${work?.full_name} (worker)`}</span>{Icon.down("var(--ink)")}</button>
+          </label>
+          {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
+          <button className="btn primary block" style={{ marginTop: "auto" }} disabled={busy} onClick={save}>{busy ? "Saving…" : "Save decision"}</button>
+        </div>
+      </div>
+      {pick === "outcome" && <SearchPicker title="Outcome" value={[outcome]} options={OUTCOMES} onClose={() => setPick(null)} onChange={(v) => setOutcome(String(v[0]))} />}
+      {pick === "pause" && <SearchPicker title="Pause an account" value={[pause]}
+        options={[{ id: "none", label: "No one" }, { id: job.customer_id, label: `${cust?.full_name ?? "Customer"}`, hint: "Customer" }, ...(job.worker_id ? [{ id: job.worker_id, label: `${work?.full_name ?? "Worker"}`, hint: "Worker" }] : [])]}
+        onClose={() => setPick(null)} onChange={(v) => setPause(String(v[0]))} />}
     </div>
   );
 }
@@ -433,11 +583,19 @@ function Types() {
       <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 600 }}>Categories</h2>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Photo</th><th>Name</th><th>Order</th><th>Live</th></tr></thead>
+          <thead><tr><th>Photo</th><th>Icon</th><th>Name</th><th>Order</th><th>Live</th></tr></thead>
           <tbody>
             {cats.map((c) => (
               <tr key={c.id}>
                 <td><PhotoCell path={cval(c, "photo_path")} onPick={async (f) => { try { setC(c.id, { photo_path: await uploadBrand(f, `cat-${c.id}`) }); } catch (e) { toast((e as Error).message); } }} /></td>
+                <td>
+                  <span className="row" style={{ gap: 8 }}>
+                    <span className="cat-sq"><span className="sq" style={{ width: 40 }}><CatIcon name={String(cval(c, "icon"))} size={22} /></span></span>
+                    <select value={String(cval(c, "icon"))} onChange={(e) => setC(c.id, { icon: e.target.value })}>
+                      {CAT_ICONS.map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                    </select>
+                  </span>
+                </td>
                 <td><input value={cval(c, "name")} onChange={(e) => setC(c.id, { name: e.target.value })} style={{ minWidth: 200 }} /></td>
                 <td><input inputMode="numeric" value={String(cval(c, "sort"))} onChange={(e) => setC(c.id, { sort: Number(e.target.value || 0) })} style={{ width: 70 }} /></td>
                 <td><select value={cval(c, "active") ? "1" : "0"} onChange={(e) => setC(c.id, { active: e.target.value === "1" })}><option value="1">Live</option><option value="0">Hidden</option></select></td>

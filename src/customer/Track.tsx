@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { api, isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
-import { elapsed, firstName, money2 } from "../lib/format";
-import { Icon, Logo, Perf, Screen, Stars, Tile, useNow, useToast } from "../ui/kit";
+import { elapsed, firstName, money, money2 } from "../lib/format";
+import { Icon, Logo, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen as ReportUser } from "../ui/Report";
 import { ChatScreen } from "../ui/Chat";
 import { PayScreen } from "./Pay";
+import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
 
 interface Extra { id: string; amount_cents: number; reason: string; status: string }
 const STEPS = ["Booked", "Matched", "On the way", "Working", "Done"];
@@ -24,6 +25,9 @@ export function Track({ id }: { id: string }) {
   const [extras, setExtras] = useState<Extra[]>([]);
   const [screen, setScreen] = useState<null | "chat" | "report" | "cancel" | "pay" | "reportUser" | { extra: Extra }>(null);
   const [busy, setBusy] = useState(false);
+  const [reviewed, setReviewed] = useState<boolean | null>(null);
+  const [payid, setPayid] = useState<string | null>(null);
+  const [later, setLater] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await sb.from("jobs").select("*").eq("id", id).single();
@@ -47,6 +51,14 @@ export function Track({ id }: { id: string }) {
     setPhotos(signed);
     const { data: ex } = await sb.from("extra_requests").select("id,amount_cents,reason,status").eq("job_id", id).order("created_at");
     setExtras((ex ?? []) as Extra[]);
+    if (["finished", "disputed", "confirmed"].includes(j.status) && j.worker_id) {
+      rpc<string | null>("job_payid", { p_job: id }).then(setPayid).catch(() => {});
+    }
+    if (j.status === "confirmed") {
+      const { data: me } = await sb.auth.getUser();
+      const { data: rv } = await sb.from("reviews").select("id").eq("job_id", id).eq("from_id", me.user?.id ?? "").maybeSingle();
+      setReviewed(!!rv);
+    }
   }, [id, jt]);
 
   useEffect(() => {
@@ -74,6 +86,73 @@ export function Track({ id }: { id: string }) {
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
+  const approved = extras.filter((e) => e.status === "approved");
+  const overlays = (
+    <>
+      {screen === "report" && <ProblemScreen job={job} jobName={jt.name} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+      {screen === "chat" && <ChatScreen jobId={id} me={session.user.id} otherName={wName} onBack={() => setScreen(null)} />}
+    </>
+  );
+
+  if (job.status === "disputed" || job.status === "refunded") {
+    return <>{<DisputeView job={job} jobName={jt.name} otherName={wName} isWorker={false} onChanged={load} />}{overlays}</>;
+  }
+
+  if (job.status === "confirmed" && reviewed === false && !later && !reviewSkipped(id)) {
+    return <ReviewView jobId={id} jobName={jt.name} done={direct ? "Paid and done" : "Done"} person={worker} other={wName} isWorker={false}
+      about={`Tell others about ${wName}`} onDone={() => { setLater(true); load(); }} />;
+  }
+
+  if (job.status === "finished" && direct) {
+    const paid = !!job.customer_paid_at;
+    const before = photos.filter((p) => p.kind === "before");
+    const after = photos.filter((p) => p.kind === "after");
+    const owed = job.price_cents + approved.reduce((a, e) => a + e.amount_cents, 0);
+    return (
+      <div className="app">
+        <DoneHero jobName={jt.name} step={3} big={money(owed)}
+          label={paid ? `Waiting for ${wName} to confirm` : `${wName} has finished`}
+          sub={paid ? `You told ${wName} you paid at ${new Date(job.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" })}` : `Check the photos, pay ${wName}, then tell us`} />
+        {(before.length > 0 || after.length > 0) && (
+          <div className="cp-sec" style={{ gap: 10 }}>
+            <span className="cp-title" style={{ marginBottom: 0 }}>Before and after</span>
+            {[["Before", before], ["After", after]].map(([k, list]) => (list as typeof photos).length > 0 && (
+              <div key={k as string} className="stack" style={{ gap: 6 }}>
+                <span className="t14 light muted">{k as string}</span>
+                <div className="cp-photos">{(list as typeof photos).map((p) => <a key={p.url} href={p.url} target="_blank" rel="noreferrer"><img src={p.url} alt={`${k} photo`} /></a>)}</div>
+              </div>
+            ))}
+          </div>
+        )}
+        <PriceRows jobName={jt.name} priceCents={job.price_cents} extras={approved} totalLabel={`Pay ${wName}`} />
+        <div className="cp-payid">
+          {Icon.card("var(--emerald)")}
+          <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>
+            <span className="k">{wName}'s PayID</span>
+            <span className="v">{payid ? showPayid(payid) : `Ask ${wName} in Messages`}</span>
+          </span>
+          {payid
+            ? <button className="btn stone small" onClick={() => { navigator.clipboard?.writeText(payid).then(() => toast("Copied"), () => toast(payid)); }}>Copy</button>
+            : <button className="btn stone small" onClick={() => setScreen("chat")}>Message</button>}
+        </div>
+        <Note icon="clock">{paid
+          ? `Once ${wName} confirms they got it, you can both leave a review. If they don't answer within 24 hours, the job closes as paid.`
+          : "Cash is fine too. Not happy with the job? Report it before paying. If you do nothing for 48 hours, the job closes as done."}</Note>
+        <ActionBar>
+          <button className="btn stone" style={{ flex: 1 }} onClick={() => setScreen("report")}>Something's wrong</button>
+          {!paid && (
+            <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={async () => {
+              setBusy(true);
+              try { await rpc("customer_mark_paid", { p_job: id }); toast(`${wName} has been told`); await load(); }
+              catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+            }}>{busy ? "Saving…" : `I've paid ${wName}`}</button>
+          )}
+        </ActionBar>
+        {overlays}
+      </div>
+    );
+  }
+
   let label = "", big = "", bigUnit = "", sub = "";
   switch (job.status) {
     case "awaiting_payment": label = "Not booked yet"; big = money2(total); sub = "Hold the payment to send it to workers"; break;
@@ -87,9 +166,7 @@ export function Track({ id }: { id: string }) {
     case "in_progress": label = `${wName} is working`; big = elapsed(job.started_at!, now); sub = `Up to ${Number(jt.max_hours)} hrs`; break;
     case "finished": label = "Job done"; big = money2(total); sub = direct ? `Check the photos, pay ${wName} directly, then confirm` : "Check the photos, then confirm to pay"; break;
     case "confirmed": label = direct ? "Done" : "Paid and done"; big = money2(total); sub = `Thanks for booking ${jt.name.toLowerCase()}`; break;
-    case "disputed": label = "We're looking into it"; big = direct ? "Checking" : "Held"; sub = direct ? "We'll look at the photos and messages and contact you." : "Your money stays held until it's sorted. We'll message you."; break;
     case "cancelled": label = "Cancelled"; big = "—"; sub = "This booking was cancelled"; break;
-    case "refunded": label = "Refunded"; big = money2(total); sub = "Your money has been returned"; break;
   }
 
   return (
@@ -171,7 +248,7 @@ export function Track({ id }: { id: string }) {
           </>
         )}
 
-        {(job.status === "finished" || job.status === "confirmed" || job.status === "disputed") && photos.length > 0 && (
+        {(job.status === "finished" || job.status === "confirmed") && photos.length > 0 && (
           <>
             <Perf />
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 12 }}>
@@ -198,7 +275,6 @@ export function Track({ id }: { id: string }) {
           </>
         )}
 
-        {job.status === "confirmed" && <ReviewBlock jobId={id} name={wName} />}
 
         {job.status === "awaiting_payment" && (
           <>
@@ -247,58 +323,10 @@ export function Track({ id }: { id: string }) {
         <PayScreen requestId={screen.extra.id} title="Approve extra" amountLabel={money2(screen.extra.amount_cents)} onBack={() => setScreen(null)}
           onPaid={() => { setScreen(null); toast("Approved"); load(); }} />
       )}
-      {screen === "report" && <ReportScreen jobId={id} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+      {screen === "report" && <ProblemScreen job={job} jobName={jt.name} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "reportUser" && job.worker_id && <ReportUser name={wName} userId={job.worker_id} jobId={id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
       {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
     </div>
-  );
-}
-
-function ReviewBlock({ jobId, name }: { jobId: string; name: string }) {
-  const toast = useToast();
-  const [rating, setRating] = useState(0);
-  const [comment, setComment] = useState("");
-  const [done, setDone] = useState(false);
-  const { session } = useSession();
-  useEffect(() => {
-    if (!session) return;
-    sb.from("reviews").select("rating").eq("job_id", jobId).eq("from_id", session.user.id).maybeSingle().then(({ data }) => data && setDone(true));
-  }, [jobId, session]);
-  if (done) return null;
-  return (
-    <>
-      <Perf />
-      <div className="stack" style={{ padding: "8px 16px 18px", gap: 12 }}>
-        <span className="t17 w5">How did {name} go?</span>
-        <Stars value={rating} onChange={setRating} />
-        <label className="field"><span className="k">Anything to add? (optional)</span><textarea value={comment} onChange={(e) => setComment(e.target.value)} /></label>
-        <div className="row" style={{ justifyContent: "flex-end" }}>
-          <button className="btn primary small" disabled={!rating} onClick={async () => {
-            try { await rpc("leave_review", { p_job: jobId, p_rating: rating, p_comment: comment }); setDone(true); toast("Thanks for the review"); }
-            catch (e) { toast(e instanceof Error ? e.message : String(e)); }
-          }}>Save review</button>
-        </div>
-      </div>
-    </>
-  );
-}
-
-function ReportScreen({ jobId, onBack, onDone }: { jobId: string; onBack: () => void; onDone: () => void }) {
-  const [reason, setReason] = useState("");
-  const [err, setErr] = useState("");
-  return (
-    <Screen title="Report a problem" onBack={onBack}>
-      <div className="screen-body" style={{ padding: 16 }}>
-        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Your money stays held while we look at the photos and messages. We'll reply within a day.</p>
-        <label className="field"><span className="k">What went wrong?</span><textarea value={reason} onChange={(e) => setReason(e.target.value)} style={{ minHeight: 120 }} /></label>
-        {err && <p className="err">{err}</p>}
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>
-          <button className="btn primary" disabled={reason.trim().length < 5} onClick={async () => {
-            try { await rpc("dispute_job", { p_job: jobId, p_reason: reason.trim() }); onDone(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
-          }}>Send report</button>
-        </div>
-      </div>
-    </Screen>
   );
 }
 

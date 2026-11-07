@@ -4,13 +4,14 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { Icon, Screen, StepHero, Tile, useToast } from "./kit";
 import { VerifyFlow } from "./Verify";
+import { AbnStep } from "../worker/Signup";
 
 // Account settings: ID check, blocked people, legal pages and in-app account deletion (Apple 5.1.1(v)).
 export function Settings() {
   const { session, profile, reload } = useSession();
   const toast = useToast();
   const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
-  const [screen, setScreen] = useState<null | "verify" | "delete">(null);
+  const [screen, setScreen] = useState<null | "verify" | "delete" | "payid">(null);
 
   useEffect(() => {
     if (!session) return;
@@ -39,6 +40,7 @@ export function Settings() {
         )}
         <button className="choice" onClick={() => go("/jobs")}><span className="t"><b>My bookings</b><span>Jobs you've booked</span></span>{Icon.chevron("var(--faint)")}</button>
         {profile.is_worker && <button className="choice" onClick={() => go("/work")}><span className="t"><b>Work</b><span>Your worker account</span></span>{Icon.chevron("var(--faint)")}</button>}
+        {profile.is_worker && <button className="choice" onClick={() => setScreen("payid")}><span className="t"><b>ABN and PayID</b><span>Where customers pay you</span></span>{Icon.chevron("var(--faint)")}</button>}
         {blocked.length > 0 && (
           <div style={{ padding: "18px 20px 8px" }}>
             <h2 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 600 }}>Blocked</h2>
@@ -59,6 +61,7 @@ export function Settings() {
         <button className="choice" onClick={() => sb.auth.signOut().then(() => go("/"))}><span className="t"><b>Sign out</b></span></button>
         <button className="choice" onClick={() => setScreen("delete")}><span className="t"><b style={{ color: "var(--danger)" }}>Delete account</b><span>Removes your account, photos and messages for good</span></span></button>
       </div>
+      {screen === "payid" && <AbnStep onBack={() => setScreen(null)} onSaved={() => { setScreen(null); toast("Saved"); }} />}
       {screen === "verify" && <VerifyFlow onClose={() => { setScreen(null); reload(); }} />}
       {screen === "delete" && <DeleteAccount onBack={() => setScreen(null)} />}
     </div>

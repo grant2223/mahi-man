@@ -170,8 +170,17 @@ Deno.serve(async (req) => {
       case "worker_save": {
         // ABN is checked here so a typo never blocks a payout later.
         if (body.abn !== undefined && body.abn !== "" && !validAbn(body.abn)) return fail("That ABN doesn't look right. Check the 11 digits.");
+        if (body.payid !== undefined) {
+          const pid = String(body.payid).trim();
+          const phone = pid.replace(/[\s-]/g, "");
+          const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pid);
+          const isPhone = /^(\+61|0)4\d{8}$/.test(phone);
+          const isAbn = validAbn(pid);
+          if (!isEmail && !isPhone && !isAbn) return fail("Enter the mobile number, email or ABN your PayID is set up with.");
+          body.payid = isPhone ? phone : isAbn ? pid.replace(/\s/g, "") : pid.toLowerCase();
+        }
         const patch: Record<string, unknown> = {};
-        for (const k of ["abn", "has_vehicle", "base_suburb_id", "radius_km", "insurance_path", "insurance_expiry"]) {
+        for (const k of ["abn", "payid", "has_vehicle", "base_suburb_id", "radius_km", "insurance_path", "insurance_expiry"]) {
           if (body[k] !== undefined) patch[k] = k === "abn" ? String(body.abn).replace(/\s/g, "") : body[k];
         }
         await admin.from("workers").update(patch).eq("id", user.id);
@@ -186,24 +195,46 @@ Deno.serve(async (req) => {
         if (!me?.is_admin) return fail("Admins only", 403);
         const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
         if (!job) return fail("Job not found");
-        if (body.outcome === "pay") {
+        if (job.status !== "disputed") return fail("This job is not in dispute");
+        const outcome = String(body.outcome ?? "");
+        const note = String(body.note ?? "").trim();
+        const now = new Date().toISOString();
+        if (!note) return fail("Write a note to both");
+        let amount: number | null = null;
+        if (outcome === "pay_full") {
           await releaseJob(job.id);
-        } else if (body.outcome === "refund" && !job.payment_intent_id) {
-          await admin.from("jobs").update({ status: "refunded" }).eq("id", job.id);
-        } else if (body.outcome === "refund") {
-          const s = stripe();
-          const ids = [job.payment_intent_id];
-          const { data: extras } = await admin.from("extra_requests").select("payment_intent_id").eq("job_id", job.id).eq("status", "approved");
-          for (const e of extras ?? []) if (e.payment_intent_id) ids.push(e.payment_intent_id);
-          for (const id of ids) {
-            if (!id) continue;
-            const pi = await s.paymentIntents.retrieve(id);
-            if (pi.status === "requires_capture") await s.paymentIntents.cancel(id);
-            else if (pi.status === "succeeded") await s.refunds.create({ payment_intent: id }, { idempotencyKey: `refund-${id}` });
+          amount = job.price_cents + job.extra_cents;
+        } else if (outcome === "return_finish") {
+          await admin.from("jobs").update({ status: "finished", finished_at: now, customer_paid_at: null }).eq("id", job.id);
+          amount = job.price_cents + job.extra_cents;
+        } else if (outcome === "part") {
+          if (job.payment_intent_id) return fail("Part payments aren't available on card jobs yet");
+          amount = Math.round(Number(body.amount_cents));
+          if (!Number.isFinite(amount) || amount <= 0 || amount >= job.price_cents + job.extra_cents) return fail("Enter a part amount less than the full price");
+          await admin.from("jobs").update({ status: "confirmed", confirmed_at: now }).eq("id", job.id);
+        } else if (outcome === "nothing") {
+          amount = 0;
+          if (job.payment_intent_id) {
+            const s = stripe();
+            const ids = [job.payment_intent_id];
+            const { data: extras } = await admin.from("extra_requests").select("payment_intent_id").eq("job_id", job.id).eq("status", "approved");
+            for (const e of extras ?? []) if (e.payment_intent_id) ids.push(e.payment_intent_id);
+            for (const id of ids) {
+              if (!id) continue;
+              const pi = await s.paymentIntents.retrieve(id);
+              if (pi.status === "requires_capture") await s.paymentIntents.cancel(id);
+              else if (pi.status === "succeeded") await s.refunds.create({ payment_intent: id }, { idempotencyKey: `refund-${id}` });
+            }
           }
           await admin.from("jobs").update({ status: "refunded" }).eq("id", job.id);
-        } else return fail("Pick pay or refund");
-        await admin.from("incidents").update({ resolved: true }).eq("job_id", job.id);
+        } else return fail("Pick an outcome");
+        const pause = body.pause_user && [job.customer_id, job.worker_id].includes(body.pause_user) ? String(body.pause_user) : null;
+        if (pause) {
+          await admin.from("profiles").update({ suspended: true }).eq("id", pause);
+          await admin.from("workers").update({ suspended: true }).eq("id", pause);
+        }
+        await admin.from("incidents").update({ resolved: true, outcome, amount_cents: amount, decision_note: note, decided_at: now, paused_user: pause })
+          .eq("job_id", job.id).eq("resolved", false);
         return ok({});
       }
       case "admin_approve_worker": {
@@ -299,7 +330,7 @@ async function refreshWorker(id: string) {
   const steps = {
     photo: !!p?.photo_path && !!p?.full_name,
     id_and_bank: pilot ? idVerified : payoutsReady && idVerified,
-    abn: !!w?.abn,
+    abn: !!w?.abn && (!pilot || !!w?.payid),
     area: !!w?.base_suburb_id,
     jobs: (count ?? 0) > 0,
   };

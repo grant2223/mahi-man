@@ -44,7 +44,7 @@ export function MyJobs() {
       </div>
       <div className="footer between">
         <button className="link" onClick={() => go("/work")}>Earn with More Mahi</button>
-        <button className="btn primary" onClick={() => go("/")}>Book a job</button>
+        <button className="btn primary" onClick={() => go("/post")}>Book a job</button>
       </div>
     </div>
   );

@@ -15,7 +15,7 @@ export const whenLabel = (asap: boolean, iso: string) => {
   return d.toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" });
 };
 
-export const hours = (h: number) => (Number(h) === 1 ? "1 hr" : `${Number(h)} hrs`);
+export const hours = (h: number) => (Number(h) < 1 ? `${Math.round(Number(h) * 60)} min` : Number(h) === 1 ? "1 hr" : `${Number(h)} hrs`);
 
 export function elapsed(fromIso: string, now: number) {
   const s = Math.max(0, Math.floor((now - new Date(fromIso).getTime()) / 1000));

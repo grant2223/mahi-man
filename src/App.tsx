@@ -3,6 +3,7 @@ import { SessionProvider, useSession } from "./lib/session";
 import { ToastProvider } from "./ui/kit";
 import { ResetPassword } from "./ui/Auth";
 import { Book } from "./customer/Book";
+import { Feed } from "./customer/Feed";
 import { Track } from "./customer/Track";
 import { MyJobs } from "./customer/MyJobs";
 import { Work } from "./worker/Work";
@@ -37,6 +38,7 @@ function Routes() {
     if (ready && !session) { go("/", true); return null; }
     return <MyJobs />;
   }
+  if (path === "/") return <Feed />;
   return <Book />;
 }
 

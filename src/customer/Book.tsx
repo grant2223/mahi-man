@@ -4,7 +4,7 @@ import { useSession } from "../lib/session";
 import { go, usePath } from "../lib/router";
 import { hours, money, money2, shrinkImage } from "../lib/format";
 import { draftMedia, type DraftItem } from "../lib/draftMedia";
-import { Icon, Logo, SearchPicker, StepHero, useToast } from "../ui/kit";
+import { CatIcon, Icon, Logo, SearchPicker, StepHero, useToast } from "../ui/kit";
 import { AuthScreen } from "../ui/Auth";
 import { VoiceScreen, voiceSupported } from "../ui/Voice";
 import { PayScreen } from "./Pay";
@@ -91,7 +91,7 @@ export function Book() {
 
   async function book() {
     setErr("");
-    if (!jt) return go("/", true);
+    if (!jt) return go("/post", true);
     if (!photos.length || d.details.trim().length < 15) return go("/book/details");
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !d.startAt) return go("/book/when");
@@ -138,7 +138,7 @@ export function Book() {
 
   // ---------- Screens ----------
   const cm = path.match(/^\/c\/(\d+)$/);
-  if (path.startsWith("/book/") && !jt && types.length) { go("/", true); return null; }
+  if (path.startsWith("/book/") && !jt && types.length) { go("/post", true); return null; }
 
   if (cm) {
     const cat = cats.find((c) => c.id === Number(cm[1]));
@@ -179,7 +179,7 @@ export function Book() {
           <h1 style={{ marginBottom: 0 }}>Check and book</h1>
         </section>
         <div className="ticket" style={{ marginTop: -52 }}>
-          <ReviewRow k="Job" v={jt.name} onChange={() => go("/")} />
+          <ReviewRow k="Job" v={jt.name} onChange={() => go("/post")} />
           <div className="review-row">
             <span className="t">
               <span className="k">What you want done</span>
@@ -224,7 +224,7 @@ export function Book() {
   return <Home types={types} cats={cats} popular={popular} priceOf={priceOf} onPick={pickJob} signedIn={!!session} />;
 }
 
-// ---------- Home ----------
+// ---------- Post a job ("I have work") ----------
 function Home({ types, cats, popular, priceOf, onPick, signedIn }: {
   types: JobType[]; cats: Category[]; popular: number[]; priceOf: (t: JobType) => number; onPick: (t: JobType) => void; signedIn: boolean;
 }) {
@@ -232,57 +232,65 @@ function Home({ types, cats, popular, priceOf, onPick, signedIn }: {
   const query = q.trim().toLowerCase();
   const catName = (id: number | null) => cats.find((c) => c.id === id)?.name ?? "";
   const results = query ? types.filter((t) => `${t.name} ${t.description} ${catName(t.category_id)}`.toLowerCase().includes(query)) : [];
-  const top = (popular.length ? popular.map((id) => types.find((t) => t.id === id)).filter(Boolean) as JobType[] : [...types].sort((a, b) => a.price_cents - b.price_cents)).slice(0, 2);
+  const top = (popular.length ? popular.map((id) => types.find((t) => t.id === id)).filter(Boolean) as JobType[] : [...types].sort((a, b) => a.price_cents - b.price_cents)).slice(0, 5);
+  const shownCats = cats.filter((c) => types.some((t) => t.category_id === c.id));
   return (
     <div className="app">
-      <section className="hero" style={{ paddingBottom: 22 }}>
-        <div className="hero-top" style={{ position: "relative" }}>
+      <section className="hero" style={{ paddingBottom: 0 }}>
+        <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
-          <span className="row" style={{ gap: 14 }}>
-            {signedIn && <a className="hero-link" href="/jobs" onClick={(e) => { e.preventDefault(); go("/jobs"); }}>My jobs</a>}
-            {!signedIn && <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>}
-          </span>
+          {signedIn
+            ? <a className="hero-link" href="/jobs" onClick={(e) => { e.preventDefault(); go("/jobs"); }}>My jobs</a>
+            : <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>}
         </div>
         <div className="path-switch" role="tablist" aria-label="What are you here for?">
+          <button role="tab" aria-selected="false" onClick={() => go("/")}>I want work</button>
           <button className="on" role="tab" aria-selected="true">I have work</button>
-          <button role="tab" aria-selected="false" onClick={() => go("/work")}>I want work</button>
         </div>
-        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 78, height: 186 }} />
-        <h1 style={{ position: "relative", fontSize: 52, margin: "22px 0 12px" }}>Need a<br />hand?</h1>
-        <p className="lede" style={{ position: "relative", maxWidth: 165, marginBottom: 22 }}>Fixed price. A local on the way in minutes.</p>
-        <label className="search-hero">
-          {Icon.search("var(--muted)")}
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search all jobs: mow, clean, tip run" />
+        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 56, height: 150, right: -26 }} />
+        <h1 className="mid" style={{ position: "relative", margin: "22px 0 10px" }}>Post a job</h1>
+        <p className="lede" style={{ position: "relative", maxWidth: 200, marginBottom: 22 }}>Get help now with your odd job.</p>
+        <label className="search-bar">
+          {Icon.search("var(--ink)")}
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="What do you need done?" />
           {q && <button className="back" style={{ marginRight: -10 }} onClick={() => setQ("")} aria-label="Clear search">{Icon.x("var(--muted)")}</button>}
         </label>
       </section>
 
-      <div className="home-body">
+      <div className="home-body" style={{ paddingTop: 18 }}>
         {query ? (
           <>
             <h2>{results.length ? `${results.length} job${results.length === 1 ? "" : "s"}` : "Nothing matches"}</h2>
             {results.map((t, i) => <JobCard key={t.id} t={t} i={i} price={priceOf(t)} onPick={() => onPick(t)} />)}
-            {!results.length && <p className="t15 light muted" style={{ margin: "0 4px" }}>Try "clean", "mow", "rubbish" or "move". Or pick a type below.</p>}
+            {!results.length && <p className="t15 light muted" style={{ margin: "0 4px" }}>Try "clean", "mow", "dog" or "pool". Or pick a category below.</p>}
           </>
         ) : null}
         {!query || !results.length ? (
           <>
-            <h2 className={query ? "gap-top" : ""}>What needs doing?</h2>
-            <div className="cat-grid">
-              {cats.map((c, i) => {
-                const list = types.filter((t) => t.category_id === c.id);
-                if (!list.length) return null;
-                const from = Math.min(...list.map(priceOf));
-                return (
-                  <button key={c.id} className={`cat-tile ${c.photo_path ? "" : tint(i)}`} style={bg(c.photo_path)} onClick={() => go(`/c/${c.id}`)}>
-                    <b>{c.name}</b>
-                    <span>{list.length} job{list.length === 1 ? "" : "s"} · {list.length === 1 ? money(from) : `from ${money(from)}`}</span>
-                  </button>
-                );
-              })}
+            <span className="sec">Pick a category</span>
+            <div className="cat-sq-grid">
+              {shownCats.map((c) => (
+                <button key={c.id} className="cat-sq" onClick={() => go(`/c/${c.id}`)}>
+                  <span className="sq"><CatIcon name={c.icon} size={32} /></span>
+                  <span className="n">{c.name}</span>
+                </button>
+              ))}
             </div>
-            {top.length > 0 && <h2 className="gap-top">{popular.length ? "Booked most this week" : "Quick jobs"}</h2>}
-            {top.map((t, i) => <JobCard key={t.id} t={t} i={i + 1} price={priceOf(t)} onPick={() => onPick(t)} />)}
+            {top.length > 0 && <span className="sec" style={{ marginTop: 18 }}>{popular.length ? "Booked most this week" : "Quick jobs"}</span>}
+            {top.length > 0 && (
+              <div className="pop-list">
+                {top.map((t) => {
+                  const c = cats.find((x) => x.id === t.category_id);
+                  return (
+                    <button key={t.id} className="pop-row" onClick={() => onPick(t)}>
+                      {t.photo_path ? <span className="pic" style={bg(t.photo_path)} /> : <span className="pic sq"><CatIcon name={c?.icon} size={28} /></span>}
+                      <span className="t"><b>{t.name}</b><span>{c?.name ?? "Job"} · up to {hours(t.max_hours)}</span></span>
+                      <span className="p">{money(priceOf(t))}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             <p className="small light muted" style={{ margin: "10px 4px 0", lineHeight: 1.5 }}>
               <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
               {"  ·  "}<a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>

@@ -8,6 +8,7 @@ import { Icon, Logo, Perf, SearchPicker, Tile, useToast } from "../ui/kit";
 import { ReportScreen } from "../ui/Report";
 import { Signup, type Steps } from "./Signup";
 import { WorkerJob } from "./WorkerJob";
+import { reviewSkipped } from "../ui/Completion";
 
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
@@ -17,6 +18,7 @@ export function Work() {
   const [auth, setAuth] = useState(false);
   const [status, setStatus] = useState<WorkerStatus | null>(null);
   const [current, setCurrent] = useState<Job | null | undefined>(undefined);
+  const [wrapups, setWrapups] = useState<Job[]>([]);
   const [err, setErr] = useState("");
 
   const refresh = useCallback(async () => {
@@ -25,9 +27,19 @@ export function Work() {
       const s = await api<WorkerStatus>("worker_status");
       setStatus(s);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
-    const { data } = await sb.from("jobs").select("*").eq("worker_id", session.user.id).in("status", ["accepted", "in_progress"])
+    const uid = session.user.id;
+    const { data } = await sb.from("jobs").select("*").eq("worker_id", uid).in("status", ["accepted", "in_progress"])
       .order("accepted_at", { ascending: false }).limit(1).maybeSingle();
-    setCurrent(data as Job | null);
+    // Jobs still to wrap up: waiting on payment, in dispute, or closed in the last 7 days without my review.
+    const since = new Date(Date.now() - 7 * 864e5).toISOString();
+    const { data: open } = await sb.from("jobs").select("*, job_types(name)").eq("worker_id", uid).in("status", ["finished", "disputed"]).order("finished_at", { ascending: false }).limit(10);
+    const { data: closed } = await sb.from("jobs").select("*, job_types(name)").eq("worker_id", uid).eq("status", "confirmed").gt("confirmed_at", since).order("confirmed_at", { ascending: false }).limit(10);
+    const ids = (closed ?? []).map((j) => j.id);
+    const { data: mine } = ids.length ? await sb.from("reviews").select("job_id").eq("from_id", uid).in("job_id", ids) : { data: [] };
+    const done = new Set((mine ?? []).map((r) => r.job_id));
+    const list = [...((open ?? []) as Job[]), ...((closed ?? []) as Job[]).filter((j) => !done.has(j.id) && !reviewSkipped(j.id))];
+    setWrapups(list);
+    setCurrent((data as Job | null) ?? list.find((j) => !isHidden(j.id)) ?? null);
   }, [session]);
 
   useEffect(() => {
@@ -49,8 +61,8 @@ export function Work() {
             <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>
           </div>
           <div className="path-switch" role="tablist" aria-label="What are you here for?">
-            <button role="tab" aria-selected="false" onClick={() => go("/")}>I have work</button>
             <button className="on" role="tab" aria-selected="true">I want work</button>
+            <button role="tab" aria-selected="false" onClick={() => go("/post")}>I have work</button>
           </div>
           <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 80, height: 186 }} />
           <h1 style={{ position: "relative", marginTop: 22 }}>Earn on<br />your time</h1>
@@ -76,14 +88,19 @@ export function Work() {
   }
 
   if (!status || current === undefined) return <div className="app"><section className="hero short"><span className="brand"><Logo /> More Mahi</span>{err && <p>{err}</p>}</section></div>;
-  if (current) return <div className="app"><WorkerJob job={current} onChanged={refresh} /></div>;
+  if (current) return <div className="app"><WorkerJob key={current.id} job={current} onChanged={refresh} onLeave={() => { hide(current.id); refresh(); }} /></div>;
   if (status.suspended) return (
     <div className="app"><section className="hero"><span className="brand"><Logo /> More Mahi</span><h1 className="mid">Account paused</h1>
       <p className="lede">Your worker account is paused. Email hello@moremahi.com and we'll sort it out.</p></section></div>
   );
   if (!status.approved) return <div className="app"><Signup steps={status.steps} pilot={status.pilot} idStatus={status.id_status} idNote={status.id_note} onChanged={refresh} /></div>;
-  return <div className="app"><Home pilot={status.pilot} onTaken={refresh} /></div>;
+  return <div className="app"><Home pilot={status.pilot} onTaken={refresh} wrapups={wrapups} onOpen={(j) => { unhide(j.id); setCurrent(j); }} /></div>;
 }
+
+const isHidden = (id: string) => { try { return sessionStorage.getItem(`mm-hide-${id}`) === "1"; } catch { return false; } };
+const hide = (id: string) => { try { sessionStorage.setItem(`mm-hide-${id}`, "1"); } catch { /* fine */ } };
+const unhide = (id: string) => { try { sessionStorage.removeItem(`mm-hide-${id}`); } catch { /* fine */ } };
+const WRAP_LABEL: Record<string, string> = { finished: "Get paid", disputed: "Being looked at", confirmed: "Leave a review" };
 
 interface Offer {
   id: string; job_name: string; category: string | null; suburb: string; distance_km: number; earn_cents: number; max_hours: number;
@@ -94,7 +111,7 @@ interface Offer {
 
 const startLabel = (o: Offer) => o.asap ? "Now" : new Date(o.start_at).toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" });
 
-function Home({ pilot, onTaken }: { pilot: boolean; onTaken: () => void }) {
+function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: () => void; wrapups: Job[]; onOpen: (j: Job) => void }) {
   const toast = useToast();
   const [online, setOnline] = useState(false);
   const [offers, setOffers] = useState<Offer[]>([]);
@@ -153,6 +170,17 @@ function Home({ pilot, onTaken }: { pilot: boolean; onTaken: () => void }) {
         </p>
       </section>
 
+      {wrapups.length > 0 && (
+        <div className="wrap-list">
+          {wrapups.map((j) => (
+            <button key={j.id} className="wrap-row" onClick={() => onOpen(j)}>
+              <span className="t"><b>{WRAP_LABEL[j.status] ?? "Open"}</b><span>{(j as Job & { job_types?: { name: string } }).job_types?.name ?? "Job"} · {money(j.price_cents + j.extra_cents)} · {new Date(j.finished_at ?? j.created_at).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" })}</span></span>
+              {Icon.chevron("var(--faint)")}
+            </button>
+          ))}
+        </div>
+      )}
+
       {online && offers.map((o) => (
         <button key={o.id} className="job-row" onClick={() => setOpen(o)}>
           <span className={`pic ${o.cover_path && covers[o.cover_path] ? "" : "ph-0"}`} style={o.cover_path && covers[o.cover_path] ? { backgroundImage: `url("${covers[o.cover_path]}")` } : undefined}>
@@ -179,7 +207,7 @@ function Home({ pilot, onTaken }: { pilot: boolean; onTaken: () => void }) {
       )}
       <History />
       <div className="footer between">
-        <button className="link quiet" onClick={() => go("/")}>Book a job</button>
+        <button className="link quiet" onClick={() => go("/post")}>Book a job</button>
         <span className="row" style={{ gap: 18 }}>
           <button className="link quiet" onClick={() => go("/settings")}>Settings</button>
           <button className="link quiet" onClick={() => sb.auth.signOut()}>Sign out</button>
