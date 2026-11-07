@@ -611,7 +611,7 @@ function Types() {
       <h2 style={{ margin: "0 0 10px", fontSize: 22, fontWeight: 600 }}>Job types</h2>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Photo</th><th>Job</th><th>Category</th><th>Worker gets ($)</th><th>Up to (hrs)</th><th>Included (one per line)</th><th>Not included (one per line)</th><th>Needs</th><th>Live</th></tr></thead>
+          <thead><tr><th>Photo</th><th>Job</th><th>Category</th><th>Price ($)</th><th>Up to (hrs)</th><th>Included (one per line)</th><th>Not included (one per line)</th><th>Needs</th><th>Live</th></tr></thead>
           <tbody>
             {rows.map((t) => (
               <tr key={t.id} style={{ verticalAlign: "top" }}>
@@ -619,7 +619,14 @@ function Types() {
                 <td><input value={val(t, "name")} onChange={(e) => set(t.id, { name: e.target.value })} style={{ minWidth: 180 }} /></td>
                 <td><select value={String(val(t, "category_id") ?? "")} onChange={(e) => set(t.id, { category_id: e.target.value ? Number(e.target.value) : null })}>
                   <option value="">None</option>{cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></td>
-                <td><input inputMode="decimal" value={(val(t, "price_cents") / 100).toString()} onChange={(e) => set(t.id, { price_cents: Math.round(Number(e.target.value || 0) * 100) })} style={{ width: 80 }} /></td>
+                <td className="stack" style={{ gap: 6 }}>
+                  <select value={val(t, "custom_price") ? "1" : "0"} onChange={(e) => set(t.id, { custom_price: e.target.value === "1" })}><option value="0">Fixed price</option><option value="1">Customer sets it</option></select>
+                  <label className="small muted">{val(t, "custom_price") ? "Suggested" : "Price"} <input inputMode="decimal" value={(val(t, "price_cents") / 100).toString()} onChange={(e) => set(t.id, { price_cents: Math.round(Number(e.target.value || 0) * 100) })} style={{ width: 80 }} /></label>
+                  {val(t, "custom_price") && <>
+                    <label className="small muted">Lowest <input inputMode="decimal" value={(val(t, "min_price_cents") / 100).toString()} onChange={(e) => set(t.id, { min_price_cents: Math.round(Number(e.target.value || 0) * 100) })} style={{ width: 80 }} /></label>
+                    <label className="small muted">Highest <input inputMode="decimal" value={(val(t, "max_price_cents") / 100).toString()} onChange={(e) => set(t.id, { max_price_cents: Math.round(Number(e.target.value || 0) * 100) })} style={{ width: 80 }} /></label>
+                  </>}
+                </td>
                 <td><input inputMode="decimal" value={String(val(t, "max_hours"))} onChange={(e) => set(t.id, { max_hours: Number(e.target.value || 0) })} style={{ width: 70 }} /></td>
                 <td><textarea value={lines(val(t, "included") ?? [])} onChange={(e) => set(t.id, { included: toList(e.target.value) })} rows={4}
                   style={{ minWidth: 240, border: 0, borderRadius: 4, background: "var(--ground)", padding: 8, font: "inherit", fontSize: 14 }} /></td>

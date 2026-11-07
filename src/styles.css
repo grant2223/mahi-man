@@ -397,3 +397,21 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .cp-top .brand { white-space: nowrap; flex-shrink: 0; }
 .cp-top .jn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 300; color: rgba(255,255,255,0.85); }
 .cp-hero .big { display: block; margin-top: 6px; line-height: 0.95; }
+
+/* ---------- Set your price ---------- */
+.price-body { display: flex; flex-direction: column; gap: 6px; padding: 26px 16px 8px; }
+.price-box { display: flex; align-items: center; gap: 4px; height: 96px; padding: 0 16px; border-radius: var(--r-control); background: var(--ground); }
+.price-box:focus-within { box-shadow: inset 0 0 0 2px var(--emerald); }
+.price-box .cur { font-size: 64px; font-weight: 600; letter-spacing: -2px; color: var(--emerald); }
+.price-box input { flex: 1; min-width: 0; border: 0; background: transparent; outline: none; padding: 0; font: inherit; font-size: 64px; font-weight: 600; letter-spacing: -2.5px; color: var(--emerald); }
+.price-box .hint { font-size: 14px; font-weight: 300; color: var(--muted); white-space: nowrap; }
+.price-slider { display: flex; flex-direction: column; gap: 2px; margin-top: 14px; }
+.mm-range { -webkit-appearance: none; appearance: none; width: 100%; height: 44px; margin: 0; background: transparent; cursor: pointer; }
+.mm-range::-webkit-slider-runnable-track { height: 10px; border-radius: 3px; background: transparent; }
+.mm-range::-webkit-slider-thumb { -webkit-appearance: none; width: 30px; height: 30px; margin-top: -10px; border-radius: 4px; background: var(--emerald); border: 0; }
+.mm-range::-moz-range-track { height: 10px; border-radius: 3px; background: transparent; }
+.mm-range::-moz-range-thumb { width: 30px; height: 30px; border-radius: 4px; background: var(--emerald); border: 0; }
+.quick-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; margin-top: 4px; }
+.quick-grid button { height: 52px; border: 0; border-radius: var(--r-control); background: var(--ground); color: var(--ink); font: inherit; font-size: 18px; font-weight: 500; cursor: pointer; }
+.quick-grid button.on { background: var(--emerald); color: #fff; }
+.t13 { font-size: 13px; }

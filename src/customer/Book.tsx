@@ -9,9 +9,9 @@ import { AuthScreen } from "../ui/Auth";
 import { VoiceScreen, voiceSupported } from "../ui/Voice";
 import { PayScreen } from "./Pay";
 
-interface Draft { jobTypeId: number | null; suburbId: number | null; address: string; notes: string; details: string; asap: boolean; startAt: string }
+interface Draft { jobTypeId: number | null; suburbId: number | null; address: string; notes: string; details: string; asap: boolean; startAt: string; priceCents: number | null }
 const DRAFT_KEY = "mm-draft";
-const blank: Draft = { jobTypeId: null, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "" };
+const blank: Draft = { jobTypeId: null, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", priceCents: null };
 const MAX_PHOTOS = 6;
 const MAX_VIDEO_SECONDS = 60;
 
@@ -50,16 +50,27 @@ export function Book() {
   }, []);
   useEffect(() => { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d)); }, [d]);
 
+  // A category whose only job is "set your price" goes straight to the price screen.
+  useEffect(() => {
+    const m = path.match(/^\/c\/(\d+)$/);
+    if (!m) return;
+    const list = types.filter((t) => t.category_id === Number(m[1]));
+    if (list.length === 1 && list[0].custom_price) pickJob(list[0], true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, types]);
+
   const jt = types.find((t) => t.id === d.jobTypeId) ?? null;
   const suburb = suburbs.find((s) => s.id === d.suburbId) ?? null;
-  const priceOf = (t: JobType) => t.price_cents + (pilot ? 0 : Math.round((t.price_cents * fee) / 100));
+  // A "set your price" job uses the customer's price once they've set it; until then its suggested price.
+  const baseOf = (t: JobType) => (t.custom_price && d.jobTypeId === t.id && d.priceCents ? d.priceCents : t.price_cents);
+  const priceOf = (t: JobType) => baseOf(t) + (pilot ? 0 : Math.round((baseOf(t) * fee) / 100));
   const total = jt ? priceOf(jt) : 0;
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
 
-  function pickJob(t: JobType) {
-    if (t.id !== d.jobTypeId) setD({ ...d, jobTypeId: t.id });
-    go("/book/details");
+  function pickJob(t: JobType, replace = false) {
+    if (t.id !== d.jobTypeId) setD({ ...d, jobTypeId: t.id, priceCents: t.custom_price ? (d.priceCents ?? t.price_cents) : null });
+    go(t.custom_price ? "/book/price" : "/book/details", replace);
   }
 
   async function addFiles(files: FileList | null, kind: "photo" | "video") {
@@ -92,6 +103,7 @@ export function Book() {
   async function book() {
     setErr("");
     if (!jt) return go("/post", true);
+    if (jt.custom_price && !d.priceCents) return go("/book/price");
     if (!photos.length || d.details.trim().length < 15) return go("/book/details");
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !d.startAt) return go("/book/when");
@@ -113,7 +125,7 @@ export function Book() {
       const id = await rpc<string>("create_job", {
         p_job_type: d.jobTypeId, p_suburb: d.suburbId, p_address: d.address, p_notes: d.notes,
         p_asap: d.asap, p_start_at: d.asap ? new Date().toISOString() : new Date(d.startAt).toISOString(),
-        p_details: d.details, p_media: uploaded,
+        p_details: d.details, p_media: uploaded, p_price_cents: jt.custom_price ? d.priceCents : null,
       });
       const finish = async () => {
         sessionStorage.removeItem(DRAFT_KEY);
@@ -143,6 +155,8 @@ export function Book() {
   if (cm) {
     const cat = cats.find((c) => c.id === Number(cm[1]));
     const list = types.filter((t) => t.category_id === Number(cm[1])).sort((a, b) => a.price_cents - b.price_cents);
+    // A category whose only job is "set your price" goes straight to the price screen.
+    if (list.length === 1 && list[0].custom_price) return null;
     return (
       <div className="app">
         <StepHero title={cat?.name ?? "Jobs"} sub={cat?.name === "Cleaning" ? "You supply the products. Price is fixed." : "One fixed price, agreed before anyone turns up."} onBack={() => history.back()} />
@@ -151,6 +165,12 @@ export function Book() {
         </div>
       </div>
     );
+  }
+
+  if (path === "/book/price" && jt) {
+    const cat = cats.find((c) => c.id === jt.category_id);
+    return <PriceStep jt={jt} catName={cat?.name ?? jt.name} catIcon={cat?.icon} value={d.priceCents ?? jt.price_cents}
+      onChange={(v) => setD({ ...d, priceCents: v })} />;
   }
 
   if (path === "/book/details" && jt) {
@@ -180,6 +200,7 @@ export function Book() {
         </section>
         <div className="ticket" style={{ marginTop: -52 }}>
           <ReviewRow k="Job" v={jt.name} onChange={() => go("/post")} />
+          {jt.custom_price && <ReviewRow k="Your price" v={money(d.priceCents ?? jt.price_cents)} onChange={() => go("/book/price")} />}
           <div className="review-row">
             <span className="t">
               <span className="k">What you want done</span>
@@ -195,7 +216,7 @@ export function Book() {
           <ReviewRow k="Where" v={`${d.address}, ${suburb?.name ?? ""}`} onChange={() => go("/book/where")} />
           <ReviewRow k="When" v={d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} onChange={() => go("/book/when")} last />
           <div className="stack" style={{ padding: "18px 16px 20px", gap: 6 }}>
-            <span className="small w5 em">Fixed price, up to {hours(jt.max_hours)}</span>
+            <span className="small w5 em">{jt.custom_price ? "Your price, fixed" : `Fixed price, up to ${hours(jt.max_hours)}`}</span>
             <span className="price">{money2(total)}</span>
             {!pilot && <span className="small light muted">Job {money2(jt.price_cents)} · Booking fee {money2(total - jt.price_cents)}</span>}
             <span className="t15 light muted" style={{ marginTop: 8, lineHeight: 1.45 }}>
@@ -324,6 +345,69 @@ function ReviewRow({ k, v, onChange, last }: { k: string; v: string; onChange: (
     <div className="review-row" style={last ? { borderBottom: "1px solid var(--line)" } : undefined}>
       <span className="t"><span className="k">{k}</span><span className="v">{v}</span></span>
       <button className="link" onClick={onChange}>Change</button>
+    </div>
+  );
+}
+
+// ---------- Set your price (job types where the customer names the price) ----------
+const QUICK = [3000, 5000, 8000, 12000, 20000];
+
+function PriceStep({ jt, catName, catIcon, value, onChange }: { jt: JobType; catName: string; catIcon?: string; value: number; onChange: (v: number) => void }) {
+  const [text, setText] = useState(String(Math.round(value / 100)));
+  const [err, setErr] = useState("");
+  const lo = jt.min_price_cents, hi = jt.max_price_cents;
+  const sliderMax = Math.min(hi, 30000);
+  const dollars = Number(text) || 0;
+  const set = (cents: number) => { setErr(""); setText(String(Math.round(cents / 100))); onChange(cents); };
+  const pct = Math.max(0, Math.min(100, ((Math.min(dollars * 100, sliderMax) - lo) / (sliderMax - lo)) * 100));
+  const next = () => {
+    const c = Math.round(dollars) * 100;
+    if (c < lo) return setErr(`The lowest price is ${money(lo)}.`);
+    if (c > hi) return setErr(`The highest price is ${money(hi)}.`);
+    onChange(c); go("/book/details");
+  };
+  return (
+    <div className="app" style={{ background: "var(--card)" }}>
+      <section className="step-hero">
+        <div className="top">
+          <button className="back" onClick={() => history.back()} aria-label="Back">{Icon.back("#fff")}</button>
+          <span className="row t15 light" style={{ gap: 8, color: "rgba(255,255,255,0.88)" }}><CatIcon name={catIcon} size={18} />{catName}</span>
+        </div>
+        <h1 style={{ marginTop: 18 }}>Set your price</h1>
+        <p>How much are you paying for the work to be completed?</p>
+      </section>
+      <div className="price-body">
+        <label htmlFor="amt" className="t15 muted">You pay</label>
+        <div className="price-box">
+          <span className="cur">$</span>
+          <input id="amt" type="text" inputMode="numeric" pattern="[0-9]*" value={text} aria-label="Price in dollars"
+            onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 4); setText(v); setErr(""); if (v) onChange(Number(v) * 100); }} />
+          <span className="hint">tap to type</span>
+        </div>
+        <span className="t14 light muted">A fixed price. You pay your worker when the job's done.</span>
+        <div className="price-slider">
+          <input className="mm-range" type="range" min={lo / 100} max={sliderMax / 100} step={5} value={Math.min(Math.max(dollars, lo / 100), sliderMax / 100)} aria-label="Price"
+            onChange={(e) => set(Number(e.target.value) * 100)}
+            style={{ background: `linear-gradient(90deg, var(--emerald) ${pct}%, var(--stone-2) ${pct}%) center / 100% 10px no-repeat` }} />
+          <div className="row between t13 light muted"><span>{money(lo)}</span><span>{money(sliderMax)}{sliderMax < hi ? "+" : ""}</span></div>
+        </div>
+        <span className="t17 w5" style={{ marginTop: 14 }}>Quick pick</span>
+        <div className="quick-grid">
+          {QUICK.filter((q) => q >= lo && q <= hi).map((q) => (
+            <button key={q} className={dollars * 100 === q ? "on" : ""} onClick={() => set(q)}>{money(q)}</button>
+          ))}
+        </div>
+        <div className="cp-note" style={{ padding: "22px 0 0" }}>
+          {Icon.clockLine("var(--muted)")}
+          <span>General help in Cairns is usually about $45 an hour. A fair price gets taken faster.</span>
+        </div>
+        {err && <p className="err" style={{ margin: "12px 0 0" }}>{err}</p>}
+      </div>
+      <div style={{ flex: 1 }} />
+      <div className="bottombar">
+        <span className="t15 light muted">Next, show us the job</span>
+        <button className="btn primary" onClick={next}>Next {Icon.arrow("#fff")}</button>
+      </div>
     </div>
   );
 }

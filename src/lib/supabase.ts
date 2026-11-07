@@ -48,6 +48,7 @@ export interface JobType {
   id: number; name: string; description: string; price_cents: number; max_hours: number;
   needs_insurance: boolean; needs_vehicle: boolean; active: boolean; sort: number;
   category_id: number | null; photo_path: string | null; included: string[]; excluded: string[];
+  custom_price: boolean; min_price_cents: number; max_price_cents: number;
 }
 export interface Category { id: number; name: string; icon: string; photo_path: string | null; sort: number; active: boolean }
 export interface Suburb { id: number; name: string }
