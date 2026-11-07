@@ -2,8 +2,7 @@ import type { ReactNode } from "react";
 import { go } from "../lib/router";
 import { StepHero } from "./kit";
 
-export const SUPPORT_EMAIL = "admin@findfitpeople.com";
-const OPERATOR = "Find Fit People Pty";
+export const SUPPORT_EMAIL = "hello@moremahi.com";
 const UPDATED = "7 November 2026";
 
 function Page({ title, children }: { title: string; children: ReactNode }) {
@@ -18,7 +17,7 @@ function Page({ title, children }: { title: string; children: ReactNode }) {
 export function Privacy() {
   return (
     <Page title="Privacy">
-      <p>More Mahi is run by {OPERATOR} ("we"). This policy explains what we collect, why, and what you can do about it. We follow the Australian Privacy Principles.</p>
+      <p>This policy explains how More Mahi ("we") handles your information: what we collect, why, and what you can do about it. We follow the Australian Privacy Principles.</p>
       <h2>What we collect</h2>
       <ul>
         <li>Account details: your name, email address and profile photo.</li>
@@ -52,7 +51,7 @@ export function Privacy() {
 export function Terms() {
   return (
     <Page title="Terms of use">
-      <p>These terms apply when you use More Mahi, run by {OPERATOR}. By creating an account you agree to them.</p>
+      <p>These terms apply when you use More Mahi ("we"). By creating an account you agree to them.</p>
       <h2>What More Mahi is</h2>
       <p>More Mahi is a marketplace. We connect people who need a job done with independent local workers. We are not the worker's employer and we do not do the work ourselves. Each worker runs their own business under their own ABN and is responsible for their own tax, insurance and the quality of their work.</p>
       <h2>Bookings and prices</h2>

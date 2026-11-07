@@ -76,7 +76,7 @@ export function Work() {
   if (current) return <div className="app"><WorkerJob job={current} onChanged={refresh} /></div>;
   if (status.suspended) return (
     <div className="app"><section className="hero"><span className="brand"><Logo /> More Mahi</span><h1 className="mid">Account paused</h1>
-      <p className="lede">Your worker account is paused. Email support@moremahi.com and we'll sort it out.</p></section></div>
+      <p className="lede">Your worker account is paused. Email hello@moremahi.com and we'll sort it out.</p></section></div>
   );
   if (!status.approved) return <div className="app"><Signup steps={status.steps} pilot={status.pilot} idStatus={status.id_status} idNote={status.id_note} onChanged={refresh} /></div>;
   return <div className="app"><Home pilot={status.pilot} onTaken={refresh} /></div>;
