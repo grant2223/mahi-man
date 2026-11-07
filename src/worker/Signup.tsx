@@ -1,31 +1,38 @@
 import { useEffect, useState } from "react";
-import { api, sb, type JobType, type Suburb } from "../lib/supabase";
+import { api, sb, type IdStatus, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { money, shrinkImage, validAbn } from "../lib/format";
-import { Icon, Screen, SearchPicker, Tile, useToast } from "../ui/kit";
+import { Icon, Logo, Screen, SearchPicker, Tile, useToast } from "../ui/kit";
+import { VerifyFlow } from "../ui/Verify";
 
 export interface Steps { photo: boolean; id_and_bank: boolean; abn: boolean; area: boolean; jobs: boolean }
 type StepKey = keyof Steps | "insurance";
 
 const STEP_INFO: { key: keyof Steps; title: string; hint: string }[] = [
   { key: "photo", title: "Your photo", hint: "Customers see it before you arrive" },
-  { key: "id_and_bank", title: "ID check and bank", hint: "Passport or licence, then any Australian account" },
+  { key: "id_and_bank", title: "Verify your ID", hint: "Passport or national ID, plus a selfie" },
   { key: "abn", title: "Your ABN", hint: "Free to get, takes 10 minutes online" },
   { key: "area", title: "Where you work", hint: "Your suburb and how far you'll travel" },
   { key: "jobs", title: "Jobs you'll do", hint: "Cleaning, tip runs, flat-pack and more" },
 ];
 
-export function Signup({ steps, pilot, onChanged }: { steps: Steps; pilot: boolean; onChanged: () => void }) {
+export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: Steps; pilot: boolean; idStatus: IdStatus; idNote: string | null; onChanged: () => void }) {
   const [open, setOpen] = useState<StepKey | null>(null);
-  const info = STEP_INFO.map((s) => (pilot && s.key === "id_and_bank" ? { ...s, title: "Approval", hint: "We check your photo and ABN, usually within a day" } : s));
+  const idHint = idStatus === "pending" ? "Being checked, usually within a few hours"
+    : idStatus === "retake" ? `Retake needed: ${idNote ?? "photo wasn't clear"}`
+    : idStatus === "rejected" ? `Not approved: ${idNote ?? "try a different ID"}`
+    : idStatus === "verified" && !pilot && !steps.id_and_bank ? "ID verified. Now add your bank for payouts"
+    : "Passport or national ID, plus a selfie";
+  const info = STEP_INFO.map((s) => (s.key === "id_and_bank" ? { ...s, hint: idHint } : s));
   const done = info.filter((s) => steps[s.key]).length;
-  const next = info.find((s) => !steps[s.key] && !(pilot && s.key === "id_and_bank"))?.key ?? info.find((s) => !steps[s.key])?.key;
+  const waiting = (k: keyof Steps) => k === "id_and_bank" && idStatus === "pending";
+  const next = info.find((s) => !steps[s.key] && !waiting(s.key))?.key;
 
   return (
     <>
       <section className="hero">
         <div className="hero-top">
-          <span className="wordmark">oddjobs.</span>
+          <span className="brand"><Logo /> More Mahi</span>
           <span className="t15 light" style={{ color: "rgba(255,255,255,0.85)" }}>Worker</span>
         </div>
         <h1 className="mid">Get ready<br />to earn</h1>
@@ -43,7 +50,7 @@ export function Signup({ steps, pilot, onChanged }: { steps: Steps; pilot: boole
           <button key={s.key} className={s.key === next ? "li current" : "li"} onClick={() => setOpen(s.key)}>
             {steps[s.key] ? <span style={{ width: 24, display: "flex", justifyContent: "center" }}>{Icon.tick("var(--emerald)", 24)}</span> : <span className="n">{i + 1}</span>}
             <span className="t"><b>{s.title}</b><span>{s.hint}</span></span>
-            {pilot && s.key === "id_and_bank" && !steps[s.key] ? <span className="small muted">Waiting</span> : s.key === next ? <span className="btn primary small">Add</span> : steps[s.key] ? <span className="small muted">Edit</span> : null}
+            {waiting(s.key) ? <span className="small muted">Checking</span> : s.key === next ? <span className="btn primary small">{s.key === "id_and_bank" && (idStatus === "retake" || idStatus === "rejected") ? "Retry" : "Add"}</span> : steps[s.key] ? <span className="small muted">Edit</span> : null}
           </button>
         ))}
       </div>
@@ -60,7 +67,9 @@ export function Signup({ steps, pilot, onChanged }: { steps: Steps; pilot: boole
       <div className="footer"><button className="link quiet" onClick={() => sb.auth.signOut()}>Sign out</button></div>
 
       {open === "photo" && <PhotoStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
-      {open === "id_and_bank" && (pilot ? <ApprovalStep done={steps.id_and_bank} onBack={() => setOpen(null)} /> : <PayoutStep done={steps.id_and_bank} onBack={() => setOpen(null)} />)}
+      {open === "id_and_bank" && (idStatus === "verified"
+        ? (pilot ? <ApprovalStep onBack={() => setOpen(null)} /> : <PayoutStep done={steps.id_and_bank} onBack={() => setOpen(null)} />)
+        : <VerifyFlow onClose={() => { setOpen(null); onChanged(); }} onSubmitted={onChanged} />)}
       {open === "abn" && <AbnStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
       {open === "area" && <AreaStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
       {open === "jobs" && <JobsStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
@@ -116,11 +125,11 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
   );
 }
 
-function ApprovalStep({ done, onBack }: { done: boolean; onBack: () => void }) {
+function ApprovalStep({ onBack }: { onBack: () => void }) {
   return (
-    <Screen title="Approval" onBack={onBack}>
+    <Screen title="ID verified" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
-        <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>{done ? "You're approved." : "Finish your photo, ABN, area and jobs. We then check your details and approve you, usually within a day."}</p>
+        <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>Your ID is verified. Customers see the ID verified badge on your profile.</p>
         <p className="t15 light muted" style={{ lineHeight: 1.45 }}>During the Cairns pilot, customers pay you directly when each job is done, by PayID or cash. Keep 100% of the job price.</p>
       </div>
     </Screen>

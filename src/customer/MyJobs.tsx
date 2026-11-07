@@ -3,7 +3,7 @@ import { sb, type Job } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money2, whenLabel } from "../lib/format";
-import { Icon } from "../ui/kit";
+import { Icon, Logo } from "../ui/kit";
 
 const STATUS: Record<string, string> = {
   awaiting_payment: "Not booked", searching: "Finding someone", accepted: "On the way", in_progress: "Working",
@@ -23,8 +23,8 @@ export function MyJobs() {
     <div className="app">
       <section className="hero short">
         <div className="hero-top">
-          <button className="wordmark" onClick={() => go("/")}>oddjobs.</button>
-          <button className="hero-link" onClick={() => sb.auth.signOut().then(() => go("/"))}>Sign out</button>
+          <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
+          <button className="hero-link" onClick={() => go("/settings")}>Settings</button>
         </div>
         <h1 className="mid">My jobs</h1>
         <p className="lede">{profile?.full_name}</p>
@@ -43,7 +43,7 @@ export function MyJobs() {
         ))}
       </div>
       <div className="footer between">
-        <button className="link" onClick={() => go("/work")}>Earn with oddjobs</button>
+        <button className="link" onClick={() => go("/work")}>Earn with More Mahi</button>
         <button className="btn primary" onClick={() => go("/")}>Book a job</button>
       </div>
     </div>

@@ -3,7 +3,8 @@ import { api, isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } fr
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { elapsed, firstName, money2 } from "../lib/format";
-import { Icon, Perf, Screen, Stars, Tile, useNow, useToast } from "../ui/kit";
+import { Icon, Logo, Perf, Screen, Stars, Tile, useNow, useToast } from "../ui/kit";
+import { ReportScreen as ReportUser } from "../ui/Report";
 import { ChatScreen } from "../ui/Chat";
 import { PayScreen } from "./Pay";
 
@@ -11,7 +12,7 @@ interface Extra { id: string; amount_cents: number; reason: string; status: stri
 const STEPS = ["Booked", "Matched", "On the way", "Working", "Done"];
 
 export function Track({ id }: { id: string }) {
-  const { session } = useSession();
+  const { session, profile } = useSession();
   const toast = useToast();
   const now = useNow(1000);
   const [job, setJob] = useState<Job | null>(null);
@@ -21,7 +22,7 @@ export function Track({ id }: { id: string }) {
   const [code, setCode] = useState("");
   const [photos, setPhotos] = useState<{ kind: string; url: string }[]>([]);
   const [extras, setExtras] = useState<Extra[]>([]);
-  const [screen, setScreen] = useState<null | "chat" | "report" | "cancel" | "pay" | { extra: Extra }>(null);
+  const [screen, setScreen] = useState<null | "chat" | "report" | "cancel" | "pay" | "reportUser" | { extra: Extra }>(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -58,7 +59,7 @@ export function Track({ id }: { id: string }) {
     return () => { sb.removeChannel(ch); };
   }, [id, load]);
 
-  if (!job || !jt || !session) return <div className="app"><section className="hero short"><button className="wordmark" onClick={() => go("/")}>oddjobs.</button></section></div>;
+  if (!job || !jt || !session) return <div className="app"><section className="hero short"><button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button></section></div>;
 
   const eta = job.eta_at;
   const direct = isDirectPay(job);
@@ -69,7 +70,7 @@ export function Track({ id }: { id: string }) {
 
   async function confirm() {
     setBusy(true);
-    try { await api("confirm_job", { job_id: id }); toast(direct ? "Done. Thanks for using oddjobs." : "Paid. Thanks for using oddjobs."); await load(); }
+    try { await api("confirm_job", { job_id: id }); toast(direct ? "Done. Thanks for using More Mahi." : "Paid. Thanks for using More Mahi."); await load(); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
@@ -95,7 +96,7 @@ export function Track({ id }: { id: string }) {
     <div className="app">
       <section className="hero short">
         <div className="hero-top">
-          <button className="wordmark" onClick={() => go("/")}>oddjobs.</button>
+          <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
           <span className="small light" style={{ color: "rgba(255,255,255,0.85)" }}>{jt.name}</span>
         </div>
         <span className="label">{label}</span>
@@ -123,7 +124,7 @@ export function Track({ id }: { id: string }) {
               <Tile name={worker.full_name} photo={worker.photo_path} />
               <span className="stack" style={{ gap: 3, flex: 1 }}>
                 <span style={{ fontSize: 19, fontWeight: 500 }}>{worker.full_name}</span>
-                {worker.id_verified && <span className="row em t15" style={{ gap: 6 }}>{Icon.tick("var(--emerald)", 15)}ID verified</span>}
+                {worker.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not verified</span>}
                 <span className="small light muted">{worker.rating ? `${worker.rating} rating · ` : "New worker · "}{worker.jobs_done} jobs done</span>
               </span>
             </div>
@@ -219,11 +220,25 @@ export function Track({ id }: { id: string }) {
         </section>
       )}
 
+      {profile && profile.id_status !== "verified" && !["cancelled", "refunded"].includes(job.status) && (
+        <button className="poster" style={{ margin: "22px 0 0", borderTop: "1px solid var(--line)" }} onClick={() => go("/verify")}>
+          {Icon.shieldTick("var(--emerald)", 34, 1.8)}
+          <span className="t">
+            <span className="t17 w5">{profile.id_status === "pending" ? "Your ID is being checked" : profile.id_status === "retake" ? "Retake your ID photo" : "Verify your ID"}</span>
+            <span className="small light muted">{profile.id_status === "pending" ? "Usually within a few hours." : "Workers take jobs faster from verified customers. About 2 minutes."}</span>
+          </span>
+          {Icon.chevron("var(--faint)")}
+        </button>
+      )}
+
       <div className="footer between">
         {["awaiting_payment", "searching", "accepted"].includes(job.status)
           ? <button className="link quiet" onClick={() => setScreen("cancel")}>Cancel booking</button>
           : <button className="link quiet" onClick={() => go("/jobs")}>My jobs</button>}
-        <a className="link" href="mailto:hello@findfitpeople.com?subject=Help%20with%20an%20oddjobs%20booking">Get help</a>
+        <span className="row" style={{ gap: 18 }}>
+          {job.worker_id && <button className="link quiet" onClick={() => setScreen("reportUser")}>Report {wName}</button>}
+          <button className="link" onClick={() => go("/support")}>Get help</button>
+        </span>
       </div>
 
       {screen === "chat" && <ChatScreen jobId={id} me={session.user.id} otherName={wName} onBack={() => setScreen(null)} />}
@@ -233,6 +248,7 @@ export function Track({ id }: { id: string }) {
           onPaid={() => { setScreen(null); toast("Approved"); load(); }} />
       )}
       {screen === "report" && <ReportScreen jobId={id} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+      {screen === "reportUser" && job.worker_id && <ReportUser name={wName} userId={job.worker_id} jobId={id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
       {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
     </div>
   );

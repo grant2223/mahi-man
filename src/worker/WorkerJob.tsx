@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
-import { isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
+import { isDirectPay, mediaUrls, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { elapsed, firstName, money, shrinkImage } from "../lib/format";
 import { Icon, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
 import { ChatScreen } from "../ui/Chat";
+import { ReportScreen } from "../ui/Report";
 
 interface Extra { id: string; amount_cents: number; reason: string; status: string }
 
 export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void }) {
   const { session } = useSession();
   const toast = useToast();
+  const [brief, setBrief] = useState<{ kind: string; url: string }[]>([]);
   const now = useNow(15000);
   const [j, setJ] = useState(job);
   const [jt, setJt] = useState<JobType | null>(null);
@@ -17,7 +19,7 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
   const [cust, setCust] = useState<PersonCard | null>(null);
   const [photos, setPhotos] = useState<{ before: number; after: number }>({ before: 0, after: 0 });
   const [extras, setExtras] = useState<Extra[]>([]);
-  const [screen, setScreen] = useState<null | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after">(null);
+  const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after">(null);
   const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
@@ -34,6 +36,11 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
     sb.from("job_types").select("*").eq("id", job.job_type_id).single().then(({ data }) => setJt(data as JobType));
     sb.from("suburbs").select("name").eq("id", job.suburb_id).single().then(({ data }) => setSuburb(data?.name ?? ""));
     rpc<PersonCard[]>("person_card", { p_person: job.customer_id }).then((c) => setCust(c[0] ?? null));
+    sb.from("job_media").select("path,kind,sort").eq("job_id", job.id).order("sort").then(async ({ data }) => {
+      const rows = (data ?? []) as { path: string; kind: string }[];
+      const urls = await mediaUrls(rows.map((r) => r.path));
+      setBrief(rows.filter((r) => urls[r.path]).map((r) => ({ kind: r.kind, url: urls[r.path] })));
+    });
     load();
     const ch = sb.channel(`wjob-${job.id}`)
       .on("postgres_changes", { event: "*", schema: "public", table: "jobs", filter: `id=eq.${job.id}` }, () => load())
@@ -88,7 +95,11 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
           <button className="btn stone" style={{ background: "var(--ground)", fontSize: 15, height: 46 }} onClick={() => setScreen("chat")}>{Icon.msg()} Message</button>
           <a className="btn stone" style={{ background: "var(--ground)", fontSize: 15, height: 46 }} href={maps} target="_blank" rel="noreferrer">{Icon.pin()} Directions</a>
         </div>
-        {j.notes && <div className="t15 light" style={{ padding: "0 16px 16px", lineHeight: 1.45 }}>"{j.notes}"</div>}
+        {j.details && <div className="stack" style={{ padding: "0 16px 14px", gap: 4 }}><span className="t15 w5">What they want done</span><span className="t15 light" style={{ lineHeight: 1.45 }}>{j.details}</span></div>}
+        {brief.length > 0 && <div className="photos" style={{ padding: "0 16px 14px" }}>{brief.map((b) => b.kind === "video"
+          ? <video key={b.url} src={b.url} controls playsInline style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 4 }} />
+          : <a key={b.url} href={b.url} target="_blank" rel="noreferrer"><img src={b.url} alt="Customer photo" /></a>)}</div>}
+        {j.notes && <div className="stack" style={{ padding: "0 16px 16px", gap: 4 }}><span className="t15 w5">Getting in</span><span className="t15 light" style={{ lineHeight: 1.45 }}>{j.notes}</span></div>}
         <Perf />
         <CheckRow done={j.status !== "accepted"} n={1} title="Start with customer's code" />
         <CheckRow done={photos.before > 0} n={2} title="Before photos" note={photos.before ? `${photos.before} added` : "take them before you start"} />
@@ -107,6 +118,10 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
         </div>
       )}
 
+      <div className="row" style={{ margin: "14px 20px 0", justifyContent: "flex-end" }}>
+        <button className="link quiet" onClick={() => setScreen("reportUser")}>Report {cName}</button>
+      </div>
+
       <div className="footer">
         {j.status === "accepted" && <button className="btn primary" onClick={() => setScreen("code")}>Enter start code {Icon.arrow("var(--lime)")}</button>}
         {j.status === "in_progress" && photos.before === 0 && <button className="btn primary" onClick={() => setScreen("before")}>{Icon.camera("var(--lime)")} Add before photos</button>}
@@ -121,6 +136,7 @@ export function WorkerJob({ job, onChanged }: { job: Job; onChanged: () => void 
       </div>
 
       {screen === "chat" && <ChatScreen jobId={j.id} me={session.user.id} otherName={cName} onBack={() => setScreen(null)} />}
+      {screen === "reportUser" && <ReportScreen name={cName} userId={j.customer_id} jobId={j.id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
       {screen === "code" && <CodeScreen jobId={j.id} name={cName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {(screen === "before" || screen === "after") && <PhotoScreen jobId={j.id} kind={screen} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "extra" && <ExtraScreen jobId={j.id} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}

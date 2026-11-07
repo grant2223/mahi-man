@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
             currency: "aud",
             capture_method: "manual",
             automatic_payment_methods: { enabled: true },
-            description: "Odd Jobs booking",
+            description: "More Mahi booking",
             metadata: { job_id: job.id, kind: "job" },
           });
           await admin.from("jobs").update({ payment_intent_id: pi.id }).eq("id", job.id);
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
             currency: "aud",
             capture_method: "manual",
             automatic_payment_methods: { enabled: true },
-            description: "Odd Jobs extra",
+            description: "More Mahi extra",
             metadata: { job_id: er.job_id, request_id: er.id, kind: "extra" },
           });
           await admin.from("extra_requests").update({ payment_intent_id: pi.id }).eq("id", er.id);
@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
             email: user.email,
             business_type: "individual",
             capabilities: { transfers: { requested: true } },
-            business_profile: { mcc: "7349", product_description: "Odd jobs booked through Odd Jobs Cairns" },
+            business_profile: { mcc: "7349", product_description: "Odd jobs booked through More Mahi" },
             metadata: { user_id: user.id },
           });
           acct = a.id;
@@ -211,6 +211,65 @@ Deno.serve(async (req) => {
         await admin.from("workers").update({ admin_approved: !!body.approved }).eq("id", body.worker_id);
         return ok(await refreshWorker(body.worker_id));
       }
+      case "admin_id_decide": {
+        if (!me?.is_admin) return fail("Admins only", 403);
+        const { data: chk } = await admin.from("id_checks").select("*").eq("id", body.check_id).single();
+        if (!chk) return fail("Check not found");
+        if (chk.status !== "pending") return fail("This check has already been decided");
+        const decision = String(body.decision);
+        if (!["approve", "retake", "reject"].includes(decision)) return fail("Pick approve, retake or reject");
+        const reason = String(body.reason ?? "").trim();
+        if (decision !== "approve" && !reason) return fail("Pick a reason so they know what to fix");
+        const status = decision === "approve" ? "approved" : decision === "retake" ? "retake" : "rejected";
+        // ID photos are deleted the moment a decision is made: only the result is kept.
+        const paths = [chk.doc_path, chk.selfie_path].filter(Boolean) as string[];
+        if (paths.length) await admin.storage.from("ids").remove(paths);
+        await admin.from("id_checks").update({ status, reason: reason || null, decided_at: new Date().toISOString(), doc_path: null, selfie_path: null }).eq("id", chk.id);
+        await admin.from("profiles").update({ id_status: decision === "approve" ? "verified" : status, id_note: reason || null }).eq("id", chk.user_id);
+        const { data: w } = await admin.from("workers").select("id").eq("id", chk.user_id).maybeSingle();
+        if (w) {
+          await admin.from("workers").update({ admin_approved: decision === "approve" }).eq("id", chk.user_id);
+          await refreshWorker(chk.user_id);
+        }
+        return ok({});
+      }
+      case "delete_account": {
+        if (body.confirm !== "DELETE") return fail("Type DELETE to confirm");
+        const uid = user.id;
+        for (const bucket of ["avatars", "ids", "job-media", "insurance"]) {
+          const { data: files } = await admin.storage.from(bucket).list(uid, { limit: 1000 });
+          const paths = (files ?? []).map((f) => `${uid}/${f.name}`);
+          if (paths.length) await admin.storage.from(bucket).remove(paths);
+        }
+        const { error: purgeErr } = await admin.rpc("purge_user", { p_user: uid });
+        if (purgeErr) return fail(purgeErr.message, 500);
+        const { error: delErr } = await admin.auth.admin.deleteUser(uid);
+        if (delErr) return fail(delErr.message, 500);
+        return ok({ deleted: true });
+      }
+      case "tidy_text": {
+        const raw = String(body.text ?? "").trim().slice(0, 4000);
+        if (!raw) return fail("Nothing was heard. Try again.");
+        const key = Deno.env.get("ANTHROPIC_API_KEY");
+        if (!key) return ok({ text: basicTidy(raw), ai: false });
+        try {
+          const r = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-haiku-5-5",
+              max_tokens: 400,
+              system: "You turn a customer's spoken description of an odd job into a clear, specific job description a worker can follow. Keep every detail they gave, add nothing they did not say, use plain Australian English, 2 to 5 short sentences, no greeting, no bullet points.",
+              messages: [{ role: "user", content: `Job type: ${String(body.job_name ?? "")}\nWhat they said: ${raw}` }],
+            }),
+          });
+          const j = await r.json();
+          const text = j?.content?.[0]?.text?.trim();
+          return ok({ text: text || basicTidy(raw), ai: !!text });
+        } catch {
+          return ok({ text: basicTidy(raw), ai: false });
+        }
+      }
       default:
         return fail("Unknown action");
     }
@@ -219,6 +278,12 @@ Deno.serve(async (req) => {
     return fail(msg, 500);
   }
 });
+
+function basicTidy(t: string): string {
+  const parts = t.replace(/\s+/g, " ").split(/(?<=[.!?])\s+/);
+  const out = parts.map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+  return /[.!?]$/.test(out) ? out : out + ".";
+}
 
 async function refreshWorker(id: string) {
   const { data: w } = await admin.from("workers").select("*").eq("id", id).single();
@@ -230,9 +295,10 @@ async function refreshWorker(id: string) {
     payoutsReady = !!(a.details_submitted && a.payouts_enabled);
   }
   const pilot = (await setting("pilot_mode")) === "true";
+  const idVerified = p?.id_status === "verified";
   const steps = {
     photo: !!p?.photo_path && !!p?.full_name,
-    id_and_bank: pilot ? !!w?.admin_approved : payoutsReady,
+    id_and_bank: pilot ? idVerified : payoutsReady && idVerified,
     abn: !!w?.abn,
     area: !!w?.base_suburb_id,
     jobs: (count ?? 0) > 0,
@@ -240,9 +306,9 @@ async function refreshWorker(id: string) {
   const approved = Object.values(steps).every(Boolean) && !w?.suspended;
   await admin.from("workers").update({
     payouts_ready: payoutsReady,
-    id_verified: payoutsReady || !!w?.admin_approved,
+    id_verified: idVerified,
     approved,
     online: approved ? w?.online : false,
   }).eq("id", id);
-  return { steps, approved, suspended: w?.suspended ?? false, pilot };
+  return { steps, approved, suspended: w?.suspended ?? false, pilot, id_status: p?.id_status ?? "none", id_note: p?.id_note ?? null };
 }

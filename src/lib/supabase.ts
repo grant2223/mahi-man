@@ -19,6 +19,7 @@ export interface Job {
   suburb_id: number;
   address: string;
   notes: string;
+  details: string;
   start_at: string;
   asap: boolean;
   price_cents: number;
@@ -38,10 +39,16 @@ export interface Job {
 export interface JobType {
   id: number; name: string; description: string; price_cents: number; max_hours: number;
   needs_insurance: boolean; needs_vehicle: boolean; active: boolean; sort: number;
+  category_id: number | null; photo_path: string | null; included: string[]; excluded: string[];
 }
+export interface Category { id: number; name: string; photo_path: string | null; sort: number; active: boolean }
 export interface Suburb { id: number; name: string }
-export interface Profile { id: string; full_name: string; phone: string | null; photo_path: string | null; is_worker: boolean; is_admin: boolean }
-export interface PersonCard { full_name: string; photo_path: string | null; rating: number | null; jobs_done: number; id_verified: boolean }
+export type IdStatus = "none" | "pending" | "verified" | "retake" | "rejected";
+export interface Profile {
+  id: string; full_name: string; phone: string | null; photo_path: string | null; is_worker: boolean; is_admin: boolean;
+  id_status: IdStatus; id_note: string | null; suspended: boolean; created_at: string;
+}
+export interface PersonCard { full_name: string; photo_path: string | null; rating: number | null; jobs_done: number; id_verified: boolean; member_since: string }
 
 // Calls the server functions (payments, payouts, worker checks).
 export async function api<T = Record<string, unknown>>(action: string, body: Record<string, unknown> = {}): Promise<T> {
@@ -70,4 +77,19 @@ export const isDirectPay = (j: { fee_cents: number; payment_intent_id: string | 
 export function avatarUrl(path: string | null | undefined): string | null {
   if (!path) return null;
   return sb.storage.from("avatars").getPublicUrl(path).data.publicUrl;
+}
+
+export function brandUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return sb.storage.from("brand").getPublicUrl(path).data.publicUrl;
+}
+
+// Private job photos and videos: short-lived signed links.
+export async function mediaUrls(paths: string[]): Promise<Record<string, string>> {
+  const clean = paths.filter(Boolean);
+  if (!clean.length) return {};
+  const { data } = await sb.storage.from("job-media").createSignedUrls(clean, 3600);
+  const out: Record<string, string> = {};
+  for (const d of data ?? []) if (d.path && d.signedUrl) out[d.path] = d.signedUrl;
+  return out;
 }
