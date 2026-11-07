@@ -245,7 +245,7 @@ function Home({ types, cats, popular, priceOf, onPick, signedIn }: {
         </div>
         <img className="mascot" src="/mascot.png" alt="" />
         <h1 style={{ position: "relative", fontSize: 52, margin: "26px 0 12px" }}>Need a<br />hand?</h1>
-        <p className="lede" style={{ position: "relative", maxWidth: 190, marginBottom: 22 }}>Fixed price. A local on the way in minutes.</p>
+        <p className="lede" style={{ position: "relative", maxWidth: 165, marginBottom: 22 }}>Fixed price. A local on the way in minutes.</p>
         <label className="search-hero">
           {Icon.search("var(--muted)")}
           <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search all jobs: mow, clean, tip run" />
