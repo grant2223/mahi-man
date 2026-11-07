@@ -1,0 +1,14 @@
+import type { CapacitorConfig } from "@capacitor/cli";
+
+const config: CapacitorConfig = {
+  appId: "com.moremahi.app",
+  appName: "More Mahi",
+  webDir: "dist",
+  backgroundColor: "#0B6B4F",
+  ios: {
+    contentInset: "never",
+    limitsNavigationsToAppBoundDomains: false,
+  },
+};
+
+export default config;

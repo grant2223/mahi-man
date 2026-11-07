@@ -7,14 +7,17 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "ios": "npm run build && npx cap sync ios"
   },
   "dependencies": {
     "@stripe/react-stripe-js": "^7.0.1",
     "@stripe/stripe-js": "^10.2.1",
     "@supabase/supabase-js": "^2.119.0",
     "react": "^19.3.1",
-    "react-dom": "^19.3.1"
+    "react-dom": "^19.3.1",
+    "@capacitor/core": "^8.6.0",
+    "@capacitor/ios": "^8.6.0"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
@@ -23,6 +26,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "oxlint": "^1.90.0",
     "typescript": "~7.0.2",
-    "vite": "^8.3.6"
+    "vite": "^8.3.6",
+    "@capacitor/cli": "^8.6.0"
   }
 }

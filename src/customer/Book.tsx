@@ -6,7 +6,7 @@ import { hours, money, money2, shrinkImage } from "../lib/format";
 import { draftMedia, type DraftItem } from "../lib/draftMedia";
 import { Icon, Logo, SearchPicker, StepHero, useToast } from "../ui/kit";
 import { AuthScreen } from "../ui/Auth";
-import { VoiceScreen } from "../ui/Voice";
+import { VoiceScreen, voiceSupported } from "../ui/Voice";
 import { PayScreen } from "./Pay";
 
 interface Draft { jobTypeId: number | null; suburbId: number | null; address: string; notes: string; details: string; asap: boolean; startAt: string }
@@ -326,7 +326,9 @@ function DetailsStep({ jt, d, setD, photos, video, addFiles, removeMedia, err, s
 }) {
   const photoIn = useRef<HTMLInputElement>(null);
   const videoIn = useRef<HTMLInputElement>(null);
+  const detailsBox = useRef<HTMLTextAreaElement>(null);
   const [voice, setVoice] = useState(false);
+  const [dictate, setDictate] = useState(false);
   const next = () => {
     if (!photos.length) return setErr("Add at least one photo so workers can see the job.");
     if (d.details.trim().length < 15) return setErr("Say exactly what you want done. A sentence or two is plenty.");
@@ -371,15 +373,21 @@ function DetailsStep({ jt, d, setD, photos, video, addFiles, removeMedia, err, s
 
         <div className="sec">
           <h2>Exactly what you want done</h2>
-          <button className="wide-btn green" onClick={() => setVoice(true)}>
+          <button className="wide-btn green" onClick={() => {
+            if (voiceSupported()) return setVoice(true);
+            // Where the browser has no speech service (the iPhone app), the keyboard's own microphone does the same job.
+            setDictate(true);
+            detailsBox.current?.focus();
+          }}>
             {Icon.mic("var(--lime)")}
             <span className="t"><b>Just say it</b><span>Talk it through. We write it up for you.</span></span>
           </button>
           <label className="field" style={{ cursor: "text" }}>
             <span className="k">Be specific. This is what the worker is held to.</span>
-            <textarea value={d.details} onChange={(e) => setD({ ...d, details: e.target.value })} style={{ minHeight: 110 }}
+            <textarea ref={detailsBox} value={d.details} onChange={(e) => setD({ ...d, details: e.target.value })} style={{ minHeight: 110 }}
               placeholder="For example: shower screen has build-up, needs a proper scrub. Benches and stovetop degreased. Products are under the sink." />
           </label>
+          {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and start talking. Your words appear in the box.</span>}
         </div>
 
         {(jt.included?.length > 0 || jt.excluded?.length > 0) && (
