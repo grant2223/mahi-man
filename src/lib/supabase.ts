@@ -35,6 +35,8 @@ export interface Job {
   finished_at: string | null;
   confirmed_at: string | null;
   customer_paid_at: string | null;
+  title: string | null;
+  invited: string[];
   worker_received_at: string | null;
 }
 

@@ -4,6 +4,7 @@ import { ToastProvider } from "./ui/kit";
 import { ResetPassword } from "./ui/Auth";
 import { Book } from "./customer/Book";
 import { Feed } from "./customer/Feed";
+import { MessagesPage } from "./ui/Messages";
 import { Track } from "./customer/Track";
 import { MyJobs } from "./customer/MyJobs";
 import { Work } from "./worker/Work";
@@ -38,6 +39,7 @@ function Routes() {
     if (ready && !session) { go("/", true); return null; }
     return <MyJobs />;
   }
+  if (path === "/messages" || path.startsWith("/messages/")) return <MessagesPage jobId={path.split("/")[2]} />;
   if (path === "/") return <Feed />;
   return <Book />;
 }

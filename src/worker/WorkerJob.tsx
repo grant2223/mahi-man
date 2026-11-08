@@ -66,15 +66,16 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
   }
 
   const approved = extras.filter((e) => e.status === "approved");
+  const jobName = j.title || jt.name;
   const leaveLink = <button className="link quiet" style={{ margin: "0 16px 16px", alignSelf: "flex-start" }} onClick={onLeave}>See new jobs</button>;
-  const problem = report && <JobProblem job={j} jobName={jt.name} otherName={cName} isWorker onBack={() => setReport(false)} onDone={() => { setReport(false); load(); }} />;
+  const problem = report && <JobProblem job={j} jobName={jobName} otherName={cName} isWorker onBack={() => setReport(false)} onDone={() => { setReport(false); load(); }} />;
 
   if (j.status === "disputed" || j.status === "refunded") {
-    return <><DisputeView job={j} jobName={jt.name} otherName={cName} isWorker onChanged={load} footer={leaveLink} />{problem}</>;
+    return <><DisputeView job={j} jobName={jobName} otherName={cName} isWorker onChanged={load} footer={leaveLink} />{problem}</>;
   }
 
   if (j.status === "confirmed") {
-    return <ReviewView jobId={j.id} jobName={jt.name} done={`${money(earn)} received`} person={cust} other={cName} isWorker
+    return <ReviewView jobId={j.id} jobName={jobName} done={`${money(earn)} received`} person={cust} other={cName} isWorker
       about={`Tell other workers about ${cName}`} onDone={onChanged} />;
   }
 
@@ -83,7 +84,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     const at = told ? new Date(j.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" }) : "";
     return (
       <>
-        <DoneHero jobName={jt.name} step={3} big={money(earn)} lime
+        <DoneHero jobName={jobName} step={3} big={money(earn)} lime
           label={told ? `${cName} says they've paid you` : "Get paid"}
           sub={told ? `Marked paid at ${at}` : `Collect it from ${cName} now, by PayID or cash`} />
         {told ? (
@@ -93,7 +94,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
           </div>
         ) : (
           <>
-            <PriceRows title={`What ${cName} pays you`} jobName={jt.name} priceCents={j.price_cents} extras={approved} totalLabel="Total" />
+            <PriceRows title={`What ${cName} pays you`} jobName={jobName} priceCents={j.price_cents} extras={approved} totalLabel="Total" />
             <div className="cp-payid">
               {Icon.card("var(--emerald)")}
               <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>
@@ -125,7 +126,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     <>
       <section className="hero" style={{ paddingBottom: 96 }}>
         <div className="hero-top">
-          <span className="t17 w5">{jt.name}</span>
+          <span className="t17 w5">{jobName}</span>
           <button className="btn danger small" style={{ height: 36 }} onClick={() => setScreen("emergency")}>Emergency</button>
         </div>
         <span className="label">{heroLabel}</span>

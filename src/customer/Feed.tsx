@@ -3,6 +3,7 @@ import { mediaUrls, rpc, sb, type Category } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money } from "../lib/format";
+import { MessagesLink } from "../ui/Messages";
 import { CatIcon, Icon, Logo, SearchPicker } from "../ui/kit";
 
 interface FeedJob {
@@ -47,7 +48,7 @@ export function Feed() {
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
           {session
-            ? <a className="hero-link" href="/jobs" onClick={(e) => { e.preventDefault(); go("/jobs"); }}>My jobs</a>
+            ? <span className="row" style={{ gap: 8 }}><MessagesLink /><a className="hero-link" href="/jobs" onClick={(e) => { e.preventDefault(); go("/jobs"); }}>My jobs</a></span>
             : <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>}
         </div>
         <div className="path-switch" role="tablist" aria-label="What are you here for?">

@@ -7,6 +7,7 @@ import { Icon, Logo, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen as ReportUser } from "../ui/Report";
 import { ChatScreen } from "../ui/Chat";
 import { PayScreen } from "./Pay";
+import { OffersView } from "./Offers";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
 
 interface Extra { id: string; amount_cents: number; reason: string; status: string }
@@ -74,6 +75,7 @@ export function Track({ id }: { id: string }) {
   if (!job || !jt || !session) return <div className="app"><section className="hero short"><button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button></section></div>;
 
   const eta = job.eta_at;
+  const jobName = job.title || jt.name;
   const direct = isDirectPay(job);
   const wName = worker ? firstName(worker.full_name) : "Your worker";
   const stepIdx = { awaiting_payment: 0, searching: 0, accepted: 2, in_progress: 3, finished: 4, confirmed: 4, disputed: 4, cancelled: 0, refunded: 4 }[job.status];
@@ -89,17 +91,27 @@ export function Track({ id }: { id: string }) {
   const approved = extras.filter((e) => e.status === "approved");
   const overlays = (
     <>
-      {screen === "report" && <ProblemScreen job={job} jobName={jt.name} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
-      {screen === "chat" && <ChatScreen jobId={id} me={session.user.id} otherName={wName} onBack={() => setScreen(null)} />}
+      {screen === "report" && <ProblemScreen job={job} jobName={jobName} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+      {screen === "chat" && <ChatScreen jobId={id} me={session.user.id} otherName={worker?.full_name ?? wName} otherPhoto={worker?.photo_path} sub={jobName} onBack={() => setScreen(null)} />}
     </>
   );
 
+  if (job.status === "searching") {
+    return (
+      <>
+        <OffersView jobId={id} title={jobName} price={money(job.price_cents)} asap={job.asap} startAt={job.start_at}
+          searchingAt={job.searching_at ?? job.created_at} onChosen={load} onCancel={() => setScreen("cancel")} />
+        {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+      </>
+    );
+  }
+
   if (job.status === "disputed" || job.status === "refunded") {
-    return <>{<DisputeView job={job} jobName={jt.name} otherName={wName} isWorker={false} onChanged={load} />}{overlays}</>;
+    return <>{<DisputeView job={job} jobName={jobName} otherName={wName} isWorker={false} onChanged={load} />}{overlays}</>;
   }
 
   if (job.status === "confirmed" && reviewed === false && !later && !reviewSkipped(id)) {
-    return <ReviewView jobId={id} jobName={jt.name} done={direct ? "Paid and done" : "Done"} person={worker} other={wName} isWorker={false}
+    return <ReviewView jobId={id} jobName={jobName} done={direct ? "Paid and done" : "Done"} person={worker} other={wName} isWorker={false}
       about={`Tell others about ${wName}`} onDone={() => { setLater(true); load(); }} />;
   }
 
@@ -110,7 +122,7 @@ export function Track({ id }: { id: string }) {
     const owed = job.price_cents + approved.reduce((a, e) => a + e.amount_cents, 0);
     return (
       <div className="app">
-        <DoneHero jobName={jt.name} step={3} big={money(owed)}
+        <DoneHero jobName={jobName} step={3} big={money(owed)}
           label={paid ? `Waiting for ${wName} to confirm` : `${wName} has finished`}
           sub={paid ? `You told ${wName} you paid at ${new Date(job.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" })}` : `Check the photos, pay ${wName}, then tell us`} />
         {(before.length > 0 || after.length > 0) && (
@@ -124,7 +136,7 @@ export function Track({ id }: { id: string }) {
             ))}
           </div>
         )}
-        <PriceRows jobName={jt.name} priceCents={job.price_cents} extras={approved} totalLabel={`Pay ${wName}`} />
+        <PriceRows jobName={jobName} priceCents={job.price_cents} extras={approved} totalLabel={`Pay ${wName}`} />
         <div className="cp-payid">
           {Icon.card("var(--emerald)")}
           <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>
@@ -156,7 +168,6 @@ export function Track({ id }: { id: string }) {
   let label = "", big = "", bigUnit = "", sub = "";
   switch (job.status) {
     case "awaiting_payment": label = "Not booked yet"; big = money2(total); sub = "Hold the payment to send it to workers"; break;
-    case "searching": label = "Finding someone nearby"; big = elapsed(job.searching_at ?? job.created_at, now); sub = direct ? "Usually a few minutes." : "Usually a few minutes. You're only charged once it's done."; break;
     case "accepted": {
       const mins = eta ? Math.max(0, Math.round((new Date(eta).getTime() - now) / 60000)) : 0;
       if (job.asap) { label = `${wName} is on the way`; big = String(mins); bigUnit = "min"; }
@@ -165,7 +176,7 @@ export function Track({ id }: { id: string }) {
     }
     case "in_progress": label = `${wName} is working`; big = elapsed(job.started_at!, now); sub = `Up to ${Number(jt.max_hours)} hrs`; break;
     case "finished": label = "Job done"; big = money2(total); sub = direct ? `Check the photos, pay ${wName} directly, then confirm` : "Check the photos, then confirm to pay"; break;
-    case "confirmed": label = direct ? "Done" : "Paid and done"; big = money2(total); sub = `Thanks for booking ${jt.name.toLowerCase()}`; break;
+    case "confirmed": label = direct ? "Done" : "Paid and done"; big = money2(total); sub = "Thanks for using More Mahi"; break;
     case "cancelled": label = "Cancelled"; big = "—"; sub = "This booking was cancelled"; break;
   }
 
@@ -174,7 +185,7 @@ export function Track({ id }: { id: string }) {
       <section className="hero short">
         <div className="hero-top">
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
-          <span className="small light" style={{ color: "rgba(255,255,255,0.85)" }}>{jt.name}</span>
+          <span className="small light" style={{ color: "rgba(255,255,255,0.85)" }}>{jobName}</span>
         </div>
         <span className="label">{label}</span>
         <div className="row" style={{ alignItems: "baseline", gap: 10, marginTop: 4 }}>
@@ -213,7 +224,7 @@ export function Track({ id }: { id: string }) {
           </>
         ) : (
           <div className="pad stack" style={{ gap: 4 }}>
-            <span className="t17 w5">{jt.name}</span>
+            <span className="t17 w5">{jobName}</span>
             <span className="t15 light muted">{job.address}, {suburb}</span>
           </div>
         )}
@@ -317,13 +328,13 @@ export function Track({ id }: { id: string }) {
         </span>
       </div>
 
-      {screen === "chat" && <ChatScreen jobId={id} me={session.user.id} otherName={wName} onBack={() => setScreen(null)} />}
+      {screen === "chat" && <ChatScreen jobId={id} me={session.user.id} otherName={worker?.full_name ?? wName} otherPhoto={worker?.photo_path} sub={jobName} onBack={() => setScreen(null)} />}
       {screen === "pay" && <PayScreen jobId={id} amountLabel={money2(total)} onBack={() => setScreen(null)} onPaid={() => { setScreen(null); load(); }} />}
       {screen && typeof screen === "object" && (
         <PayScreen requestId={screen.extra.id} title="Approve extra" amountLabel={money2(screen.extra.amount_cents)} onBack={() => setScreen(null)}
           onPaid={() => { setScreen(null); toast("Approved"); load(); }} />
       )}
-      {screen === "report" && <ProblemScreen job={job} jobName={jt.name} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+      {screen === "report" && <ProblemScreen job={job} jobName={jobName} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "reportUser" && job.worker_id && <ReportUser name={wName} userId={job.worker_id} jobId={id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
       {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
     </div>

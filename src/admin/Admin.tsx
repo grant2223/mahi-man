@@ -120,12 +120,12 @@ function Jobs() {
         <thead><tr><th>Booked</th><th>Job</th><th>Where</th><th>Customer</th><th>Worker</th><th>Total</th><th>Status</th><th></th></tr></thead>
         <tbody>
           {rows.map((r) => {
-            const j = r as { id: string; created_at: string; status: string; price_cents: number; fee_cents: number; extra_cents: number; address: string;
+            const j = r as { id: string; title: string | null; created_at: string; status: string; price_cents: number; fee_cents: number; extra_cents: number; address: string;
               job_types: { name: string }; suburbs: { name: string }; customer: { full_name: string } | null; worker: { profiles: { full_name: string } } | null };
             return (
               <tr key={j.id}>
                 <td>{new Date(j.created_at).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}</td>
-                <td>{j.job_types.name}</td>
+                <td>{j.title || j.job_types.name}</td>
                 <td>{j.address}, {j.suburbs.name}</td>
                 <td>{j.customer?.full_name}</td>
                 <td>{j.worker?.profiles.full_name ?? "—"}</td>

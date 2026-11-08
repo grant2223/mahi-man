@@ -34,7 +34,7 @@ export function MyJobs() {
         {jobs.map((j) => (
           <button key={j.id} className="li" onClick={() => go(`/job/${j.id}`)}>
             <span className="t">
-              <b>{j.job_types.name}</b>
+              <b>{j.title || j.job_types.name}</b>
               <span>{whenLabel(j.asap, j.start_at)}, {money2(j.price_cents + j.fee_cents + j.extra_cents)}</span>
             </span>
             <span className={j.status === "finished" ? "t15 w5 em" : "small muted"}>{STATUS[j.status]}</span>

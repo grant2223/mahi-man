@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, sb, type IdStatus, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
-import { money, shrinkImage, validAbn } from "../lib/format";
+import { shrinkImage, validAbn } from "../lib/format";
 import { Icon, Logo, Screen, SearchPicker, Tile, useToast } from "../ui/kit";
 import { VerifyFlow } from "../ui/Verify";
 
@@ -13,7 +13,7 @@ const STEP_INFO: { key: keyof Steps; title: string; hint: string }[] = [
   { key: "id_and_bank", title: "Verify your ID", hint: "Passport or national ID, plus a selfie" },
   { key: "abn", title: "ABN and PayID", hint: "Your ABN, and where customers pay you" },
   { key: "area", title: "Where you work", hint: "Your suburb and how far you'll travel" },
-  { key: "jobs", title: "Jobs you'll do", hint: "Cleaning, tip runs, flat-pack and more" },
+  { key: "jobs", title: "Jobs you'll do", hint: "Cleaning, gardens, pets, errands and more" },
 ];
 
 export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: Steps; pilot: boolean; idStatus: IdStatus; idNote: string | null; onChanged: () => void }) {
@@ -237,7 +237,7 @@ function JobsStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
   const [ins, setIns] = useState(false);
   const [veh, setVeh] = useState(false);
   useEffect(() => {
-    sb.from("job_types").select("*").eq("active", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
+    sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
     sb.from("worker_job_types").select("job_type_id").then(({ data }) => setMine((data ?? []).map((r) => r.job_type_id)));
     sb.from("workers").select("insurance_expiry,has_vehicle").single().then(({ data }) => {
       setIns(!!data?.insurance_expiry && new Date(data.insurance_expiry) >= new Date());
@@ -249,7 +249,7 @@ function JobsStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
     <SearchPicker title="Jobs you'll do" multi placeholder="Search jobs" value={mine}
       options={types.map((t) => {
         const need = [t.needs_insurance && !ins ? "insurance" : "", t.needs_vehicle && !veh ? "a vehicle" : ""].filter(Boolean).join(" and ");
-        return { id: t.id, label: t.name, hint: need ? `Needs ${need} first` : `You earn ${money(t.price_cents)}`, disabled: !!need };
+        return { id: t.id, label: t.name, hint: need ? `Needs ${need} first` : undefined, disabled: !!need };
       })}
       onClose={onBack}
       onChange={async (v) => {

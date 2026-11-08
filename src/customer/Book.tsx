@@ -1,25 +1,29 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { brandUrl, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
+import { avatarUrl, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go, usePath } from "../lib/router";
-import { hours, money, money2, shrinkImage } from "../lib/format";
+import { money, money2, shrinkImage } from "../lib/format";
 import { draftMedia, type DraftItem } from "../lib/draftMedia";
 import { CatIcon, Icon, Logo, SearchPicker, StepHero, useToast } from "../ui/kit";
 import { AuthScreen } from "../ui/Auth";
 import { VoiceScreen, voiceSupported } from "../ui/Voice";
+import { MessagesLink } from "../ui/Messages";
 import { PayScreen } from "./Pay";
 
-interface Draft { jobTypeId: number | null; suburbId: number | null; address: string; notes: string; details: string; asap: boolean; startAt: string; priceCents: number | null }
-const DRAFT_KEY = "mm-draft";
-const blank: Draft = { jobTypeId: null, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", priceCents: null };
+/* Post a job: price, show the job, who can take it, where, when, check. */
+
+interface Reused { path: string; kind: "photo" | "video" }
+interface Draft {
+  categoryId: number | null; priceCents: number; suburbId: number | null; address: string; notes: string; details: string;
+  asap: boolean; startAt: string; invited: string[]; openAfter: number | null; reuse: Reused[];
+}
+const DRAFT_KEY = "mm-draft-2";
+const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [] };
 const MAX_PHOTOS = 6;
 const MAX_VIDEO_SECONDS = 60;
+const STEPS = 5;
 
-const tint = (i: number) => `ph-${Math.abs(i) % 4}`;
-const bg = (path: string | null | undefined) => {
-  const u = brandUrl(path);
-  return u ? { backgroundImage: `url("${u}")` } : undefined;
-};
+export interface PastWorker { worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_for_me: number; last_job: string | null }
 
 export function Book() {
   const path = usePath().split("?")[0];
@@ -27,50 +31,51 @@ export function Book() {
   const toast = useToast();
   const [types, setTypes] = useState<JobType[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
-  const [popular, setPopular] = useState<number[]>([]);
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
   const [fee, setFee] = useState(15);
   const [pilot, setPilot] = useState(true);
   const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
   const [media, setMedia] = useState<(DraftItem & { url: string })[]>([]);
+  const [reuseUrls, setReuseUrls] = useState<Record<string, string>>({});
+  const [past, setPast] = useState<PastWorker[]>([]);
   const [payJob, setPayJob] = useState<string | null>(null);
   const [auth, setAuth] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
   useEffect(() => {
-    sb.from("job_types").select("*").eq("active", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
+    sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
     sb.from("suburbs").select("id,name").order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
-    rpc<{ job_type_id: number; bookings: number }[]>("popular_job_types").then((r) => setPopular(r.filter((x) => x.bookings > 0).map((x) => x.job_type_id))).catch(() => {});
     sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode"]).then(({ data }) => {
       for (const r of data ?? []) { if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true"); }
     });
     draftMedia.all().then((items) => setMedia(items.map((m) => ({ ...m, url: URL.createObjectURL(m.blob) }))));
   }, []);
-  useEffect(() => { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d)); }, [d]);
-
-  // A category whose only job is "set your price" goes straight to the price screen.
   useEffect(() => {
-    const m = path.match(/^\/c\/(\d+)$/);
-    if (!m) return;
-    const list = types.filter((t) => t.category_id === Number(m[1]));
-    if (list.length === 1 && list[0].custom_price) pickJob(list[0], true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, types]);
+    if (!session) { setPast([]); return; }
+    rpc<PastWorker[]>("my_past_workers").then(setPast).catch(() => setPast([]));
+  }, [session?.user.id]);
+  useEffect(() => { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d)); }, [d]);
+  useEffect(() => { if (d.reuse.length) mediaUrls(d.reuse.map((r) => r.path)).then(setReuseUrls); }, [d.reuse]);
 
-  const jt = types.find((t) => t.id === d.jobTypeId) ?? null;
+  const cat = cats.find((c) => c.id === d.categoryId) ?? null;
+  const jt = types.find((t) => t.category_id === d.categoryId) ?? null;
   const suburb = suburbs.find((s) => s.id === d.suburbId) ?? null;
-  // A "set your price" job uses the customer's price once they've set it; until then its suggested price.
-  const baseOf = (t: JobType) => (t.custom_price && d.jobTypeId === t.id && d.priceCents ? d.priceCents : t.price_cents);
-  const priceOf = (t: JobType) => baseOf(t) + (pilot ? 0 : Math.round((baseOf(t) * fee) / 100));
-  const total = jt ? priceOf(jt) : 0;
+  const total = d.priceCents + (pilot ? 0 : Math.round((d.priceCents * fee) / 100));
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
+  const reusedPhotos = d.reuse.filter((r) => r.kind === "photo");
+  const reusedVideo = d.reuse.find((r) => r.kind === "video") ?? null;
+  const photoCount = photos.length + reusedPhotos.length;
 
-  function pickJob(t: JobType, replace = false) {
-    if (t.id !== d.jobTypeId) setD({ ...d, jobTypeId: t.id, priceCents: t.custom_price ? (d.priceCents ?? t.price_cents) : null });
-    go(t.custom_price ? "/book/price" : "/book/details", replace);
+  async function startNew(prefill?: Partial<Draft>) {
+    await draftMedia.clear();
+    setMedia([]);
+    setReuseUrls({});
+    setErr("");
+    setD({ ...blank, ...prefill });
+    go("/book/price");
   }
 
   async function addFiles(files: FileList | null, kind: "photo" | "video") {
@@ -79,7 +84,7 @@ export function Book() {
     const next: (DraftItem & { url: string })[] = [];
     for (const f of Array.from(files)) {
       if (kind === "photo") {
-        if (photos.length + next.length >= MAX_PHOTOS) { toast(`Up to ${MAX_PHOTOS} photos`); break; }
+        if (photoCount + next.length >= MAX_PHOTOS) { toast(`Up to ${MAX_PHOTOS} photos`); break; }
         let blob: Blob = f;
         try { blob = await shrinkImage(f); } catch { /* keep original */ }
         next.push({ id: crypto.randomUUID(), kind, blob, name: f.name, url: URL.createObjectURL(blob) });
@@ -88,6 +93,7 @@ export function Book() {
         if (secs > MAX_VIDEO_SECONDS + 1) { setErr(`Keep the video under ${MAX_VIDEO_SECONDS} seconds. Trim it in your Photos app and add it again.`); return; }
         if (f.size > 50 * 1024 * 1024) { setErr("That video is too big. Record a shorter one."); return; }
         if (video) { await draftMedia.remove(video.id); }
+        if (reusedVideo) setD({ ...d, reuse: d.reuse.filter((r) => r.kind !== "video") });
         next.push({ id: crypto.randomUUID(), kind, blob: f, name: f.name, url: URL.createObjectURL(f) });
       }
     }
@@ -99,19 +105,19 @@ export function Book() {
     await draftMedia.remove(id);
     setMedia((m) => m.filter((x) => x.id !== id));
   }
+  const removeReused = (p: string) => setD({ ...d, reuse: d.reuse.filter((r) => r.path !== p) });
 
   async function book() {
     setErr("");
-    if (!jt) return go("/post", true);
-    if (jt.custom_price && !d.priceCents) return go("/book/price");
-    if (!photos.length || d.details.trim().length < 15) return go("/book/details");
+    if (!jt) return go("/book/details");
+    if (!photoCount || d.details.trim().length < 15) return go("/book/details");
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !d.startAt) return go("/book/when");
     if (!session) { setAuth(true); return; }
     setBusy(true);
     try {
       const uid = session.user.id;
-      const uploaded: { path: string; kind: string }[] = [];
+      const uploaded: { path: string; kind: string }[] = d.reuse.filter((r) => r.path.startsWith(`${uid}/`)).map((r) => ({ path: r.path, kind: r.kind }));
       for (const m of media) {
         const ext = m.kind === "photo" ? "jpg" : (m.name.split(".").pop() || "mp4").toLowerCase();
         const p = `${uid}/${m.id}.${ext}`;
@@ -119,13 +125,15 @@ export function Book() {
           upsert: true,
           contentType: m.kind === "photo" ? "image/jpeg" : (m.blob.type || "video/mp4"),
         });
-        if (error) throw new Error("A photo didn't upload. Check your signal and tap Book it again.");
+        if (error) throw new Error("A photo didn't upload. Check your signal and try again.");
         uploaded.push({ path: p, kind: m.kind });
       }
+      const invited = d.invited.filter((w) => past.some((p) => p.worker_id === w));
       const id = await rpc<string>("create_job", {
-        p_job_type: d.jobTypeId, p_suburb: d.suburbId, p_address: d.address, p_notes: d.notes,
+        p_job_type: jt.id, p_suburb: d.suburbId, p_address: d.address, p_notes: d.notes,
         p_asap: d.asap, p_start_at: d.asap ? new Date().toISOString() : new Date(d.startAt).toISOString(),
-        p_details: d.details, p_media: uploaded, p_price_cents: jt.custom_price ? d.priceCents : null,
+        p_details: d.details, p_media: uploaded, p_price_cents: d.priceCents,
+        p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
       });
       const finish = async () => {
         sessionStorage.removeItem(DRAFT_KEY);
@@ -141,85 +149,72 @@ export function Book() {
   const bar = (label: string, onNext: () => void, disabled = false) => (
     <div className="bottombar">
       <span className="stack" style={{ gap: 2 }}>
-        <span className="k">Fixed price</span>
-        <span className="v">{jt ? money2(total) : "$—"}</span>
+        <span className="k">Your price</span>
+        <span className="v">{money(d.priceCents)}</span>
       </span>
       <button className="btn primary" disabled={disabled} onClick={onNext}>{label} {Icon.arrow("#fff")}</button>
     </div>
   );
 
   // ---------- Screens ----------
-  const cm = path.match(/^\/c\/(\d+)$/);
-  if (path.startsWith("/book/") && !jt && types.length) { go("/post", true); return null; }
-
-  if (cm) {
-    const cat = cats.find((c) => c.id === Number(cm[1]));
-    const list = types.filter((t) => t.category_id === Number(cm[1])).sort((a, b) => a.price_cents - b.price_cents);
-    // A category whose only job is "set your price" goes straight to the price screen.
-    if (list.length === 1 && list[0].custom_price) return null;
-    return (
-      <div className="app">
-        <StepHero title={cat?.name ?? "Jobs"} sub={cat?.name === "Cleaning" ? "You supply the products. Price is fixed." : "One fixed price, agreed before anyone turns up."} onBack={() => history.back()} />
-        <div className="home-body">
-          {list.map((t, i) => <JobCard key={t.id} t={t} i={i} price={priceOf(t)} onPick={() => pickJob(t)} />)}
-        </div>
-      </div>
-    );
+  if (path === "/book/price") {
+    return <PriceStep value={d.priceCents} onChange={(v) => setD({ ...d, priceCents: v })} />;
   }
 
-  if (path === "/book/price" && jt) {
-    const cat = cats.find((c) => c.id === jt.category_id);
-    return <PriceStep jt={jt} catName={cat?.name ?? jt.name} catIcon={cat?.icon} value={d.priceCents ?? jt.price_cents}
-      onChange={(v) => setD({ ...d, priceCents: v })} />;
+  if (path === "/book/details") {
+    return <DetailsStep d={d} setD={setD} cats={cats} cat={cat} photos={photos} video={video} reused={d.reuse} reuseUrls={reuseUrls}
+      photoCount={photoCount} addFiles={addFiles} removeMedia={removeMedia} removeReused={removeReused} err={err} setErr={setErr} bar={bar} />;
   }
 
-  if (path === "/book/details" && jt) {
-    return <DetailsStep jt={jt} d={d} setD={setD} photos={photos} video={video} addFiles={addFiles} removeMedia={removeMedia} err={err} setErr={setErr} bar={bar} />;
+  if (path === "/book/who") {
+    return <WhoStep d={d} setD={setD} past={past} bar={bar} />;
   }
 
-  if (path === "/book/where" && jt) {
-    return (
-      <WhereStep jt={jt} d={d} setD={setD} suburbs={suburbs} suburb={suburb} bar={bar} />
-    );
+  if (path === "/book/where") {
+    return <WhereStep d={d} setD={setD} suburbs={suburbs} suburb={suburb} bar={bar} />;
   }
 
-  if (path === "/book/when" && jt) {
-    return <WhenStep jt={jt} suburb={suburb} d={d} setD={setD} bar={bar} />;
+  if (path === "/book/when") {
+    return <WhenStep suburb={suburb} d={d} setD={setD} bar={bar} />;
   }
 
-  if (path === "/book/check" && jt) {
+  if (path === "/book/check") {
+    const chosen = past.filter((p) => d.invited.includes(p.worker_id));
+    const whoLabel = chosen.length
+      ? `${chosen.map((p) => p.full_name).join(", ")}${d.openAfter ? `, then everyone after ${afterLabel(d.openAfter)}` : " only"}`
+      : "Anyone nearby";
     return (
       <div className="app">
         <section className="step-hero" style={{ paddingBottom: 74 }}>
           <div className="top">
             <button className="back" onClick={() => history.back()} aria-label="Back">{Icon.back("#fff")}</button>
-            <span className="count">Step 4 of 4</span>
           </div>
-          <div className="bars" style={{ gridTemplateColumns: "repeat(4, minmax(0, 1fr))" }}><span className="on" /><span className="on" /><span className="on" /><span className="on" /></div>
-          <h1 style={{ marginBottom: 0 }}>Check and book</h1>
+          <h1 style={{ marginBottom: 0 }}>Check and post</h1>
         </section>
         <div className="ticket" style={{ marginTop: -52 }}>
-          <ReviewRow k="Job" v={jt.name} onChange={() => go("/post")} />
-          {jt.custom_price && <ReviewRow k="Your price" v={money(d.priceCents ?? jt.price_cents)} onChange={() => go("/book/price")} />}
+          <ReviewRow k="Your price" v={money(d.priceCents)} onChange={() => go("/book/price")} />
           <div className="review-row">
             <span className="t">
-              <span className="k">What you want done</span>
+              <span className="k">{cat?.name ?? "The job"}</span>
               <span className="row" style={{ gap: 10, alignItems: "flex-start", marginTop: 4 }}>
-                <span className="thumbs">{photos.slice(0, 2).map((p) => <img key={p.id} src={p.url} alt="" />)}</span>
+                <span className="thumbs">
+                  {[...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean), ...photos.map((p) => p.url)].slice(0, 2).map((u) => <img key={u} src={u} alt="" />)}
+                </span>
                 <span className="small light muted" style={{ lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                  {photos.length} photo{photos.length === 1 ? "" : "s"}{video ? " and a video" : ""}. {d.details}
+                  {photoCount} photo{photoCount === 1 ? "" : "s"}{video || reusedVideo ? " and a video" : ""}. {d.details}
                 </span>
               </span>
             </span>
             <button className="link" onClick={() => go("/book/details")}>Change</button>
           </div>
+          <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/who")} />
           <ReviewRow k="Where" v={`${d.address}, ${suburb?.name ?? ""}`} onChange={() => go("/book/where")} />
           <ReviewRow k="When" v={d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} onChange={() => go("/book/when")} last />
           <div className="stack" style={{ padding: "18px 16px 20px", gap: 6 }}>
-            <span className="small w5 em">{jt.custom_price ? "Your price, fixed" : `Fixed price, up to ${hours(jt.max_hours)}`}</span>
-            <span className="price">{money2(total)}</span>
-            {!pilot && <span className="small light muted">Job {money2(jt.price_cents)} + booking fee {money2(total - jt.price_cents)}</span>}
-            <span className="t15 light muted" style={{ marginTop: 8, lineHeight: 1.45 }}>
+            {!pilot && <><span className="small w5 em">Total, fixed</span>
+            <span className="price">{money2(total)}</span></>}
+            {!pilot && <span className="small light muted">Job {money2(d.priceCents)} + booking fee {money2(total - d.priceCents)}</span>}
+            <span className="t15 light muted" style={{ marginTop: pilot ? 0 : 8, lineHeight: 1.45 }}>
               {pilot ? "Pay your worker by PayID or cash once it's done." : "Your card is held, not charged, until you confirm the job is done."}
             </span>
           </div>
@@ -228,12 +223,12 @@ export function Book() {
         <div style={{ flex: 1 }} />
         <div className="bottombar">
           <span className="small light muted" style={{ maxWidth: 170, lineHeight: 1.4 }}>
-            {session ? "A local gets your job straight away." : "Next, a quick account so your worker can find you."}
+            {session ? "People who are free tell you, and you choose." : "Next, a quick account so workers can reach you."}
           </span>
-          <button className="btn primary" disabled={busy} onClick={book}>{busy ? "Booking…" : "Book it"} {Icon.arrow("#fff")}</button>
+          <button className="btn primary" disabled={busy} onClick={book}>{busy ? "Posting…" : "Post it"} {Icon.arrow("#fff")}</button>
         </div>
         {auth && (
-          <AuthScreen title="Almost booked" reason="Create an account to track your job. Your photos are saved."
+          <AuthScreen title="Almost there" reason="Create an account to track your job. Your photos are saved."
             onBack={() => setAuth(false)} onDone={() => { setAuth(false); window.setTimeout(book, 300); }} />
         )}
         {payJob && <PayScreen jobId={payJob} amountLabel={money2(total)} onBack={() => setPayJob(null)}
@@ -242,140 +237,111 @@ export function Book() {
     );
   }
 
-  return <Home types={types} cats={cats} popular={popular} priceOf={priceOf} onPick={pickJob} signedIn={!!session} />;
+  return <PostHome cats={cats} signedIn={!!session} uid={session?.user.id ?? null} onStart={startNew} />;
 }
 
-// ---------- Post a job ("I have work") ----------
-function Home({ types, cats, popular, priceOf, onPick, signedIn }: {
-  types: JobType[]; cats: Category[]; popular: number[]; priceOf: (t: JobType) => number; onPick: (t: JobType) => void; signedIn: boolean;
-}) {
-  const [q, setQ] = useState("");
-  const query = q.trim().toLowerCase();
-  const catName = (id: number | null) => cats.find((c) => c.id === id)?.name ?? "";
-  const results = query ? types.filter((t) => `${t.name} ${t.description} ${catName(t.category_id)}`.toLowerCase().includes(query)) : [];
-  const top = (popular.length ? popular.map((id) => types.find((t) => t.id === id)).filter(Boolean) as JobType[] : [...types].sort((a, b) => a.price_cents - b.price_cents)).slice(0, 5);
-  const shownCats = cats.filter((c) => types.some((t) => t.category_id === c.id));
+const afterLabel = (m: number) => (m >= 60 ? `${m / 60} hour${m === 60 ? "" : "s"}` : `${m} minutes`);
+
+// ---------- I have work: one button, then your recent jobs ----------
+interface Recent {
+  id: string; title: string | null; details: string; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
+  status: string; worker_id: string | null; job_types: { category_id: number | null } | null; suburbs: { name: string } | null;
+  job_media: { path: string; kind: "photo" | "video"; sort: number }[];
+}
+
+function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn: boolean; uid: string | null; onStart: (p?: Partial<Draft>) => void }) {
+  const [recent, setRecent] = useState<Recent[] | null>(null);
+  useEffect(() => {
+    if (!uid) { setRecent([]); return; }
+    sb.from("jobs").select("id,title,details,price_cents,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
+      .eq("customer_id", uid).neq("status", "awaiting_payment").order("created_at", { ascending: false }).limit(5)
+      .then(({ data }) => setRecent((data ?? []) as unknown as Recent[]));
+  }, [uid]);
+
+  const again = (r: Recent) => onStart({
+    categoryId: r.job_types?.category_id ?? null, priceCents: r.price_cents, suburbId: r.suburb_id, address: r.address, notes: r.notes,
+    details: r.details, reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
+    invited: r.worker_id && ["finished", "confirmed"].includes(r.status) ? [r.worker_id] : [],
+  });
+
   return (
-    <div className="app">
-      <section className="hero" style={{ paddingBottom: 0 }}>
+    <div className="app" style={{ background: "var(--ground)" }}>
+      <section className="hero" style={{ paddingBottom: 28 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
           {signedIn
-            ? <a className="hero-link" href="/jobs" onClick={(e) => { e.preventDefault(); go("/jobs"); }}>My jobs</a>
+            ? <span className="row" style={{ gap: 8 }}><MessagesLink /><a className="hero-link" href="/jobs" onClick={(e) => { e.preventDefault(); go("/jobs"); }}>My jobs</a></span>
             : <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>}
         </div>
         <div className="path-switch" role="tablist" aria-label="What are you here for?">
           <button role="tab" aria-selected="false" onClick={() => go("/")}>I want work</button>
           <button className="on" role="tab" aria-selected="true">I have work</button>
         </div>
-        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 56, height: 150, right: -26 }} />
-        <h1 className="mid" style={{ position: "relative", margin: "22px 0 10px" }}>Post a job</h1>
-        <p className="lede" style={{ position: "relative", maxWidth: 200, marginBottom: 22 }}>Get help now with your odd job.</p>
-        <label className="search-bar">
-          {Icon.search("var(--ink)")}
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="What do you need done?" />
-          {q && <button className="back" style={{ marginRight: -10 }} onClick={() => setQ("")} aria-label="Clear search">{Icon.x("var(--muted)")}</button>}
-        </label>
+        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 190, right: -30 }} />
+        <h1 className="mid" style={{ position: "relative", margin: "26px 0 10px" }}>Need a hand?</h1>
+        <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Get help now with your odd job.</p>
       </section>
 
-      <div className="home-body" style={{ paddingTop: 18 }}>
-        {query ? (
-          <>
-            <h2>{results.length ? `${results.length} job${results.length === 1 ? "" : "s"}` : "Nothing matches"}</h2>
-            {results.map((t, i) => <JobCard key={t.id} t={t} i={i} price={priceOf(t)} onPick={() => onPick(t)} />)}
-            {!results.length && <p className="t15 light muted" style={{ margin: "0 4px" }}>Try "clean", "mow", "dog" or "pool". Or pick a category below.</p>}
-          </>
+      <div className="post-body">
+        <button className="post-btn" onClick={() => onStart()}>
+          <span>Post a job</span>
+          {Icon.arrow("var(--lime)")}
+        </button>
+
+        {recent && recent.length > 0 ? (
+          <div className="stack" style={{ gap: 0 }}>
+            <span className="post-h">Your recent jobs</span>
+            {recent.map((r) => {
+              const c = cats.find((x) => x.id === r.job_types?.category_id);
+              return (
+                <div key={r.id} className="recent-row">
+                  <span className="sq"><CatIcon name={c?.icon} size={28} /></span>
+                  <span className="t">
+                    <b>{r.title || r.details}</b>
+                    <span>{money(r.price_cents)}, {r.suburbs?.name ?? ""}, {new Date(r.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</span>
+                  </span>
+                  <button className="btn stone small" onClick={() => again(r)}>Post again</button>
+                </div>
+              );
+            })}
+          </div>
+        ) : recent ? (
+          <div className="stack" style={{ gap: 0 }}>
+            {[["1", "Set your price", "What you'll pay for the work"], ["2", "Show the job", "Photos and exactly what you want done"], ["3", "Choose who does it", "Pay them directly when it's done"]].map(([n, t, s]) => (
+              <div key={n} className="how-row"><span className="n">{n}</span><span className="t"><b>{t}</b><span>{s}</span></span></div>
+            ))}
+          </div>
         ) : null}
-        {!query || !results.length ? (
-          <>
-            <span className="sec">Pick a category</span>
-            <div className="cat-sq-grid">
-              {shownCats.map((c) => (
-                <button key={c.id} className="cat-sq" onClick={() => go(`/c/${c.id}`)}>
-                  <span className="sq"><CatIcon name={c.icon} size={32} /></span>
-                  <span className="n">{c.name}</span>
-                </button>
-              ))}
-            </div>
-            {top.length > 0 && <span className="sec" style={{ marginTop: 18 }}>{popular.length ? "Booked most this week" : "Quick jobs"}</span>}
-            {top.length > 0 && (
-              <div className="pop-list">
-                {top.map((t) => {
-                  const c = cats.find((x) => x.id === t.category_id);
-                  return (
-                    <button key={t.id} className="pop-row" onClick={() => onPick(t)}>
-                      {t.photo_path ? <span className="pic" style={bg(t.photo_path)} /> : <span className="pic sq"><CatIcon name={c?.icon} size={28} /></span>}
-                      <span className="t"><b>{t.name}</b><span>{c?.name ?? "Job"}, up to {hours(t.max_hours)}</span></span>
-                      <span className="p">{money(priceOf(t))}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            <p className="small light muted" style={{ margin: "10px 4px 0", lineHeight: 1.5 }}>
-              <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
-              <span className="sep" /><a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
-              <span className="sep" /><a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
-            </p>
-          </>
-        ) : null}
+
+        <p className="small light muted" style={{ margin: "18px 0 calc(var(--safe-bottom) + 18px)", lineHeight: 1.5 }}>
+          <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
+          <span className="sep" /><a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
+          <span className="sep" /><a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
+        </p>
       </div>
     </div>
   );
 }
 
-function JobCard({ t, i, price, onPick }: { t: JobType; i: number; price: number; onPick: () => void }) {
-  const short = t.included?.[0] ? t.included.slice(0, 2).join(", ") : t.description;
-  return (
-    <button className="job-card" onClick={onPick}>
-      <span className={`pic ${t.photo_path ? "" : tint(i)}`} style={bg(t.photo_path)} />
-      <span className="meta">
-        <span className="t">
-          <b>{t.name}</b>
-          <span style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>Up to {hours(t.max_hours)}, {short}</span>
-        </span>
-        <span className="p">{money(price)}</span>
-      </span>
-    </button>
-  );
-}
-
-function ReviewRow({ k, v, onChange, last }: { k: string; v: string; onChange: () => void; last?: boolean }) {
-  return (
-    <div className="review-row" style={last ? { borderBottom: "1px solid var(--line)" } : undefined}>
-      <span className="t"><span className="k">{k}</span><span className="v">{v}</span></span>
-      <button className="link" onClick={onChange}>Change</button>
-    </div>
-  );
-}
-
-// ---------- Set your price (job types where the customer names the price) ----------
+// ---------- Step 1: Set your price ----------
 const QUICK = [3000, 5000, 8000, 12000, 20000];
+const LO = 2000, HI = 200000, SLIDER_MAX = 30000;
 
-function PriceStep({ jt, catName, catIcon, value, onChange }: { jt: JobType; catName: string; catIcon?: string; value: number; onChange: (v: number) => void }) {
+function PriceStep({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const [text, setText] = useState(String(Math.round(value / 100)));
   const [err, setErr] = useState("");
-  const lo = jt.min_price_cents, hi = jt.max_price_cents;
-  const sliderMax = Math.min(hi, 30000);
   const dollars = Number(text) || 0;
   const set = (cents: number) => { setErr(""); setText(String(Math.round(cents / 100))); onChange(cents); };
-  const pct = Math.max(0, Math.min(100, ((Math.min(dollars * 100, sliderMax) - lo) / (sliderMax - lo)) * 100));
+  const pct = Math.max(0, Math.min(100, ((Math.min(dollars * 100, SLIDER_MAX) - LO) / (SLIDER_MAX - LO)) * 100));
   const next = () => {
     const c = Math.round(dollars) * 100;
-    if (c < lo) return setErr(`The lowest price is ${money(lo)}.`);
-    if (c > hi) return setErr(`The highest price is ${money(hi)}.`);
+    if (c < LO) return setErr(`The lowest price is ${money(LO)}.`);
+    if (c > HI) return setErr(`The highest price is ${money(HI)}.`);
     onChange(c); go("/book/details");
   };
   return (
     <div className="app" style={{ background: "var(--card)" }}>
-      <section className="step-hero">
-        <div className="top">
-          <button className="back" onClick={() => history.back()} aria-label="Back">{Icon.back("#fff")}</button>
-          <span className="row t15 light" style={{ gap: 8, color: "rgba(255,255,255,0.88)" }}><CatIcon name={catIcon} size={18} />{catName}</span>
-        </div>
-        <h1 style={{ marginTop: 18 }}>Set your price</h1>
-        <p>What will you pay?</p>
-      </section>
+      <StepHero step={1} of={STEPS} title="Set your price" sub="What will you pay?" onBack={() => history.back()} />
       <div className="price-body">
         <label htmlFor="amt" className="t15 muted">You pay</label>
         <div className="price-box">
@@ -386,14 +352,14 @@ function PriceStep({ jt, catName, catIcon, value, onChange }: { jt: JobType; cat
         </div>
         <span className="t14 light muted">A fixed price. You pay your worker when the job's done.</span>
         <div className="price-slider">
-          <input className="mm-range" type="range" min={lo / 100} max={sliderMax / 100} step={5} value={Math.min(Math.max(dollars, lo / 100), sliderMax / 100)} aria-label="Price"
+          <input className="mm-range" type="range" min={LO / 100} max={SLIDER_MAX / 100} step={5} value={Math.min(Math.max(dollars, LO / 100), SLIDER_MAX / 100)} aria-label="Price"
             onChange={(e) => set(Number(e.target.value) * 100)}
             style={{ background: `linear-gradient(90deg, var(--emerald) ${pct}%, var(--stone-2) ${pct}%) center / 100% 10px no-repeat` }} />
-          <div className="row between t13 light muted"><span>{money(lo)}</span><span>{money(sliderMax)}{sliderMax < hi ? "+" : ""}</span></div>
+          <div className="row between t13 light muted"><span>{money(LO)}</span><span>{money(SLIDER_MAX)}+</span></div>
         </div>
         <span className="t17 w5" style={{ marginTop: 14 }}>Quick pick</span>
         <div className="quick-grid">
-          {QUICK.filter((q) => q >= lo && q <= hi).map((q) => (
+          {QUICK.map((q) => (
             <button key={q} className={dollars * 100 === q ? "on" : ""} onClick={() => set(q)}>{money(q)}</button>
           ))}
         </div>
@@ -412,11 +378,93 @@ function PriceStep({ jt, catName, catIcon, value, onChange }: { jt: JobType; cat
   );
 }
 
-// ---------- Step 1: Show the job ----------
-function DetailsStep({ jt, d, setD, photos, video, addFiles, removeMedia, err, setErr, bar }: {
-  jt: JobType; d: Draft; setD: (d: Draft) => void;
+// ---------- Step 3: Who can take it ----------
+const OPEN_AFTER: { id: string; label: string; v: number | null }[] = [
+  { id: "15", label: "Open it to everyone after 15 minutes", v: 15 },
+  { id: "30", label: "Open it to everyone after 30 minutes", v: 30 },
+  { id: "60", label: "Open it to everyone after 1 hour", v: 60 },
+  { id: "never", label: "Keep it just for them", v: null },
+];
+
+function WhoStep({ d, setD, past, bar }: { d: Draft; setD: (d: Draft) => void; past: PastWorker[]; bar: (label: string, onNext: () => void) => ReactNode }) {
+  const [people, setPeople] = useState(d.invited.length > 0);
+  const [pick, setPick] = useState<null | "people" | "after">(null);
+  const [err, setErr] = useState("");
+  const chosen = past.filter((p) => d.invited.includes(p.worker_id));
+  const next = () => {
+    if (people && !chosen.length) return setErr("Pick at least one person, or send it to anyone nearby.");
+    if (!people && d.invited.length) setD({ ...d, invited: [] });
+    go("/book/where");
+  };
+  return (
+    <div className="app" style={{ background: "var(--card)" }}>
+      <StepHero step={3} of={STEPS} title="Who can take it?" sub="Send it to everyone nearby, or ask someone you've used before." onBack={() => history.back()} />
+      <div className="step-body" style={{ gap: 10, background: "var(--card)" }}>
+        <button className={`who-opt${!people ? " on" : ""}`} onClick={() => { setPeople(false); setErr(""); }}>
+          <span className="t"><b>Anyone nearby</b><span>Every available worker in your area sees it</span></span>
+          <span className="box">{!people && Icon.tick("var(--emerald)", 16)}</span>
+        </button>
+        <button className={`who-opt${people ? " on" : ""}`} disabled={!past.length} onClick={() => { setPeople(true); setErr(""); if (!chosen.length && past.length === 1) setD({ ...d, invited: [past[0].worker_id] }); }}>
+          <span className="t"><b>Someone I've used before</b><span>{past.length ? "Only the people you pick see it first" : "Once someone's done a job for you, you can send it to them"}</span></span>
+          <span className="box">{people && Icon.tick("var(--emerald)", 16)}</span>
+        </button>
+
+        {people && (
+          <div className="stack" style={{ gap: 0, marginTop: 12 }}>
+            <span className="who-h">Send it to</span>
+            {chosen.map((p) => (
+              <div key={p.worker_id} className="who-person">
+                <span className="ph">{avatarUrl(p.photo_path) ? <img src={avatarUrl(p.photo_path)!} alt="" /> : null}</span>
+                <span className="t">
+                  <b>{p.full_name}</b>
+                  {p.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
+                  <span className="m">{p.rating ? `${p.rating} rating, ` : ""}did {p.jobs_for_me} job{p.jobs_for_me === 1 ? "" : "s"} for you</span>
+                </span>
+                <button className="back" onClick={() => setD({ ...d, invited: d.invited.filter((x) => x !== p.worker_id) })} aria-label={`Remove ${p.full_name}`}>{Icon.x("var(--muted)")}</button>
+              </div>
+            ))}
+            <button className="cp-select" style={{ marginTop: 12 }} onClick={() => setPick("people")}>
+              <span>{chosen.length ? "Add someone else you've used" : "Choose someone you've used"}</span>{Icon.search("var(--ink)")}
+            </button>
+            <span className="who-h" style={{ marginTop: 22 }}>If they can't take it</span>
+            <button className="cp-select" onClick={() => setPick("after")}>
+              <span>{OPEN_AFTER.find((o) => o.v === d.openAfter)?.label ?? OPEN_AFTER[1].label}</span>{Icon.down("var(--ink)")}
+            </button>
+          </div>
+        )}
+        {err && <p className="err" style={{ margin: "8px 0 0" }}>{err}</p>}
+      </div>
+      <div style={{ flex: 1 }} />
+      {bar("Continue", next)}
+      {pick === "people" && (
+        <SearchPicker title="People you've used" multi placeholder="Search by name" value={d.invited}
+          options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you${p.rating ? `, ${p.rating} rating` : ""}` }))}
+          onClose={() => setPick(null)} onChange={(v) => { setD({ ...d, invited: v.map(String) }); setErr(""); }} />
+      )}
+      {pick === "after" && (
+        <SearchPicker title="If they can't take it" value={[OPEN_AFTER.find((o) => o.v === d.openAfter)?.id ?? "30"]}
+          options={OPEN_AFTER.map((o) => ({ id: o.id, label: o.label }))}
+          onClose={() => setPick(null)} onChange={(v) => setD({ ...d, openAfter: OPEN_AFTER.find((o) => o.id === v[0])?.v ?? null })} />
+      )}
+    </div>
+  );
+}
+
+function ReviewRow({ k, v, onChange, last }: { k: string; v: string; onChange: () => void; last?: boolean }) {
+  return (
+    <div className="review-row" style={last ? { borderBottom: "1px solid var(--line)" } : undefined}>
+      <span className="t"><span className="k">{k}</span><span className="v">{v}</span></span>
+      <button className="link" onClick={onChange}>Change</button>
+    </div>
+  );
+}
+
+// ---------- Step 2: Show the job ----------
+function DetailsStep({ d, setD, cats, cat, photos, video, reused, reuseUrls, photoCount, addFiles, removeMedia, removeReused, err, setErr, bar }: {
+  d: Draft; setD: (d: Draft) => void; cats: Category[]; cat: Category | null;
   photos: (DraftItem & { url: string })[]; video: (DraftItem & { url: string }) | null;
-  addFiles: (f: FileList | null, kind: "photo" | "video") => Promise<void>; removeMedia: (id: string) => Promise<void>;
+  reused: Reused[]; reuseUrls: Record<string, string>; photoCount: number;
+  addFiles: (f: FileList | null, kind: "photo" | "video") => Promise<void>; removeMedia: (id: string) => Promise<void>; removeReused: (p: string) => void;
   err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
 }) {
   const photoIn = useRef<HTMLInputElement>(null);
@@ -424,36 +472,60 @@ function DetailsStep({ jt, d, setD, photos, video, addFiles, removeMedia, err, s
   const detailsBox = useRef<HTMLTextAreaElement>(null);
   const [voice, setVoice] = useState(false);
   const [dictate, setDictate] = useState(false);
+  const [pickCat, setPickCat] = useState(false);
+  const reusedPhotos = reused.filter((r) => r.kind === "photo");
+  const reusedVideo = reused.find((r) => r.kind === "video") ?? null;
   const next = () => {
-    if (!photos.length) return setErr("Add at least one photo so workers can see the job.");
+    if (!cat) return setErr("Pick what kind of job it is.");
+    if (!photoCount) return setErr("Add at least one photo so workers can see the job.");
     if (d.details.trim().length < 15) return setErr("Say what you want done.");
     setErr("");
-    go("/book/where");
+    go("/book/who");
   };
   return (
     <div className="app">
-      <StepHero step={1} of={4} title="Show the job" sub={jt.name} onBack={() => history.back()} />
+      <StepHero step={2} of={STEPS} title="Show the job" sub="Workers decide from what you show them." onBack={() => history.back()} />
       <div className="step-body">
+        <div className="sec">
+          <h2>What kind of job?</h2>
+          <button className="cp-select" onClick={() => setPickCat(true)}>
+            <span className="row" style={{ gap: 12 }}>
+              {cat && <CatIcon name={cat.icon} size={24} color="var(--emerald)" />}
+              <span className={cat ? "" : "ph"}>{cat?.name ?? "Pick a category"}</span>
+            </span>
+            {Icon.down("var(--ink)")}
+          </button>
+        </div>
+
         <div className="sec">
           <div className="row between" style={{ alignItems: "baseline" }}>
             <h2>Photos and video</h2>
             <span className="small muted">At least 1 photo</span>
           </div>
           <div className="media-grid">
+            {reusedPhotos.map((r) => (
+              <div key={r.path} className="m">
+                {reuseUrls[r.path] ? <img src={reuseUrls[r.path]} alt="" /> : null}
+                <button className="x" onClick={() => removeReused(r.path)} aria-label="Remove photo">{Icon.x("#fff", 16)}</button>
+              </div>
+            ))}
             {photos.map((p) => (
               <div key={p.id} className="m">
                 <img src={p.url} alt="" />
                 <button className="x" onClick={() => removeMedia(p.id)} aria-label="Remove photo">{Icon.x("#fff", 16)}</button>
               </div>
             ))}
-            {photos.length < MAX_PHOTOS && (
+            {photoCount < MAX_PHOTOS && (
               <button className="add" onClick={() => photoIn.current?.click()}>{Icon.camera("var(--emerald)")}Add photo</button>
             )}
           </div>
           <input ref={photoIn} type="file" accept="image/*" multiple hidden onChange={(e) => { addFiles(e.target.files, "photo"); e.target.value = ""; }} />
-          {video ? (
+          {video || reusedVideo ? (
             <div className="media-grid">
-              <div className="m"><video src={video.url} muted playsInline /><button className="x" onClick={() => removeMedia(video.id)} aria-label="Remove video">{Icon.x("#fff", 16)}</button></div>
+              <div className="m">
+                {video ? <video src={video.url} muted playsInline /> : reuseUrls[reusedVideo!.path] ? <video src={reuseUrls[reusedVideo!.path]} muted playsInline /> : null}
+                <button className="x" onClick={() => (video ? removeMedia(video.id) : removeReused(reusedVideo!.path))} aria-label="Remove video">{Icon.x("#fff", 16)}</button>
+              </div>
               <span className="small light muted" style={{ gridColumn: "span 2", alignSelf: "center" }}>Video added.</span>
             </div>
           ) : (
@@ -484,33 +556,21 @@ function DetailsStep({ jt, d, setD, photos, video, addFiles, removeMedia, err, s
           </label>
           {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk.</span>}
         </div>
-
-        {(jt.included?.length > 0 || jt.excluded?.length > 0) && (
-          <div className="sec">
-            <h2>Included in {money(jt.price_cents)}</h2>
-            <div className="ticks">
-              {jt.included.map((x) => <span key={x}>{Icon.tick("var(--emerald)", 20)}{x}</span>)}
-            </div>
-            {jt.excluded.length > 0 && (
-              <div className="ticks no">
-                <h3>Not included</h3>
-                {jt.excluded.map((x) => <span key={x}>{Icon.cross("var(--faint)")}{x}</span>)}
-              </div>
-            )}
-          </div>
-        )}
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
       {bar("Continue", next)}
-      {voice && <VoiceScreen jobName={jt.name} onBack={() => setVoice(false)}
+      {pickCat && <SearchPicker title="What kind of job?" placeholder="Search categories" value={d.categoryId ? [d.categoryId] : []}
+        options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
+        onChange={(v) => { setD({ ...d, categoryId: Number(v[0]) }); setErr(""); }} />}
+      {voice && <VoiceScreen jobName={cat?.name ?? "Odd job"} onBack={() => setVoice(false)}
         onDone={(text) => { setD({ ...d, details: d.details.trim() ? `${d.details.trim()} ${text}` : text }); setVoice(false); }} />}
     </div>
   );
 }
 
-// ---------- Step 2: Where ----------
-function WhereStep({ jt, d, setD, suburbs, suburb, bar }: {
-  jt: JobType; d: Draft; setD: (d: Draft) => void; suburbs: Suburb[]; suburb: Suburb | null;
+// ---------- Step 4: Where ----------
+function WhereStep({ d, setD, suburbs, suburb, bar }: {
+  d: Draft; setD: (d: Draft) => void; suburbs: Suburb[]; suburb: Suburb | null;
   bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
 }) {
   const [pick, setPick] = useState(false);
@@ -522,7 +582,7 @@ function WhereStep({ jt, d, setD, suburbs, suburb, bar }: {
   };
   return (
     <div className="app">
-      <StepHero step={2} of={4} title="Where's the job?" sub={jt.name} onBack={() => history.back()} />
+      <StepHero step={4} of={STEPS} title="Where's the job?" onBack={() => history.back()} />
       <div className="step-body" style={{ gap: 8 }}>
         <label className="field"><span className="k">Street address</span>
           <input value={d.address} onChange={(e) => setD({ ...d, address: e.target.value })} placeholder="22 Boland Street" autoComplete="street-address" /></label>
@@ -534,7 +594,7 @@ function WhereStep({ jt, d, setD, suburbs, suburb, bar }: {
         </button>
         <label className="field" style={{ cursor: "text" }}><span className="k">Getting in. Optional</span>
           <textarea value={d.notes} onChange={(e) => setD({ ...d, notes: e.target.value })} placeholder="Gate code, parking, pets, where the key is" /></label>
-        <p className="small light muted" style={{ margin: "6px 2px 0", lineHeight: 1.45 }}>Only the worker who takes the job sees your street address.</p>
+        <p className="small light muted" style={{ margin: "6px 2px 0", lineHeight: 1.45 }}>Only the worker you choose sees your street address.</p>
         {err && <p className="err">{err}</p>}
       </div>
       {bar("Continue", next)}
@@ -544,9 +604,9 @@ function WhereStep({ jt, d, setD, suburbs, suburb, bar }: {
   );
 }
 
-// ---------- Step 3: When ----------
-function WhenStep({ jt, suburb, d, setD, bar }: {
-  jt: JobType; suburb: Suburb | null; d: Draft; setD: (d: Draft) => void;
+// ---------- Step 5: When ----------
+function WhenStep({ suburb, d, setD, bar }: {
+  suburb: Suburb | null; d: Draft; setD: (d: Draft) => void;
   bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
 }) {
   const [err, setErr] = useState("");
@@ -559,10 +619,10 @@ function WhenStep({ jt, suburb, d, setD, bar }: {
   };
   return (
     <div className="app">
-      <StepHero step={3} of={4} title="When?" sub={`${jt.name}${suburb ? ` in ${suburb.name}` : ""}`} onBack={() => history.back()} />
+      <StepHero step={5} of={STEPS} title="When?" sub={suburb ? `In ${suburb.name}` : undefined} onBack={() => history.back()} />
       <div className="step-body" style={{ padding: 0, gap: 0 }}>
         <button className={d.asap ? "choice on" : "choice"} onClick={() => setD({ ...d, asap: true })}>
-          <span className="t"><b>As soon as possible</b><span>The first free local takes it, usually within 10 min</span></span>
+          <span className="t"><b>As soon as possible</b><span>People who are free now tell you, and you choose</span></span>
           {d.asap && Icon.tick("var(--emerald)", 24)}
         </button>
         <button className={!d.asap ? "choice on" : "choice"} onClick={() => setD({ ...d, asap: false })}>
