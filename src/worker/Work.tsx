@@ -174,11 +174,12 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       <section className="hero" style={{ paddingBottom: 20 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
-          <MessagesLink />
-          <button className="row" style={{ gap: 10, background: "none", border: 0, color: "#fff", fontSize: 15, fontWeight: 500, cursor: "pointer" }} onClick={toggle}
-            aria-label={online ? "Go offline" : "Go online"}>
-            {online ? "Online" : "Offline"}<span className={online ? "switch on" : "switch"} />
-          </button>
+          <span className="row" style={{ gap: 12 }}>
+            <MessagesLink />
+            <button style={{ background: "none", border: 0, padding: 0, cursor: "pointer", display: "flex" }} onClick={toggle} aria-label={online ? "Go offline" : "Go online"}>
+              <span className={online ? "switch on" : "switch"} />
+            </button>
+          </span>
         </div>
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 150, right: -30 }} />
         <h1 className="mid" style={{ position: "relative", margin: "18px 0 8px" }}>{online ? <>Jobs<br />near you</> : <>You're<br />offline</>}</h1>
@@ -236,7 +237,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       )}
       <History />
       <div className="footer between">
-        <button className="link quiet" onClick={() => go("/post")}>Book a job</button>
+        <button className="link quiet" onClick={() => go("/post")}>Post a job</button>
         <span className="row" style={{ gap: 18 }}>
           <button className="link quiet" onClick={() => go("/settings")}>Settings</button>
           <button className="link quiet" onClick={() => sb.auth.signOut()}>Sign out</button>

@@ -16,9 +16,10 @@ interface Reused { path: string; kind: "photo" | "video" }
 interface Draft {
   categoryId: number | null; priceCents: number; suburbId: number | null; address: string; notes: string; details: string;
   asap: boolean; startAt: string; invited: string[]; openAfter: number | null; reuse: Reused[];
+  included: string[]; excluded: string[];
 }
 const DRAFT_KEY = "mm-draft-2";
-const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [] };
+const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [], included: [], excluded: [] };
 const MAX_PHOTOS = 6;
 const MAX_VIDEO_SECONDS = 60;
 const STEPS = 5;
@@ -112,7 +113,7 @@ export function Book() {
     if (!jt) return go("/book/details");
     if (!photoCount || d.details.trim().length < 15) return go("/book/details");
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
-    if (!d.asap && !d.startAt) return go("/book/when");
+    if (!d.asap && !/T\d/.test(d.startAt)) return go("/book/when");
     if (!session) { setAuth(true); return; }
     setBusy(true);
     try {
@@ -134,6 +135,7 @@ export function Book() {
         p_asap: d.asap, p_start_at: d.asap ? new Date().toISOString() : new Date(d.startAt).toISOString(),
         p_details: d.details, p_media: uploaded, p_price_cents: d.priceCents,
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
+        p_included: d.included ?? [], p_excluded: d.excluded ?? [],
       });
       const finish = async () => {
         sessionStorage.removeItem(DRAFT_KEY);
@@ -207,6 +209,7 @@ export function Book() {
             </span>
             <button className="link" onClick={() => go("/book/details")}>Change</button>
           </div>
+          <ReviewRow k="What's included" v={`${(d.included ?? []).length} thing${(d.included ?? []).length === 1 ? "" : "s"}${(d.excluded ?? []).length ? `, ${d.excluded.length} not included` : ""}`} onChange={() => go("/book/details")} />
           <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/who")} />
           <ReviewRow k="Where" v={`${d.address}, ${suburb?.name ?? ""}`} onChange={() => go("/book/where")} />
           <ReviewRow k="When" v={d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} onChange={() => go("/book/when")} last />
@@ -244,7 +247,7 @@ const afterLabel = (m: number) => (m >= 60 ? `${m / 60} hour${m === 60 ? "" : "s
 
 // ---------- I have work: one button, then your recent jobs ----------
 interface Recent {
-  id: string; title: string | null; details: string; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
+  id: string; title: string | null; details: string; included: string[] | null; excluded: string[] | null; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
   status: string; worker_id: string | null; job_types: { category_id: number | null } | null; suburbs: { name: string } | null;
   job_media: { path: string; kind: "photo" | "video"; sort: number }[];
 }
@@ -253,14 +256,14 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   const [recent, setRecent] = useState<Recent[] | null>(null);
   useEffect(() => {
     if (!uid) { setRecent([]); return; }
-    sb.from("jobs").select("id,title,details,price_cents,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
+    sb.from("jobs").select("id,title,details,included,excluded,price_cents,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
       .eq("customer_id", uid).neq("status", "awaiting_payment").order("created_at", { ascending: false }).limit(5)
       .then(({ data }) => setRecent((data ?? []) as unknown as Recent[]));
   }, [uid]);
 
   const again = (r: Recent) => onStart({
     categoryId: r.job_types?.category_id ?? null, priceCents: r.price_cents, suburbId: r.suburb_id, address: r.address, notes: r.notes,
-    details: r.details, reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
+    details: r.details, included: r.included ?? [], excluded: r.excluded ?? [], reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
     invited: r.worker_id && ["finished", "confirmed"].includes(r.status) ? [r.worker_id] : [],
   });
 
@@ -479,6 +482,7 @@ function DetailsStep({ d, setD, cats, cat, photos, video, reused, reuseUrls, pho
     if (!cat) return setErr("Pick what kind of job it is.");
     if (!photoCount) return setErr("Add at least one photo so workers can see the job.");
     if (d.details.trim().length < 15) return setErr("Say what you want done.");
+    if (!(d.included ?? []).length) return setErr("Add at least one thing that's included.");
     setErr("");
     go("/book/who");
   };
@@ -556,6 +560,19 @@ function DetailsStep({ d, setD, cats, cat, photos, video, reused, reuseUrls, pho
           </label>
           {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk.</span>}
         </div>
+
+        <div className="sec">
+          <h2>What's included</h2>
+          <ListEditor items={d.included ?? []} onChange={(v) => { setD({ ...d, included: v }); setErr(""); }} yes
+            placeholder="e.g. Clean the shower screen" />
+        </div>
+
+        <div className="sec">
+          <h2>Not included <span className="h-opt">Optional</span></h2>
+          <ListEditor items={d.excluded ?? []} onChange={(v) => setD({ ...d, excluded: v })}
+            placeholder="e.g. Inside the oven" />
+          <span className="small light muted">The price covers what's included. Anything else is agreed in the app first.</span>
+        </div>
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
       {bar("Continue", next)}
@@ -564,6 +581,36 @@ function DetailsStep({ d, setD, cats, cat, photos, video, reused, reuseUrls, pho
         onChange={(v) => { setD({ ...d, categoryId: Number(v[0]) }); setErr(""); }} />}
       {voice && <VoiceScreen jobName={cat?.name ?? "Odd job"} onBack={() => setVoice(false)}
         onDone={(text) => { setD({ ...d, details: d.details.trim() ? `${d.details.trim()} ${text}` : text }); setVoice(false); }} />}
+    </div>
+  );
+}
+
+// What's included / not included: typed lines the worker is held to.
+function ListEditor({ items, onChange, yes = false, placeholder }: { items: string[]; onChange: (v: string[]) => void; yes?: boolean; placeholder: string }) {
+  const [t, setT] = useState("");
+  const add = () => {
+    const v = t.trim().slice(0, 80);
+    if (!v || items.length >= 12 || items.some((x) => x.toLowerCase() === v.toLowerCase())) { setT(""); return; }
+    onChange([...items, v]); setT("");
+  };
+  return (
+    <div className="list-ed">
+      {items.map((x) => (
+        <div key={x} className="li">
+          {yes ? Icon.tick("var(--emerald)", 20) : Icon.cross("var(--muted)")}
+          <span>{x}</span>
+          <button onClick={() => onChange(items.filter((y) => y !== x))} aria-label={`Remove ${x}`}>{Icon.cross("var(--muted)")}</button>
+        </div>
+      ))}
+      {items.length < 12 && (
+        <div className="add">
+          <label className="field" style={{ cursor: "text", minHeight: 56 }}>
+            <input value={t} onChange={(e) => setT(e.target.value)} placeholder={placeholder} maxLength={80}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} onBlur={add} enterKeyHint="done" />
+          </label>
+          <button className="btn stone" onClick={add} disabled={!t.trim()} aria-label="Add">{Icon.plus("var(--ink)")}</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -610,11 +657,31 @@ function WhenStep({ suburb, d, setD, bar }: {
   bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
 }) {
   const [err, setErr] = useState("");
-  const min = useMemo(() => new Date(Date.now() + 60 * 60 * 1000), []);
-  const max = useMemo(() => new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), []);
-  const local = (x: Date) => new Date(x.getTime() - x.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  const [pick, setPick] = useState<"day" | "time" | null>(null);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const dayKey = (x: Date) => `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
+  const earliest = useMemo(() => new Date(Date.now() + 60 * 60 * 1000), []);
+  const days = useMemo(() => Array.from({ length: 6 }, (_, i) => {
+    const x = new Date(); x.setDate(x.getDate() + i);
+    const nice = x.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+    return { id: dayKey(x), label: i === 0 ? `Today, ${nice}` : i === 1 ? `Tomorrow, ${nice}` : nice };
+  }), []);
+  const [selDay, selTime] = d.startAt ? d.startAt.split("T") : ["", ""];
+  const times = useMemo(() => {
+    const out: { id: string; label: string }[] = [];
+    for (let m = 6 * 60; m <= 20 * 60; m += 30) {
+      const hh = pad(Math.floor(m / 60)), mm = pad(m % 60);
+      const at = selDay ? new Date(`${selDay}T${hh}:${mm}`) : null;
+      const label = new Date(2000, 0, 1, m / 60, m % 60).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
+      if (!at || at >= earliest) out.push({ id: `${hh}:${mm}`, label });
+    }
+    return out;
+  }, [selDay, earliest]);
+  const timeLabel = times.find((t) => t.id === selTime)?.label;
+  const dayLabel = days.find((x) => x.id === selDay)?.label;
   const next = () => {
-    if (!d.asap && !d.startAt) return setErr("Pick a day and time.");
+    if (!d.asap && (!selDay || !selTime)) return setErr("Pick a day and a start time.");
+    if (!d.asap && new Date(d.startAt) < earliest) return setErr("Pick a time at least an hour from now.");
     go("/book/check");
   };
   return (
@@ -631,13 +698,29 @@ function WhenStep({ suburb, d, setD, bar }: {
         </button>
         {!d.asap && (
           <div style={{ padding: 16 }}>
-            <label className="field"><span className="k">Day and time</span>
-              <input type="datetime-local" value={d.startAt} min={local(min)} max={local(max)} onChange={(e) => setD({ ...d, startAt: e.target.value })} /></label>
+            <div className="stack" style={{ gap: 10 }}>
+              <button className="field" onClick={() => setPick("day")}>
+                <span className="row between" style={{ width: "100%" }}>
+                  <span className="stack" style={{ gap: 2 }}><span className="k">Day</span><span className={dayLabel ? "v" : "v ph"}>{dayLabel ?? "Pick a day"}</span></span>
+                  {Icon.down()}
+                </span>
+              </button>
+              <button className="field" onClick={() => (selDay ? setPick("time") : setPick("day"))}>
+                <span className="row between" style={{ width: "100%" }}>
+                  <span className="stack" style={{ gap: 2 }}><span className="k">Start time</span><span className={timeLabel ? "v" : "v ph"}>{timeLabel ?? "Pick a time"}</span></span>
+                  {Icon.down()}
+                </span>
+              </button>
+            </div>
           </div>
         )}
         {err && <p className="err" style={{ padding: "0 16px" }}>{err}</p>}
       </div>
       {bar("Continue", next)}
+      {pick === "day" && <SearchPicker title="Day" placeholder="Search days" value={selDay ? [selDay] : []} options={days}
+        onChange={(v) => { const t = selTime && new Date(`${v[0]}T${selTime}`) >= earliest ? selTime : ""; setD({ ...d, startAt: `${v[0]}T${t}` }); if (!t) setTimeout(() => setPick("time"), 0); }} onClose={() => setPick(null)} />}
+      {pick === "time" && <SearchPicker title="Start time" placeholder="Search times" value={selTime ? [selTime] : []} options={times}
+        onChange={(v) => setD({ ...d, startAt: `${selDay}T${v[0]}` })} onClose={() => setPick(null)} />}
     </div>
   );
 }

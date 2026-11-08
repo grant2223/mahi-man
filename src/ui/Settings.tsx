@@ -8,17 +8,18 @@ import { AbnStep } from "../worker/Signup";
 
 // Account settings: ID check, blocked people, legal pages and in-app account deletion (Apple 5.1.1(v)).
 export function Settings() {
-  const { session, profile, reload } = useSession();
+  const { session, profile, reload, ready } = useSession();
   const toast = useToast();
   const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
   const [screen, setScreen] = useState<null | "verify" | "delete" | "payid">(null);
 
   useEffect(() => {
     if (!session) return;
-    rpc<{ id: string; name: string }[]>("my_blocks").then(setBlocked).catch(() => {});
+    rpc<{ id: string; name: string }[]>("my_blocks").then((r) => setBlocked(r ?? [])).catch(() => {});
   }, [session]);
 
-  if (!session || !profile) { go("/", true); return null; }
+  if (ready && !session) { go("/", true); return null; }
+  if (!session || !profile) return <div className="app"><StepHero title="Settings" onBack={() => (history.length > 1 ? history.back() : go("/"))} /></div>;
   const idLabel = { none: "Not verified", pending: "Being checked", verified: "ID verified", retake: "Retake needed", rejected: "Not approved" }[profile.id_status];
 
   return (
@@ -38,7 +39,7 @@ export function Settings() {
             {Icon.chevron("var(--faint)")}
           </button>
         )}
-        <button className="choice" onClick={() => go("/jobs")}><span className="t"><b>My bookings</b><span>Jobs you've booked</span></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => go("/jobs")}><span className="t"><b>My jobs</b><span>Jobs you've posted</span></span>{Icon.chevron("var(--faint)")}</button>
         {profile.is_worker && <button className="choice" onClick={() => go("/work")}><span className="t"><b>Work</b><span>Your worker account</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("payid")}><span className="t"><b>ABN and PayID</b><span>Where customers pay you</span></span>{Icon.chevron("var(--faint)")}</button>}
         {blocked.length > 0 && (

@@ -54,17 +54,22 @@ export function AuthScreen({ title, reason, onDone, onBack }: { title: string; r
                 onKeyDown={(e) => e.key === "Enter" && submit()} /></label>
           )}
         </div>
+        {mode === "in" && (
+          <div className="row" style={{ justifyContent: "flex-end", marginTop: 6 }}>
+            <button className="link quiet" onClick={() => { setMode("reset"); setErr(""); }}>Forgot password?</button>
+          </div>
+        )}
         {err && <p className="err">{err}</p>}
         {note && <p className="t15 em">{note}</p>}
-        <div className="row between" style={{ marginTop: 20 }}>
-          <span className="stack" style={{ gap: 0 }}>
-            {mode !== "up" && <button className="link" onClick={() => { setMode("up"); setErr(""); }}>New here? Create an account</button>}
-            {mode !== "in" && <button className="link" onClick={() => { setMode("in"); setErr(""); }}>I already have an account</button>}
-            {mode === "in" && <button className="link quiet" onClick={() => { setMode("reset"); setErr(""); }}>Forgot password?</button>}
-          </span>
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 18 }}>
           <button className="btn primary" disabled={busy} onClick={submit}>
-            {mode === "up" ? "Create account" : mode === "in" ? "Sign in" : "Send link"}
+            {busy ? "One sec…" : mode === "up" ? "Create account" : mode === "in" ? "Sign in" : "Send link"}
           </button>
+        </div>
+        <div className="auth-switch">
+          {mode === "up"
+            ? <>Already have an account? <button className="link" onClick={() => { setMode("in"); setErr(""); }}>Sign in</button></>
+            : <>New to More Mahi? <button className="link" onClick={() => { setMode("up"); setErr(""); }}>Create an account</button></>}
         </div>
       </div>
     </Screen>

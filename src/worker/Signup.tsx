@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api, sb, type IdStatus, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { shrinkImage, validAbn } from "../lib/format";
-import { Icon, Logo, Screen, SearchPicker, Tile, useToast } from "../ui/kit";
+import { DateField, Icon, Logo, Screen, SearchPicker, Tile, useToast } from "../ui/kit";
 import { VerifyFlow } from "../ui/Verify";
 
 export interface Steps { photo: boolean; id_and_bank: boolean; abn: boolean; area: boolean; jobs: boolean }
@@ -211,9 +211,9 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
     <Screen title="Where you work" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <div className="stack">
-          <button className="field" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={base ? "v" : "v ph"}>{suburbs.find((s) => s.id === base)?.name ?? "Pick your suburb"}</span></button>
-          <button className="field" onClick={() => setPick("radius")}><span className="k">How far you'll travel</span><span className="v">Up to {radius} km</span></button>
-          <button className="field" onClick={() => setPick("vehicle")}><span className="k">Ute or trailer</span><span className="v">{vehicle ? "Yes, I have one" : "No"}</span></button>
+          <button className="field sel" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={base ? "v" : "v ph"}>{suburbs.find((s) => s.id === base)?.name ?? "Pick your suburb"}</span></button>
+          <button className="field sel" onClick={() => setPick("radius")}><span className="k">How far you'll travel</span><span className={radius ? "v" : "v ph"}>{radius ? `Up to ${radius} km` : "Pick how far"}</span></button>
+          <button className="field sel" onClick={() => setPick("vehicle")}><span className="k">Ute or trailer</span><span className="v">{vehicle ? "Yes, I have one" : "No"}</span></button>
         </div>
         <p className="small light muted" style={{ lineHeight: 1.45 }}>Tip runs and mowing need a vehicle.</p>
         {err && <p className="err">{err}</p>}
@@ -281,7 +281,7 @@ function InsuranceStep({ onBack, onSaved }: { onBack: () => void; onSaved: () =>
             <span className={file ? "v" : "v ph"}>{file?.name ?? "Choose file"}</span>
             <input type="file" accept="application/pdf,image/*" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
           </label>
-          <label className="field"><span className="k">Expiry date</span><input type="date" value={expiry} onChange={(e) => setExpiry(e.target.value)} /></label>
+          <DateField label="Expiry date" value={expiry} onChange={setExpiry} min={new Date().toISOString().slice(0, 10)} />
         </div>
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>

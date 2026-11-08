@@ -154,6 +154,13 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
           <a className="btn stone" style={{ background: "var(--ground)", fontSize: 15, height: 46 }} href={maps} target="_blank" rel="noreferrer">{Icon.pin()} Directions</a>
         </div>
         {j.details && <div className="stack" style={{ padding: "0 16px 14px", gap: 4 }}><span className="t15 w5">What they want done</span><span className="t15 light" style={{ lineHeight: 1.45 }}>{j.details}</span></div>}
+        {(j.included?.length ?? 0) > 0 && (
+          <div className="stack" style={{ padding: "0 16px 14px", gap: 6 }}>
+            <span className="t15 w5">What's included</span>
+            <div className="ticks">{j.included!.map((x) => <span key={x} style={{ fontSize: 15 }}>{Icon.tick("var(--emerald)", 20)}{x}</span>)}</div>
+            {(j.excluded?.length ?? 0) > 0 && <div className="ticks no"><h3>Not included</h3>{j.excluded!.map((x) => <span key={x}>{Icon.cross("var(--faint)")}{x}</span>)}</div>}
+          </div>
+        )}
         {brief.length > 0 && <div className="photos" style={{ padding: "0 16px 14px" }}>{brief.map((b) => b.kind === "video"
           ? <video key={b.url} src={b.url} controls playsInline style={{ width: "100%", aspectRatio: "1", objectFit: "cover", borderRadius: 4 }} />
           : <a key={b.url} href={b.url} target="_blank" rel="noreferrer"><img src={b.url} alt="Customer photo" /></a>)}</div>}

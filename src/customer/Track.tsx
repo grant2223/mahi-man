@@ -170,7 +170,7 @@ export function Track({ id }: { id: string }) {
     case "awaiting_payment": label = "Not booked yet"; big = money2(total); sub = "Hold the payment to send it to workers"; break;
     case "accepted": {
       const mins = eta ? Math.max(0, Math.round((new Date(eta).getTime() - now) / 60000)) : 0;
-      if (job.asap) { label = `${wName} is on the way`; big = String(mins); bigUnit = "min"; }
+      if (job.asap) { label = `${wName} is on the way`; if (mins > 0) { big = String(mins); bigUnit = "min"; } else { big = "Any minute"; } }
       else { label = `${wName} is booked for`; big = new Date(job.start_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }); sub = new Date(job.start_at).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" }); }
       break;
     }

@@ -9,6 +9,10 @@ const config: CapacitorConfig = {
     contentInset: "never",
     limitsNavigationsToAppBoundDomains: false,
   },
+  plugins: {
+    // The app shrinks above the keyboard instead of sliding under the status bar.
+    Keyboard: { resize: "native", resizeOnFullScreen: true },
+  },
 };
 
 export default config;

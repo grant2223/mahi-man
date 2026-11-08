@@ -117,6 +117,20 @@ export function Screen({ title, onBack, children, right }: { title: string; onBa
   );
 }
 
+/* ---------- Date field: looks like every other field, opens the phone's date wheel ---------- */
+export function DateField({ label, value, onChange, min, max }: { label: string; value: string; onChange: (v: string) => void; min?: string; max?: string }) {
+  const shown = value ? new Date(`${value}T00:00`).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }) : "";
+  return (
+    <label className="field date-field">
+      <span className="row between" style={{ width: "100%" }}>
+        <span className="stack" style={{ gap: 2 }}><span className="k">{label}</span><span className={shown ? "v" : "v ph"}>{shown || "DD / MM / YYYY"}</span></span>
+        {Icon.down()}
+      </span>
+      <input type="date" value={value} min={min} max={max} onChange={(e) => onChange(e.target.value)} aria-label={label} />
+    </label>
+  );
+}
+
 /* ---------- Searchable dropdown, full bleed ---------- */
 export interface Option { id: number | string; label: string; hint?: string; disabled?: boolean; right?: string }
 

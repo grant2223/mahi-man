@@ -7,5 +7,13 @@
 		"contentInset": "never",
 		"limitsNavigationsToAppBoundDomains": false
 	},
-	"packageClassList": []
+	"plugins": {
+		"Keyboard": {
+			"resize": "native",
+			"resizeOnFullScreen": true
+		}
+	},
+	"packageClassList": [
+		"KeyboardPlugin"
+	]
 }
