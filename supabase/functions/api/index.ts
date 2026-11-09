@@ -399,6 +399,41 @@ Deno.serve(async (req) => {
           return ok({ text: basicTidy(raw), ai: false });
         }
       }
+      // "Just say it": one description in, the whole job out — tidy description, category, skills, included, not included.
+      case "fill_job": {
+        const raw = String(body.text ?? "").trim().slice(0, 4000);
+        if (!raw) return fail("Nothing was heard. Try again.");
+        const cats = (Array.isArray(body.categories) ? body.categories : []) as { id: number; name: string; skills: { id: number; name: string }[] }[];
+        const key = Deno.env.get("ANTHROPIC_API_KEY");
+        if (!key) return ok({ ai: false });
+        try {
+          const list = cats.map((c) => `${c.id}: ${c.name} (skills: ${c.skills.map((k) => `${k.id} ${k.name}`).join("; ")})`).join("\n");
+          const r = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+            body: JSON.stringify({
+              model: "claude-haiku-5-5",
+              max_tokens: 700,
+              system: "You turn a customer's spoken or typed description of an odd job into a job post a worker can follow. Keep every detail they gave and add nothing they did not say. Plain Australian English. Reply with JSON only, no other text: {\"details\": 2 to 5 short sentences, \"category_id\": the best matching category id from the list or null, \"skill_ids\": ids of skills from that category that the job clearly needs (often none), \"included\": short tasks the worker must do, each under 60 characters, \"excluded\": things they said are not part of the job, often none}.",
+              messages: [{ role: "user", content: `Categories:\n${list}\n\nWhat they said: ${raw}` }],
+            }),
+          });
+          const j = await r.json();
+          const t = String(j?.content?.[0]?.text ?? "").replace(/^```(json)?|```$/g, "").trim();
+          const o = JSON.parse(t);
+          const cat = cats.find((c) => c.id === Number(o.category_id));
+          const strs = (v: unknown) => (Array.isArray(v) ? v : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 12);
+          return ok({
+            ai: true,
+            details: String(o.details ?? "").trim() || raw,
+            category_id: cat?.id ?? null,
+            skill_ids: (Array.isArray(o.skill_ids) ? o.skill_ids : []).map(Number).filter((id: number) => cat?.skills.some((k) => k.id === id)),
+            included: strs(o.included), excluded: strs(o.excluded),
+          });
+        } catch {
+          return ok({ ai: false });
+        }
+      }
       default:
         return fail("Unknown action");
     }

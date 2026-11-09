@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
+import { api, firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go, usePath } from "../lib/router";
 import { money, money2, shrinkImage } from "../lib/format";
@@ -464,6 +464,21 @@ function ReviewRow({ k, v, onChange, last }: { k: string; v: string; onChange: (
 }
 
 // ---------- Step 1: What's the job ----------
+// Without the AI: pick the category whose name and skills share the most words, and turn each sentence into a task.
+function guessJob(text: string, cats: Category[], skills: { id: number; category_id: number; name: string }[]) {
+  const words = new Set(text.toLowerCase().match(/[a-z]+/g) ?? []);
+  const score = (s: string) => (s.toLowerCase().match(/[a-z]{4,}/g) ?? []).filter((w) => words.has(w) || words.has(w.replace(/s$/, ""))).length;
+  let best: { id: number; n: number } | null = null;
+  for (const c of cats) {
+    const n = score(c.name) * 2 + skills.filter((k) => k.category_id === c.id).reduce((a, k) => a + score(k.name), 0);
+    if (n > 0 && (!best || n > best.n)) best = { id: c.id, n };
+  }
+  const tidy = text.replace(/\s+/g, " ").trim();
+  const details = tidy.charAt(0).toUpperCase() + tidy.slice(1) + (/[.!?]$/.test(tidy) ? "" : ".");
+  const included = tidy.split(/(?<=[.!?])\s+|\s+and\s+(?=[a-z])/i).map((x) => x.replace(/[.!?]+$/, "").trim()).filter((x) => x.length > 3)
+    .map((x) => (x.charAt(0).toUpperCase() + x.slice(1)).slice(0, 60)).slice(0, 6);
+  return { details, category_id: best?.id ?? null, skill_ids: [] as number[], included, excluded: [] as string[] };
+}
 function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar }: {
   d: Draft; setD: (d: Draft) => void; cats: Category[]; cat: Category | null; skillList: { id: number; category_id: number; name: string; needs: string | null }[]; suggest: (catId: number) => number | null;
   err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
@@ -473,6 +488,26 @@ function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar 
   const [dictate, setDictate] = useState(false);
   const [pickCat, setPickCat] = useState(false);
   const [pickSkills, setPickSkills] = useState(false);
+  const [filling, setFilling] = useState(false);
+  const filled = useRef(false);
+  // One description in, the whole job out. The AI does it when it's switched on; otherwise a simple match on the words.
+  async function fill(text: string) {
+    filled.current = true; setFilling(true); setErr("");
+    const payload = cats.map((c) => ({ id: c.id, name: c.name, skills: skillList.filter((k) => k.category_id === c.id).map((k) => ({ id: k.id, name: k.name })) }));
+    let r: { ai: boolean; details?: string; category_id?: number | null; skill_ids?: number[]; included?: string[]; excluded?: string[] } = { ai: false };
+    try { r = await api("fill_job", { text, categories: payload }); } catch { /* offline: the simple match below */ }
+    const out = r.ai ? r : guessJob(text, cats, skillList);
+    const catId = out.category_id ?? d.categoryId;
+    const sp = catId ? suggest(catId) : null;
+    setD({
+      ...d, details: out.details || text, categoryId: catId,
+      skills: (out.skill_ids ?? []).length ? out.skill_ids! : d.skills,
+      included: (d.included ?? []).length ? d.included : out.included ?? [],
+      excluded: (d.excluded ?? []).length ? d.excluded : out.excluded ?? [],
+      ...(!d.priceSet && sp && catId !== d.categoryId ? { priceCents: sp } : {}),
+    });
+    setFilling(false);
+  }
   const catSkills = skillList.filter((k) => k.category_id === cat?.id);
   const chosen = catSkills.filter((k) => (d.skills ?? []).includes(k.id));
   const needs = [...new Set(chosen.map((k) => k.needs).filter(Boolean))] as string[];
@@ -487,6 +522,26 @@ function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar 
     <div className="app">
       <StepHero step={1} of={STEPS} title="What's the job?" sub="Be specific. This is what the worker is held to." onBack={() => history.back()} />
       <div className="step-body">
+        <div className="sec">
+          <h2>Tell us the job</h2>
+          <button className="wide-btn green" disabled={filling} onClick={() => {
+            if (voiceSupported()) return setVoice(true);
+            // Where the browser has no speech service (the iPhone app), the keyboard's own microphone does the same job.
+            setDictate(true);
+            detailsBox.current?.focus();
+          }}>
+            {Icon.mic("var(--lime)")}
+            <span className="t"><b>Just say it</b><span>Talk it through. We fill in everything below.</span></span>
+          </button>
+          <label className="field" style={{ cursor: "text" }}>
+            <textarea ref={detailsBox} value={d.details} onChange={(e) => setD({ ...d, details: e.target.value })} style={{ minHeight: 110 }}
+              onBlur={() => { if (!filled.current && d.details.trim().length >= 20 && !d.categoryId && !(d.included ?? []).length) fill(d.details); }}
+              placeholder="Or type it. For example: shower screen has build-up, needs a proper scrub. Benches and stovetop degreased. Products are under the sink." />
+          </label>
+          {dictate && !filling && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk. We fill in the rest when you're done.</span>}
+          {filling && <span className="t15 em" style={{ lineHeight: 1.4 }}>Filling in the rest…</span>}
+        </div>
+
         <div className="sec">
           <h2>What kind of job?</h2>
           <button className="cp-select" onClick={() => setPickCat(true)}>
@@ -510,24 +565,6 @@ function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar 
         )}
 
         <div className="sec">
-          <h2>Exactly what you want done</h2>
-          <button className="wide-btn green" onClick={() => {
-            if (voiceSupported()) return setVoice(true);
-            // Where the browser has no speech service (the iPhone app), the keyboard's own microphone does the same job.
-            setDictate(true);
-            detailsBox.current?.focus();
-          }}>
-            {Icon.mic("var(--lime)")}
-            <span className="t"><b>Just say it</b><span>Talk it through. We write it up for you.</span></span>
-          </button>
-          <label className="field" style={{ cursor: "text" }}>
-            <textarea ref={detailsBox} value={d.details} onChange={(e) => setD({ ...d, details: e.target.value })} style={{ minHeight: 110 }}
-              placeholder="For example: shower screen has build-up, needs a proper scrub. Benches and stovetop degreased. Products are under the sink." />
-          </label>
-          {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk.</span>}
-        </div>
-
-        <div className="sec">
           <h2>What's included</h2>
           <ListEditor items={d.included ?? []} onChange={(v) => { setD({ ...d, included: v }); setErr(""); }} yes
             placeholder="e.g. Clean the shower screen" />
@@ -549,7 +586,7 @@ function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar 
         options={catSkills.map((k) => ({ id: k.id, label: k.name, hint: k.needs ? `Only workers with a verified ${lc(k.needs)}` : undefined }))}
         onClose={() => setPickSkills(false)} onChange={(v) => setD({ ...d, skills: v.map(Number) })} />}
       {voice && <VoiceScreen jobName={cat?.name ?? "Odd job"} onBack={() => setVoice(false)}
-        onDone={(text) => { setD({ ...d, details: d.details.trim() ? `${d.details.trim()} ${text}` : text }); setVoice(false); }} />}
+        raw onDone={(text) => { setVoice(false); fill(d.details.trim() ? `${d.details.trim()} ${text}` : text); }} />}
     </div>
   );
 }

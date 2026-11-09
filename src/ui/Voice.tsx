@@ -19,7 +19,7 @@ function recognizerCtor(): RecognizerCtor | null {
 export const voiceSupported = () => !!recognizerCtor();
 
 // Full-bleed "Just say it" screen: the customer talks, we turn it into a written job description they can edit.
-export function VoiceScreen({ jobName, onDone, onBack }: { jobName: string; onDone: (text: string) => void; onBack: () => void }) {
+export function VoiceScreen({ jobName, onDone, onBack, raw = false }: { jobName: string; onDone: (text: string) => void; onBack: () => void; raw?: boolean }) {
   const [heard, setHeard] = useState("");
   const [live, setLive] = useState("");
   const [state, setState] = useState<"listening" | "writing" | "error">("listening");
@@ -59,6 +59,7 @@ export function VoiceScreen({ jobName, onDone, onBack }: { jobName: string; onDo
     const text = (finalText.current + live).trim();
     try { rec.current?.stop(); } catch { /* ignore */ }
     if (!text) { setErr("We didn't catch anything. Tap the microphone and try again."); return; }
+    if (raw) { onDone(text); return; }
     setState("writing");
     try {
       const out = await api<{ text: string }>("tidy_text", { text, job_name: jobName });

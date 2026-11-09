@@ -652,3 +652,6 @@ table.rows tr.click:hover td { background: #f7f6f2; }
 
 /* On a user's page the back link replaces the page title */
 .adm-main:has(.u-page) .adm-title { display: none; }
+
+/* iPhone: the status bar (clock, battery) gets a solid strip, so the page never shows through under it when scrolling. */
+body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: #0d6f52; z-index: 100; pointer-events: none; }
