@@ -6,7 +6,7 @@ import { money2, shrinkImage } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
 import { CatIcon, Icon, Logo, SearchPicker, useToast } from "../ui/kit";
 
-const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
+const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
 type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "types" | "skills" | "settings";
 

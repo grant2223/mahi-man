@@ -16,10 +16,10 @@ const STEP_INFO: { key: keyof Steps; title: string; hint: string }[] = [
   { key: "id_and_bank", title: "Verify your ID", hint: "Passport or national ID, plus a selfie" },
   { key: "abn", title: "Getting paid", hint: "Your PayID or bank account" },
   { key: "area", title: "Where you work", hint: "Your suburb and how far you'll travel" },
-  { key: "jobs", title: "Jobs and skills", hint: "What you do, how long you've done it, your gear" },
+  { key: "jobs", title: "My skills", hint: "The kinds of work you're happy to do" },
 ];
 
-export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: Steps; pilot: boolean; idStatus: IdStatus; idNote: string | null; onChanged: () => void }) {
+export function Signup({ steps, pilot, idStatus, idNote, onChanged, onBack }: { steps: Steps; pilot: boolean; idStatus: IdStatus; idNote: string | null; onChanged: () => void; onBack?: () => void }) {
   const [open, setOpen] = useState<StepKey | null>(null);
   const idHint = idStatus === "pending" ? "Being checked, usually within a few hours"
     : idStatus === "retake" ? `Retake needed: ${idNote ?? "photo wasn't clear"}`
@@ -36,7 +36,7 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: S
       <section className="hero">
         <div className="hero-top">
           <span className="row" style={{ gap: 6 }}>
-            <button className="hero-back" aria-label="Back" onClick={() => { setSide("help"); go("/"); }}>{Icon.back("#fff")}</button>
+            <button className="hero-back" aria-label="Back" onClick={() => { if (onBack) onBack(); else { setSide("help"); go("/"); } }}>{Icon.back("#fff")}</button>
             <span className="brand"><Logo /> More Mahi</span>
           </span>
           <span className="t15 light" style={{ color: "rgba(255,255,255,0.85)" }}>Worker</span>

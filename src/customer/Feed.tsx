@@ -13,7 +13,8 @@ interface FeedJob {
 }
 
 // "Do work": the home screen. Every job open right now, filtered by category.
-export function Feed() {
+// A worker still setting up sees the same jobs first, with their progress and one button to finish.
+export function Feed({ setup }: { setup?: { done: number; total: number; onFinish: () => void } } = {}) {
   const { session, profile } = useSession();
   const isWorker = !!profile?.is_worker;
   const [jobs, setJobs] = useState<FeedJob[] | null>(null);
@@ -57,7 +58,15 @@ export function Feed() {
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 168, right: -32 }} />
         <h1 className="mid" style={{ position: "relative", margin: "22px 0 10px" }}>Want more<br />mahi?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Local jobs, open now. Keep 100% of the price.</p>
-        {!isWorker && (
+        {setup ? (
+          <div className="start-row stack" style={{ gap: 12, alignItems: "flex-start" }}>
+            <span className="stack" style={{ gap: 2, position: "relative" }}>
+              <span style={{ fontSize: 32, fontWeight: 600, letterSpacing: -1, color: "var(--lime)", whiteSpace: "nowrap" }}>{setup.done} of {setup.total} done</span>
+              <span className="t15 light" style={{ color: "rgba(255,255,255,0.88)" }}>Finish your profile to take jobs.</span>
+            </span>
+            <button className="btn white" style={{ position: "relative" }} onClick={setup.onFinish}>Finish now {Icon.arrow("var(--emerald)")}</button>
+          </div>
+        ) : !isWorker && (
           <div className="start-row">
             <button className="btn white" onClick={() => go("/work")}>Start earning {Icon.arrow("var(--emerald)")}</button>
           </div>
@@ -80,7 +89,7 @@ export function Feed() {
 
       <div className="feed-list">
         {shown.map((j) => (
-          <button key={j.id} className="job-row" onClick={() => go("/work")}>
+          <button key={j.id} className="job-row" onClick={() => (setup ? setup.onFinish() : go("/work"))}>
             {j.cover_path && urls[j.cover_path]
               ? <span className="pic" style={{ backgroundImage: `url("${urls[j.cover_path]}")` }}>{j.has_video && <span className="vid">{Icon.play("#fff")} Video</span>}</span>
               : <span className="pic cat-pic"><CatIcon name={j.icon} size={34} />{j.has_video && <span className="vid">{Icon.play("#fff")} Video</span>}</span>}
@@ -98,7 +107,7 @@ export function Feed() {
             <span>New jobs come in through the day. Get set up to take the next one.</span>
             <div className="row" style={{ gap: 10, marginTop: 6 }}>
               {cat !== "all" && <button className="btn stone" onClick={() => setCat("all")}>See all jobs</button>}
-              <button className="btn primary" onClick={() => go("/work")}>Get set up {Icon.arrow("#fff")}</button>
+              <button className="btn primary" onClick={() => (setup ? setup.onFinish() : go("/work"))}>{setup ? "Finish your profile" : "Get set up"} {Icon.arrow("#fff")}</button>
             </div>
           </div>
         )}

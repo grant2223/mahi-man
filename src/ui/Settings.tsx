@@ -48,7 +48,7 @@ export function Settings() {
         <button className="choice" onClick={() => go("/jobs")}><span className="t"><b>My jobs</b><span>Jobs you've posted</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => setScreen("cards")}><span className="t"><b>Payment methods</b><span>{profile.card_last4 ? `${cardLabel(profile)}, for booking fees` : "Card for booking fees"}</span></span>{Icon.chevron("var(--faint)")}</button>
         {profile.is_worker && <button className="choice" onClick={() => go("/work")}><span className="t"><b>Work</b><span>Your worker account</span></span>{Icon.chevron("var(--faint)")}</button>}
-        {profile.is_worker && <button className="choice" onClick={() => setScreen("skills")}><span className="t"><b>Jobs and skills</b><span>What customers see on your offers</span></span>{Icon.chevron("var(--faint)")}</button>}
+        {profile.is_worker && <button className="choice" onClick={() => setScreen("skills")}><span className="t"><b>My skills</b><span>What customers see on your offers</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("creds")}><span className="t"><b>Licences and certificates</b><span>Insurance, RSA, Blue Card, trade licences</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("payid")}><span className="t"><b>Getting paid</b><span>Where customers pay you</span></span>{Icon.chevron("var(--faint)")}</button>}
         {blocked.length > 0 && (

@@ -14,6 +14,7 @@ import { AlertsAsk } from "../ui/AlertsAsk";
 import { alertsState, askedFor } from "../lib/push";
 import { SideSwitch } from "../ui/SideSwitch";
 import { SettingsIcon } from "../ui/HeaderIcons";
+import { Feed } from "../customer/Feed";
 
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
@@ -68,6 +69,7 @@ export function Work() {
     if (location.search.includes("payouts=1")) history.replaceState(null, "", "/work");
   }, []);
 
+  const [setupOpen, setSetupOpen] = useState(false);
   if (!ready) return null;
 
   // Not a worker yet: straight into sign-up. The jobs feed already explains what's needed.
@@ -89,7 +91,13 @@ export function Work() {
     <div className="app"><section className="hero"><span className="brand"><Logo /> More Mahi</span><h1 className="mid">Account paused</h1>
       <p className="lede">Your worker account is paused. Email hello@moremahi.com and we'll sort it out.</p></section></div>
   );
-  if (!status.approved) return <div className="app"><Signup steps={status.steps} pilot={status.pilot} idStatus={status.id_status} idNote={status.id_note} onChanged={refresh} /></div>;
+  // Still setting up: jobs first, so they can see what's on offer, and the checklist one tap away.
+  if (!status.approved) {
+    const done = Object.values(status.steps).filter(Boolean).length;
+    return setupOpen
+      ? <div className="app"><Signup steps={status.steps} pilot={status.pilot} idStatus={status.id_status} idNote={status.id_note} onChanged={refresh} onBack={() => setSetupOpen(false)} /></div>
+      : <Feed setup={{ done, total: Object.keys(status.steps).length, onFinish: () => setSetupOpen(true) }} />;
+  }
   return <div className="app"><Home pilot={status.pilot} onTaken={refresh} wrapups={wrapups} onOpen={(j) => { unhide(j.id); setCurrent(j); }} /></div>;
 }
 

@@ -16,6 +16,11 @@ const CAT: Record<string, ReactNode> = {
   errands: <><path d="M5 8h14l-1 13H6z" /><path d="M9 10V6a3 3 0 0 1 6 0v4" /></>,
   car: <><path d="M3 16v-4l2.5-5h13L21 12v4z" /><path d="M3 12h18" /><circle cx="7.5" cy="16.5" r="1.8" /><circle cx="16.5" cy="16.5" r="1.8" /></>,
   pool: <><path d="M8 15V4.5a1.5 1.5 0 0 1 3 0M16 15V4.5a1.5 1.5 0 0 0-3 0" /><path d="M8 8h8M8 12h8" /><path d="M2 18c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5" /><path d="M2 21.5c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5" /></>,
+  rubbish: <><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 14h10l1-14" /><path d="M10 11v6M14 11v6" /></>,
+  maintenance: <><path d="M3 6h18v7H3z" /><path d="M6 10h12" /><path d="M7 17c0 1.5-1 2-1 3M12 17c0 1.5-1 2-1 3M17 17c0 1.5-1 2-1 3" /></>,
+  events: <><path d="M7 3h10l-1 7a4 4 0 0 1-8 0z" /><path d="M12 14v7M8.5 21h7" /><path d="M7.5 7h9" /></>,
+  kids: <><path d="M4 4h7v7H4zM13 13h7v7h-7z" /><path d="M16.5 4a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7zM4 20l3.5-7 3.5 7z" /></>,
+  tech: <><path d="M4 5h16v11H4z" /><path d="M2 19h20" /><path d="M10 16v3M14 16v3" /></>,
   other: <><path d="M12 3l2.2 5.8L20 11l-5.8 2.2L12 19l-2.2-5.8L4 11l5.8-2.2z" /><path d="M19 17v4M17 19h4" /></>,
 };
 export function CatIcon({ name, size = 32, color = "#fff" }: { name: string | null | undefined; size?: number; color?: string }) {

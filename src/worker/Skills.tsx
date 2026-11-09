@@ -58,17 +58,25 @@ function useMine() {
 
 /* ---------- Jobs and skills: one row per type of job ---------- */
 export function JobsAndSkills({ onBack }: { onBack: () => void }) {
+  const { session } = useSession();
+  const toast = useToast();
   const cat = useCatalog();
   const { mine, load } = useMine();
   const [open, setOpen] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
-  if (!cat || !mine) return <Screen title="Jobs and skills" onBack={onBack}><div className="screen-body" /></Screen>;
+  if (!cat || !mine) return <Screen title="My skills" onBack={onBack}><div className="screen-body" /></Screen>;
   const myTypes = cat.types.filter((t) => mine.types.some((m) => m.job_type_id === t.id));
   const names = (catId: number, kind: "skill" | "gear") => cat.skills.filter((k) => k.category_id === catId && k.kind === kind && mine.skills.includes(k.id)).map((k) => k.name);
   const openType = cat.types.find((t) => t.id === open);
+  async function addTypes(ids: number[]) {
+    if (!ids.length || !session) return;
+    const { error } = await sb.from("worker_job_types").upsert(ids.map((id) => ({ worker_id: session.user.id, job_type_id: id })), { onConflict: "worker_id,job_type_id", ignoreDuplicates: true });
+    if (error) { toast(error.message); return; }
+    toast(ids.length === 1 ? "Added" : `${ids.length} added`); load(); api("worker_status").catch(() => {});
+  }
 
   return (
-    <Screen title="Jobs and skills" onBack={onBack}>
+    <Screen title="My skills" onBack={onBack}>
       <div className="screen-body" style={{ background: "var(--card)" }}>
         {myTypes.map((t) => {
           const sk = names(t.cat.id, "skill"), gear = names(t.cat.id, "gear");
@@ -79,20 +87,20 @@ export function JobsAndSkills({ onBack }: { onBack: () => void }) {
               <span style={{ paddingTop: 2 }}><CatIcon name={t.cat.icon} size={26} color="var(--emerald)" /></span>
               <span className="t">
                 <b>{t.cat.name}</b>
-                <span style={{ color: sk.length ? "var(--ink)" : "var(--emerald)", fontSize: 15 }}>{sk.length ? sk.join(", ") : "Add your skills"}</span>
+                <span style={{ color: sk.length ? "var(--ink)" : "var(--muted)", fontSize: 15 }}>{sk.length ? sk.join(", ") : "Add details, optional"}</span>
                 {sub && <span>{sub}</span>}
               </span>
               {Icon.chevron("var(--faint)")}
             </button>
           );
         })}
-        {!myTypes.length && <p className="t17 light" style={{ padding: "20px 16px 0", margin: 0, lineHeight: 1.4 }}>Add each type of job you do. Customers see your skills on every offer.</p>}
-        <div style={{ padding: 16 }}><button className="btn stone" onClick={() => setAdding(true)}>{Icon.plus("var(--ink)")} Add a type of job</button></div>
+        {!myTypes.length && <p className="t17 light" style={{ padding: "20px 16px 0", margin: 0, lineHeight: 1.4 }}>Pick the kinds of work you're happy to do. You can add details later.</p>}
+        <div style={{ padding: 16 }}><button className={myTypes.length ? "btn stone" : "btn primary"} onClick={() => setAdding(true)}>{Icon.plus(myTypes.length ? "var(--ink)" : "#fff")} {myTypes.length ? "Add more" : "Pick your skills"}</button></div>
       </div>
       {adding && (
-        <SearchPicker title="Add a type of job" placeholder="Search jobs" value={[]}
+        <SearchPicker title="What will you do?" multi placeholder="Search" value={[]}
           options={cat.types.filter((t) => !myTypes.includes(t)).map((t) => ({ id: t.id, label: t.cat.name }))}
-          onClose={() => setAdding(false)} onChange={(v) => setOpen(Number(v[0]))} />
+          onClose={() => setAdding(false)} onChange={(v) => addTypes(v.map(Number))} />
       )}
       {openType && (
         <JobDetail type={openType} catalog={cat} mine={mine} isNew={!myTypes.includes(openType)}
@@ -123,8 +131,6 @@ function JobDetail({ type, catalog, mine, isNew, onBack, onSaved, onCredsChanged
 
   async function save() {
     if (!session) return;
-    if (!skills.length) return setErr("Pick at least one skill");
-    if (years == null) return setErr("Pick your experience");
     setErr(""); setBusy(true);
     try {
       const uid = session.user.id;
@@ -133,8 +139,10 @@ function JobDetail({ type, catalog, mine, isNew, onBack, onSaved, onCredsChanged
       if (r.error) throw r.error;
       r = await sb.from("worker_skills").delete().eq("worker_id", uid).in("skill_id", catIds);
       if (r.error) throw r.error;
-      r = await sb.from("worker_skills").insert([...skills, ...gear].map((id) => ({ worker_id: uid, skill_id: id })));
-      if (r.error) throw r.error;
+      if (skills.length || gear.length) {
+        r = await sb.from("worker_skills").insert([...skills, ...gear].map((id) => ({ worker_id: uid, skill_id: id })));
+        if (r.error) throw r.error;
+      }
       toast("Saved"); onSaved();
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
@@ -151,8 +159,8 @@ function JobDetail({ type, catalog, mine, isNew, onBack, onSaved, onCredsChanged
     <Screen title={type.cat.name} onBack={onBack} right={<button className="btn primary small" disabled={busy} onClick={save}>Save</button>}>
       <div className="screen-body" style={{ padding: 16 }}>
         <div className="stack">
-          <button className="field sel" onClick={() => setPick("skills")}><span className="k">Skills</span><span className={skills.length ? "v w4" : "v ph"}>{skills.length ? nameOf(skills) : "Pick your skills"}</span></button>
-          <button className="field sel" onClick={() => setPick("years")}><span className="k">Experience</span><span className={years != null ? "v w4" : "v ph"}>{years != null ? expLabel(years) : "How long you've done it"}</span></button>
+          <button className="field sel" onClick={() => setPick("skills")}><span className="k">Skills</span><span className={skills.length ? "v w4" : "v ph"}>{skills.length ? nameOf(skills) : "Optional"}</span></button>
+          <button className="field sel" onClick={() => setPick("years")}><span className="k">Experience</span><span className={years != null ? "v w4" : "v ph"}>{years != null ? expLabel(years) : "Optional"}</span></button>
           <button className="field sel" onClick={() => setPick("gear")}><span className="k">Gear you bring</span><span className={gear.length ? "v w4" : "v ph"}>{gear.length ? nameOf(gear) : "None"}</span></button>
         </div>
         {err && <p className="err">{err}</p>}
