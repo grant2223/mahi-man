@@ -24,31 +24,35 @@ export function useAreas() {
 // Nearest open area to a point, by straight-line distance to each area's centre.
 const nearest = (areas: Area[], lat: number, lng: number) =>
   [...areas].sort((a, b) => ((a.lat - lat) ** 2 + (a.lng - lng) ** 2) - ((b.lat - lat) ** 2 + (b.lng - lng) ** 2))[0];
-let guessed = false;
+
+/* Where they are right now. Asked for once when the app opens; the app then opens on their area and the jobs near them.
+   If they say no, it falls back to their saved area and the pin lets them pick. */
+export type Here = { lat: number; lng: number } | null;
+let here: Here = null;
+let asked = false;
+let manual = false; // they picked an area themselves this visit, so their location doesn't override it
+function askHere() {
+  if (asked || !("geolocation" in navigator)) return;
+  asked = true;
+  navigator.geolocation.getCurrentPosition((p) => {
+    here = { lat: p.coords.latitude, lng: p.coords.longitude };
+    listeners.forEach((f) => f());
+  }, () => {}, { maximumAge: 300000, timeout: 15000, enableHighAccuracy: false });
+}
+export function useHere(): Here {
+  const [, tick] = useState(0);
+  useEffect(() => { const f = () => tick((n) => n + 1); listeners.add(f); askHere(); return () => { listeners.delete(f); }; }, []);
+  return here;
+}
 
 export function useArea(): { area: Area | null; areas: Area[] | null; choose: (id: number) => void } {
   const areas = useAreas();
   const { session, profile, reload } = useSession();
-  const [, tick] = useState(0);
-  useEffect(() => { const f = () => tick((n) => n + 1); listeners.add(f); return () => { listeners.delete(f); }; }, []);
-  // First visit with nothing chosen: if they've already let us use their location, start them in the nearest area.
-  useEffect(() => {
-    if (guessed || !areas?.length || profile?.area_id || picked) return;
-    guessed = true;
-    const perms = (navigator as Navigator & { permissions?: Permissions }).permissions;
-    perms?.query({ name: "geolocation" as PermissionName }).then((p) => {
-      if (p.state !== "granted") return;
-      navigator.geolocation.getCurrentPosition((pos) => {
-        if (picked || profile?.area_id) return;
-        picked = nearest(areas, pos.coords.latitude, pos.coords.longitude).id;
-        listeners.forEach((f) => f());
-      }, () => {}, { maximumAge: 600000, timeout: 8000 });
-    }).catch(() => {});
-  }, [areas, profile?.area_id]);
-  const id = profile?.area_id ?? picked;
+  const loc = useHere();
+  const id = !manual && loc && areas?.length ? nearest(areas, loc.lat, loc.lng).id : profile?.area_id ?? picked;
   const area = areas?.find((a) => a.id === id) ?? (areas?.length === 1 ? areas[0] : areas?.[0] ?? null);
   const choose = (next: number) => {
-    picked = next;
+    picked = next; manual = true;
     try { localStorage.setItem(KEY, String(next)); } catch { /* private mode */ }
     listeners.forEach((f) => f());
     if (session) sb.from("profiles").update({ area_id: next }).eq("id", session.user.id).then(() => reload());

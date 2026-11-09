@@ -6,11 +6,11 @@ import { money } from "../lib/format";
 import { CatIcon, Icon, Logo, SearchPicker } from "../ui/kit";
 import { SideSwitch } from "../ui/SideSwitch";
 import { HeaderIcons } from "../ui/HeaderIcons";
-import { AreaPin, useArea } from "../lib/area";
+import { AreaPin, useArea, useHere } from "../lib/area";
 
 interface FeedJob {
   id: string; job_name: string; category_id: number | null; category: string | null; icon: string; suburb: string;
-  asap: boolean; start_at: string; pay_cents: number; has_video: boolean; cover_path: string | null; customer_verified: boolean;
+  asap: boolean; start_at: string; pay_cents: number; has_video: boolean; cover_path: string | null; customer_verified: boolean; distance_km?: number | null;
 }
 
 // "Do work": the home screen. Every job open right now, filtered by category.
@@ -25,15 +25,18 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
   const [urls, setUrls] = useState<Record<string, string>>({});
 
   const { area } = useArea();
+  const here = useHere();
+  // Jobs near where they are now, nearest first. Without their location, the jobs in their area.
   useEffect(() => {
     let live = true;
-    if (!area) return;
-    const load = () => rpc<FeedJob[]>("jobs_feed", { p_area: area.id }).then((r) => { if (live) setJobs(r); }).catch(() => live && setJobs([]));
+    if (!area && !here) return;
+    const args = here ? { p_lat: here.lat, p_lng: here.lng } : { p_area: area!.id };
+    const load = () => rpc<FeedJob[]>("jobs_feed", args).then((r) => { if (live) setJobs(r); }).catch(() => live && setJobs([]));
     load();
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
     const t = window.setInterval(load, 30000);
     return () => { live = false; window.clearInterval(t); };
-  }, [session?.user.id, area?.id]);
+  }, [session?.user.id, area?.id, here?.lat, here?.lng]);
 
   useEffect(() => {
     const paths = (jobs ?? []).map((j) => j.cover_path).filter(Boolean) as string[];
@@ -86,7 +89,7 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
         </button>
         <span className="feed-count">
           <b>{jobs ? shown.length : "–"}</b>
-          <span>open now</span>
+          <span>{here ? "near you" : "open now"}</span>
         </span>
       </div>
 
@@ -99,7 +102,7 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
             <span className="t">
               <span className="cat-label">{j.category ?? "Job"}</span>
               <b>{j.job_name}</b>
-              <span>{j.suburb}, {j.asap ? "Now" : dayTime(j.start_at)}</span>
+              <span>{j.suburb}{j.distance_km != null ? `, ${j.distance_km} km` : ""}, {j.asap ? "Now" : dayTime(j.start_at)}</span>
             </span>
             <span className="p">{money(j.pay_cents)}</span>
           </button>

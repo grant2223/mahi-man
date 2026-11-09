@@ -13,7 +13,7 @@ import { lc } from "../worker/Skills";
 import { SideSwitch } from "../ui/SideSwitch";
 import { HeaderIcons } from "../ui/HeaderIcons";
 import { PhotoStep } from "../worker/Signup";
-import { AreaPin, useArea, useChangeArea } from "../lib/area";
+import { AreaPin, useArea, useChangeArea, useHere } from "../lib/area";
 
 /* Post a job: price, show the job, who can take it, where, when, check. */
 
@@ -67,7 +67,7 @@ export function Book() {
   const { area } = useArea();
   // Only the suburbs of the area they're in.
   useEffect(() => {
-    if (area) sb.from("suburbs").select("id,name,area_id").eq("area_id", area.id).order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
+    if (area) sb.from("suburbs").select("id,name,area_id,lat,lng").eq("area_id", area.id).order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
   }, [area?.id]);
   useEffect(() => {
     sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
@@ -707,6 +707,14 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar }: {
 }) {
   const { area } = useArea();
   const changeArea = useChangeArea();
+  // Start on the suburb they're in now, if they haven't picked one.
+  const here = useHere();
+  useEffect(() => {
+    if (!here || d.suburbId || !suburbs.length) return;
+    const near = [...(suburbs as (Suburb & { lat: number; lng: number })[])].sort((a, b) => ((a.lat - here.lat) ** 2 + (a.lng - here.lng) ** 2) - ((b.lat - here.lat) ** 2 + (b.lng - here.lng) ** 2))[0];
+    if (near) setD({ ...d, suburbId: near.id });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [here?.lat, suburbs.length]);
   const [pick, setPick] = useState<null | "suburb" | "day" | "time" | "people" | "after">(null);
   const [err, setErr] = useState("");
   const pad = (n: number) => String(n).padStart(2, "0");
