@@ -656,8 +656,11 @@ function People() {
   const [rows, setRows] = useState<Person[]>([]);
   const [q, setQ] = useState("");
   const [review, setReview] = useState<Set<string>>(new Set());
+  const [admins, setAdmins] = useState<Set<string>>(new Set());
+  const { session } = useSession();
   const load = useCallback(() => {
     rpc<Person[]>("admin_people").then(setRows).catch((e) => toast((e as Error).message));
+    sb.from("admin_roles").select("email").then(({ data }) => setAdmins(new Set((data ?? []).map((r) => (r.email as string).toLowerCase()))));
     sb.from("workers").select("id").eq("needs_review", true).then(({ data }) => setReview(new Set((data ?? []).map((r) => r.id as string))));
   }, [toast]);
   useEffect(() => { load(); }, [load]);
@@ -676,7 +679,7 @@ function People() {
                 <td>{p.photo_path ? <img src={avatarUrl(p.photo_path)!} alt="" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 4, display: "block" }} /> : "—"}</td>
                 <td>{p.full_name || "—"}</td>
                 <td>{p.email}</td>
-                <td>{p.is_worker ? (p.approved ? <span className="badge g">Worker, ready</span> : <span className="badge">Worker, signing up</span>) : "Customer"}
+                <td>{admins.has(p.email.toLowerCase()) && <span className="badge g" style={{ marginRight: 6 }}>Admin</span>}{p.is_worker ? (p.approved ? <span className="badge g">Worker, ready</span> : <span className="badge">Worker, signing up</span>) : "Customer"}
                   {review.has(p.id) && <><span className="badge r" style={{ marginLeft: 6 }}>Low ratings, offline</span>
                     <button className="btn stone small" style={{ marginLeft: 6 }} onClick={async () => {
                       try { await rpc("admin_clear_review", { p_worker: p.id }); toast("Cleared. They can go online again."); load(); } catch (e) { toast((e as Error).message); }
@@ -685,9 +688,15 @@ function People() {
                 <td>{p.abn ?? "—"}</td>
                 <td>{p.jobs_posted} booked, {p.jobs_worked} worked</td>
                 <td>{new Date(p.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</td>
-                <td><button className={p.suspended ? "btn primary small" : "btn stone small"} onClick={async () => {
-                  try { await rpc("admin_set_suspended", { p_user: p.id, p_suspended: !p.suspended }); toast("Saved"); load(); } catch (e) { toast((e as Error).message); }
-                }}>{p.suspended ? "Unpause" : "Pause"}</button></td>
+                <td><span className="row" style={{ gap: 6 }}>
+                  <button className={p.suspended ? "btn primary small" : "btn stone small"} onClick={async () => {
+                    try { await rpc("admin_set_suspended", { p_user: p.id, p_suspended: !p.suspended }); toast("Saved"); load(); } catch (e) { toast((e as Error).message); }
+                  }}>{p.suspended ? "Unpause" : "Pause"}</button>
+                  {p.id !== session?.user.id && <button className="btn stone small" onClick={async () => {
+                    const on = !admins.has(p.email.toLowerCase());
+                    try { await rpc("admin_set_role", { p_email: p.email, p_admin: on }); toast(on ? `${p.full_name || p.email} is now an admin` : "Admin role removed"); load(); } catch (e) { toast((e as Error).message); }
+                  }}>{admins.has(p.email.toLowerCase()) ? "Remove admin" : "Make admin"}</button>}
+                </span></td>
               </tr>
             ))}
             {shown.length === 0 && <tr><td colSpan={9} className="muted">No one yet.</td></tr>}
