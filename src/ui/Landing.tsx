@@ -9,16 +9,24 @@ import { CatIcon, Icon, Logo } from "./kit";
 
 const link = (to: string) => (e: React.MouseEvent) => { e.preventDefault(); go(to); };
 
-// Real photos live in /public/landing. Until a photo is there, its frame shows a quiet label instead.
+// If a photo can't load, its frame shows a quiet label instead of a broken image.
 function Photo({ src, alt, className }: { src: string; alt: string; className: string }) {
   const [ok, setOk] = useState(true);
   return ok ? <img className={className} src={src} alt={alt} onError={() => setOk(false)} /> : <span className={`${className} ld-photo-empty`}>{alt}</span>;
 }
 
+// Free photos from Unsplash (Unsplash License), served by Unsplash at the size each frame needs.
+const UNS = (id: string, w: number) => `https://images.unsplash.com/photo-${id}?w=${w}&q=75&auto=format&fit=crop`;
+// The three most booked kinds of odd job in Australia (Airtasker's own numbers: removals, cleaning, rubbish removal).
+// Eight of the most common jobs, behind the hero headline. [photo id, which part of the photo to keep in view]
+const MOSAIC: [string, string][] = [
+  ["1493135637657-c2411b3497ad", "50% 40%"], ["1758273705627-937374bfa978", "38% 50%"], ["1781425009053-2baffa997d8c", "50% 50%"], ["1743130940714-91b221fa49ec", "72% 30%"],
+  ["1779636489740-6077a4198be6", "45% 60%"], ["1724556295135-ff92b9aa0a55", "45% 40%"], ["1571018400279-7f33252d0ad6", "40% 55%"], ["1688372199140-cade7ae820fe", "50% 40%"],
+];
 const USES: [string, string, string][] = [
-  ["Moving out", "Bond clean, booked for today. Get your full deposit back without losing your weekend.", "/landing/bond-clean.jpg"],
-  ["Hosting on Airbnb", "Turnover cleans between guests, even when check-in is in three hours.", "/landing/airbnb.jpg"],
-  ["Yard gone wild", "Mowing, edges and green waste gone before the wet season hits.", "/landing/yard.jpg"],
+  ["Moving", "Extra hands to lift, carry and load. Bring a ute or van if you need one.", "1769972557854-7eae6f95585b"],
+  ["Cleaning", "Bond cleans, regular cleans and Airbnb turnovers, booked for today.", "1758273238415-01ec03d9ef27"],
+  ["Rubbish removal", "Tip runs, green waste and clean-outs. Loaded up and gone.", "1670175035057-eec020c03eb9"],
 ];
 
 export function Landing() {
@@ -52,7 +60,9 @@ export function Landing() {
               <a className="btn ghost" href="/find" onClick={link("/find")}>Want work?</a>
             </div>
           </div>
-          <Photo className="ld-hero-photo" src="/landing/hero.jpg" alt="A local worker on a job" />
+          <div className="ld-mosaic" aria-hidden="true">
+            {MOSAIC.map(([id, pos]) => <img key={id} src={UNS(id, 500)} alt="" style={{ objectPosition: pos }} loading="eager" />)}
+          </div>
         </div>
       </section>
 
@@ -68,17 +78,19 @@ export function Landing() {
       <section className="ld-sec">
         <div className="ld-wrap">
           <h2>Whatever's on your list.</h2>
+          <span className="ld-kicker">Most booked</span>
           <div className="ld-uses">
-            {USES.map(([t, d, src]) => (
+            {USES.map(([t, d, id]) => (
               <a key={t} className="ld-use" href="/post" onClick={link("/post")}>
-                <Photo className="ld-use-photo" src={src} alt={t} />
+                <Photo className="ld-use-photo" src={UNS(id, 900)} alt={t} />
                 <b>{t}</b>
                 <span>{d}</span>
               </a>
             ))}
           </div>
+          <span className="ld-kicker">Everything else</span>
           <div className="ld-cats">
-            {cats.map((c) => (
+            {cats.filter((c) => !USES.some(([t]) => t === c.name)).map((c) => (
               <a key={c.id} className="ld-cat" href="/post" onClick={link("/post")}>
                 <CatIcon name={c.icon} size={26} color="var(--emerald)" />
                 <span>{c.name}</span>
@@ -125,7 +137,7 @@ export function Landing() {
                 </a>
               ))}
             </div>
-          ) : <Photo className="ld-earn-photo" src="/landing/worker.jpg" alt="A local earning on More Mahi" />}
+          ) : <Photo className="ld-earn-photo" src={UNS("1724556295135-ff92b9aa0a55", 1000)} alt="A local doing yard work" />}
         </div>
       </section>
 
