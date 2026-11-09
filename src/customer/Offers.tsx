@@ -7,13 +7,14 @@ import { go } from "../lib/router";
 export interface Offer {
   worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_done: number;
   jobs_for_me: number; eta_minutes: number; distance_km: number | null; expires_at: string; is_new: boolean;
+  category: string | null; cat_rating: number | null; cat_jobs: number; local_customers: number; suburb: string;
 }
 
 const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
 
 // The customer's job while it's open: people who say they're available, and Yes or Ignore on each.
-export function OffersView({ jobId, title, price, asap, startAt, searchingAt, onChosen, onCancel }: {
-  jobId: string; title: string; price: string; asap: boolean; startAt: string; searchingAt: string; onChosen: () => void; onCancel: () => void;
+export function OffersView({ jobId, title, price, asap, startAt, searchingAt, boosted, onChosen, onCancel, onBoosted }: {
+  jobId: string; title: string; price: string; asap: boolean; startAt: string; searchingAt: string; boosted: boolean; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
 }) {
   const toast = useToast();
   const now = useNow(1000);
@@ -22,13 +23,15 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, on
 
   useEffect(() => {
     let live = true;
-    const load = () => rpc<Offer[]>("job_offers_for", { p_job: jobId }).then((r) => live && setOffers(r)).catch(() => live && setOffers([]));
+    const load = () => rpc<Offer[]>("offers_for_job", { p_job: jobId }).then((r) => live && setOffers(r)).catch(() => live && setOffers([]));
     load();
     const t = window.setInterval(load, 8000);
     return () => { live = false; window.clearInterval(t); };
   }, [jobId]);
 
   const shown = (offers ?? []).filter((o) => new Date(o.expires_at).getTime() > now);
+  const [boosting, setBoosting] = useState(false);
+  const widened = now - new Date(searchingAt).getTime() > 10 * 60000;
 
   async function choose(o: Offer) {
     setBusy(o.worker_id);
@@ -58,10 +61,25 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, on
           <>
             <span className="label" style={{ marginTop: 18 }}>Waiting for people who are free</span>
             <span className="big">{elapsed(searchingAt, now)}</span>
-            <span className="sub" style={{ marginTop: 6 }}>They show up here and you choose. Usually a few minutes.</span>
+            <span className="sub" style={{ marginTop: 6 }}>{widened ? "Nobody nearby yet, so workers further out can see it now." : "They show up here and you choose."}</span>
           </>
         )}
       </section>
+      {!boosted && !shown.length && (
+        <div className="boost-row">
+          <span className="stack" style={{ gap: 2, flex: 1 }}>
+            <b>Urgent boost</b>
+            <span>Every worker in your category gets an alert and your job goes to the top. Free during the pilot.</span>
+          </span>
+          <button className="btn primary small" disabled={boosting} onClick={async () => {
+            setBoosting(true);
+            try { await rpc("boost_job", { p_job: jobId }); toast("Boosted. Every worker in your category has been told."); onBoosted(); }
+            catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+            finally { setBoosting(false); }
+          }}>Boost</button>
+        </div>
+      )}
+      {boosted && !shown.length && <div className="cp-note">{Icon.clockLine("var(--muted)")}<span>Boosted. Every worker in your category has been told.</span></div>}
 
       <div className="offers">
         {shown.map((o) => {
@@ -83,9 +101,12 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, on
                     {o.jobs_for_me > 0 && <span className="badge-ver">Used before</span>}
                   </span>
                   <span className="m">
-                    {o.is_new ? `New to More Mahi, ${o.jobs_done} job${o.jobs_done === 1 ? "" : "s"}` : `${o.rating ? `${o.rating} rating, ` : ""}${o.jobs_done} jobs`}
+                    {o.is_new ? `New to More Mahi, ${o.jobs_done} job${o.jobs_done === 1 ? "" : "s"}`
+                      : o.category && o.cat_jobs > 0 ? `${o.cat_rating ? `${o.cat_rating} for ${o.category.toLowerCase()}, ` : ""}${o.cat_jobs} job${o.cat_jobs === 1 ? "" : "s"}`
+                      : `${o.rating ? `${o.rating} rating, ` : ""}${o.jobs_done} jobs`}
                     {o.jobs_for_me > 0 ? `, ${o.jobs_for_me} for you` : ""}
                   </span>
+                  {o.local_customers > 0 && <span className="m">Used by {o.local_customers} {o.local_customers === 1 ? "person" : "people"} in {o.suburb}</span>}
                   <span className="e">Can be there {at}{o.distance_km != null ? `, ${o.distance_km} km away` : ""}</span>
                 </span>
               </div>

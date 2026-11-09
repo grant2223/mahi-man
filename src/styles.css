@@ -527,3 +527,23 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .alerts-ask .li b { display: block; font-weight: 500; font-size: 17px; margin-bottom: 2px; }
 .alerts-ask .li svg { flex: none; margin-top: 2px; }
 .alerts-ask .foot { margin-top: auto; padding: 16px 20px calc(var(--safe-bottom) + 16px); display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); }
+.tick-list { display: flex; flex-direction: column; gap: 8px; }
+.tick-item { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 54px; padding: 12px 14px; border: 0; border-radius: var(--r-control); background: var(--ground); color: var(--ink); font: inherit; font-size: 16px; text-align: left; cursor: pointer; }
+.tick-item .box { width: 26px; height: 26px; flex: none; border-radius: 3px; background: var(--stone-2); display: flex; align-items: center; justify-content: center; }
+.tick-item.on { background: var(--emerald-tint); }
+.tick-item.on .box { background: var(--emerald); }
+.tick-item.on span:last-child { color: var(--muted); }
+.boost-row { display: flex; align-items: center; gap: 14px; margin: 16px 16px 0; padding: 16px; background: var(--ground); border-radius: var(--r-control); }
+.boost-row b { font-size: 17px; font-weight: 500; }
+.boost-row span span { font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.4; }
+.boost-pick { display: flex; align-items: center; gap: 14px; margin: 16px 16px 0; padding: 16px; width: calc(100% - 32px); border: 0; border-radius: var(--r-control); background: var(--ground); color: var(--ink); font: inherit; text-align: left; cursor: pointer; }
+.boost-pick b { font-size: 17px; font-weight: 500; }
+.boost-pick span span { font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.4; }
+.boost-pick .box { width: 26px; height: 26px; flex: none; border-radius: 3px; background: var(--stone-2); display: flex; align-items: center; justify-content: center; }
+.boost-pick.on { background: var(--emerald-tint); }
+.boost-pick.on .box { background: var(--emerald); }
+.price-li { display: flex; gap: 12px; align-items: flex-start; padding: 8px 0; font-size: 15px; font-weight: 300; line-height: 1.45; color: var(--muted); }
+.price-li svg { flex: none; margin-top: 1px; }
+.price-li b { display: block; font-size: 16px; font-weight: 500; color: var(--ink); margin-bottom: 1px; }
+.app > .boost-pick { background: var(--card); box-shadow: 0 1px 2px rgba(20,24,28,0.06); }
+.app > .boost-pick.on { background: var(--emerald-tint); }

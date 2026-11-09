@@ -12,6 +12,7 @@ import { Admin } from "./admin/Admin";
 import { Settings } from "./ui/Settings";
 import { VerifyPage } from "./ui/Verify";
 import { Privacy, Support, Terms } from "./ui/Legal";
+import { Pricing } from "./ui/Pricing";
 import { startPush } from "./lib/push";
 
 void startPush();
@@ -25,6 +26,7 @@ function Routes() {
   if (path === "/privacy") return <Privacy />;
   if (path === "/terms") return <Terms />;
   if (path === "/support") return <Support />;
+  if (path === "/pricing") return <Pricing />;
   if (path === "/settings") {
     if (ready && !session) { go("/", true); return null; }
     return <Settings />;

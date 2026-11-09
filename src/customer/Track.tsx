@@ -108,7 +108,7 @@ export function Track({ id }: { id: string }) {
     return (
       <>
         <OffersView jobId={id} title={jobName} price={money(job.price_cents)} asap={job.asap} startAt={job.start_at}
-          searchingAt={job.searching_at ?? job.created_at} onChosen={load} onCancel={() => setScreen("cancel")} />
+          searchingAt={job.searching_at ?? job.created_at} boosted={!!job.boosted} onBoosted={load} onChosen={load} onCancel={() => setScreen("cancel")} />
         {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
         {askAlerts && <AlertsAsk role="post" onDone={() => setAskAlerts(false)} />}
       </>
@@ -134,6 +134,14 @@ export function Track({ id }: { id: string }) {
         <DoneHero jobName={jobName} step={3} big={money(owed)}
           label={paid ? `Waiting for ${wName} to confirm` : `${wName} has finished`}
           sub={paid ? `You told ${wName} you paid at ${new Date(job.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" })}` : `Check the photos, pay ${wName}, then tell us`} />
+        {(job.included?.length ?? 0) > 0 && (
+          <div className="cp-sec" style={{ gap: 8 }}>
+            <span className="cp-title" style={{ marginBottom: 0 }}>What {wName} did</span>
+            <div className="ticks">{job.included!.map((x) => (
+              <span key={x} style={{ fontSize: 15 }}>{(job.done_items ?? []).includes(x) ? Icon.tick("var(--emerald)", 20) : Icon.cross("var(--faint)")}{x}</span>
+            ))}</div>
+          </div>
+        )}
         {(before.length > 0 || after.length > 0) && (
           <div className="cp-sec" style={{ gap: 10 }}>
             <span className="cp-title" style={{ marginBottom: 0 }}>Before and after</span>

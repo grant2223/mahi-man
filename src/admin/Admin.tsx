@@ -494,7 +494,11 @@ function People() {
   const toast = useToast();
   const [rows, setRows] = useState<Person[]>([]);
   const [q, setQ] = useState("");
-  const load = useCallback(() => { rpc<Person[]>("admin_people").then(setRows).catch((e) => toast((e as Error).message)); }, [toast]);
+  const [review, setReview] = useState<Set<string>>(new Set());
+  const load = useCallback(() => {
+    rpc<Person[]>("admin_people").then(setRows).catch((e) => toast((e as Error).message));
+    sb.from("workers").select("id").eq("needs_review", true).then(({ data }) => setReview(new Set((data ?? []).map((r) => r.id as string))));
+  }, [toast]);
   useEffect(() => { load(); }, [load]);
   const shown = rows.filter((r) => `${r.full_name} ${r.email}`.toLowerCase().includes(q.trim().toLowerCase()));
   return (
@@ -511,7 +515,11 @@ function People() {
                 <td>{p.photo_path ? <img src={avatarUrl(p.photo_path)!} alt="" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 4, display: "block" }} /> : "—"}</td>
                 <td>{p.full_name || "—"}</td>
                 <td>{p.email}</td>
-                <td>{p.is_worker ? (p.approved ? <span className="badge g">Worker, ready</span> : <span className="badge">Worker, signing up</span>) : "Customer"}</td>
+                <td>{p.is_worker ? (p.approved ? <span className="badge g">Worker, ready</span> : <span className="badge">Worker, signing up</span>) : "Customer"}
+                  {review.has(p.id) && <><span className="badge r" style={{ marginLeft: 6 }}>Low ratings, offline</span>
+                    <button className="btn stone small" style={{ marginLeft: 6 }} onClick={async () => {
+                      try { await rpc("admin_clear_review", { p_worker: p.id }); toast("Cleared. They can go online again."); load(); } catch (e) { toast((e as Error).message); }
+                    }}>Clear</button></>}</td>
                 <td><span className={`badge ${ID_BADGE[p.id_status]?.[0] ?? ""}`}>{ID_BADGE[p.id_status]?.[1] ?? p.id_status}</span></td>
                 <td>{p.abn ?? "—"}</td>
                 <td>{p.jobs_posted} booked, {p.jobs_worked} worked</td>
@@ -668,6 +676,10 @@ function Settings() {
     ["callout_cents", "Late-cancel payment to worker (cents)", "1500"],
     ["auto_release_hours", "Auto-pay if customer doesn't confirm (hours)", "48"],
     ["widen_after_minutes", "Show to workers further away after (minutes)", "10"],
+    ["booking_fee_percent", "Launch booking fee (% of the job, shown in the pilot)", "12"],
+    ["booking_fee_max_cents", "Launch booking fee cap (cents)", "3000"],
+    ["boost_cents", "Urgent boost price from launch (cents)", "500"],
+    ["plus_cents", "Plus price a month (cents)", "999"],
     ["stripe_publishable_key", "Stripe publishable key (starts pk_)", "pk_live_…"],
   ];
   const changed = F.some(([k]) => vals[k] !== orig[k]);

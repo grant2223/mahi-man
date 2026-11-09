@@ -65,6 +65,8 @@ export function Settings() {
             {alerts === "prompt" && Icon.chevron("var(--faint)")}
           </button>
         )}
+        <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>More Mahi Plus</b><span>No booking fees, priority on every job</span></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>How it works and what it costs</b></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/support")}><span className="t"><b>Help and support</b><span>Contact the More Mahi team</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/privacy")}><span className="t"><b>Privacy policy</b></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/terms")}><span className="t"><b>Terms of use</b></span>{Icon.chevron("var(--faint)")}</button>

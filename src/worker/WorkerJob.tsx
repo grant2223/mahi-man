@@ -19,6 +19,14 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
   const [suburb, setSuburb] = useState("");
   const [cust, setCust] = useState<PersonCard | null>(null);
   const [photos, setPhotos] = useState<{ before: number; after: number }>({ before: 0, after: 0 });
+  const [done, setDone] = useState<string[]>(job.done_items ?? []);
+  useEffect(() => { setDone(job.done_items ?? []); }, [job.id]);
+  const allTicked = (job.included ?? []).every((x) => done.includes(x));
+  const toggleItem = (x: string) => {
+    const next = done.includes(x) ? done.filter((y) => y !== x) : [...done, x];
+    setDone(next);
+    rpc("tick_items", { p_job: job.id, p_items: next }).catch((e) => { setDone(done); toast(e instanceof Error ? e.message : String(e)); });
+  };
   const [extras, setExtras] = useState<Extra[]>([]);
   const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after">(null);
   const [busy, setBusy] = useState(false);
@@ -157,7 +165,21 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         {(j.included?.length ?? 0) > 0 && (
           <div className="stack" style={{ padding: "0 16px 14px", gap: 6 }}>
             <span className="t15 w5">What's included</span>
-            <div className="ticks">{j.included!.map((x) => <span key={x} style={{ fontSize: 15 }}>{Icon.tick("var(--emerald)", 20)}{x}</span>)}</div>
+            {j.status === "in_progress" ? (
+              <div className="tick-list">
+                <span className="small light muted">Tick each one off as you finish it. The customer sees this list.</span>
+                {j.included!.map((x) => {
+                  const on = done.includes(x);
+                  return (
+                    <button key={x} className={on ? "tick-item on" : "tick-item"} onClick={() => toggleItem(x)} aria-pressed={on}>
+                      <span className="box">{on && Icon.tick("#fff", 16)}</span><span>{x}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="ticks">{j.included!.map((x) => <span key={x} style={{ fontSize: 15 }}>{Icon.tick("var(--emerald)", 20)}{x}</span>)}</div>
+            )}
             {(j.excluded?.length ?? 0) > 0 && <div className="ticks no"><h3>Not included</h3>{j.excluded!.map((x) => <span key={x}>{Icon.cross("var(--faint)")}{x}</span>)}</div>}
           </div>
         )}
@@ -168,7 +190,8 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         <Perf />
         <CheckRow done={j.status !== "accepted"} n={1} title="Start with customer's code" />
         <CheckRow done={photos.before > 0} n={2} title="Before photos" note={photos.before ? `${photos.before} added` : "take them before you start"} />
-        <CheckRow done={photos.after > 0} n={3} title="After photos" note={photos.after ? `${photos.after} added` : "needed to finish"} last />
+        {(j.included?.length ?? 0) > 0 && <CheckRow done={allTicked} n={3} title="Tick off what's included" note={`${done.filter((x) => j.included!.includes(x)).length} of ${j.included!.length}`} />}
+        <CheckRow done={photos.after > 0} n={(j.included?.length ?? 0) > 0 ? 4 : 3} title="After photos" note={photos.after ? `${photos.after} added` : "needed to finish"} last />
       </div>
 
       {pending && <div className="section t15"><span className="w5">Waiting on {cName}:</span> <span className="light">{money(pending.amount_cents)} extra for "{pending.reason}"</span></div>}
@@ -194,7 +217,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         {j.status === "in_progress" && photos.after > 0 && (
           <>
             <button className="btn stone" onClick={() => setScreen("after")}>More photos</button>
-            <button className="btn primary" disabled={busy || !!pending} onClick={finish}>Finish job {Icon.arrow("var(--lime)")}</button>
+            <button className="btn primary" disabled={busy || !!pending || !allTicked} onClick={finish}>Finish job {Icon.arrow("var(--lime)")}</button>
           </>
         )}
         {j.status === "finished" && <button className="btn stone" onClick={onChanged}>Back to jobs</button>}

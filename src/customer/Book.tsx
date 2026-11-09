@@ -16,7 +16,7 @@ interface Reused { path: string; kind: "photo" | "video" }
 interface Draft {
   categoryId: number | null; priceCents: number; suburbId: number | null; address: string; notes: string; details: string;
   asap: boolean; startAt: string; invited: string[]; openAfter: number | null; reuse: Reused[];
-  included: string[]; excluded: string[]; priceSet?: boolean;
+  included: string[]; excluded: string[]; priceSet?: boolean; boost?: boolean;
 }
 const DRAFT_KEY = "mm-draft-2";
 const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [], included: [], excluded: [] };
@@ -35,6 +35,10 @@ export function Book() {
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
   const [fee, setFee] = useState(15);
   const [pilot, setPilot] = useState(true);
+  const [feePct, setFeePct] = useState(12);
+  const [feeMax, setFeeMax] = useState(3000);
+  const [boostCents, setBoostCents] = useState(500);
+  const [supply, setSupply] = useState<{ online_now: number; typical_minutes: number | null } | null>(null);
   const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
   const [media, setMedia] = useState<(DraftItem & { url: string })[]>([]);
   const [reuseUrls, setReuseUrls] = useState<Record<string, string>>({});
@@ -48,8 +52,12 @@ export function Book() {
     sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
     sb.from("suburbs").select("id,name").order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
-    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode"]).then(({ data }) => {
-      for (const r of data ?? []) { if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true"); }
+    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_max_cents", "boost_cents"]).then(({ data }) => {
+      for (const r of data ?? []) {
+        if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true");
+        if (r.key === "booking_fee_percent") setFeePct(Number(r.value)); if (r.key === "booking_fee_max_cents") setFeeMax(Number(r.value));
+        if (r.key === "boost_cents") setBoostCents(Number(r.value));
+      }
     });
     draftMedia.all().then((items) => setMedia(items.map((m) => ({ ...m, url: URL.createObjectURL(m.blob) }))));
   }, []);
@@ -63,6 +71,11 @@ export function Book() {
   const cat = cats.find((c) => c.id === d.categoryId) ?? null;
   const jt = types.find((t) => t.category_id === d.categoryId) ?? null;
   const suburb = suburbs.find((s) => s.id === d.suburbId) ?? null;
+  useEffect(() => {
+    if (path !== "/book/check" || !d.categoryId || !d.suburbId) return;
+    rpc<{ online_now: number; typical_minutes: number | null }[]>("supply_near", { p_category: d.categoryId, p_suburb: d.suburbId })
+      .then((r) => setSupply(r?.[0] ?? null)).catch(() => setSupply(null));
+  }, [path, d.categoryId, d.suburbId]);
   const total = d.priceCents + (pilot ? 0 : Math.round((d.priceCents * fee) / 100));
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
@@ -138,6 +151,7 @@ export function Book() {
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
         p_included: d.included ?? [], p_excluded: d.excluded ?? [],
       });
+      if (d.boost && pilot) await rpc("boost_job", { p_job: id }).catch(() => {});
       const finish = async () => {
         sessionStorage.removeItem(DRAFT_KEY);
         await draftMedia.clear();
@@ -212,8 +226,29 @@ export function Book() {
             <span className="t15 light muted" style={{ marginTop: pilot ? 0 : 8, lineHeight: 1.45 }}>
               {pilot ? "Pay your worker by PayID or cash once it's done." : "Your card is held, not charged, until you confirm the job is done."}
             </span>
+            {pilot && (
+              <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
+                No booking fee during the pilot. From launch it's {feePct}%, up to {money(feeMax)}, and Plus members never pay it.{" "}
+                <a href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How it works</a>
+              </span>
+            )}
           </div>
         </div>
+        {supply && supply.online_now > 0 && (
+          <p className="t15 light" style={{ margin: "16px 20px 0", lineHeight: 1.45 }}>
+            <span className="w5 em">{supply.online_now} {cat?.name.toLowerCase() ?? ""} worker{supply.online_now === 1 ? "" : "s"} online near {suburb?.name} now.</span>
+            {supply.typical_minutes != null && ` Usually someone's free in about ${supply.typical_minutes} min.`}
+          </p>
+        )}
+        {pilot && (
+          <button className={`boost-pick${d.boost ? " on" : ""}`} onClick={() => setD({ ...d, boost: !d.boost })} aria-pressed={!!d.boost}>
+            <span className="stack" style={{ gap: 2, flex: 1 }}>
+              <b>Urgent boost</b>
+              <span>Every worker in your category gets an alert and your job goes to the top. Free during the pilot, {money(boostCents)} from launch.</span>
+            </span>
+            <span className="box">{d.boost && Icon.tick("#fff", 16)}</span>
+          </button>
+        )}
         {err && <p className="err" style={{ padding: "0 20px" }}>{err}</p>}
         <div style={{ flex: 1 }} />
         <div className="bottombar">
