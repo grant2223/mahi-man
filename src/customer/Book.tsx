@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { avatarUrl, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
+import { mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go, usePath } from "../lib/router";
 import { money, money2, shrinkImage } from "../lib/format";
@@ -16,13 +16,13 @@ interface Reused { path: string; kind: "photo" | "video" }
 interface Draft {
   categoryId: number | null; priceCents: number; suburbId: number | null; address: string; notes: string; details: string;
   asap: boolean; startAt: string; invited: string[]; openAfter: number | null; reuse: Reused[];
-  included: string[]; excluded: string[];
+  included: string[]; excluded: string[]; priceSet?: boolean;
 }
 const DRAFT_KEY = "mm-draft-2";
 const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [], included: [], excluded: [] };
 const MAX_PHOTOS = 6;
 const MAX_VIDEO_SECONDS = 60;
-const STEPS = 6;
+const STEPS = 4;
 
 export interface PastWorker { worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_for_me: number; last_job: string | null }
 
@@ -75,8 +75,8 @@ export function Book() {
     setMedia([]);
     setReuseUrls({});
     setErr("");
-    setD({ ...blank, ...prefill });
-    go("/book/price");
+    setD({ ...blank, ...prefill, priceSet: !!prefill?.priceCents });
+    go("/book/details");
   }
 
   async function addFiles(files: FileList | null, kind: "photo" | "video") {
@@ -149,23 +149,20 @@ export function Book() {
     } finally { setBusy(false); }
   }
 
-  const bar = (label: string, onNext: () => void, disabled = false) => (
+  const bar = (label: string, onNext: () => void, disabled = false, nextName = "") => (
     <div className="bottombar">
-      <span className="stack" style={{ gap: 2 }}>
-        <span className="k">Your price</span>
-        <span className="v">{money(d.priceCents)}</span>
-      </span>
+      <span className="t15 light muted">{nextName ? `Next, ${nextName}` : ""}</span>
       <button className="btn primary" disabled={disabled} onClick={onNext}>{label} {Icon.arrow("#fff")}</button>
     </div>
   );
 
   // ---------- Screens ----------
   if (path === "/book/price") {
-    return <PriceStep value={d.priceCents} onChange={(v) => setD({ ...d, priceCents: v })} />;
+    return <PriceStep value={d.priceCents} catName={d.priceSet ? null : cat?.name ?? null} onChange={(v) => setD({ ...d, priceCents: v, priceSet: true })} />;
   }
 
   if (path === "/book/details") {
-    return <DetailsStep d={d} setD={setD} cats={cats} cat={cat} err={err} setErr={setErr} bar={bar} />;
+    return <DetailsStep d={d} setD={setD} cats={cats} cat={cat} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null} err={err} setErr={setErr} bar={bar} />;
   }
 
   if (path === "/book/photos") {
@@ -173,16 +170,8 @@ export function Book() {
       photoCount={photoCount} addFiles={addFiles} removeMedia={removeMedia} removeReused={removeReused} err={err} setErr={setErr} bar={bar} />;
   }
 
-  if (path === "/book/who") {
-    return <WhoStep d={d} setD={setD} past={past} bar={bar} />;
-  }
-
-  if (path === "/book/where") {
-    return <WhereStep d={d} setD={setD} suburbs={suburbs} suburb={suburb} bar={bar} />;
-  }
-
-  if (path === "/book/when") {
-    return <WhenStep suburb={suburb} d={d} setD={setD} bar={bar} />;
+  if (path === "/book/where" || path === "/book/when" || path === "/book/who") {
+    return <WhereStep d={d} setD={setD} suburbs={suburbs} suburb={suburb} past={past} bar={bar} />;
   }
 
   if (path === "/book/check") {
@@ -199,7 +188,6 @@ export function Book() {
           <h1 style={{ marginBottom: 0 }}>Check and post</h1>
         </section>
         <div className="ticket" style={{ marginTop: -52 }}>
-          <ReviewRow k="Your price" v={money(d.priceCents)} onChange={() => go("/book/price")} />
           <div className="review-row">
             <span className="t">
               <span className="k">{cat?.name ?? "The job"}</span>
@@ -213,9 +201,10 @@ export function Book() {
           </div>
           <ReviewRow k="What's included" v={`${(d.included ?? []).length} thing${(d.included ?? []).length === 1 ? "" : "s"}${(d.excluded ?? []).length ? `, ${d.excluded.length} not included` : ""}`} onChange={() => go("/book/details")} />
           <ReviewRow k="Photos and video" v={`${photoCount} photo${photoCount === 1 ? "" : "s"}${video || reusedVideo ? " and a video" : ", no video"}`} onChange={() => go("/book/photos")} />
-          <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/who")} />
+          <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/where")} />
           <ReviewRow k="Where" v={`${d.address}, ${suburb?.name ?? ""}`} onChange={() => go("/book/where")} />
-          <ReviewRow k="When" v={d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} onChange={() => go("/book/when")} last />
+          <ReviewRow k="When" v={d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} onChange={() => go("/book/where")} />
+          <ReviewRow k="Your price" v={money(d.priceCents)} onChange={() => go("/book/price")} last />
           <div className="stack" style={{ padding: "18px 16px 20px", gap: 6 }}>
             {!pilot && <><span className="small w5 em">Total, fixed</span>
             <span className="price">{money2(total)}</span></>}
@@ -333,7 +322,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
 const QUICK = [3000, 5000, 8000, 12000, 20000];
 const LO = 2000, HI = 200000, SLIDER_MAX = 30000;
 
-function PriceStep({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+function PriceStep({ value, catName, onChange }: { value: number; catName: string | null; onChange: (v: number) => void }) {
   const [text, setText] = useState(String(Math.round(value / 100)));
   const [err, setErr] = useState("");
   const dollars = Number(text) || 0;
@@ -343,11 +332,11 @@ function PriceStep({ value, onChange }: { value: number; onChange: (v: number) =
     const c = Math.round(dollars) * 100;
     if (c < LO) return setErr(`The lowest price is ${money(LO)}.`);
     if (c > HI) return setErr(`The highest price is ${money(HI)}.`);
-    onChange(c); go("/book/details");
+    onChange(c); go("/book/check");
   };
   return (
     <div className="app" style={{ background: "var(--card)" }}>
-      <StepHero step={1} of={STEPS} title="Set your price" sub="What will you pay?" onBack={() => history.back()} />
+      <StepHero step={4} of={STEPS} title="Set your price" sub="What will you pay?" onBack={() => history.back()} />
       <div className="price-body">
         <label htmlFor="amt" className="t15 muted">You pay</label>
         <div className="price-box">
@@ -356,7 +345,7 @@ function PriceStep({ value, onChange }: { value: number; onChange: (v: number) =
             onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, "").slice(0, 4); setText(v); setErr(""); if (v) onChange(Number(v) * 100); }} />
           <span className="hint">tap to type</span>
         </div>
-        <span className="t14 light muted">A fixed price. You pay your worker when the job's done.</span>
+        <span className="t14 light muted">{catName ? `Suggested for ${catName.toLowerCase()}. ` : ""}A fixed price. You pay your worker when the job's done.</span>
         <div className="price-slider">
           <input className="mm-range" type="range" min={LO / 100} max={SLIDER_MAX / 100} step={5} value={Math.min(Math.max(dollars, LO / 100), SLIDER_MAX / 100)} aria-label="Price"
             onChange={(e) => set(Number(e.target.value) * 100)}
@@ -377,81 +366,9 @@ function PriceStep({ value, onChange }: { value: number; onChange: (v: number) =
       </div>
       <div style={{ flex: 1 }} />
       <div className="bottombar">
-        <span className="t15 light muted">Next, show us the job</span>
-        <button className="btn primary" onClick={next}>Next {Icon.arrow("#fff")}</button>
+        <span className="t15 light muted">Next, check and post</span>
+        <button className="btn primary" onClick={next}>Continue {Icon.arrow("#fff")}</button>
       </div>
-    </div>
-  );
-}
-
-// ---------- Step 3: Who can take it ----------
-const OPEN_AFTER: { id: string; label: string; v: number | null }[] = [
-  { id: "15", label: "Open it to everyone after 15 minutes", v: 15 },
-  { id: "30", label: "Open it to everyone after 30 minutes", v: 30 },
-  { id: "60", label: "Open it to everyone after 1 hour", v: 60 },
-  { id: "never", label: "Keep it just for them", v: null },
-];
-
-function WhoStep({ d, setD, past, bar }: { d: Draft; setD: (d: Draft) => void; past: PastWorker[]; bar: (label: string, onNext: () => void) => ReactNode }) {
-  const [people, setPeople] = useState(d.invited.length > 0);
-  const [pick, setPick] = useState<null | "people" | "after">(null);
-  const [err, setErr] = useState("");
-  const chosen = past.filter((p) => d.invited.includes(p.worker_id));
-  const next = () => {
-    if (people && !chosen.length) return setErr("Pick at least one person, or send it to anyone nearby.");
-    if (!people && d.invited.length) setD({ ...d, invited: [] });
-    go("/book/where");
-  };
-  return (
-    <div className="app" style={{ background: "var(--card)" }}>
-      <StepHero step={4} of={STEPS} title="Who can take it?" sub="Send it to everyone nearby, or ask someone you've used before." onBack={() => history.back()} />
-      <div className="step-body" style={{ gap: 10, background: "var(--card)" }}>
-        <button className={`who-opt${!people ? " on" : ""}`} onClick={() => { setPeople(false); setErr(""); }}>
-          <span className="t"><b>Anyone nearby</b><span>Every available worker in your area sees it</span></span>
-          <span className="box">{!people && Icon.tick("var(--emerald)", 16)}</span>
-        </button>
-        <button className={`who-opt${people ? " on" : ""}`} disabled={!past.length} onClick={() => { setPeople(true); setErr(""); if (!chosen.length && past.length === 1) setD({ ...d, invited: [past[0].worker_id] }); }}>
-          <span className="t"><b>Someone I've used before</b><span>{past.length ? "Only the people you pick see it first" : "Once someone's done a job for you, you can send it to them"}</span></span>
-          <span className="box">{people && Icon.tick("var(--emerald)", 16)}</span>
-        </button>
-
-        {people && (
-          <div className="stack" style={{ gap: 0, marginTop: 12 }}>
-            <span className="who-h">Send it to</span>
-            {chosen.map((p) => (
-              <div key={p.worker_id} className="who-person">
-                <span className="ph">{avatarUrl(p.photo_path) ? <img src={avatarUrl(p.photo_path)!} alt="" /> : null}</span>
-                <span className="t">
-                  <b>{p.full_name}</b>
-                  {p.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
-                  <span className="m">{p.rating ? `${p.rating} rating, ` : ""}did {p.jobs_for_me} job{p.jobs_for_me === 1 ? "" : "s"} for you</span>
-                </span>
-                <button className="back" onClick={() => setD({ ...d, invited: d.invited.filter((x) => x !== p.worker_id) })} aria-label={`Remove ${p.full_name}`}>{Icon.x("var(--muted)")}</button>
-              </div>
-            ))}
-            <button className="cp-select" style={{ marginTop: 12 }} onClick={() => setPick("people")}>
-              <span>{chosen.length ? "Add someone else you've used" : "Choose someone you've used"}</span>{Icon.search("var(--ink)")}
-            </button>
-            <span className="who-h" style={{ marginTop: 22 }}>If they can't take it</span>
-            <button className="cp-select" onClick={() => setPick("after")}>
-              <span>{OPEN_AFTER.find((o) => o.v === d.openAfter)?.label ?? OPEN_AFTER[1].label}</span>{Icon.down("var(--ink)")}
-            </button>
-          </div>
-        )}
-        {err && <p className="err" style={{ margin: "8px 0 0" }}>{err}</p>}
-      </div>
-      <div style={{ flex: 1 }} />
-      {bar("Continue", next)}
-      {pick === "people" && (
-        <SearchPicker title="People you've used" multi placeholder="Search by name" value={d.invited}
-          options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you${p.rating ? `, ${p.rating} rating` : ""}` }))}
-          onClose={() => setPick(null)} onChange={(v) => { setD({ ...d, invited: v.map(String) }); setErr(""); }} />
-      )}
-      {pick === "after" && (
-        <SearchPicker title="If they can't take it" value={[OPEN_AFTER.find((o) => o.v === d.openAfter)?.id ?? "30"]}
-          options={OPEN_AFTER.map((o) => ({ id: o.id, label: o.label }))}
-          onClose={() => setPick(null)} onChange={(v) => setD({ ...d, openAfter: OPEN_AFTER.find((o) => o.id === v[0])?.v ?? null })} />
-      )}
     </div>
   );
 }
@@ -465,10 +382,10 @@ function ReviewRow({ k, v, onChange, last }: { k: string; v: string; onChange: (
   );
 }
 
-// ---------- Step 2: Show the job ----------
-function DetailsStep({ d, setD, cats, cat, err, setErr, bar }: {
-  d: Draft; setD: (d: Draft) => void; cats: Category[]; cat: Category | null;
-  err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
+// ---------- Step 1: What's the job ----------
+function DetailsStep({ d, setD, cats, cat, suggest, err, setErr, bar }: {
+  d: Draft; setD: (d: Draft) => void; cats: Category[]; cat: Category | null; suggest: (catId: number) => number | null;
+  err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
 }) {
   const detailsBox = useRef<HTMLTextAreaElement>(null);
   const [voice, setVoice] = useState(false);
@@ -483,7 +400,7 @@ function DetailsStep({ d, setD, cats, cat, err, setErr, bar }: {
   };
   return (
     <div className="app">
-      <StepHero step={2} of={STEPS} title="What's the job?" sub="Be specific. This is what the worker is held to." onBack={() => history.back()} />
+      <StepHero step={1} of={STEPS} title="What's the job?" sub="Be specific. This is what the worker is held to." onBack={() => history.back()} />
       <div className="step-body">
         <div className="sec">
           <h2>What kind of job?</h2>
@@ -528,10 +445,10 @@ function DetailsStep({ d, setD, cats, cat, err, setErr, bar }: {
         </div>
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next)}
+      {bar("Continue", next, false, "photos")}
       {pickCat && <SearchPicker title="What kind of job?" placeholder="Search categories" value={d.categoryId ? [d.categoryId] : []}
         options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
-        onChange={(v) => { setD({ ...d, categoryId: Number(v[0]) }); setErr(""); }} />}
+        onChange={(v) => { const id = Number(v[0]); const sp = suggest(id); setD({ ...d, categoryId: id, ...(!d.priceSet && sp ? { priceCents: sp } : {}) }); setErr(""); }} />}
       {voice && <VoiceScreen jobName={cat?.name ?? "Odd job"} onBack={() => setVoice(false)}
         onDone={(text) => { setD({ ...d, details: d.details.trim() ? `${d.details.trim()} ${text}` : text }); setVoice(false); }} />}
     </div>
@@ -542,7 +459,7 @@ function PhotosStep({ photos, video, reused, reuseUrls, photoCount, addFiles, re
   photos: (DraftItem & { url: string })[]; video: (DraftItem & { url: string }) | null;
   reused: Reused[]; reuseUrls: Record<string, string>; photoCount: number;
   addFiles: (f: FileList | null, kind: "photo" | "video") => Promise<void>; removeMedia: (id: string) => Promise<void>; removeReused: (p: string) => void;
-  err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
+  err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
 }) {
   const photoIn = useRef<HTMLInputElement>(null);
   const videoIn = useRef<HTMLInputElement>(null);
@@ -551,11 +468,11 @@ function PhotosStep({ photos, video, reused, reuseUrls, photoCount, addFiles, re
   const next = () => {
     if (!photoCount) return setErr("Add at least one photo so workers can see the job.");
     setErr("");
-    go("/book/who");
+    go("/book/where");
   };
   return (
     <div className="app">
-      <StepHero step={3} of={STEPS} title="Show the job" sub="Workers decide from what they see." onBack={() => history.back()} />
+      <StepHero step={2} of={STEPS} title="Show the job" sub="Workers decide from what they see." onBack={() => history.back()} />
       <div className="step-body">
         <div className="sec">
           <div className="row between" style={{ alignItems: "baseline" }}>
@@ -600,7 +517,7 @@ function PhotosStep({ photos, video, reused, reuseUrls, photoCount, addFiles, re
 
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next)}
+      {bar("Continue", next, false, "where and when")}
     </div>
   );
 }
@@ -635,49 +552,20 @@ function ListEditor({ items, onChange, yes = false, placeholder }: { items: stri
   );
 }
 
-// ---------- Step 4: Where ----------
-function WhereStep({ d, setD, suburbs, suburb, bar }: {
-  d: Draft; setD: (d: Draft) => void; suburbs: Suburb[]; suburb: Suburb | null;
-  bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
-}) {
-  const [pick, setPick] = useState(false);
-  const [err, setErr] = useState("");
-  const next = () => {
-    if (d.address.trim().length < 3) return setErr("Add the street address.");
-    if (!suburb) return setErr("Pick the suburb.");
-    go("/book/when");
-  };
-  return (
-    <div className="app">
-      <StepHero step={5} of={STEPS} title="Where's the job?" onBack={() => history.back()} />
-      <div className="step-body" style={{ gap: 8 }}>
-        <label className="field"><span className="k">Street address</span>
-          <input value={d.address} onChange={(e) => setD({ ...d, address: e.target.value })} placeholder="22 Boland Street" autoComplete="street-address" /></label>
-        <button className="field" onClick={() => setPick(true)}>
-          <span className="row between" style={{ width: "100%" }}>
-            <span className="stack" style={{ gap: 2 }}><span className="k">Suburb</span><span className={suburb ? "v" : "v ph"}>{suburb?.name ?? "Pick your suburb"}</span></span>
-            {Icon.search()}
-          </span>
-        </button>
-        <label className="field" style={{ cursor: "text" }}><span className="k">Getting in. Optional</span>
-          <textarea value={d.notes} onChange={(e) => setD({ ...d, notes: e.target.value })} placeholder="Gate code, parking, pets, where the key is" /></label>
-        <p className="small light muted" style={{ margin: "6px 2px 0", lineHeight: 1.45 }}>Only the worker you choose sees your street address.</p>
-        {err && <p className="err">{err}</p>}
-      </div>
-      {bar("Continue", next)}
-      {pick && <SearchPicker title="Suburb" placeholder="Search Cairns suburbs" value={d.suburbId ? [d.suburbId] : []}
-        options={suburbs.map((s) => ({ id: s.id, label: s.name }))} onChange={(v) => setD({ ...d, suburbId: Number(v[0]) })} onClose={() => setPick(false)} />}
-    </div>
-  );
-}
+// ---------- Step 3: Where and when (and who, once you've used someone) ----------
+const OPEN_AFTER: { id: string; label: string; v: number | null }[] = [
+  { id: "15", label: "Open it to everyone after 15 minutes", v: 15 },
+  { id: "30", label: "Open it to everyone after 30 minutes", v: 30 },
+  { id: "60", label: "Open it to everyone after 1 hour", v: 60 },
+  { id: "never", label: "Keep it just for them", v: null },
+];
 
-// ---------- Step 5: When ----------
-function WhenStep({ suburb, d, setD, bar }: {
-  suburb: Suburb | null; d: Draft; setD: (d: Draft) => void;
-  bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
+function WhereStep({ d, setD, suburbs, suburb, past, bar }: {
+  d: Draft; setD: (d: Draft) => void; suburbs: Suburb[]; suburb: Suburb | null; past: PastWorker[];
+  bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
 }) {
+  const [pick, setPick] = useState<null | "suburb" | "day" | "time" | "people" | "after">(null);
   const [err, setErr] = useState("");
-  const [pick, setPick] = useState<"day" | "time" | null>(null);
   const pad = (n: number) => String(n).padStart(2, "0");
   const dayKey = (x: Date) => `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`;
   const earliest = useMemo(() => new Date(Date.now() + 60 * 60 * 1000), []);
@@ -699,51 +587,96 @@ function WhenStep({ suburb, d, setD, bar }: {
   }, [selDay, earliest]);
   const timeLabel = times.find((t) => t.id === selTime)?.label;
   const dayLabel = days.find((x) => x.id === selDay)?.label;
+  const chosen = past.filter((p) => d.invited.includes(p.worker_id));
   const next = () => {
+    if (d.address.trim().length < 3) return setErr("Add the street address.");
+    if (!suburb) return setErr("Pick the suburb.");
     if (!d.asap && (!selDay || !selTime)) return setErr("Pick a day and a start time.");
     if (!d.asap && new Date(d.startAt) < earliest) return setErr("Pick a time at least an hour from now.");
-    go("/book/check");
+    setErr("");
+    go("/book/price");
   };
   return (
     <div className="app">
-      <StepHero step={6} of={STEPS} title="When?" sub={suburb ? `In ${suburb.name}` : undefined} onBack={() => history.back()} />
-      <div className="step-body" style={{ padding: 0, gap: 0 }}>
-        <button className={d.asap ? "choice on" : "choice"} onClick={() => setD({ ...d, asap: true })}>
-          <span className="t"><b>As soon as possible</b><span>People who are free now tell you, and you choose</span></span>
-          {d.asap && Icon.tick("var(--emerald)", 24)}
-        </button>
-        <button className={!d.asap ? "choice on" : "choice"} onClick={() => setD({ ...d, asap: false })}>
-          <span className="t"><b>Pick a day and time</b><span>Up to 5 days ahead</span></span>
-          {!d.asap && Icon.tick("var(--emerald)", 24)}
-        </button>
-        {!d.asap && (
-          <div style={{ padding: 16 }}>
-            <div className="stack" style={{ gap: 10 }}>
-              <button className="field" onClick={() => setPick("day")}>
-                <span className="row between" style={{ width: "100%" }}>
-                  <span className="stack" style={{ gap: 2 }}><span className="k">Day</span><span className={dayLabel ? "v" : "v ph"}>{dayLabel ?? "Pick a day"}</span></span>
-                  {Icon.down()}
-                </span>
+      <StepHero step={3} of={STEPS} title="Where and when?" onBack={() => history.back()} />
+      <div className="step-body">
+        <div className="sec">
+          <h2>Where</h2>
+          <label className="field"><span className="k">Street address</span>
+            <input value={d.address} onChange={(e) => { setD({ ...d, address: e.target.value }); setErr(""); }} placeholder="22 Boland Street" autoComplete="street-address" /></label>
+          <button className="field sel" onClick={() => setPick("suburb")}>
+            <span className="stack" style={{ gap: 2 }}><span className="k">Suburb</span><span className={suburb ? "v" : "v ph"}>{suburb?.name ?? "Pick your suburb"}</span></span>
+          </button>
+          <label className="field" style={{ cursor: "text" }}><span className="k">Getting in <span className="h-opt" style={{ fontSize: 13, marginLeft: 2 }}>Optional</span></span>
+            <textarea value={d.notes} onChange={(e) => setD({ ...d, notes: e.target.value })} placeholder="Gate code, parking, pets, where the key is" style={{ minHeight: 64 }} /></label>
+          <span className="small light muted">Only the worker you choose sees your street address.</span>
+        </div>
+
+        <div className="sec">
+          <h2>When</h2>
+          <button className={`who-opt${d.asap ? " on" : ""}`} onClick={() => { setD({ ...d, asap: true }); setErr(""); }}>
+            <span className="t"><b>As soon as possible</b><span>People who are free now tell you, and you choose</span></span>
+            <span className="box">{d.asap && Icon.tick("var(--emerald)", 16)}</span>
+          </button>
+          <button className={`who-opt${!d.asap ? " on" : ""}`} onClick={() => { setD({ ...d, asap: false }); setErr(""); }}>
+            <span className="t"><b>Pick a day and time</b><span>Up to 5 days ahead</span></span>
+            <span className="box">{!d.asap && Icon.tick("var(--emerald)", 16)}</span>
+          </button>
+          {!d.asap && (
+            <div className="row" style={{ gap: 10 }}>
+              <button className="field sel" style={{ flex: 1.2 }} onClick={() => setPick("day")}>
+                <span className="stack" style={{ gap: 2 }}><span className="k">Day</span><span className={dayLabel ? "v" : "v ph"}>{dayLabel ?? "Pick a day"}</span></span>
               </button>
-              <button className="field" onClick={() => (selDay ? setPick("time") : setPick("day"))}>
-                <span className="row between" style={{ width: "100%" }}>
-                  <span className="stack" style={{ gap: 2 }}><span className="k">Start time</span><span className={timeLabel ? "v" : "v ph"}>{timeLabel ?? "Pick a time"}</span></span>
-                  {Icon.down()}
-                </span>
+              <button className="field sel" style={{ flex: 1 }} onClick={() => setPick(selDay ? "time" : "day")}>
+                <span className="stack" style={{ gap: 2 }}><span className="k">Start</span><span className={timeLabel ? "v" : "v ph"}>{timeLabel ?? "Pick a time"}</span></span>
               </button>
             </div>
+          )}
+        </div>
+
+        {past.length > 0 && (
+          <div className="sec">
+            <h2>Who can take it?</h2>
+            <button className="field sel" onClick={() => setPick("people")}>
+              <span className="stack" style={{ gap: 2 }}>
+                <span className="k">Send it to</span>
+                <span className="v">{chosen.length ? chosen.map((p) => p.full_name).join(", ") : "Anyone nearby"}</span>
+              </span>
+            </button>
+            {chosen.length > 0 && (
+              <button className="field sel" onClick={() => setPick("after")}>
+                <span className="stack" style={{ gap: 2 }}>
+                  <span className="k">If they can't take it</span>
+                  <span className="v">{OPEN_AFTER.find((o) => o.v === d.openAfter)?.label ?? OPEN_AFTER[1].label}</span>
+                </span>
+              </button>
+            )}
+            <span className="small light muted">Pick someone you've used before, or leave it open to anyone nearby.</span>
           </div>
         )}
-        {err && <p className="err" style={{ padding: "0 16px" }}>{err}</p>}
+        {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next)}
+      {bar("Continue", next, false, "your price")}
+      {pick === "suburb" && <SearchPicker title="Suburb" placeholder="Search Cairns suburbs" value={d.suburbId ? [d.suburbId] : []}
+        options={suburbs.map((s) => ({ id: s.id, label: s.name }))} onChange={(v) => { setD({ ...d, suburbId: Number(v[0]) }); setErr(""); }} onClose={() => setPick(null)} />}
       {pick === "day" && <SearchPicker title="Day" placeholder="Search days" value={selDay ? [selDay] : []} options={days}
-        onChange={(v) => { const t = selTime && new Date(`${v[0]}T${selTime}`) >= earliest ? selTime : ""; setD({ ...d, startAt: `${v[0]}T${t}` }); if (!t) setTimeout(() => setPick("time"), 0); }} onClose={() => setPick(null)} />}
+        onChange={(v) => { const t = selTime && new Date(`${v[0]}T${selTime}`) >= earliest ? selTime : ""; setD({ ...d, startAt: `${v[0]}T${t}` }); setErr(""); if (!t) setTimeout(() => setPick("time"), 0); }} onClose={() => setPick(null)} />}
       {pick === "time" && <SearchPicker title="Start time" placeholder="Search times" value={selTime ? [selTime] : []} options={times}
-        onChange={(v) => setD({ ...d, startAt: `${selDay}T${v[0]}` })} onClose={() => setPick(null)} />}
+        onChange={(v) => { setD({ ...d, startAt: `${selDay}T${v[0]}` }); setErr(""); }} onClose={() => setPick(null)} />}
+      {pick === "people" && (
+        <SearchPicker title="People you've used" multi placeholder="Search by name" value={d.invited}
+          options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you${p.rating ? `, ${p.rating} rating` : ""}` }))}
+          onClose={() => setPick(null)} onChange={(v) => setD({ ...d, invited: v.map(String) })} />
+      )}
+      {pick === "after" && (
+        <SearchPicker title="If they can't take it" value={[OPEN_AFTER.find((o) => o.v === d.openAfter)?.id ?? "30"]}
+          options={OPEN_AFTER.map((o) => ({ id: o.id, label: o.label }))}
+          onClose={() => setPick(null)} onChange={(v) => setD({ ...d, openAfter: OPEN_AFTER.find((o) => o.id === v[0])?.v ?? null })} />
+      )}
     </div>
   );
 }
+
 
 function videoSeconds(f: File): Promise<number> {
   return new Promise((res) => {
