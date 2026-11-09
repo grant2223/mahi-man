@@ -22,7 +22,7 @@ const DRAFT_KEY = "mm-draft-2";
 const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [], included: [], excluded: [] };
 const MAX_PHOTOS = 6;
 const MAX_VIDEO_SECONDS = 60;
-const STEPS = 5;
+const STEPS = 6;
 
 export interface PastWorker { worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_for_me: number; last_job: string | null }
 
@@ -111,7 +111,8 @@ export function Book() {
   async function book() {
     setErr("");
     if (!jt) return go("/book/details");
-    if (!photoCount || d.details.trim().length < 15) return go("/book/details");
+    if (d.details.trim().length < 15 || !(d.included ?? []).length) return go("/book/details");
+    if (!photoCount) return go("/book/photos");
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !/T\d/.test(d.startAt)) return go("/book/when");
     if (!session) { setAuth(true); return; }
@@ -164,7 +165,11 @@ export function Book() {
   }
 
   if (path === "/book/details") {
-    return <DetailsStep d={d} setD={setD} cats={cats} cat={cat} photos={photos} video={video} reused={d.reuse} reuseUrls={reuseUrls}
+    return <DetailsStep d={d} setD={setD} cats={cats} cat={cat} err={err} setErr={setErr} bar={bar} />;
+  }
+
+  if (path === "/book/photos") {
+    return <PhotosStep photos={photos} video={video} reused={d.reuse} reuseUrls={reuseUrls}
       photoCount={photoCount} addFiles={addFiles} removeMedia={removeMedia} removeReused={removeReused} err={err} setErr={setErr} bar={bar} />;
   }
 
@@ -199,17 +204,15 @@ export function Book() {
             <span className="t">
               <span className="k">{cat?.name ?? "The job"}</span>
               <span className="row" style={{ gap: 10, alignItems: "flex-start", marginTop: 4 }}>
-                <span className="thumbs">
-                  {[...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean), ...photos.map((p) => p.url)].slice(0, 2).map((u) => <img key={u} src={u} alt="" />)}
-                </span>
                 <span className="small light muted" style={{ lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                  {photoCount} photo{photoCount === 1 ? "" : "s"}{video || reusedVideo ? " and a video" : ""}. {d.details}
+                  {d.details}
                 </span>
               </span>
             </span>
             <button className="link" onClick={() => go("/book/details")}>Change</button>
           </div>
           <ReviewRow k="What's included" v={`${(d.included ?? []).length} thing${(d.included ?? []).length === 1 ? "" : "s"}${(d.excluded ?? []).length ? `, ${d.excluded.length} not included` : ""}`} onChange={() => go("/book/details")} />
+          <ReviewRow k="Photos and video" v={`${photoCount} photo${photoCount === 1 ? "" : "s"}${video || reusedVideo ? " and a video" : ", no video"}`} onChange={() => go("/book/photos")} />
           <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/who")} />
           <ReviewRow k="Where" v={`${d.address}, ${suburb?.name ?? ""}`} onChange={() => go("/book/where")} />
           <ReviewRow k="When" v={d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} onChange={() => go("/book/when")} last />
@@ -401,7 +404,7 @@ function WhoStep({ d, setD, past, bar }: { d: Draft; setD: (d: Draft) => void; p
   };
   return (
     <div className="app" style={{ background: "var(--card)" }}>
-      <StepHero step={3} of={STEPS} title="Who can take it?" sub="Send it to everyone nearby, or ask someone you've used before." onBack={() => history.back()} />
+      <StepHero step={4} of={STEPS} title="Who can take it?" sub="Send it to everyone nearby, or ask someone you've used before." onBack={() => history.back()} />
       <div className="step-body" style={{ gap: 10, background: "var(--card)" }}>
         <button className={`who-opt${!people ? " on" : ""}`} onClick={() => { setPeople(false); setErr(""); }}>
           <span className="t"><b>Anyone nearby</b><span>Every available worker in your area sees it</span></span>
@@ -463,32 +466,24 @@ function ReviewRow({ k, v, onChange, last }: { k: string; v: string; onChange: (
 }
 
 // ---------- Step 2: Show the job ----------
-function DetailsStep({ d, setD, cats, cat, photos, video, reused, reuseUrls, photoCount, addFiles, removeMedia, removeReused, err, setErr, bar }: {
+function DetailsStep({ d, setD, cats, cat, err, setErr, bar }: {
   d: Draft; setD: (d: Draft) => void; cats: Category[]; cat: Category | null;
-  photos: (DraftItem & { url: string })[]; video: (DraftItem & { url: string }) | null;
-  reused: Reused[]; reuseUrls: Record<string, string>; photoCount: number;
-  addFiles: (f: FileList | null, kind: "photo" | "video") => Promise<void>; removeMedia: (id: string) => Promise<void>; removeReused: (p: string) => void;
   err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
 }) {
-  const photoIn = useRef<HTMLInputElement>(null);
-  const videoIn = useRef<HTMLInputElement>(null);
   const detailsBox = useRef<HTMLTextAreaElement>(null);
   const [voice, setVoice] = useState(false);
   const [dictate, setDictate] = useState(false);
   const [pickCat, setPickCat] = useState(false);
-  const reusedPhotos = reused.filter((r) => r.kind === "photo");
-  const reusedVideo = reused.find((r) => r.kind === "video") ?? null;
   const next = () => {
     if (!cat) return setErr("Pick what kind of job it is.");
-    if (!photoCount) return setErr("Add at least one photo so workers can see the job.");
     if (d.details.trim().length < 15) return setErr("Say what you want done.");
     if (!(d.included ?? []).length) return setErr("Add at least one thing that's included.");
     setErr("");
-    go("/book/who");
+    go("/book/photos");
   };
   return (
     <div className="app">
-      <StepHero step={2} of={STEPS} title="Show the job" sub="Workers decide from what you show them." onBack={() => history.back()} />
+      <StepHero step={2} of={STEPS} title="What's the job?" sub="Be specific. This is what the worker is held to." onBack={() => history.back()} />
       <div className="step-body">
         <div className="sec">
           <h2>What kind of job?</h2>
@@ -502,8 +497,69 @@ function DetailsStep({ d, setD, cats, cat, photos, video, reused, reuseUrls, pho
         </div>
 
         <div className="sec">
+          <h2>Exactly what you want done</h2>
+          <button className="wide-btn green" onClick={() => {
+            if (voiceSupported()) return setVoice(true);
+            // Where the browser has no speech service (the iPhone app), the keyboard's own microphone does the same job.
+            setDictate(true);
+            detailsBox.current?.focus();
+          }}>
+            {Icon.mic("var(--lime)")}
+            <span className="t"><b>Just say it</b><span>Talk it through. We write it up for you.</span></span>
+          </button>
+          <label className="field" style={{ cursor: "text" }}>
+            <textarea ref={detailsBox} value={d.details} onChange={(e) => setD({ ...d, details: e.target.value })} style={{ minHeight: 110 }}
+              placeholder="For example: shower screen has build-up, needs a proper scrub. Benches and stovetop degreased. Products are under the sink." />
+          </label>
+          {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk.</span>}
+        </div>
+
+        <div className="sec">
+          <h2>What's included</h2>
+          <ListEditor items={d.included ?? []} onChange={(v) => { setD({ ...d, included: v }); setErr(""); }} yes
+            placeholder="e.g. Clean the shower screen" />
+        </div>
+
+        <div className="sec">
+          <h2>Not included <span className="h-opt">Optional</span></h2>
+          <ListEditor items={d.excluded ?? []} onChange={(v) => setD({ ...d, excluded: v })}
+            placeholder="e.g. Inside the oven" />
+          <span className="small light muted">The price covers what's included. Anything else is agreed in the app first.</span>
+        </div>
+        {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
+      </div>
+      {bar("Continue", next)}
+      {pickCat && <SearchPicker title="What kind of job?" placeholder="Search categories" value={d.categoryId ? [d.categoryId] : []}
+        options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
+        onChange={(v) => { setD({ ...d, categoryId: Number(v[0]) }); setErr(""); }} />}
+      {voice && <VoiceScreen jobName={cat?.name ?? "Odd job"} onBack={() => setVoice(false)}
+        onDone={(text) => { setD({ ...d, details: d.details.trim() ? `${d.details.trim()} ${text}` : text }); setVoice(false); }} />}
+    </div>
+  );
+}
+
+function PhotosStep({ photos, video, reused, reuseUrls, photoCount, addFiles, removeMedia, removeReused, err, setErr, bar }: {
+  photos: (DraftItem & { url: string })[]; video: (DraftItem & { url: string }) | null;
+  reused: Reused[]; reuseUrls: Record<string, string>; photoCount: number;
+  addFiles: (f: FileList | null, kind: "photo" | "video") => Promise<void>; removeMedia: (id: string) => Promise<void>; removeReused: (p: string) => void;
+  err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean) => ReactNode;
+}) {
+  const photoIn = useRef<HTMLInputElement>(null);
+  const videoIn = useRef<HTMLInputElement>(null);
+  const reusedPhotos = reused.filter((r) => r.kind === "photo");
+  const reusedVideo = reused.find((r) => r.kind === "video") ?? null;
+  const next = () => {
+    if (!photoCount) return setErr("Add at least one photo so workers can see the job.");
+    setErr("");
+    go("/book/who");
+  };
+  return (
+    <div className="app">
+      <StepHero step={3} of={STEPS} title="Show the job" sub="Workers decide from what they see." onBack={() => history.back()} />
+      <div className="step-body">
+        <div className="sec">
           <div className="row between" style={{ alignItems: "baseline" }}>
-            <h2>Photos and video</h2>
+            <h2>Photos</h2>
             <span className="small muted">At least 1 photo</span>
           </div>
           <div className="media-grid">
@@ -542,45 +598,9 @@ function DetailsStep({ d, setD, cats, cat, photos, video, reused, reuseUrls, pho
           <span className="small light muted">Show the worst of it.</span>
         </div>
 
-        <div className="sec">
-          <h2>Exactly what you want done</h2>
-          <button className="wide-btn green" onClick={() => {
-            if (voiceSupported()) return setVoice(true);
-            // Where the browser has no speech service (the iPhone app), the keyboard's own microphone does the same job.
-            setDictate(true);
-            detailsBox.current?.focus();
-          }}>
-            {Icon.mic("var(--lime)")}
-            <span className="t"><b>Just say it</b><span>Talk it through. We write it up for you.</span></span>
-          </button>
-          <label className="field" style={{ cursor: "text" }}>
-            <span className="k">Be specific. This is what the worker is held to.</span>
-            <textarea ref={detailsBox} value={d.details} onChange={(e) => setD({ ...d, details: e.target.value })} style={{ minHeight: 110 }}
-              placeholder="For example: shower screen has build-up, needs a proper scrub. Benches and stovetop degreased. Products are under the sink." />
-          </label>
-          {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk.</span>}
-        </div>
-
-        <div className="sec">
-          <h2>What's included</h2>
-          <ListEditor items={d.included ?? []} onChange={(v) => { setD({ ...d, included: v }); setErr(""); }} yes
-            placeholder="e.g. Clean the shower screen" />
-        </div>
-
-        <div className="sec">
-          <h2>Not included <span className="h-opt">Optional</span></h2>
-          <ListEditor items={d.excluded ?? []} onChange={(v) => setD({ ...d, excluded: v })}
-            placeholder="e.g. Inside the oven" />
-          <span className="small light muted">The price covers what's included. Anything else is agreed in the app first.</span>
-        </div>
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
       {bar("Continue", next)}
-      {pickCat && <SearchPicker title="What kind of job?" placeholder="Search categories" value={d.categoryId ? [d.categoryId] : []}
-        options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
-        onChange={(v) => { setD({ ...d, categoryId: Number(v[0]) }); setErr(""); }} />}
-      {voice && <VoiceScreen jobName={cat?.name ?? "Odd job"} onBack={() => setVoice(false)}
-        onDone={(text) => { setD({ ...d, details: d.details.trim() ? `${d.details.trim()} ${text}` : text }); setVoice(false); }} />}
     </div>
   );
 }
@@ -629,7 +649,7 @@ function WhereStep({ d, setD, suburbs, suburb, bar }: {
   };
   return (
     <div className="app">
-      <StepHero step={4} of={STEPS} title="Where's the job?" onBack={() => history.back()} />
+      <StepHero step={5} of={STEPS} title="Where's the job?" onBack={() => history.back()} />
       <div className="step-body" style={{ gap: 8 }}>
         <label className="field"><span className="k">Street address</span>
           <input value={d.address} onChange={(e) => setD({ ...d, address: e.target.value })} placeholder="22 Boland Street" autoComplete="street-address" /></label>
@@ -686,7 +706,7 @@ function WhenStep({ suburb, d, setD, bar }: {
   };
   return (
     <div className="app">
-      <StepHero step={5} of={STEPS} title="When?" sub={suburb ? `In ${suburb.name}` : undefined} onBack={() => history.back()} />
+      <StepHero step={6} of={STEPS} title="When?" sub={suburb ? `In ${suburb.name}` : undefined} onBack={() => history.back()} />
       <div className="step-body" style={{ padding: 0, gap: 0 }}>
         <button className={d.asap ? "choice on" : "choice"} onClick={() => setD({ ...d, asap: true })}>
           <span className="t"><b>As soon as possible</b><span>People who are free now tell you, and you choose</span></span>
