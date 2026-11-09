@@ -1,14 +1,17 @@
 import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import { rpc, sb, type Category } from "../lib/supabase";
 import { money } from "../lib/format";
 import { go } from "../lib/router";
-import { useSession } from "../lib/session";
 import { CatIcon, Icon, Logo } from "./kit";
 
 /* moremahi.com for first-time visitors on the web. Sells to locals with jobs on their list first,
    then to people who want extra work. The app itself opens straight on Get help. */
 
-const link = (to: string) => (e: React.MouseEvent) => { e.preventDefault(); go(to); };
+// The website is this page only. Every way in leads to the app section; only the legal pages open on the web.
+const desktop = () => window.matchMedia("(min-width: 900px) and (hover: hover) and (pointer: fine)").matches;
+const toApp = () => document.getElementById("app")?.scrollIntoView({ behavior: "smooth" });
+const link = (to: string) => (e: React.MouseEvent) => { e.preventDefault(); if (["/privacy", "/terms", "/support"].includes(to)) go(to); else toApp(); };
 
 // If a photo can't load, its frame shows a quiet label instead of a broken image.
 function Photo({ src, alt, className }: { src: string; alt: string; className: string }) {
@@ -31,7 +34,7 @@ const USES: [string, string, string][] = [
 ];
 
 export function Landing() {
-  const { session } = useSession();
+  useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
   const [open, setOpen] = useState<{ id: string; job_name: string; category: string | null; icon: string; suburb: string; asap: boolean; pay_cents: number }[]>([]);
   useEffect(() => {
@@ -43,12 +46,7 @@ export function Landing() {
     <div className="ld">
       <header className="ld-nav"><div className="ld-wrap ld-nav-in">
         <a className="brand" href="/" onClick={link("/")}><Logo /> More Mahi</a>
-        <nav className="ld-links">
-          <a href="#how">How it works</a>
-          <a href="#earn">Find work</a>
-          {session ? <a href="/jobs" onClick={link("/jobs")}>My jobs</a> : <a href="/post" onClick={link("/post")}>Sign in</a>}
-        </nav>
-        <a className="btn small ld-nav-cta" href="/post" onClick={link("/post")}>Post a job</a>
+        <LdLinks />
       </div></header>
 
       <section className="ld-hero">
@@ -155,12 +153,7 @@ export function Landing() {
         </div>
       </section>
 
-      <section className="ld-final">
-        <div className="ld-wrap ld-final-in">
-          <h2>Got a job? Get it off your list today.</h2>
-          <a className="btn primary" href="/post" onClick={link("/post")}>Post a job, free {Icon.arrow("#fff")}</a>
-        </div>
-      </section>
+      <GetApp />
 
       <footer className="ld-foot">
         <div className="ld-wrap ld-foot-in">
@@ -172,6 +165,56 @@ export function Landing() {
           </span>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function LdLinks() {
+  return (
+    <>
+      <nav className="ld-links"><a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a></nav>
+      <a className="btn small ld-nav-cta" href="#app" onClick={(e) => { e.preventDefault(); if (document.getElementById("app")) toApp(); }}>Get the app</a>
+    </>
+  );
+}
+
+// The one way in. On a computer: scan the code with your phone. On a phone: the store buttons.
+// Both go through /get, which sends each phone to its store once the app is listed there.
+const STORES: [string, string][] = [["App Store", "app_store_url"], ["Google Play", "play_store_url"]];
+function GetApp({ full }: { full?: boolean }) {
+  const [svg, setSvg] = useState("");
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    sb.from("settings").select("key,value").in("key", STORES.map(([, k]) => k)).then(({ data }) => setUrls(Object.fromEntries((data ?? []).map((r) => [r.key, r.value]))));
+  }, []);
+  useEffect(() => { QRCode.toString(`${location.origin}/get`, { type: "svg", margin: 0, color: { dark: "#14211c", light: "#00000000" } }).then(setSvg); }, []);
+  return (
+    <section className={`ld-app${full ? " full" : ""}`} id="app">
+      <div className="ld-wrap ld-app-in">
+        <div className="ld-app-text">
+          <h2>More Mahi lives on your phone.</h2>
+          <p>Post a job, pick your person and hear the moment someone's keen. Or find work near you. It all happens in the app.</p>
+          {desktop()
+            ? <span className="ld-app-how">{Icon.arrow("var(--emerald)")} Point your phone's camera at the code</span>
+            : <div className="ld-stores">{STORES.map(([name, k]) => urls[k]
+                ? <a key={k} className="btn primary" href={urls[k]}>Get it on {name}</a>
+                : <span key={k} className="ld-store-soon"><b>{name}</b><span>Coming soon</span></span>)}</div>}
+        </div>
+        {desktop() && <span className="ld-qr" aria-label="QR code to open More Mahi on your phone" dangerouslySetInnerHTML={{ __html: svg }} />}
+      </div>
+    </section>
+  );
+}
+
+// Any app screen opened on a computer.
+export function GetAppPage() {
+  return (
+    <div className="ld">
+      <header className="ld-nav"><div className="ld-wrap ld-nav-in">
+        <a className="brand" href="/" onClick={(e) => { e.preventDefault(); go("/"); }}><Logo /> More Mahi</a>
+        <LdLinks />
+      </div></header>
+      <GetApp full />
     </div>
   );
 }

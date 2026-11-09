@@ -15,13 +15,23 @@ import { VerifyPage } from "./ui/Verify";
 import { Privacy, Support, Terms } from "./ui/Legal";
 import { Pricing } from "./ui/Pricing";
 import { lastSide } from "./ui/SideSwitch";
-import { Landing } from "./ui/Landing";
+import { GetAppPage, Landing } from "./ui/Landing";
+import { useEffect } from "react";
+import { sb } from "./lib/supabase";
 import { startPush } from "./lib/push";
 
 void startPush();
 
-// A computer: a wide screen with a mouse. Phones and tablets get the app.
-const isDesktop = () => window.matchMedia("(min-width: 900px) and (hover: hover) and (pointer: fine)").matches;
+function GetRedirect() {
+  useEffect(() => {
+    const ios = /iPhone|iPad|iPod/.test(navigator.userAgent), android = /Android/.test(navigator.userAgent);
+    sb.from("settings").select("key,value").in("key", ["app_store_url", "play_store_url"]).then(({ data }) => {
+      const url = data?.find((r) => r.key === (ios ? "app_store_url" : android ? "play_store_url" : ""))?.value;
+      if (url) location.replace(url); else location.replace("/#app");
+    });
+  }, []);
+  return null;
+}
 
 function Routes() {
   const path = usePath().split("?")[0];
@@ -30,10 +40,14 @@ function Routes() {
   // Admin lives on its own address (admin.moremahi.com) and opens for anyone with the admin role. /admin keeps working on the main site until that address is connected.
   if (location.hostname.startsWith("admin.") || path.startsWith("/admin")) return <Admin />;
   if (path.startsWith("/work")) return <Work />;
+  // The scanned code: phones go to the store when the app is listed there, otherwise straight into More Mahi.
+  if (path === "/get") return <GetRedirect />;
   if (path === "/privacy") return <Privacy />;
   if (path === "/terms") return <Terms />;
   if (path === "/support") return <Support />;
   if (path === "/pricing") return <Pricing />;
+  // More Mahi is an app. The website is the landing page only; any app screen opened in a browser points to the app.
+  if (!Capacitor.isNativePlatform()) return path === "/" ? <Landing /> : <GetAppPage />;
   if (path === "/settings") {
     if (ready && !session) { go("/", true); return null; }
     return <Settings />;
@@ -54,12 +68,6 @@ function Routes() {
   if (path === "/messages" || path.startsWith("/messages/")) return <MessagesPage jobId={path.split("/")[2]} />;
   if (path === "/find") return <Feed />;
   if (path === "/") {
-    // On a computer the website is always the landing page, signed in or not; the app screens are for phones.
-    // On a phone's browser, someone who isn't signed in sees the landing page first. The app opens straight on Get help.
-    if (!Capacitor.isNativePlatform()) {
-      if (isDesktop()) return <Landing />;
-      if (!ready) return null; if (!session) return <Landing />;
-    }
     // Opens on the side they used last. Everyone else starts on Get help.
     if (lastSide() === "work") {
       if (!ready || (session && !profile)) return null;
