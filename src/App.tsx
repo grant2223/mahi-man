@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { usePath, go } from "./lib/router";
 import { SessionProvider, useSession } from "./lib/session";
 import { ToastProvider } from "./ui/kit";
@@ -14,6 +15,7 @@ import { VerifyPage } from "./ui/Verify";
 import { Privacy, Support, Terms } from "./ui/Legal";
 import { Pricing } from "./ui/Pricing";
 import { lastSide } from "./ui/SideSwitch";
+import { Landing } from "./ui/Landing";
 import { startPush } from "./lib/push";
 
 void startPush();
@@ -49,6 +51,8 @@ function Routes() {
   if (path === "/messages" || path.startsWith("/messages/")) return <MessagesPage jobId={path.split("/")[2]} />;
   if (path === "/find") return <Feed />;
   if (path === "/") {
+    // On the website, someone who isn't signed in sees the landing page first. The app opens straight on Get help.
+    if (!Capacitor.isNativePlatform()) { if (!ready) return null; if (!session) return <Landing />; }
     // Opens on the side they used last. Everyone else starts on Get help.
     if (lastSide() === "work") {
       if (!ready || (session && !profile)) return null;
