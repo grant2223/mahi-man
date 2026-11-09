@@ -72,7 +72,7 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
         <SideSwitch side="work" />
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 168, right: -32 }} />
         <h1 className="mid" style={{ position: "relative", margin: "22px 0 10px" }}>Want more<br />mahi?</h1>
-        <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Local jobs, open now. Keep 100% of the price.</p>
+        <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Which job could you help with?</p>
         {setup ? (
           <div className="start-row stack" style={{ gap: 12, alignItems: "flex-start" }}>
             <span className="stack" style={{ gap: 2, position: "relative" }}>

@@ -199,7 +199,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
           </button>
         </div>
         <p className="lede" style={{ position: "relative", maxWidth: 210 }}>
-          {online ? (offers.length ? `${offers.length} open near you. You keep the full price.` : "No jobs open right now. New ones show here.") : "Switch on when you are available for work."}
+          {online ? (offers.length ? "Which job could you help with?" : "No jobs open right now. New ones show here.") : "Switch on when you are available for work."}
         </p>
       </section>
 
