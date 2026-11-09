@@ -14,9 +14,22 @@ import { MessagesLink } from "../ui/Messages";
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
 
+function BecomeWorker({ onDone }: { onDone: () => Promise<void> }) {
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    rpc("become_worker").then(onDone).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+  }, []);
+  return (
+    <div className="app">
+      <section className="hero short"><span className="brand"><Logo /> More Mahi</span>
+        {err && <><p className="lede" style={{ marginTop: 16 }}>{err}</p><button className="btn white" style={{ marginTop: 16, alignSelf: "flex-start" }} onClick={() => location.reload()}>Try again</button></>}
+      </section>
+    </div>
+  );
+}
+
 export function Work() {
   const { session, profile, ready, reload } = useSession();
-  const [auth, setAuth] = useState(false);
   const [status, setStatus] = useState<WorkerStatus | null>(null);
   const [current, setCurrent] = useState<Job | null | undefined>(undefined);
   const [wrapups, setWrapups] = useState<Job[]>([]);
@@ -53,40 +66,17 @@ export function Work() {
 
   if (!ready) return null;
 
-  if (!session || !profile?.is_worker) {
+  // Not a worker yet: straight into sign-up. The jobs feed already explains what's needed.
+  if (!session) {
     return (
       <div className="app">
-        <section className="hero">
-          <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
-            <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
-            <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>
-          </div>
-          <div className="path-switch" role="tablist" aria-label="What are you here for?">
-            <button className="on" role="tab" aria-selected="true">I want work</button>
-            <button role="tab" aria-selected="false" onClick={() => go("/post")}>I have work</button>
-          </div>
-          <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 80, height: 186 }} />
-          <h1 style={{ position: "relative", marginTop: 22 }}>Earn on<br />your time</h1>
-          <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Go online when you're free. Keep 100% of the price.</p>
-        </section>
-        <div className="ticket">
-          {[["Cleaning", "Units, houses, Airbnb turnovers"], ["Moving and tip runs", "Lifting, loading, one-ute runs"], ["Flat-pack and yard work", "Assembly, tidy-ups, mowing"]].map(([t, s]) => (
-            <div key={t} className="li" style={{ cursor: "default" }}><span className="t"><b>{t}</b><span>{s}</span></span></div>
-          ))}
-          <Perf />
-          <div className="row between" style={{ padding: "8px 16px 18px" }}>
-            <span className="small light muted" style={{ maxWidth: 170, lineHeight: 1.4 }}>You'll need a photo and your passport or national ID.</span>
-            <button className="btn primary" onClick={async () => {
-              if (!session) return setAuth(true);
-              await rpc("become_worker"); await reload();
-            }}>Start {Icon.arrow("#fff")}</button>
-          </div>
-        </div>
-        {auth && <AuthScreen title="Earn with More Mahi" reason="Create your account. Next you'll add a photo and verify your ID." onBack={() => setAuth(false)}
-          onDone={async () => { setAuth(false); await rpc("become_worker"); await reload(); }} />}
+        <AuthScreen title="Earn with More Mahi" reason="Create your account. Next you'll add a photo and verify your ID."
+          onBack={() => (history.length > 1 ? history.back() : go("/"))}
+          onDone={async () => { await rpc("become_worker"); await reload(); }} />
       </div>
     );
   }
+  if (!profile?.is_worker) return <BecomeWorker onDone={reload} />;
 
   if (!status || current === undefined) return <div className="app"><section className="hero short"><span className="brand"><Logo /> More Mahi</span>{err && <p>{err}</p>}</section></div>;
   if (current) return <div className="app"><WorkerJob key={current.id} job={current} onChanged={refresh} onLeave={() => { hide(current.id); refresh(); }} /></div>;

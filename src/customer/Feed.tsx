@@ -13,7 +13,8 @@ interface FeedJob {
 
 // "I want work": the home screen. Every job open right now, filtered by category.
 export function Feed() {
-  const { session } = useSession();
+  const { session, profile } = useSession();
+  const isWorker = !!profile?.is_worker;
   const [jobs, setJobs] = useState<FeedJob[] | null>(null);
   const [cats, setCats] = useState<Category[]>([]);
   const [cat, setCat] = useState<number | "all">("all");
@@ -57,7 +58,13 @@ export function Feed() {
         </div>
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 168, right: -32 }} />
         <h1 className="mid" style={{ position: "relative", margin: "22px 0 10px" }}>Want more<br />mahi?</h1>
-        <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Local jobs, open now.</p>
+        <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Local jobs, open now. Keep 100% of the price.</p>
+        {!isWorker && (
+          <div className="start-row">
+            <button className="btn white" onClick={() => go("/work")}>Start earning {Icon.arrow("var(--emerald)")}</button>
+            <span>Bring a photo and your passport or national ID. We verify you.</span>
+          </div>
+        )}
       </section>
 
       <div className="feed-filter">
