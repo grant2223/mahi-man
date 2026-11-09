@@ -12,6 +12,7 @@ const config: CapacitorConfig = {
   plugins: {
     // The app shrinks above the keyboard instead of sliding under the status bar.
     Keyboard: { resize: "native", resizeOnFullScreen: true },
+    PushNotifications: { presentationOptions: ["badge", "sound", "alert"] },
   },
 };
 

@@ -516,3 +516,14 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .btn.white { background: #fff; color: var(--emerald); box-shadow: 0 6px 16px rgba(0,0,0,0.18); }
 .hero .start-row { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 18px; }
 .hero .start-row span { font-size: 14px; font-weight: 300; line-height: 1.4; max-width: 210px; color: rgba(255,255,255,0.85); }
+.alerts-ask { display: flex; flex-direction: column; background: var(--card); }
+.alerts-ask .top { background: var(--hero); color: #fff; padding: calc(var(--safe-top) + 40px) 20px 0; height: calc(var(--safe-top) + 300px); position: relative; overflow: hidden; flex: none; }
+.alerts-ask .top .brand-t { font-size: 20px; font-weight: 500; }
+.alerts-ask .top h1 { position: relative; margin: 34px 0 0; max-width: 230px; font-size: 46px; line-height: 0.92; letter-spacing: -1.8px; font-weight: 600; }
+.alerts-ask .top img { position: absolute; right: -34px; bottom: 0; height: 215px; }
+.alerts-ask .body { padding: 24px 20px; display: flex; flex-direction: column; }
+.alerts-ask .li { display: flex; gap: 14px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--line); font-size: 16px; font-weight: 300; line-height: 1.35; }
+.alerts-ask .li:last-child { border-bottom: 0; }
+.alerts-ask .li b { display: block; font-weight: 500; font-size: 17px; margin-bottom: 2px; }
+.alerts-ask .li svg { flex: none; margin-top: 2px; }
+.alerts-ask .foot { margin-top: auto; padding: 16px 20px calc(var(--safe-bottom) + 16px); display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); }

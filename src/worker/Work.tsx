@@ -10,6 +10,8 @@ import { Signup, type Steps } from "./Signup";
 import { WorkerJob } from "./WorkerJob";
 import { ActionBar, reviewSkipped } from "../ui/Completion";
 import { MessagesLink } from "../ui/Messages";
+import { AlertsAsk } from "../ui/AlertsAsk";
+import { alertsState, askedFor, signOut } from "../lib/push";
 
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
@@ -154,8 +156,12 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
 
   useEffect(() => { rpc<MyOffer[]>("my_offers").then((m) => { setMine(m); pending.current = m.filter((x) => x.status === "pending").length; }).catch(() => {}); }, []);
 
+  const [ask, setAsk] = useState(false);
   async function toggle() {
-    try { await rpc("set_online", { p_online: !online }); setOnline(!online); if (online) setOffers([]); }
+    try {
+      await rpc("set_online", { p_online: !online }); setOnline(!online); if (online) setOffers([]);
+      if (!online && !askedFor("work") && (await alertsState()) === "prompt") setAsk(true);
+    }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); }
   }
 
@@ -230,7 +236,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <button className="link quiet" onClick={() => go("/post")}>Post a job</button>
         <span className="row" style={{ gap: 18 }}>
           <button className="link quiet" onClick={() => go("/settings")}>Settings</button>
-          <button className="link quiet" onClick={() => sb.auth.signOut()}>Sign out</button>
+          <button className="link quiet" onClick={() => signOut()}>Sign out</button>
         </span>
       </div>
       {open && <OfferScreen o={open} pilot={pilot} onBack={() => setOpen(null)}
@@ -241,6 +247,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         return m ? <WaitingScreen o={m} onWithdraw={async () => { await rpc("withdraw_offer", { p_job: m.job_id }); setWaiting(null); poll(); }}
           onClose={() => setWaiting(null)} /> : null;
       })()}
+      {ask && <AlertsAsk role="work" onDone={() => setAsk(false)} />}
     </>
   );
 }

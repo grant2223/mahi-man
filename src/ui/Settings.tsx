@@ -5,12 +5,15 @@ import { go } from "../lib/router";
 import { Icon, Screen, StepHero, Tile, useToast } from "./kit";
 import { VerifyFlow } from "./Verify";
 import { AbnStep } from "../worker/Signup";
+import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
 
 // Account settings: ID check, blocked people, legal pages and in-app account deletion (Apple 5.1.1(v)).
 export function Settings() {
   const { session, profile, reload, ready } = useSession();
   const toast = useToast();
   const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
+  const [alerts, setAlerts] = useState<"granted" | "prompt" | "denied" | "unsupported">("unsupported");
+  useEffect(() => { alertsState().then(setAlerts).catch(() => {}); }, []);
   const [screen, setScreen] = useState<null | "verify" | "delete" | "payid">(null);
 
   useEffect(() => {
@@ -56,10 +59,16 @@ export function Settings() {
             ))}
           </div>
         )}
+        {pushSupported() && (
+          <button className="choice" onClick={async () => { if (alerts === "prompt") setAlerts(await turnOnAlerts()); }}>
+            <span className="t"><b>Alerts</b><span>{alerts === "granted" ? "On. New jobs, offers, messages and payments" : alerts === "denied" ? "Off. Turn them on in iPhone Settings, More Mahi, Notifications" : "Off. Tap to turn on"}</span></span>
+            {alerts === "prompt" && Icon.chevron("var(--faint)")}
+          </button>
+        )}
         <button className="choice" onClick={() => go("/support")}><span className="t"><b>Help and support</b><span>Contact the More Mahi team</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/privacy")}><span className="t"><b>Privacy policy</b></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/terms")}><span className="t"><b>Terms of use</b></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => sb.auth.signOut().then(() => go("/"))}><span className="t"><b>Sign out</b></span></button>
+        <button className="choice" onClick={() => signOut().then(() => go("/"))}><span className="t"><b>Sign out</b></span></button>
         <button className="choice" onClick={() => setScreen("delete")}><span className="t"><b style={{ color: "var(--danger)" }}>Delete account</b><span>Removes your account, photos and messages for good</span></span></button>
       </div>
       {screen === "payid" && <AbnStep onBack={() => setScreen(null)} onSaved={() => { setScreen(null); toast("Saved"); }} />}
@@ -91,7 +100,7 @@ function DeleteAccount({ onBack }: { onBack: () => void }) {
             setBusy(true); setErr("");
             try {
               await api("delete_account", { confirm: "DELETE" });
-              await sb.auth.signOut();
+              await signOut();
               sessionStorage.clear();
               go("/", true);
             } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }

@@ -8,6 +8,8 @@ import { ReportScreen as ReportUser } from "../ui/Report";
 import { ChatScreen } from "../ui/Chat";
 import { PayScreen } from "./Pay";
 import { OffersView } from "./Offers";
+import { AlertsAsk } from "../ui/AlertsAsk";
+import { alertsState, askedFor } from "../lib/push";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
 
 interface Extra { id: string; amount_cents: number; reason: string; status: string }
@@ -20,6 +22,12 @@ export function Track({ id }: { id: string }) {
   const [job, setJob] = useState<Job | null>(null);
   const [jt, setJt] = useState<JobType | null>(null);
   const [suburb, setSuburb] = useState("");
+  const [askAlerts, setAskAlerts] = useState(false);
+  const searching = job?.status === "searching";
+  useEffect(() => {
+    if (!searching || askedFor("post")) return;
+    alertsState().then((s) => { if (s === "prompt") setAskAlerts(true); }).catch(() => {});
+  }, [searching]);
   const [worker, setWorker] = useState<PersonCard | null>(null);
   const [code, setCode] = useState("");
   const [photos, setPhotos] = useState<{ kind: string; url: string }[]>([]);
@@ -102,6 +110,7 @@ export function Track({ id }: { id: string }) {
         <OffersView jobId={id} title={jobName} price={money(job.price_cents)} asap={job.asap} startAt={job.start_at}
           searchingAt={job.searching_at ?? job.created_at} onChosen={load} onCancel={() => setScreen("cancel")} />
         {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+        {askAlerts && <AlertsAsk role="post" onDone={() => setAskAlerts(false)} />}
       </>
     );
   }

@@ -12,6 +12,9 @@ import { Admin } from "./admin/Admin";
 import { Settings } from "./ui/Settings";
 import { VerifyPage } from "./ui/Verify";
 import { Privacy, Support, Terms } from "./ui/Legal";
+import { startPush } from "./lib/push";
+
+void startPush();
 
 function Routes() {
   const path = usePath().split("?")[0];
