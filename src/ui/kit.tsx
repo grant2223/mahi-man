@@ -223,11 +223,11 @@ export const nameRow = (n: NameParts) => ({ first_name: n.first.trim(), middle_n
 export function NameFields({ value, onChange }: { value: NameParts; onChange: (n: NameParts) => void }) {
   return (
     <div className="stack">
-      <label className="field"><span className="k">First name</span>
+      <label className="field"><span className="k">First Name</span>
         <input value={value.first} onChange={(e) => onChange({ ...value, first: e.target.value })} autoComplete="given-name" autoCapitalize="words" /></label>
-      <label className="field"><span className="k">Middle name or names <span className="light">(if you have one)</span></span>
+      <label className="field"><span className="k">Middle Names</span>
         <input value={value.middle} onChange={(e) => onChange({ ...value, middle: e.target.value })} autoComplete="additional-name" autoCapitalize="words" /></label>
-      <label className="field"><span className="k">Last name</span>
+      <label className="field"><span className="k">Last Name</span>
         <input value={value.last} onChange={(e) => onChange({ ...value, last: e.target.value })} autoComplete="family-name" autoCapitalize="words" /></label>
       <span className="small light muted">As it appears on your passport or ID.</span>
     </div>
