@@ -3,7 +3,6 @@ import { rpc, sb, type Category } from "../lib/supabase";
 import { money } from "../lib/format";
 import { go } from "../lib/router";
 import { CatIcon, Icon, Logo } from "./kit";
-import { useAreas } from "../lib/area";
 
 /* moremahi.com for first-time visitors on the web. Sells to locals with jobs on their list first,
    then to people who want extra work. The app itself opens straight on Get help. */
@@ -30,11 +29,7 @@ const USES: [string, string, string][] = [
   ["Rubbish removal", "Tip runs, green waste and clean-outs. Loaded up and gone.", "1670175035057-eec020c03eb9"],
 ];
 
-// "Now in Cairns", "Now in Cairns and Townsville", "Now in Cairns, Townsville and Mackay": whatever is open.
-const listNames = (n: string[]) => n.length < 2 ? n.join("") : `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`;
-
 export function Landing() {
-  const areas = useAreas();
   const [cats, setCats] = useState<Category[]>([]);
   const [open, setOpen] = useState<{ id: string; job_name: string; category: string | null; icon: string; suburb: string; asap: boolean; pay_cents: number }[]>([]);
   useEffect(() => {
@@ -57,7 +52,7 @@ export function Landing() {
       <section className="ld-hero">
         <div className="ld-wrap ld-hero-in">
           <div className="ld-hero-text">
-            {!!areas?.length && <span className="ld-pin">{Icon.pin("#d4f04c")} Now in {listNames(areas.map((a) => a.name))}. More places soon.</span>}
+            <span className="ld-pin">{Icon.pin("#d4f04c")} Australia wide</span>
             <h1>Get it done today.</h1>
             <p>Cleaning, yard work, moving, the lot. Locals who can come today, and you only pay when you're happy with it.</p>
             <div className="row ld-ctas">
