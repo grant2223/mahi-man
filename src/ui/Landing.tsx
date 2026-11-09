@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { rpc, sb, type Category } from "../lib/supabase";
 import { money } from "../lib/format";
 import { go } from "../lib/router";
+import { useSession } from "../lib/session";
 import { CatIcon, Icon, Logo } from "./kit";
 
 /* moremahi.com for first-time visitors on the web. Sells to locals with jobs on their list first,
@@ -30,6 +31,7 @@ const USES: [string, string, string][] = [
 ];
 
 export function Landing() {
+  const { session } = useSession();
   const [cats, setCats] = useState<Category[]>([]);
   const [open, setOpen] = useState<{ id: string; job_name: string; category: string | null; icon: string; suburb: string; asap: boolean; pay_cents: number }[]>([]);
   useEffect(() => {
@@ -44,7 +46,7 @@ export function Landing() {
         <nav className="ld-links">
           <a href="#how">How it works</a>
           <a href="#earn">Find work</a>
-          <a href="/post" onClick={link("/post")}>Sign in</a>
+          {session ? <a href="/jobs" onClick={link("/jobs")}>My jobs</a> : <a href="/post" onClick={link("/post")}>Sign in</a>}
         </nav>
         <a className="btn small ld-nav-cta" href="/post" onClick={link("/post")}>Post a job</a>
       </div></header>

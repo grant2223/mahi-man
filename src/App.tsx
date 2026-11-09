@@ -20,6 +20,9 @@ import { startPush } from "./lib/push";
 
 void startPush();
 
+// A computer: a wide screen with a mouse. Phones and tablets get the app.
+const isDesktop = () => window.matchMedia("(min-width: 900px) and (hover: hover) and (pointer: fine)").matches;
+
 function Routes() {
   const path = usePath().split("?")[0];
   const { session, ready, profile } = useSession();
@@ -51,8 +54,12 @@ function Routes() {
   if (path === "/messages" || path.startsWith("/messages/")) return <MessagesPage jobId={path.split("/")[2]} />;
   if (path === "/find") return <Feed />;
   if (path === "/") {
-    // On the website, someone who isn't signed in sees the landing page first. The app opens straight on Get help.
-    if (!Capacitor.isNativePlatform()) { if (!ready) return null; if (!session) return <Landing />; }
+    // On a computer the website is always the landing page, signed in or not; the app screens are for phones.
+    // On a phone's browser, someone who isn't signed in sees the landing page first. The app opens straight on Get help.
+    if (!Capacitor.isNativePlatform()) {
+      if (isDesktop()) return <Landing />;
+      if (!ready) return null; if (!session) return <Landing />;
+    }
     // Opens on the side they used last. Everyone else starts on Get help.
     if (lastSide() === "work") {
       if (!ready || (session && !profile)) return null;
