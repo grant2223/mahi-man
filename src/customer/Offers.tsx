@@ -3,6 +3,7 @@ import { avatarUrl, rpc } from "../lib/supabase";
 import { elapsed } from "../lib/format";
 import { Icon, Logo, useNow, useToast } from "../ui/kit";
 import { go } from "../lib/router";
+import { shareLink, SITE } from "../lib/share";
 
 export interface Offer {
   worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_done: number;
@@ -31,6 +32,13 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
 
   const shown = (offers ?? []).filter((o) => new Date(o.expires_at).getTime() > now);
   const [boosting, setBoosting] = useState(false);
+  const [recs, setRecs] = useState<Record<string, number>>({});
+  const ids = (offers ?? []).map((o) => o.worker_id).join(",");
+  useEffect(() => {
+    if (!ids) return;
+    rpc<{ worker_id: string; people: number }[]>("recommended_counts", { p_workers: ids.split(",") })
+      .then((r) => setRecs(Object.fromEntries((r ?? []).map((x) => [x.worker_id, Number(x.people)])))).catch(() => {});
+  }, [ids]);
   const widened = now - new Date(searchingAt).getTime() > 10 * 60000;
 
   async function choose(o: Offer) {
@@ -106,6 +114,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
                       : `${o.rating ? `${o.rating} rating, ` : ""}${o.jobs_done} jobs`}
                     {o.jobs_for_me > 0 ? `, ${o.jobs_for_me} for you` : ""}
                   </span>
+                  {(recs[o.worker_id] ?? 0) > 0 && <span className="m em">Recommended by {recs[o.worker_id]} {recs[o.worker_id] === 1 ? "person" : "people"}</span>}
                   {o.local_customers > 0 && <span className="m">Used by {o.local_customers} {o.local_customers === 1 ? "person" : "people"} in {o.suburb}</span>}
                   <span className="e">Can be there {at}{o.distance_km != null ? `, ${o.distance_km} km away` : ""}</span>
                 </span>
@@ -123,6 +132,14 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
         {Icon.msg("var(--muted)")}
         <span>Messages open with the person you choose. Everyone else is told the job's taken.</span>
       </div>
+      {!shown.length && (
+        <div className="cp-note">
+          <span>Know someone who could do this? <button className="link" style={{ padding: 0 }} onClick={async () => {
+            const r = await shareLink(`Paid job on More Mahi: ${title}, ${price}. Workers keep 100%.`, `${SITE}/work`);
+            if (r === "copied") toast("Link copied. Paste it in a message.");
+          }}>Share the job</button></span>
+        </div>
+      )}
       <div style={{ flex: 1 }} />
       <div style={{ padding: "0 16px calc(var(--safe-bottom) + 24px)" }}>
         <button className="link quiet" onClick={onCancel}>Cancel this job</button>

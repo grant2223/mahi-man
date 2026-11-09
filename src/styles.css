@@ -495,6 +495,7 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .offer .left { font-size: 14px; font-weight: 500; color: var(--muted); white-space: nowrap; }
 .offer .left.soon { color: #8a5a10; }
 .offer .m { font-size: 14px; font-weight: 300; color: var(--muted); }
+.offer .m.em { color: var(--emerald); font-weight: 400; }
 .offer .e { font-size: 15px; font-weight: 500; }
 .offer .btn { height: 48px; padding: 0 20px; }
 .auth-switch { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 15px; color: var(--muted); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
@@ -550,3 +551,8 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .confirm-bar { position: relative; z-index: 2; display: flex; align-items: center; gap: 10px; margin: -58px 16px 0; padding: 16px; background: var(--lime); color: var(--ink); border-radius: var(--r-control); box-shadow: var(--shadow); flex-wrap: wrap; }
 .confirm-bar b { font-size: 18px; font-weight: 600; }
 .confirm-bar > .stack > span { font-size: 15px; font-weight: 300; line-height: 1.4; }
+
+.btn.apple { background: #000; color: #fff; }
+.or-line { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--faint); font-size: 14px; }
+.or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.code-in { letter-spacing: 8px; font-size: 26px !important; font-variant-numeric: tabular-nums; }

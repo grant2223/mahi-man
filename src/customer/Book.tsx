@@ -258,7 +258,7 @@ export function Book() {
           <button className="btn primary" disabled={busy} onClick={book}>{busy ? "Posting…" : "Post it"} {Icon.arrow("#fff")}</button>
         </div>
         {auth && (
-          <AuthScreen title="Almost there" reason="Create an account to track your job. Your photos are saved."
+          <AuthScreen title="Almost there" reason="Sign in and your job posts straight away. Your photos are saved."
             onBack={() => setAuth(false)} onDone={() => { setAuth(false); window.setTimeout(book, 300); }} />
         )}
         {payJob && <PayScreen jobId={payJob} amountLabel={money2(total)} onBack={() => setPayJob(null)}

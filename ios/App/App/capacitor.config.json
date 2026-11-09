@@ -21,7 +21,9 @@
 		}
 	},
 	"packageClassList": [
+		"SignInWithApple",
 		"KeyboardPlugin",
-		"PushNotificationsPlugin"
+		"PushNotificationsPlugin",
+		"SharePlugin"
 	]
 }

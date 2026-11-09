@@ -72,7 +72,7 @@ export function Work() {
   if (!session) {
     return (
       <div className="app">
-        <AuthScreen title="Earn with More Mahi" reason="Create your account. Next you'll add a photo and verify your ID."
+        <AuthScreen title="Earn with More Mahi" reason="Sign in to start. Next you'll add a photo and verify your ID."
           onBack={() => (history.length > 1 ? history.back() : go("/"))}
           onDone={async () => { await rpc("become_worker"); await reload(); }} />
       </div>
@@ -258,7 +258,9 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
   const [items, setItems] = useState<{ kind: string; url: string }[]>([]);
   const [idx, setIdx] = useState(0);
   const [eta, setEta] = useState(false);
-  const [mins, setMins] = useState<number | null>(o.asap ? null : 30);
+  // Arrival time worked out from the distance (about 2 minutes a km plus 10 to get going); the worker can change it.
+  const guess = (() => { const raw = 10 + Math.ceil(Number(o.distance_km ?? 5) * 2); return [10, 15, 20, 30, 45, 60, 90].find((n) => n >= raw) ?? 90; })();
+  const [mins, setMins] = useState<number | null>(o.asap ? guess : 30);
   const [report, setReport] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -336,12 +338,13 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
               {o.excluded.length > 0 && <div className="ticks no"><h3>Not included</h3>{o.excluded.map((x) => <span key={x}>{Icon.cross("var(--faint)")}{x}</span>)}</div>}
             </div>
           )}
-          {o.asap && (
-            <div className="stack" style={{ gap: 8 }}>
-              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>When can you be there?</h2>
-              <button className="cp-select" onClick={() => setEta(true)}>
-                <span className={mins ? "" : "ph"}>{mins ? `In ${mins} minutes (${at(mins)})` : "Pick a time"}</span>{Icon.down("var(--ink)")}
-              </button>
+          {o.asap && mins && (
+            <div className="row between" style={{ gap: 12, padding: "14px 16px", background: "var(--ground)", borderRadius: "var(--r-control)" }}>
+              <span className="stack" style={{ gap: 2 }}>
+                <span className="t14 light muted">You can be there by</span>
+                <span className="t17 w5">{at(mins)} <span className="light muted" style={{ fontSize: 15 }}>in {mins} min</span></span>
+              </span>
+              <button className="link" onClick={() => setEta(true)}>Change</button>
             </div>
           )}
           <p className="small light muted" style={{ margin: 0, lineHeight: 1.45 }}>{o.customer_name.split(" ")[0]} sees your profile, rating and this time, and chooses who they want. Your offer lasts 15 minutes. The street address shows once you're chosen.</p>

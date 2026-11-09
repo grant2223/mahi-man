@@ -78,7 +78,7 @@ export function Pricing() {
         <Li b="A high bar" s="Workers whose ratings drop are taken offline until we've checked in with them." />
       </div>
 
-      {auth && <AuthScreen title="Get Plus first" reason="Create your account and we'll tell you the day Plus opens." onBack={() => setAuth(false)}
+      {auth && <AuthScreen title="Get Plus first" reason="Sign in and we'll tell you the day Plus opens." onBack={() => setAuth(false)}
         onDone={async () => { setAuth(false); await join(); }} />}
     </div>
   );

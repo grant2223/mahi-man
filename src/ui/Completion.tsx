@@ -4,6 +4,7 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money, shrinkImage } from "../lib/format";
 import { Icon, Logo, SearchPicker, StepHero, useToast } from "./kit";
+import { inviteText, shareLink, SITE } from "../lib/share";
 
 /* The end of a job, for both sides: get paid, pay, confirm, review, and sort out problems. */
 
@@ -64,7 +65,30 @@ export function ReviewView({ jobId, jobName, done, person, about, other, isWorke
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
+  const [recommend, setRecommend] = useState(true);
+  const [saved, setSaved] = useState(false);
   const photo = avatarUrl(person?.photo_path);
+  const first = other.split(" ")[0];
+  if (saved) {
+    return (
+      <div className="app" style={{ background: "var(--card)" }}>
+        <section className="hero cp-hero" style={{ paddingBottom: 30 }}>
+          <span className="row t15 light" style={{ gap: 8, color: "rgba(255,255,255,0.85)" }}>{Icon.tick("var(--lime)", 16)}Review saved</span>
+          <h1 className="mid" style={{ margin: "14px 0 8px" }}>Know someone who'd use this?</h1>
+          <span className="sub">{isWorker ? "Mates who want extra cash, or anyone with odd jobs that need doing." : "Anyone with odd jobs that need doing, or mates who want extra cash."}</span>
+        </section>
+        <div style={{ flex: 1 }} />
+        <ActionBar>
+          <button className="btn stone" style={{ flex: 1 }} onClick={onDone}>Done</button>
+          <button className="btn primary" style={{ flex: 2 }} onClick={async () => {
+            const r = await shareLink(inviteText, SITE);
+            if (r === "copied") toast("Link copied. Paste it in a message.");
+            if (r !== "none") onDone();
+          }}>Invite a mate</button>
+        </ActionBar>
+      </div>
+    );
+  }
   return (
     <div className="app">
       <section className="hero cp-hero" style={{ paddingBottom: 26 }}>
@@ -94,13 +118,28 @@ export function ReviewView({ jobId, jobName, done, person, about, other, isWorke
         <label className="cp-label" htmlFor="rv">{about}</label>
         <textarea id="rv" className="cp-text" value={comment} maxLength={600} onChange={(e) => setComment(e.target.value)} />
       </div>
+      {!isWorker && rating >= 4 && (
+        <div className="cp-sec" style={{ paddingTop: 0 }}>
+          <button className={`boost-pick${recommend ? " on" : ""}`} style={{ margin: 0, width: "100%" }} onClick={() => setRecommend(!recommend)} aria-pressed={recommend}>
+            <span className="stack" style={{ gap: 2, flex: 1 }}>
+              <b>Recommend {first}</b>
+              <span>People near you see "Recommended by" on {first}'s offers.</span>
+            </span>
+            <span className="box">{recommend && Icon.tick("#fff", 16)}</span>
+          </button>
+        </div>
+      )}
       <Note icon="lock">{other} sees your review once they've reviewed you, or after 7 days. Neither of you can change it after that.{isWorker ? " Workers see a customer's rating before taking their next job." : ""}</Note>
       <div style={{ flex: 1 }} />
       <ActionBar>
         <button className="btn stone" style={{ flex: 1 }} onClick={() => { try { localStorage.setItem(`mm-review-later-${jobId}`, "1"); } catch { /* fine */ } onDone(); }}>Later</button>
         <button className="btn primary" style={{ flex: 2 }} disabled={!rating || busy} onClick={async () => {
           setBusy(true);
-          try { await rpc("leave_review", { p_job: jobId, p_rating: rating, p_comment: comment }); toast("Saved"); onDone(); }
+          try {
+            await rpc("leave_review", { p_job: jobId, p_rating: rating, p_comment: comment });
+            if (!isWorker && rating >= 4 && recommend) await rpc("recommend_worker", { p_job: jobId }).catch(() => {});
+            setSaved(true); setBusy(false);
+          }
           catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
         }}>{busy ? "Saving…" : "Save review"}</button>
       </ActionBar>
