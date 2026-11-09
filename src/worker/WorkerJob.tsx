@@ -28,7 +28,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     rpc("tick_items", { p_job: job.id, p_items: next }).catch((e) => { setDone(done); toast(e instanceof Error ? e.message : String(e)); });
   };
   const [extras, setExtras] = useState<Extra[]>([]);
-  const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after">(null);
+  const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after" | "cant">(null);
   const [busy, setBusy] = useState(false);
   const [payid, setPayid] = useState<string | null>(null);
   const [report, setReport] = useState(false);
@@ -149,7 +149,25 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         </span>
       </section>
 
-      <div className="ticket" style={{ marginTop: -70 }}>
+      {j.status === "accepted" && !j.asap && j.confirm_asked_at && !j.day_confirmed_at && (
+        <div className="confirm-bar">
+          <span className="stack" style={{ gap: 2, flex: 1 }}>
+            <b>Still on for {new Date(j.start_at).toLocaleDateString("en-AU", { weekday: "short", timeZone: "Australia/Brisbane" })} at {new Date(j.start_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase()}?</b>
+            <span>Confirm, or hand it back so someone else can take it.</span>
+          </span>
+          <span className="row" style={{ gap: 10, width: "100%", justifyContent: "flex-end" }}>
+          <button className="btn stone small" disabled={busy} onClick={() => setScreen("cant")}>Can't make it</button>
+          <button className="btn primary small" disabled={busy} onClick={async () => {
+            setBusy(true);
+            try { await rpc("confirm_tomorrow", { p_job: j.id }); toast(`Confirmed. ${cName} has been told.`); await load(); }
+            catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+            finally { setBusy(false); }
+          }}>Confirm</button>
+          </span>
+        </div>
+      )}
+
+      <div className="ticket" style={{ marginTop: j.status === "accepted" && !j.asap && j.confirm_asked_at && !j.day_confirmed_at ? 16 : -70 }}>
         <div className="pad row">
           <Tile name={cust?.full_name ?? "?"} photo={cust?.photo_path} size={48} />
           <span className="stack" style={{ gap: 2, flex: 1, minWidth: 0 }}>
@@ -223,6 +241,22 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         {j.status === "finished" && <button className="btn stone" onClick={onChanged}>Back to jobs</button>}
       </div>
 
+      {screen === "cant" && (
+        <Screen title="Can't make it?" onBack={() => setScreen(null)}>
+          <div className="stack" style={{ padding: 20, gap: 14 }}>
+            <p className="t17 light" style={{ margin: 0, lineHeight: 1.45 }}>The job goes back out straight away. {cName} is told, and everyone who can take it gets an alert.</p>
+            <p className="t15 light muted" style={{ margin: 0, lineHeight: 1.45 }}>Late drop-outs move you down the list customers see, so only hand it back if you really can't go.</p>
+            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
+              <button className="btn stone" onClick={() => setScreen(null)}>Keep the job</button>
+              <button className="btn danger" disabled={busy} onClick={async () => {
+                setBusy(true);
+                try { await rpc("cant_make_it", { p_job: j.id }); toast("Handed back. Thanks for letting them know."); onChanged(); }
+                catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
+              }}>Hand it back</button>
+            </div>
+          </div>
+        </Screen>
+      )}
       {screen === "chat" && <ChatScreen jobId={j.id} me={session.user.id} otherName={cName} onBack={() => setScreen(null)} />}
       {screen === "reportUser" && <ReportScreen name={cName} userId={j.customer_id} jobId={j.id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
       {screen === "code" && <CodeScreen jobId={j.id} name={cName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}

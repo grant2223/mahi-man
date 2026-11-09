@@ -12,7 +12,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         let choose = UNNotificationAction(identifier: "CHOOSE", title: "Choose", options: [.foreground])
         let ignore = UNNotificationAction(identifier: "IGNORE", title: "Ignore", options: [.foreground])
         let offer = UNNotificationCategory(identifier: "OFFER", actions: [choose, ignore], intentIdentifiers: [], options: [])
-        UNUserNotificationCenter.current().setNotificationCategories([offer])
+        // The day-before check: confirm, or hand the job back so someone else can take it.
+        let yes = UNNotificationAction(identifier: "CONFIRM", title: "Confirm", options: [.foreground])
+        let no = UNNotificationAction(identifier: "CANT", title: "Can't make it", options: [.foreground, .destructive])
+        let confirm = UNNotificationCategory(identifier: "CONFIRM", actions: [yes, no], intentIdentifiers: [], options: [])
+        UNUserNotificationCenter.current().setNotificationCategories([offer, confirm])
         return true
     }
 

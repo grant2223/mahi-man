@@ -47,6 +47,10 @@ export async function startPush() {
     const d = (notification.data ?? {}) as { url?: string; job?: string; worker?: string };
     if (actionId === "CHOOSE" && d.job && d.worker) {
       try { await rpc("choose_offer", { p_job: d.job, p_worker: d.worker }); } catch { /* the job screen shows what happened */ }
+    } else if (actionId === "CONFIRM" && d.job) {
+      try { await rpc("confirm_tomorrow", { p_job: d.job }); } catch { /* the job screen shows what happened */ }
+    } else if (actionId === "CANT" && d.job) {
+      try { await rpc("cant_make_it", { p_job: d.job }); } catch { /* ignore */ }
     } else if (actionId === "IGNORE" && d.job && d.worker) {
       try { await rpc("ignore_offer", { p_job: d.job, p_worker: d.worker }); } catch { /* ignore */ }
     }
