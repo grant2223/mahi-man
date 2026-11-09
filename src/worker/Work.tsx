@@ -4,7 +4,7 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { hours, money, money2, whenLabel } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
-import { Icon, Logo, Perf, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
+import { Icon, Loading, Logo, Perf, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen } from "../ui/Report";
 import { Signup, type Steps } from "./Signup";
 import { WorkerJob } from "./WorkerJob";
@@ -29,6 +29,7 @@ function BecomeWorker({ onDone }: { onDone: () => Promise<void> }) {
       <section className="hero short"><span className="brand"><Logo /> More Mahi</span>
         {err && <><p className="lede" style={{ marginTop: 16 }}>{err}</p><button className="btn white" style={{ marginTop: 16, alignSelf: "flex-start" }} onClick={() => location.reload()}>Try again</button></>}
       </section>
+      {!err && <Loading />}
     </div>
   );
 }
@@ -42,23 +43,24 @@ export function Work() {
 
   const refresh = useCallback(async () => {
     if (!session) return;
-    try {
-      const s = await api<WorkerStatus>("worker_status");
-      setStatus(s);
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
     const uid = session.user.id;
-    const { data } = await sb.from("jobs").select("*").eq("worker_id", uid).in("status", ["accepted", "in_progress"])
-      .order("accepted_at", { ascending: false }).limit(1).maybeSingle();
-    // Jobs still to wrap up: waiting on payment, in dispute, or closed in the last 7 days without my review.
     const since = new Date(Date.now() - 7 * 864e5).toISOString();
-    const { data: open } = await sb.from("jobs").select("*, job_types(name)").eq("worker_id", uid).in("status", ["finished", "disputed"]).order("finished_at", { ascending: false }).limit(10);
-    const { data: closed } = await sb.from("jobs").select("*, job_types(name)").eq("worker_id", uid).eq("status", "confirmed").gt("confirmed_at", since).order("confirmed_at", { ascending: false }).limit(10);
-    const ids = (closed ?? []).map((j) => j.id);
+    // Everything at once. Back from Stripe, the edge function also re-checks payouts with Stripe.
+    const status = (location.search.includes("payouts=1") ? api<WorkerStatus>("worker_status") : rpc<WorkerStatus>("worker_status"))
+      .then(setStatus).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
+    const [, cur, open, closed] = await Promise.all([
+      status,
+      sb.from("jobs").select("*").eq("worker_id", uid).in("status", ["accepted", "in_progress"]).order("accepted_at", { ascending: false }).limit(1).maybeSingle(),
+      // Jobs still to wrap up: waiting on payment, in dispute, or closed in the last 7 days without my review.
+      sb.from("jobs").select("*, job_types(name)").eq("worker_id", uid).in("status", ["finished", "disputed"]).order("finished_at", { ascending: false }).limit(10),
+      sb.from("jobs").select("*, job_types(name)").eq("worker_id", uid).eq("status", "confirmed").gt("confirmed_at", since).order("confirmed_at", { ascending: false }).limit(10),
+    ]);
+    const ids = (closed.data ?? []).map((j) => j.id);
     const { data: mine } = ids.length ? await sb.from("reviews").select("job_id").eq("from_id", uid).in("job_id", ids) : { data: [] };
     const done = new Set((mine ?? []).map((r) => r.job_id));
-    const list = [...((open ?? []) as Job[]), ...((closed ?? []) as Job[]).filter((j) => !done.has(j.id) && !reviewSkipped(j.id))];
+    const list = [...((open.data ?? []) as Job[]), ...((closed.data ?? []) as Job[]).filter((j) => !done.has(j.id) && !reviewSkipped(j.id))];
     setWrapups(list);
-    setCurrent((data as Job | null) ?? list.find((j) => !isHidden(j.id)) ?? null);
+    setCurrent((cur.data as Job | null) ?? list.find((j) => !isHidden(j.id)) ?? null);
   }, [session]);
 
   useEffect(() => {
@@ -70,7 +72,7 @@ export function Work() {
   }, []);
 
   const [setupOpen, setSetupOpen] = useState(false);
-  if (!ready) return null;
+  if (!ready) return <div className="app"><section className="hero short"><span className="brand"><Logo /> More Mahi</span></section><Loading /></div>;
 
   // Not a worker yet: straight into sign-up. The jobs feed already explains what's needed.
   if (!session) {
@@ -85,7 +87,7 @@ export function Work() {
   }
   if (!profile?.is_worker) return <BecomeWorker onDone={reload} />;
 
-  if (!status || current === undefined) return <div className="app"><section className="hero short"><span className="brand"><Logo /> More Mahi</span>{err && <p>{err}</p>}</section></div>;
+  if (!status || current === undefined) return <div className="app"><section className="hero short"><span className="brand"><Logo /> More Mahi</span>{err && <p className="lede" style={{ marginTop: 16 }}>{err}</p>}</section>{!err && <Loading />}</div>;
   if (current) return <div className="app"><WorkerJob key={current.id} job={current} onChanged={refresh} onLeave={() => { hide(current.id); refresh(); }} /></div>;
   if (status.suspended) return (
     <div className="app"><section className="hero"><span className="brand"><Logo /> More Mahi</span><h1 className="mid">Account paused</h1>

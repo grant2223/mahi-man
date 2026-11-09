@@ -754,3 +754,8 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
   .ld-earn-in { grid-template-columns: 1fr; gap: 32px; }
   .ld-final { padding: 48px 0; }
 }
+
+/* Loading: a ring that spins in the middle of the page while it fetches */
+.loading { display: flex; justify-content: center; padding: 56px 0; }
+.spinner { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(11,107,79,0.16); border-top-color: var(--emerald); animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }

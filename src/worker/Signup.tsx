@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, sb, type IdStatus, type Suburb } from "../lib/supabase";
+import { api, rpc, sb, type IdStatus, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { shrinkImage, validAbn } from "../lib/format";
 import { Icon, Logo, NameFields, Screen, SearchPicker, Tile, nameError, nameRow, type NameParts } from "../ui/kit";
@@ -77,7 +77,7 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged, onBack }: { 
         : <VerifyFlow onClose={() => { setOpen(null); onChanged(); }} onSubmitted={onChanged} />)}
       {open === "abn" && <AbnStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
       {open === "area" && <AreaStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
-      {open === "jobs" && <JobsAndSkills onBack={() => { setOpen(null); api("worker_status").catch(() => {}).finally(onChanged); }} />}
+      {open === "jobs" && <JobsAndSkills onBack={() => { setOpen(null); rpc("worker_status").catch(() => {}).finally(onChanged); }} />}
       {open === "creds" && <Credentials onBack={() => { setOpen(null); onChanged(); }} />}
     </>
   );

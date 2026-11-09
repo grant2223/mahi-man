@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { api, rpc, sb, type Category, type JobType } from "../lib/supabase";
+import { rpc, sb, type Category, type JobType } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { shrinkImage } from "../lib/format";
 import { CatIcon, DateField, Icon, Screen, SearchPicker, useToast } from "../ui/kit";
@@ -72,7 +72,7 @@ export function JobsAndSkills({ onBack }: { onBack: () => void }) {
     if (!ids.length || !session) return;
     const { error } = await sb.from("worker_job_types").upsert(ids.map((id) => ({ worker_id: session.user.id, job_type_id: id })), { onConflict: "worker_id,job_type_id", ignoreDuplicates: true });
     if (error) { toast(error.message); return; }
-    toast(ids.length === 1 ? "Added" : `${ids.length} added`); load(); api("worker_status").catch(() => {});
+    toast(ids.length === 1 ? "Added" : `${ids.length} added`); load(); rpc("worker_status").catch(() => {});
   }
 
   return (
@@ -104,7 +104,7 @@ export function JobsAndSkills({ onBack }: { onBack: () => void }) {
       )}
       {openType && (
         <JobDetail type={openType} catalog={cat} mine={mine} isNew={!myTypes.includes(openType)}
-          onBack={() => setOpen(null)} onSaved={() => { setOpen(null); load(); api("worker_status").catch(() => {}); }} onCredsChanged={load} />
+          onBack={() => setOpen(null)} onSaved={() => { setOpen(null); load(); rpc("worker_status").catch(() => {}); }} onCredsChanged={load} />
       )}
     </Screen>
   );

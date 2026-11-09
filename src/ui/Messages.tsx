@@ -3,7 +3,7 @@ import { avatarUrl, rpc, sb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { ChatScreen } from "./Chat";
-import { StepHero } from "./kit";
+import { Loading, StepHero } from "./kit";
 
 export interface Thread {
   job_id: string; title: string; status: string; start_at: string; other_id: string; other_name: string; other_photo: string | null;
@@ -57,6 +57,7 @@ export function MessagesPage({ jobId }: { jobId?: string }) {
     <div className="app" style={{ background: "var(--card)" }}>
       <StepHero title="Messages" sub="Every job you've posted or taken, in one place." onBack={() => (history.length > 1 ? history.back() : go("/"))} />
       <div className="threads">
+        {!threads && <Loading />}
         {threads?.map((t) => (
           <button key={t.job_id} className={`thread${Number(t.unread) > 0 ? " unread" : ""}`} onClick={() => go(`/messages/${t.job_id}`)}>
             <span className="ph">{avatarUrl(t.other_photo) ? <img src={avatarUrl(t.other_photo)!} alt="" /> : null}</span>

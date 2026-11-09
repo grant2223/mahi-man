@@ -3,7 +3,7 @@ import { mediaUrls, rpc, sb, type Category } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money } from "../lib/format";
-import { CatIcon, Icon, Logo, SearchPicker } from "../ui/kit";
+import { CatIcon, Icon, Loading, Logo, SearchPicker } from "../ui/kit";
 import { SideSwitch } from "../ui/SideSwitch";
 import { HeaderIcons } from "../ui/HeaderIcons";
 import { AreaPin, useArea, useHere } from "../lib/area";
@@ -13,13 +13,18 @@ interface FeedJob {
   asap: boolean; start_at: string; pay_cents: number; has_video: boolean; cover_path: string | null; customer_verified: boolean; distance_km?: number | null;
 }
 
+// The last list and categories, so coming back to Do work shows jobs straight away while it refreshes.
+let lastJobs: FeedJob[] | null = null;
+let lastCats: Category[] = [];
+
 // "Do work": the home screen. Every job open right now, filtered by category.
 // A worker still setting up sees the same jobs first, with their progress and one button to finish.
 export function Feed({ setup }: { setup?: { done: number; total: number; onFinish: () => void } } = {}) {
   const { session, profile } = useSession();
   const isWorker = !!profile?.is_worker;
-  const [jobs, setJobs] = useState<FeedJob[] | null>(null);
-  const [cats, setCats] = useState<Category[]>([]);
+  const [jobs, setJobsState] = useState<FeedJob[] | null>(lastJobs);
+  const [cats, setCats] = useState<Category[]>(lastCats);
+  const setJobs = (j: FeedJob[]) => { lastJobs = j; setJobsState(j); };
   const [cat, setCat] = useState<number | "all">("all");
   const [pick, setPick] = useState(false);
   const [urls, setUrls] = useState<Record<string, string>>({});
@@ -33,10 +38,14 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
     const args = here ? { p_lat: here.lat, p_lng: here.lng } : { p_area: area!.id };
     const load = () => rpc<FeedJob[]>("jobs_feed", args).then((r) => { if (live) setJobs(r); }).catch(() => live && setJobs([]));
     load();
-    sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
     const t = window.setInterval(load, 30000);
     return () => { live = false; window.clearInterval(t); };
   }, [session?.user.id, area?.id, here?.lat, here?.lng]);
+
+  useEffect(() => {
+    if (lastCats.length) return;
+    sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => { lastCats = (data ?? []) as Category[]; setCats(lastCats); });
+  }, []);
 
   useEffect(() => {
     const paths = (jobs ?? []).map((j) => j.cover_path).filter(Boolean) as string[];
@@ -94,6 +103,7 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
       </div>
 
       <div className="feed-list">
+        {!jobs && <Loading label="Loading jobs" />}
         {shown.map((j) => (
           <button key={j.id} className="job-row" onClick={() => (setup ? setup.onFinish() : go("/work"))}>
             {j.cover_path && urls[j.cover_path]

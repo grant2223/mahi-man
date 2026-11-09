@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { isDirectPay, mediaUrls, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { elapsed, firstName, money, shrinkImage } from "../lib/format";
-import { Icon, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
+import { Icon, Loading, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
 import { ChatScreen } from "../ui/Chat";
 import { resumeTrip, startTrip, stopTrip, tripJob } from "../lib/trip";
 import { ReportScreen } from "../ui/Report";
@@ -77,7 +77,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     return () => { sb.removeChannel(ch); };
   }, [job.id, job.job_type_id, job.suburb_id, job.customer_id, load]);
 
-  if (!jt || !session) return null;
+  if (!jt || !session) return <Loading />;
   const cName = cust ? firstName(cust.full_name) : "The customer";
   const earn = j.price_cents + j.extra_cents;
   const pending = extras.find((e) => e.status === "pending");

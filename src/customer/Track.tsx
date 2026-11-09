@@ -3,7 +3,7 @@ import { api, isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } fr
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { elapsed, firstName, initials, money, money2 } from "../lib/format";
-import { Icon, Logo, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
+import { Icon, Loading, Logo, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen as ReportUser } from "../ui/Report";
 import { ChatScreen } from "../ui/Chat";
 import { PayScreen } from "./Pay";
@@ -91,7 +91,7 @@ export function Track({ id }: { id: string }) {
     return () => { sb.removeChannel(ch); };
   }, [id, load]);
 
-  if (!job || !jt || !session) return <div className="app"><section className="hero short"><button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button></section></div>;
+  if (!job || !jt || !session) return <div className="app"><section className="hero short"><button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button></section><Loading /></div>;
 
   const eta = job.eta_at;
   const jobName = job.title || jt.name;

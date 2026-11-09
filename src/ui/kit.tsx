@@ -55,6 +55,11 @@ export const Icon = {
   star: (c = "currentColor", filled = false) => <svg width="34" height="34" viewBox="0 0 24 24" fill={filled ? c : "none"} stroke={c} strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" /></svg>,
 };
 
+/* ---------- Loading: a spinning ring, shown wherever a page is still fetching ---------- */
+export function Loading({ label = "Loading" }: { label?: string }) {
+  return <div className="loading" role="status" aria-label={label}><span className="spinner" /></div>;
+}
+
 /* ---------- Brand mark: house and tick ---------- */
 export function Logo({ w = 40, light = true }: { w?: number; light?: boolean }) {
   const c = light ? "#ffffff" : "#0b6b4f";
