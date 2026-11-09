@@ -13,7 +13,7 @@ import { lc } from "../worker/Skills";
 import { SideSwitch } from "../ui/SideSwitch";
 import { HeaderIcons } from "../ui/HeaderIcons";
 import { PhotoStep } from "../worker/Signup";
-import { AreaPin, useArea } from "../lib/area";
+import { AreaPin, useArea, useChangeArea } from "../lib/area";
 
 /* Post a job: price, show the job, who can take it, where, when, check. */
 
@@ -706,6 +706,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar }: {
   bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
 }) {
   const { area } = useArea();
+  const changeArea = useChangeArea();
   const [pick, setPick] = useState<null | "suburb" | "day" | "time" | "people" | "after">(null);
   const [err, setErr] = useState("");
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -799,8 +800,9 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar }: {
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
       {bar("Continue", next, false, "your price")}
+      {changeArea.picker}
       {pick === "suburb" && <SearchPicker title="Suburb" placeholder={`Search ${area?.name ?? ""} suburbs`} value={d.suburbId ? [d.suburbId] : []}
-        options={suburbs.map((s) => ({ id: s.id, label: s.name }))} onChange={(v) => { setD({ ...d, suburbId: Number(v[0]) }); setErr(""); }} onClose={() => setPick(null)} />}
+        options={[...(changeArea.option ? [changeArea.option] : []), ...suburbs.map((s) => ({ id: s.id, label: s.name }))]} onChange={(v) => { setD({ ...d, suburbId: Number(v[0]) }); setErr(""); }} onClose={() => setPick(null)} />}
       {pick === "day" && <SearchPicker title="Day" placeholder="Search days" value={selDay ? [selDay] : []} options={days}
         onChange={(v) => { const t = selTime && new Date(`${v[0]}T${selTime}`) >= earliest ? selTime : ""; setD({ ...d, startAt: `${v[0]}T${t}` }); setErr(""); if (!t) setTimeout(() => setPick("time"), 0); }} onClose={() => setPick(null)} />}
       {pick === "time" && <SearchPicker title="Start time" placeholder="Search times" value={selTime ? [selTime] : []} options={times}

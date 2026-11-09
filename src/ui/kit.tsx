@@ -146,7 +146,8 @@ export function SearchPicker(props: {
 }) {
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(props.value);
-  const shown = useMemo(() => props.options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())), [q, props.options]);
+  // Action rows (like "Not in Cairns?") stay visible while searching, so there's always a way out.
+  const shown = useMemo(() => props.options.filter((o) => o.action || o.label.toLowerCase().includes(q.trim().toLowerCase())), [q, props.options]);
   const pick = (id: number | string) => {
     const opt = props.options.find((o) => o.id === id);
     if (opt?.action) { opt.action(); return; }

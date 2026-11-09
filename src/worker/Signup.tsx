@@ -7,7 +7,7 @@ import { VerifyFlow } from "../ui/Verify";
 import { Credentials, JobsAndSkills } from "./Skills";
 import { setSide } from "../ui/SideSwitch";
 import { go } from "../lib/router";
-import { useArea } from "../lib/area";
+import { useArea, useChangeArea } from "../lib/area";
 
 export interface Steps { photo: boolean; id_and_bank: boolean; abn: boolean; area: boolean; jobs: boolean }
 type StepKey = keyof Steps | "creds";
@@ -221,6 +221,7 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
   const [pick, setPick] = useState<null | "suburb" | "radius" | "vehicle">(null);
   const [err, setErr] = useState("");
   const { area } = useArea();
+  const changeArea = useChangeArea();
   useEffect(() => {
     if (area) sb.from("suburbs").select("id,name,area_id").eq("area_id", area.id).order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
   }, [area?.id]);
@@ -246,7 +247,8 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
           }}>Save</button>
         </div>
       </div>
-      {pick === "suburb" && <SearchPicker title="Your suburb" placeholder={`Search ${area?.name ?? ""} suburbs`} value={base ? [base] : []} options={suburbs.map((s) => ({ id: s.id, label: s.name }))} onChange={(v) => setBase(Number(v[0]))} onClose={() => setPick(null)} />}
+      {changeArea.picker}
+      {pick === "suburb" && <SearchPicker title="Your suburb" placeholder={`Search ${area?.name ?? ""} suburbs`} value={base ? [base] : []} options={[...(changeArea.option ? [changeArea.option] : []), ...suburbs.map((s) => ({ id: s.id, label: s.name }))]} onChange={(v) => setBase(Number(v[0]))} onClose={() => setPick(null)} />}
       {pick === "radius" && <SearchPicker title="How far you'll travel" value={[radius]} options={radii.map((r) => ({ id: r, label: `Up to ${r} km` }))} onChange={(v) => setRadius(Number(v[0]))} onClose={() => setPick(null)} />}
       {pick === "vehicle" && <SearchPicker title="Ute or trailer" value={[vehicle ? 1 : 0]} options={[{ id: 1, label: "Yes, I have one" }, { id: 0, label: "No" }]} onChange={(v) => setVehicle(v[0] === 1)} onClose={() => setPick(null)} />}
     </Screen>
