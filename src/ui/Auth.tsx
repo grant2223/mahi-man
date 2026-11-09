@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { sb } from "../lib/supabase";
-import { Screen } from "./kit";
+import { Icon, Screen } from "./kit";
 
 // Full-bleed sign in. Shown only when an action needs an account (so nobody signs up
 // before they've seen prices), and the action carries on as soon as they're in.
@@ -27,15 +27,14 @@ async function hasName() {
   return !!p?.full_name?.trim() && p.full_name.trim().split(/\s+/).length >= 2;
 }
 
-export function AuthScreen({ title, reason, onDone, onBack }: { title: string; reason: string; onDone: () => void; onBack: () => void }) {
-  const [step, setStep] = useState<"start" | "code" | "name" | "pw">("start");
+export function AuthScreen({ title, reason, need, onDone, onBack }: { title: string; reason: string; need?: string[]; onDone: () => void; onBack: () => void }) {
+  const [step, setStep] = useState<"start" | "code" | "name">("start");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [name, setName] = useState("");
-  const [pw, setPw] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [note, setNote] = useState("");
+  const [, setNote] = useState("");
   const codeRef = useRef<HTMLInputElement>(null);
 
   const run = async (f: () => Promise<void>) => {
@@ -83,11 +82,6 @@ export function AuthScreen({ title, reason, onDone, onBack }: { title: string; r
     onDone();
   });
 
-  const password = () => run(async () => {
-    const { error } = await sb.auth.signInWithPassword({ email: email.trim(), password: pw });
-    if (error) throw new Error(error.message === "Invalid login credentials" ? "Email or password is wrong" : error.message);
-    await finish();
-  });
 
   const back = step === "start" ? onBack : step === "name" ? onBack : () => { setStep("start"); setErr(""); setNote(""); };
 
@@ -95,7 +89,12 @@ export function AuthScreen({ title, reason, onDone, onBack }: { title: string; r
     <Screen title={step === "code" ? "Enter the code" : step === "name" ? "Your name" : title} onBack={back}>
       <div className="screen-body" style={{ padding: "20px 16px" }}>
         {step === "start" && <>
-          <p className="t17 light" style={{ margin: "0 0 20px", lineHeight: 1.4 }}>{reason}</p>
+          <p className="t17 light" style={{ margin: need ? "0 0 12px" : "0 0 20px", lineHeight: 1.4 }}>{reason}</p>
+          {need && (
+            <div className="stack" style={{ gap: 10, margin: "0 0 22px" }}>
+              {need.map((n) => <div key={n} className="row" style={{ gap: 10, alignItems: "flex-start" }}><span style={{ flexShrink: 0, display: "flex", paddingTop: 1 }}>{Icon.tick("var(--emerald)", 20)}</span><span className="t15">{n}</span></div>)}
+            </div>
+          )}
           {appleReady() && <>
             <button className="btn apple block" disabled={busy} onClick={apple}>{appleMark} Continue with Apple</button>
             <div className="or-line"><span>or</span></div>
@@ -107,8 +106,7 @@ export function AuthScreen({ title, reason, onDone, onBack }: { title: string; r
           <button className="btn primary block" style={{ marginTop: 14 }} disabled={busy || !email.trim()} onClick={sendCode}>
             {busy ? "One sec…" : "Email me a code"}
           </button>
-          <p className="t14 muted" style={{ margin: "14px 0 0", lineHeight: 1.4 }}>No password needed. New here? This makes your account.</p>
-          <div className="auth-switch">Have a password? <button className="link" onClick={() => { setStep("pw"); setErr(""); }}>Sign in with it</button></div>
+          <p className="t14 muted" style={{ margin: "14px 0 0", lineHeight: 1.4 }}>New here? This makes your account.</p>
         </>}
 
         {step === "code" && <>
@@ -130,19 +128,6 @@ export function AuthScreen({ title, reason, onDone, onBack }: { title: string; r
           <button className="btn primary block" style={{ marginTop: 14 }} disabled={busy || !name.trim()} onClick={saveName}>{busy ? "One sec…" : "Continue"}</button>
         </>}
 
-        {step === "pw" && <>
-          <div className="stack">
-            <label className="field"><span className="k">Email</span>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" inputMode="email" /></label>
-            <label className="field"><span className="k">Password</span>
-              <input type="password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete="current-password"
-                onKeyDown={(e) => e.key === "Enter" && password()} /></label>
-          </div>
-          {err && <p className="err">{err}</p>}
-          {note && <p className="t15 em">{note}</p>}
-          <button className="btn primary block" style={{ marginTop: 14 }} disabled={busy} onClick={password}>{busy ? "One sec…" : "Sign in"}</button>
-          <div className="auth-switch">Forgot it? <button className="link" onClick={() => { setStep("start"); setErr(""); }}>Get a code instead</button></div>
-        </>}
       </div>
     </Screen>
   );

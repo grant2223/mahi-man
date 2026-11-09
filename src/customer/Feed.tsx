@@ -62,7 +62,6 @@ export function Feed() {
         {!isWorker && (
           <div className="start-row">
             <button className="btn white" onClick={() => go("/work")}>Start earning {Icon.arrow("var(--emerald)")}</button>
-            <span>Bring a photo and your passport or national ID. We verify you.</span>
           </div>
         )}
       </section>

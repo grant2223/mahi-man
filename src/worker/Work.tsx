@@ -72,7 +72,8 @@ export function Work() {
   if (!session) {
     return (
       <div className="app">
-        <AuthScreen title="Earn with More Mahi" reason="Sign in to start. Next you'll add a photo and verify your ID."
+        <AuthScreen title="Earn with More Mahi" reason="Here's what you need to start:"
+          need={["A clear photo of yourself", "Your passport or national ID. We verify you, usually within a few hours", "Your ABN, and the PayID customers pay you on"]}
           onBack={() => (history.length > 1 ? history.back() : go("/"))}
           onDone={async () => { await rpc("become_worker"); await reload(); }} />
       </div>
