@@ -788,3 +788,8 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .ld-joined b { display: block; font-size: 20px; font-weight: 500; }
 .ld-joined span span { font-size: 16px; font-weight: 300; color: var(--muted); }
 @media (max-width: 899px) { .ld-join { grid-template-columns: 1fr 1fr; } .ld-join input[type=email], .ld-join .btn { grid-column: 1 / -1; } }
+
+/* Available for jobs: the switch beside the title, labelled, above the mascot */
+.title-row { position: relative; z-index: 1; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.avail-sw { margin-top: 24px; display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; cursor: pointer; color: #fff; }
+.avail-sw > span:first-child { font-size: 15px; font-weight: 500; }
