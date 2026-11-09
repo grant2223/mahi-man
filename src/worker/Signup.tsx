@@ -108,7 +108,7 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
   return (
-    <Screen title="Your photo" onBack={onBack}>
+    <Screen brand title="Your photo" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <div className="row" style={{ gap: 16, marginBottom: 16 }}>
           {preview ? <span className="tile" style={{ width: 96, height: 96 }}><img src={preview} alt="" /></span> : <Tile name={`${name.first} ${name.last}`.trim() || "?"} photo={profile?.photo_path} size={96} />}
@@ -130,7 +130,7 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
 
 function ApprovalStep({ onBack }: { onBack: () => void }) {
   return (
-    <Screen title="ID verified" onBack={onBack}>
+    <Screen brand title="ID verified" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>Your ID is verified.</p>
         <p className="t15 light muted" style={{ lineHeight: 1.45 }}>Customers pay you directly by PayID or cash when each job is done. You keep 100%.</p>
@@ -143,7 +143,7 @@ function PayoutStep({ done, onBack }: { done: boolean; onBack: () => void }) {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   return (
-    <Screen title="ID check and bank" onBack={onBack}>
+    <Screen brand title="ID check and bank" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>{done ? "You're verified and your bank is set up." : "Check your ID and set up your pay. About 3 minutes."}</p>
         <ul className="t15 light" style={{ paddingLeft: 18, lineHeight: 1.7, marginTop: 0 }}>
@@ -173,7 +173,7 @@ export function AbnStep({ onBack, onSaved }: { onBack: () => void; onSaved: () =
   const [busy, setBusy] = useState(false);
   useEffect(() => { sb.from("workers").select("abn,payid").single().then(({ data }) => { if (data?.abn) setAbn(data.abn); if (data?.payid) setPayid(data.payid); }); }, []);
   return (
-    <Screen title="ABN and PayID" onBack={onBack}>
+    <Screen brand title="ABN and PayID" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16, background: "var(--card)" }}>
         <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>You work for yourself, so you need an ABN. It's free and takes about 10 minutes.</p>
         <label className="field"><span className="k">ABN (11 digits)</span><input inputMode="numeric" value={abn} onChange={(e) => setAbn(e.target.value)} placeholder="51 824 753 556" /></label>
@@ -211,7 +211,7 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
   }, []);
   const radii = [5, 10, 15, 20, 30, 50];
   return (
-    <Screen title="Where you work" onBack={onBack}>
+    <Screen brand title="Where you work" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <div className="stack">
           <button className="field sel" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={base ? "v" : "v ph"}>{suburbs.find((s) => s.id === base)?.name ?? "Pick your suburb"}</span></button>

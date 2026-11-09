@@ -84,7 +84,7 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
   const back = step === "start" ? onBack : step === "name" ? onBack : () => { setStep("start"); setErr(""); setNote(""); };
 
   return (
-    <Screen title={step === "code" ? "Enter the code" : step === "name" ? "Your name" : title} onBack={back}>
+    <Screen brand title={step === "code" ? "Enter the code" : step === "name" ? "Your name" : title} onBack={back}>
       <div className="screen-body" style={{ padding: "20px 16px" }}>
         {step === "start" && <>
           <p className="t17 light" style={{ margin: need ? "0 0 12px" : "0 0 20px", lineHeight: 1.4 }}>{reason}</p>
