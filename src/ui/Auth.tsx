@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { sb } from "../lib/supabase";
-import { Icon, Screen } from "./kit";
+import { Icon, NameFields, Screen, emptyName, nameError, nameRow, type NameParts } from "./kit";
 
 // Full-bleed sign in. Shown only when an action needs an account (so nobody signs up
 // before they've seen prices), and the action carries on as soon as they're in.
@@ -13,25 +13,25 @@ async function sha256(t: string) {
   return Array.from(new Uint8Array(b)).map((x) => x.toString(16).padStart(2, "0")).join("");
 }
 
-async function nameIfBlank(full: string) {
+async function nameIfBlank(first: string, last: string) {
   const { data: u } = await sb.auth.getUser();
-  if (!u.user || !full.trim()) return;
-  const { data: p } = await sb.from("profiles").select("full_name").eq("id", u.user.id).single();
-  if (!p?.full_name?.trim()) await sb.from("profiles").update({ full_name: full.trim() }).eq("id", u.user.id);
+  if (!u.user || !first.trim() || !last.trim()) return;
+  const { data: p } = await sb.from("profiles").select("first_name,last_name").eq("id", u.user.id).single();
+  if (!p?.first_name?.trim() || !p?.last_name?.trim()) await sb.from("profiles").update({ first_name: first.trim(), last_name: last.trim() }).eq("id", u.user.id);
 }
 
 async function hasName() {
   const { data: u } = await sb.auth.getUser();
   if (!u.user) return false;
-  const { data: p } = await sb.from("profiles").select("full_name").eq("id", u.user.id).single();
-  return !!p?.full_name?.trim() && p.full_name.trim().split(/\s+/).length >= 2;
+  const { data: p } = await sb.from("profiles").select("first_name,last_name").eq("id", u.user.id).single();
+  return !!p?.first_name?.trim() && !!p?.last_name?.trim();
 }
 
 export function AuthScreen({ title, reason, need, onDone, onBack }: { title: string; reason: string; need?: string[]; onDone: () => void; onBack: () => void }) {
   const [step, setStep] = useState<"start" | "code" | "name">("start");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [name, setName] = useState("");
+  const [name, setName] = useState<NameParts>(emptyName);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [, setNote] = useState("");
@@ -52,8 +52,8 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
     } catch { return; } // they closed the Apple sheet
     const { error } = await sb.auth.signInWithIdToken({ provider: "apple", token: r.response.identityToken, nonce: raw });
     if (error) throw error;
-    const full = [r.response.givenName, r.response.familyName].filter(Boolean).join(" ");
-    if (full) { await nameIfBlank(full); await sb.auth.updateUser({ data: { full_name: full } }); }
+    // Apple only shares the name the first time; it fills first and last, and they confirm it below if anything's missing.
+    if (r.response.givenName && r.response.familyName) await nameIfBlank(r.response.givenName, r.response.familyName);
     await finish();
   });
 
@@ -73,12 +73,10 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
   });
 
   const saveName = () => run(async () => {
-    const n = name.trim().replace(/\s+/g, " ");
-    if (n.split(" ").length < 2) throw new Error("Add your first and last name");
+    const ne = nameError(name); if (ne) throw new Error(ne);
     const { data: u } = await sb.auth.getUser();
-    const { error } = await sb.from("profiles").update({ full_name: n }).eq("id", u.user!.id);
+    const { error } = await sb.from("profiles").update(nameRow(name)).eq("id", u.user!.id);
     if (error) throw error;
-    await sb.auth.updateUser({ data: { full_name: n } });
     onDone();
   });
 
@@ -121,11 +119,9 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
 
         {step === "name" && <>
           <p className="t17 light" style={{ margin: "0 0 20px", lineHeight: 1.4 }}>So people know who they're dealing with.</p>
-          <label className="field"><span className="k">First and last name</span>
-            <input value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" autoCapitalize="words"
-              onKeyDown={(e) => e.key === "Enter" && saveName()} /></label>
+          <NameFields value={name} onChange={setName} />
           {err && <p className="err">{err}</p>}
-          <button className="btn primary block" style={{ marginTop: 14 }} disabled={busy || !name.trim()} onClick={saveName}>{busy ? "One sec…" : "Continue"}</button>
+          <button className="btn primary block" style={{ marginTop: 14 }} disabled={busy || !!nameError(name)} onClick={saveName}>{busy ? "One sec…" : "Continue"}</button>
         </>}
 
       </div>

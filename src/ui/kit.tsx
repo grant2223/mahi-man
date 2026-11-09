@@ -213,3 +213,23 @@ export function Stars({ value, onChange }: { value: number; onChange: (n: number
     </div>
   );
 }
+
+/* ---------- Name: first, middle and last, never one free-text box ---------- */
+export interface NameParts { first: string; middle: string; last: string }
+export const emptyName: NameParts = { first: "", middle: "", last: "" };
+export const nameError = (n: NameParts) => (!n.first.trim() ? "Add your first name" : !n.last.trim() ? "Add your last name" : "");
+export const nameRow = (n: NameParts) => ({ first_name: n.first.trim(), middle_names: n.middle.trim() || null, last_name: n.last.trim() });
+
+export function NameFields({ value, onChange }: { value: NameParts; onChange: (n: NameParts) => void }) {
+  return (
+    <div className="stack">
+      <label className="field"><span className="k">First name</span>
+        <input value={value.first} onChange={(e) => onChange({ ...value, first: e.target.value })} autoComplete="given-name" autoCapitalize="words" /></label>
+      <label className="field"><span className="k">Middle name or names <span className="light">(if you have one)</span></span>
+        <input value={value.middle} onChange={(e) => onChange({ ...value, middle: e.target.value })} autoComplete="additional-name" autoCapitalize="words" /></label>
+      <label className="field"><span className="k">Last name</span>
+        <input value={value.last} onChange={(e) => onChange({ ...value, last: e.target.value })} autoComplete="family-name" autoCapitalize="words" /></label>
+      <span className="small light muted">As it appears on your passport or ID.</span>
+    </div>
+  );
+}

@@ -58,6 +58,7 @@ export type IdStatus = "none" | "pending" | "verified" | "retake" | "rejected";
 export interface Profile {
   id: string; full_name: string; phone: string | null; photo_path: string | null; is_worker: boolean; is_admin: boolean;
   id_status: IdStatus; id_note: string | null; suspended: boolean; created_at: string;
+  first_name?: string | null; middle_names?: string | null; last_name?: string | null;
   plus_until?: string | null; card_brand?: string | null; card_last4?: string | null; card_exp?: string | null;
 }
 export interface PersonCard { full_name: string; photo_path: string | null; rating: number | null; jobs_done: number; id_verified: boolean; member_since: string }

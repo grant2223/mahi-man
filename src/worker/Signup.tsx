@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { api, sb, type IdStatus, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { shrinkImage, validAbn } from "../lib/format";
-import { Icon, Logo, Screen, SearchPicker, Tile } from "../ui/kit";
+import { Icon, Logo, NameFields, Screen, SearchPicker, Tile, nameError, nameRow, type NameParts } from "../ui/kit";
 import { VerifyFlow } from "../ui/Verify";
 import { Credentials, JobsAndSkills } from "./Skills";
 
@@ -81,7 +81,9 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: S
 
 export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
   const { session, profile, reload } = useSession();
-  const [name, setName] = useState(profile?.full_name ?? "");
+  const fromProfile = (): NameParts => ({ first: profile?.first_name ?? "", middle: profile?.middle_names ?? "", last: profile?.last_name ?? "" });
+  const [name, setName] = useState<NameParts>(fromProfile());
+  useEffect(() => { if (profile && !name.first && !name.last) setName(fromProfile()); }, [profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [err, setErr] = useState("");
@@ -90,7 +92,7 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
     if (!session) return;
     setBusy(true); setErr("");
     try {
-      if (name.trim().split(/\s+/).length < 2) throw new Error("Add your first and last name");
+      const ne = nameError(name); if (ne) throw new Error(ne);
       let photo_path = profile?.photo_path ?? null;
       if (file) {
         const blob = await shrinkImage(file, 800);
@@ -99,7 +101,7 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
         if (error) throw error;
       }
       if (!photo_path) throw new Error("Add a clear photo of your face");
-      const { error } = await sb.from("profiles").update({ full_name: name.trim(), photo_path }).eq("id", session.user.id);
+      const { error } = await sb.from("profiles").update({ ...nameRow(name), photo_path }).eq("id", session.user.id);
       if (error) throw error;
       await reload();
       onSaved();
@@ -109,7 +111,7 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
     <Screen title="Your photo" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <div className="row" style={{ gap: 16, marginBottom: 16 }}>
-          {preview ? <span className="tile" style={{ width: 96, height: 96 }}><img src={preview} alt="" /></span> : <Tile name={name || "?"} photo={profile?.photo_path} size={96} />}
+          {preview ? <span className="tile" style={{ width: 96, height: 96 }}><img src={preview} alt="" /></span> : <Tile name={`${name.first} ${name.last}`.trim() || "?"} photo={profile?.photo_path} size={96} />}
           <label className="btn stone small" style={{ cursor: "pointer" }}>
             {Icon.camera()} {profile?.photo_path || preview ? "Change photo" : "Add photo"}
             <input type="file" accept="image/*" capture="user" hidden onChange={(e) => {
@@ -118,7 +120,7 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
           </label>
         </div>
         <p className="small light muted" style={{ lineHeight: 1.45 }}>A clear photo of your face. Customers see it before you arrive.</p>
-        <label className="field"><span className="k">Full name</span><input value={name} onChange={(e) => setName(e.target.value)} /></label>
+        <NameFields value={name} onChange={setName} />
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}><button className="btn primary" disabled={busy} onClick={save}>Save</button></div>
       </div>
