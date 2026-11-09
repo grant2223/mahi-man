@@ -106,8 +106,12 @@ Deno.serve(async (req) => {
         if (!job || job.customer_id !== user.id) return fail("Job not found");
         const now = new Date().toISOString();
         if (!job.payment_intent_id && ["awaiting_payment", "searching", "accepted"].includes(job.status)) {
+          // Booking fee: kept once the customer has chosen someone. If the job is searching again because the
+          // worker dropped out, it was never done, so the fee comes back.
+          let refunded = 0;
+          if (job.fee_status === "paid" && job.status === "searching") { await refundFee(job); refunded = job.fee_cents; }
           await admin.from("jobs").update({ status: "cancelled", cancelled_at: now }).eq("id", job.id);
-          return ok({ charged_cents: 0 });
+          return ok({ charged_cents: job.fee_status === "paid" && !refunded ? job.fee_cents : 0, refunded_cents: refunded });
         }
         const s = stripe();
         if (["awaiting_payment", "searching"].includes(job.status)) {
@@ -180,7 +184,8 @@ Deno.serve(async (req) => {
           body.payid = isPhone ? phone : isAbn ? pid.replace(/\s/g, "") : pid.toLowerCase();
         }
         const patch: Record<string, unknown> = {};
-        for (const k of ["abn", "payid", "has_vehicle", "base_suburb_id", "radius_km", "insurance_path", "insurance_expiry"]) {
+        // Insurance only comes through a checked certificate (Licences and certificates), never straight from the phone.
+        for (const k of ["abn", "payid", "has_vehicle", "base_suburb_id", "radius_km"]) {
           if (body[k] !== undefined) patch[k] = k === "abn" ? String(body.abn).replace(/\s/g, "") : body[k];
         }
         await admin.from("workers").update(patch).eq("id", user.id);
@@ -264,9 +269,95 @@ Deno.serve(async (req) => {
         }
         return ok({});
       }
+      // ---------- Saved card for the booking fee ----------
+      case "card_setup": {
+        const s = stripe();
+        const customer = await customerFor(user.id, user.email ?? "", me?.full_name ?? "");
+        const si = await s.setupIntents.create({ customer, usage: "off_session", automatic_payment_methods: { enabled: true }, metadata: { user_id: user.id } });
+        return ok({ client_secret: si.client_secret, publishable_key: await setting("stripe_publishable_key") });
+      }
+      case "card_saved": {
+        const s = stripe();
+        const si = await s.setupIntents.retrieve(String(body.setup_intent_id));
+        if (si.metadata?.user_id !== user.id || si.status !== "succeeded" || !si.payment_method) return fail("That card didn't save. Try again.");
+        const pmId = typeof si.payment_method === "string" ? si.payment_method : si.payment_method.id;
+        const pm = await s.paymentMethods.retrieve(pmId);
+        if (me?.card_pm && me.card_pm !== pmId) await s.paymentMethods.detach(me.card_pm).catch(() => {});
+        await s.customers.update(String(si.customer), { invoice_settings: { default_payment_method: pmId } });
+        const card = { card_pm: pmId, card_brand: pm.card?.brand ?? pm.type, card_last4: pm.card?.last4 ?? "", card_exp: pm.card ? `${String(pm.card.exp_month).padStart(2, "0")}/${String(pm.card.exp_year).slice(-2)}` : "", card_keep: body.keep !== false };
+        await admin.from("profiles").update(card).eq("id", user.id);
+        return ok(card);
+      }
+      case "card_remove": {
+        if (me?.card_pm) await stripe().paymentMethods.detach(me.card_pm).catch(() => {});
+        await admin.from("profiles").update({ card_pm: null, card_brand: null, card_last4: null, card_exp: null, card_keep: true }).eq("id", user.id);
+        return ok({ removed: true });
+      }
+      // Charge the booking fee to the saved card, then book the worker. If booking fails, the fee goes straight back.
+      case "choose_worker": {
+        const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).eq("customer_id", user.id).single();
+        if (!job) return fail("Job not found");
+        if (job.status !== "searching") return fail("This job already has someone");
+        let charged: string | null = null;
+        if (job.fee_status === "due" && job.fee_cents > 0) {
+          const s = stripe();
+          let pi = job.fee_payment_intent ? await s.paymentIntents.retrieve(job.fee_payment_intent) : null;
+          if (!pi || !["succeeded", "requires_action", "processing"].includes(pi.status)) {
+            if (!me?.card_pm) return fail("Add a card for the booking fee");
+            try {
+              pi = await s.paymentIntents.create({
+                amount: job.fee_cents, currency: "aud", customer: me.stripe_customer_id, payment_method: me.card_pm,
+                off_session: true, confirm: true, receipt_email: user.email ?? undefined,
+                description: `More Mahi booking fee: ${job.title ?? "odd job"}`, metadata: { job_id: job.id, kind: "booking_fee" },
+                statement_descriptor_suffix: "MORE MAHI",
+              });
+            } catch (e) {
+              const err = e as { code?: string; raw?: { payment_intent?: { id: string; client_secret: string } } };
+              if (err.code === "authentication_required" && err.raw?.payment_intent) {
+                await admin.from("jobs").update({ fee_payment_intent: err.raw.payment_intent.id }).eq("id", job.id);
+                return ok({ action: "authenticate", client_secret: err.raw.payment_intent.client_secret, publishable_key: await setting("stripe_publishable_key") });
+              }
+              return fail("Your card was declined. Add another card and try again.");
+            }
+          }
+          if (pi.status === "requires_action") {
+            await admin.from("jobs").update({ fee_payment_intent: pi.id }).eq("id", job.id);
+            return ok({ action: "authenticate", client_secret: pi.client_secret, publishable_key: await setting("stripe_publishable_key") });
+          }
+          if (pi.status !== "succeeded") return fail("The payment is still going through. Try again in a moment.");
+          await admin.from("jobs").update({ fee_status: "paid", fee_payment_intent: pi.id, fee_paid_at: new Date().toISOString() }).eq("id", job.id);
+          charged = pi.id;
+        }
+        const { error } = await userClient.rpc("choose_offer", { p_job: job.id, p_worker: body.worker_id });
+        if (error) {
+          if (charged) {
+            await stripe().refunds.create({ payment_intent: charged }, { idempotencyKey: `fee-undo-${charged}` });
+            await admin.from("jobs").update({ fee_status: "due", fee_payment_intent: null, fee_paid_at: null }).eq("id", job.id);
+          }
+          return fail(error.message);
+        }
+        if (charged && me && !me.card_keep && me.card_pm) {
+          await stripe().paymentMethods.detach(me.card_pm).catch(() => {});
+          await admin.from("profiles").update({ card_pm: null, card_brand: null, card_last4: null, card_exp: null, card_keep: true }).eq("id", user.id);
+        }
+        return ok({ booked: true, fee_cents: charged ? job.fee_cents : 0 });
+      }
+      case "admin_fee_refund": {
+        if (!me?.is_admin) return fail("Admins only", 403);
+        const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
+        if (!job || job.fee_status !== "paid") return fail("No booking fee to refund on this job");
+        await refundFee(job);
+        return ok({ refunded_cents: job.fee_cents });
+      }
+      // Short-lived Apple Maps token for the live map.
+      case "map_token": {
+        return ok({ token: await mapToken() });
+      }
+
       case "delete_account": {
         if (body.confirm !== "DELETE") return fail("Type DELETE to confirm");
         const uid = user.id;
+        if (me?.stripe_customer_id) await stripe().customers.del(me.stripe_customer_id).catch(() => {});
         for (const bucket of ["avatars", "ids", "job-media", "insurance"]) {
           const { data: files } = await admin.storage.from(bucket).list(uid, { limit: 1000 });
           const paths = (files ?? []).map((f) => `${uid}/${f.name}`);
@@ -309,6 +400,45 @@ Deno.serve(async (req) => {
     return fail(msg, 500);
   }
 });
+
+async function customerFor(uid: string, email: string, name: string): Promise<string> {
+  const { data: p } = await admin.from("profiles").select("stripe_customer_id").eq("id", uid).single();
+  if (p?.stripe_customer_id) return p.stripe_customer_id;
+  const c = await stripe().customers.create({ email, name, metadata: { user_id: uid } }, { idempotencyKey: `customer-${uid}` });
+  await admin.from("profiles").update({ stripe_customer_id: c.id }).eq("id", uid);
+  return c.id;
+}
+
+// Booking fee back to the customer's card, and they're told.
+async function refundFee(job: { id: string; customer_id: string; fee_payment_intent: string | null; fee_cents: number; title: string | null }) {
+  if (job.fee_payment_intent) await stripe().refunds.create({ payment_intent: job.fee_payment_intent }, { idempotencyKey: `fee-refund-${job.id}` });
+  await admin.from("jobs").update({ fee_status: "refunded", fee_refunded_at: new Date().toISOString() }).eq("id", job.id);
+  await admin.rpc("notify", {
+    p_user: job.customer_id, p_title: "Booking fee refunded",
+    p_body: `$${(job.fee_cents / 100).toFixed(2)} is on its way back to your card. It can take 5 to 10 days to show.`, p_url: `/job/${job.id}`,
+    p_category: null, p_data: { job: job.id },
+  });
+}
+
+let mapCache: { t: string; exp: number } | null = null;
+async function mapToken(): Promise<string | null> {
+  const pem = Deno.env.get("MAPKIT_KEY_P8"), kid = Deno.env.get("MAPKIT_KEY_ID");
+  if (!pem || !kid) return null;
+  const now = Math.floor(Date.now() / 1000);
+  if (mapCache && mapCache.exp - 300 > now) return mapCache.t;
+  const b64url = (b: ArrayBuffer | string) => {
+    const bytes = typeof b === "string" ? new TextEncoder().encode(b) : new Uint8Array(b);
+    let s = ""; for (const x of bytes) s += String.fromCharCode(x);
+    return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  };
+  const der = Uint8Array.from(atob(pem.replace(/-----[^-]+-----/g, "").replace(/\s+/g, "")), (c) => c.charCodeAt(0));
+  const key = await crypto.subtle.importKey("pkcs8", der, { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const exp = now + 3600;
+  const input = `${b64url(JSON.stringify({ alg: "ES256", kid, typ: "JWT" }))}.${b64url(JSON.stringify({ iss: Deno.env.get("APNS_TEAM_ID") ?? "3N7J224W53", iat: now, exp }))}`;
+  const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(input));
+  mapCache = { t: `${input}.${b64url(sig)}`, exp };
+  return mapCache.t;
+}
 
 function basicTidy(t: string): string {
   const parts = t.replace(/\s+/g, " ").split(/(?<=[.!?])\s+/);

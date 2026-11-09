@@ -4,6 +4,7 @@ import { useSession } from "../lib/session";
 import { elapsed, firstName, money, shrinkImage } from "../lib/format";
 import { Icon, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
 import { ChatScreen } from "../ui/Chat";
+import { resumeTrip, startTrip, stopTrip, tripJob } from "../lib/trip";
 import { ReportScreen } from "../ui/Report";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen as JobProblem, ReviewView, showPayid } from "../ui/Completion";
 
@@ -32,6 +33,17 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
   const [busy, setBusy] = useState(false);
   const [payid, setPayid] = useState<string | null>(null);
   const [report, setReport] = useState(false);
+  // The trip: location shared with the customer from "I'm on my way" until the start code.
+  const [onWay, setOnWay] = useState(tripJob() === job.id);
+  const [askTrip, setAskTrip] = useState(false);
+  useEffect(() => { resumeTrip(j.id, j.status === "accepted").then(setOnWay); }, [j.id, j.status]);
+  async function goNow() {
+    try { await startTrip(j.id); setOnWay(true); try { localStorage.setItem("mm-trip-asked", "1"); } catch { /* */ } }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  }
+  const tripAsked = (() => { try { return localStorage.getItem("mm-trip-asked") === "1"; } catch { return false; } })();
+  // "I'm on my way" shows from 3 hours before the start (straight away for as-soon-as-possible jobs).
+  const canLeave = j.status === "accepted" && (j.asap || new Date(j.start_at).getTime() - now < 3 * 3600000);
 
   const load = useCallback(async () => {
     const { data } = await sb.from("jobs").select("*").eq("id", job.id).single();
@@ -127,12 +139,12 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     );
   }
 
-  const heroLabel = j.status === "accepted" ? "Head to the job" : j.status === "in_progress" ? "Working for" : isDirectPay(j) ? "Get paid" : "Waiting for the customer";
+  const heroLabel = j.status === "accepted" ? (onWay ? `On the way to ${cName}` : "Head to the job") : j.status === "in_progress" ? "Working for" : isDirectPay(j) ? "Get paid" : "Waiting for the customer";
   const heroBig = j.status === "in_progress" ? elapsed(j.started_at!, now) : money(earn);
 
   return (
     <>
-      <section className="hero" style={{ paddingBottom: 96 }}>
+      <section className="hero" style={{ paddingBottom: j.status === "accepted" && onWay ? 24 : 96 }}>
         <div className="hero-top">
           <span className="t17 w5">{jobName}</span>
           <button className="btn danger small" style={{ height: 36 }} onClick={() => setScreen("emergency")}>Emergency</button>
@@ -147,7 +159,22 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
             : j.status === "finished" ? (isDirectPay(j) ? `Collect ${money(earn)} from the customer now: PayID or cash` : "They have 48 hours to confirm, then you're paid automatically")
               : "Ask for their 4-digit start code when you arrive"}
         </span>
+        {j.status === "accepted" && !onWay && canLeave && (
+          <>
+            <div className="row" style={{ gap: 10, marginTop: 20, position: "relative" }}>
+              <button className="btn" style={{ background: "var(--lime)", color: "var(--ink)" }} onClick={() => (tripAsked ? goNow() : setAskTrip(true))}>I'm on my way {Icon.arrow("var(--ink)")}</button>
+            </div>
+            <span className="sub" style={{ marginTop: 10, fontSize: 13 }}>{cName} sees you on a map until you arrive. Then it stops.</span>
+          </>
+        )}
       </section>
+      {j.status === "accepted" && onWay && (
+        <div className="row" style={{ gap: 12, padding: 16, background: "var(--card)", alignItems: "center", position: "relative", zIndex: 1 }}>
+          <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--emerald)", flexShrink: 0 }} />
+          <span className="t15 light" style={{ flex: 1 }}>Sharing your location with {cName}. It stops when you enter the start code.</span>
+          <button className="link quiet" onClick={async () => { await stopTrip(j.id); setOnWay(false); }}>Stop</button>
+        </div>
+      )}
 
       {j.status === "accepted" && !j.asap && j.confirm_asked_at && !j.day_confirmed_at && (
         <div className="confirm-bar">
@@ -167,7 +194,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         </div>
       )}
 
-      <div className="ticket" style={{ marginTop: j.status === "accepted" && !j.asap && j.confirm_asked_at && !j.day_confirmed_at ? 16 : -70 }}>
+      <div className="ticket" style={{ marginTop: (j.status === "accepted" && onWay) || (j.status === "accepted" && !j.asap && j.confirm_asked_at && !j.day_confirmed_at) ? 16 : -70 }}>
         <div className="pad row">
           <Tile name={cust?.full_name ?? "?"} photo={cust?.photo_path} size={48} />
           <span className="stack" style={{ gap: 2, flex: 1, minWidth: 0 }}>
@@ -259,7 +286,8 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
       )}
       {screen === "chat" && <ChatScreen jobId={j.id} me={session.user.id} otherName={cName} onBack={() => setScreen(null)} />}
       {screen === "reportUser" && <ReportScreen name={cName} userId={j.customer_id} jobId={j.id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
-      {screen === "code" && <CodeScreen jobId={j.id} name={cName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+      {screen === "code" && <CodeScreen jobId={j.id} name={cName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); stopTrip(j.id); setOnWay(false); load(); }} />}
+      {askTrip && <TripAsk name={cName} onBack={() => setAskTrip(false)} onGo={() => { setAskTrip(false); goNow(); }} />}
       {(screen === "before" || screen === "after") && <PhotoScreen jobId={j.id} kind={screen} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "extra" && <ExtraScreen jobId={j.id} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "emergency" && <EmergencyScreen jobId={j.id} onBack={() => setScreen(null)} />}
@@ -390,5 +418,30 @@ function ProblemScreen({ jobId, onBack }: { jobId: string; onBack: () => void })
         </div>
       </div>
     </Screen>
+  );
+}
+
+// Before the first trip: what sharing your location means, then the iPhone's own permission prompt.
+function TripAsk({ name, onBack, onGo }: { name: string; onBack: () => void; onGo: () => void }) {
+  return (
+    <div className="screen" role="dialog" aria-label="Share your location">
+      <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
+        <section className="step-hero">
+          <div className="top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button></div>
+          <h1>Let {name} see you coming</h1>
+          <p>{name} can see when you're nearly there.</p>
+        </section>
+        <div className="stack" style={{ padding: 20, gap: 16 }}>
+          {[["Only on the way", "Starts when you tap I'm on my way, stops when you enter the start code."],
+            [`Only ${name} sees it`, "Nobody else, not other customers or workers."],
+            ["Gone after the job", "Your trip is deleted once you arrive."]].map(([b, t]) => (
+            <div key={b} className="row" style={{ gap: 12, alignItems: "flex-start" }}><span style={{ flexShrink: 0, display: "flex" }}>{Icon.tick("var(--emerald)", 22)}</span><span className="stack" style={{ gap: 2 }}><span className="t17 w5">{b}</span><span className="t15 light muted">{t}</span></span></div>
+          ))}
+          <p className="small light muted" style={{ margin: 0, lineHeight: 1.5 }}>Your iPhone will ask to allow location. Pick "Allow While Using App". It keeps working while you drive with Maps.</p>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div className="actionbar"><button className="btn stone" style={{ flex: 1 }} onClick={onBack}>Not now</button><button className="btn primary" style={{ flex: 2 }} onClick={onGo}>Allow and go</button></div>
+      </div>
+    </div>
   );
 }

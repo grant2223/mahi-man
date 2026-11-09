@@ -24,7 +24,9 @@ export function Privacy() {
         <li>ID check: a photo of your passport, national ID card or driver licence and a selfie. These are seen only by the More Mahi team, used only to confirm who you are, and deleted as soon as the check is decided. We keep the result (verified or not) and the ID type and country.</li>
         <li>Jobs: the job you book or take, the photos and video you add, your description, the address and suburb, times, prices and reviews.</li>
         <li>Messages you send through the app.</li>
-        <li>Workers: ABN, suburb and travel distance, the job types you do, and an insurance certificate if you upload one.</li>
+        <li>Workers: ABN, suburb and travel distance, the job types you do with your skills, experience and gear, and any licences or certificates you add (a photo, the number and the expiry date). These are checked by the More Mahi team and only "verified" is shown to customers.</li>
+        <li>Payments: if you add a card, it is collected and stored by our payment provider, Stripe. We never see or keep your full card number. We keep the card type, last 4 digits and expiry so you can see which card is saved, plus a record of fees charged and refunded.</li>
+        <li>Location on the way to a job: when a worker taps "I'm on my way", their phone's location is shared with that job's customer until they enter the start code. It is never collected at any other time, and the trip is deleted when it ends.</li>
         <li>Basic technical information needed to run the app, such as sign-in times.</li>
       </ul>
       <p>We do not track you across other apps or websites and we do not sell your information.</p>
@@ -33,13 +35,13 @@ export function Privacy() {
       <h2>Who sees what</h2>
       <ul>
         <li>Workers who can take a job see its photos, video, description, suburb and the customer's first name, last initial, photo and whether they are ID verified. The street address is only shown to the worker who takes the job.</li>
-        <li>Customers see their worker's first name, last initial, photo, rating and whether they are ID verified.</li>
+        <li>Customers see their worker's first name, last initial, photo, rating, skills, experience, gear, verified licences and whether they are ID verified. While the worker is on the way to their job, the customer also sees the worker's location on a map.</li>
         <li>Phone numbers and email addresses are never shown to the other person.</li>
       </ul>
       <h2>Voice input</h2>
       <p>If you use "Just say it", your phone's speech service turns your voice into text, and the text may be tidied up by an AI service before you see it. You can always edit it, or type instead.</p>
       <h2>Where it is stored</h2>
-      <p>Your information is stored with our hosting provider, Supabase, in its Sydney, Australia region. Some service providers we use may process information outside Australia.</p>
+      <p>Your information is stored with our hosting provider, Supabase, in its Sydney, Australia region. Cards and payments are handled by Stripe. Maps are shown with Apple Maps. Some service providers we use may process information outside Australia.</p>
       <h2>Keeping and deleting</h2>
       <p>You can delete your account at any time in Settings. This deletes your profile, photos, ID check, messages and reviews straight away. Jobs you finished stay in the other person's history without your name.</p>
       <h2>Your rights</h2>
@@ -60,11 +62,26 @@ export function Terms() {
         <li>During the Cairns pilot, the customer pays the worker directly by PayID or cash when the job is finished, never before.</li>
         <li>Customers can cancel free of charge before a worker arrives.</li>
       </ul>
+      <h2>Booking fee</h2>
+      <ul>
+        <li>When a booking fee applies, it is shown before you post the job. You add a card when you post, and nothing is charged then.</li>
+        <li>The fee is charged to your card only when you choose a worker. If nobody is chosen, nothing is charged.</li>
+        <li>If the worker you chose cancels or doesn't turn up, your job is reopened and you choose someone else with no new fee.</li>
+        <li>If the job is never done, for example you cancel after the worker drops out, the fee is refunded to your card automatically. We can also refund it when we decide a dispute.</li>
+        <li>If you cancel after choosing a worker, the fee is not refunded.</li>
+        <li>Plus members don't pay booking fees. You get a receipt by email for every fee and every refund.</li>
+        <li>By saving a card you allow us to charge the booking fee shown on each job when you choose a worker. You can remove a saved card at any time in Settings.</li>
+      </ul>
+      <h2>Licences and live location</h2>
+      <ul>
+        <li>Some skills need a licence or certificate, such as an electrical licence or an RSA. Only workers whose licence we have checked and is in date can take those jobs. Workers must keep their licences current and tell us if one is suspended or cancelled.</li>
+        <li>A worker's location is shared with the customer only between tapping "I'm on my way" and entering the start code.</li>
+      </ul>
       <h2>Your account</h2>
       <ul>
         <li>You must be 18 or over and give your real name and a real photo of yourself.</li>
         <li>Workers must verify their ID before taking jobs. Customers may be asked to verify too.</li>
-        <li>Keep your password private. You are responsible for what happens on your account.</li>
+        <li>Keep access to your email and Apple ID secure, and never share a sign-in code. You are responsible for what happens on your account.</li>
       </ul>
       <h2>Behaviour</h2>
       <p>No abuse, harassment, threats, discrimination, sexual content, scams or illegal work. Don't ask for or share phone numbers to take jobs off the app. Report anything unsafe using Report in the app, or call 000 in an emergency. We review every report within 24 hours and can pause or remove accounts.</p>

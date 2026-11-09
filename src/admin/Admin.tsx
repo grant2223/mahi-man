@@ -70,7 +70,7 @@ function Overview() {
       const [live, searching, week, workers, online, problems, recent] = await Promise.all([
         sb.from("jobs").select("id", { count: "exact", head: true }).in("status", ["accepted", "in_progress", "finished"]),
         sb.from("jobs").select("id", { count: "exact", head: true }).eq("status", "searching"),
-        sb.from("jobs").select("fee_cents").eq("status", "confirmed").gte("confirmed_at", since),
+        sb.from("jobs").select("fee_cents").or(`and(fee_status.eq.paid,fee_paid_at.gte.${since}),and(status.eq.confirmed,confirmed_at.gte.${since},payment_intent_id.not.is.null)`),
         sb.from("workers").select("id", { count: "exact", head: true }).eq("approved", true),
         sb.from("workers").select("id", { count: "exact", head: true }).eq("online", true),
         sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
@@ -123,7 +123,7 @@ function Jobs() {
         <thead><tr><th>Booked</th><th>Job</th><th>Where</th><th>Customer</th><th>Worker</th><th>Total</th><th>Status</th><th></th></tr></thead>
         <tbody>
           {rows.map((r) => {
-            const j = r as { id: string; title: string | null; created_at: string; status: string; price_cents: number; fee_cents: number; extra_cents: number; address: string;
+            const j = r as { id: string; title: string | null; created_at: string; status: string; price_cents: number; fee_cents: number; extra_cents: number; address: string; fee_status: string; payment_intent_id: string | null;
               job_types: { name: string }; suburbs: { name: string }; customer: { full_name: string } | null; worker: { profiles: { full_name: string } } | null };
             return (
               <tr key={j.id}>
@@ -132,13 +132,26 @@ function Jobs() {
                 <td>{j.address}, {j.suburbs.name}</td>
                 <td>{j.customer?.full_name}</td>
                 <td>{j.worker?.profiles.full_name ?? "—"}</td>
-                <td>{money2(j.price_cents + j.fee_cents + j.extra_cents)}</td>
+                <td>{money2(j.price_cents + j.extra_cents + (j.payment_intent_id ? j.fee_cents : 0))}
+                  {!j.payment_intent_id && j.fee_status !== "none" && <span className={`badge ${j.fee_status === "paid" ? "g" : ""}`} style={{ marginLeft: 6 }}>
+                    Fee {money2(j.fee_cents)} {j.fee_status === "paid" ? "paid" : j.fee_status === "refunded" ? "refunded" : "due"}</span>}</td>
                 <td><span className={`badge ${STATUS_BADGE[j.status]}`}>{j.status.replace("_", " ")}</span></td>
-                <td>{["searching", "accepted", "awaiting_payment"].includes(j.status) && (
+                <td><span className="row" style={{ gap: 6 }}>
+                  {["searching", "accepted", "awaiting_payment"].includes(j.status) && (
                   <button className="btn stone small" onClick={async () => {
-                    if (!confirm("Remove this job? It will be cancelled for both sides.")) return;
-                    try { await rpc("admin_cancel_job", { p_job: j.id }); load(); } catch (e) { alert((e as Error).message); }
-                  }}>Remove</button>)}</td>
+                    if (!confirm(j.fee_status === "paid" ? "Remove this job? It will be cancelled for both sides and the booking fee refunded." : "Remove this job? It will be cancelled for both sides.")) return;
+                    try {
+                      await rpc("admin_cancel_job", { p_job: j.id });
+                      if (j.fee_status === "paid") await api("admin_fee_refund", { job_id: j.id });
+                      load();
+                    } catch (e) { alert((e as Error).message); }
+                  }}>Remove</button>)}
+                  {j.fee_status === "paid" && !["searching", "accepted", "awaiting_payment"].includes(j.status) && (
+                  <button className="btn stone small" onClick={async () => {
+                    if (!confirm(`Refund the ${money2(j.fee_cents)} booking fee to the customer?`)) return;
+                    try { await api("admin_fee_refund", { job_id: j.id }); load(); } catch (e) { alert((e as Error).message); }
+                  }}>Refund fee</button>)}
+                </span></td>
               </tr>
             );
           })}
@@ -841,6 +854,7 @@ function Settings() {
   }, []);
   const F: [string, string, string][] = [
     ["pilot_mode", "Pilot mode", ""],
+    ["fee_mode", "Booking fee", ""],
     ["customer_id_required", "Customer ID check", ""],
     ["fee_percent", "Booking fee (% added to the job price)", "15"],
     ["callout_cents", "Late-cancel payment to worker (cents)", "1500"],
@@ -861,6 +875,12 @@ function Settings() {
             <option value="false">Optional: customers are asked after their first booking</option>
             <option value="true">Required before a customer can book</option>
           </select></label>
+      ) : k === "fee_mode" ? (
+        <label key={k} className="field" style={{ background: "var(--card)" }}><span className="k">{l}</span>
+          <select value={vals[k] ?? "off"} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} style={{ border: 0, background: "transparent", fontSize: 18, fontWeight: 500, padding: 0 }}>
+            <option value="off">Off: no booking fee</option>
+            <option value="on_choose">On: charged to a saved card when the customer chooses a worker</option>
+          </select></label>
       ) : k === "pilot_mode" ? (
         <label key={k} className="field" style={{ background: "var(--card)" }}><span className="k">{l}</span>
           <select value={vals[k] ?? "true"} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} style={{ border: 0, background: "transparent", fontSize: 18, fontWeight: 500, padding: 0 }}>
@@ -875,6 +895,7 @@ function Settings() {
         <button className="btn primary" disabled={!changed} onClick={async () => {
           if (vals.stripe_publishable_key && !vals.stripe_publishable_key.startsWith("pk_")) return toast("The publishable key starts with pk_");
           if (vals.pilot_mode === "false" && !vals.stripe_publishable_key) return toast("Add the Stripe publishable key before turning pilot mode off");
+          if (vals.fee_mode === "on_choose" && !vals.stripe_publishable_key) return toast("Connect Stripe and add the publishable key before turning the booking fee on");
           for (const [k] of F) if (vals[k] !== orig[k]) {
             const { error } = await sb.from("settings").update({ value: vals[k] }).eq("key", k);
             if (error) return toast(error.message);

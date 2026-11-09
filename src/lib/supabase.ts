@@ -23,7 +23,7 @@ export interface Job {
   start_at: string;
   asap: boolean;
   price_cents: number;
-  fee_cents: number;
+  fee_cents: number; fee_status?: "none" | "due" | "paid" | "refunded"; fee_paid_at?: string | null; fee_refunded_at?: string | null;
   extra_cents: number;
   status: JobStatus;
   payment_intent_id: string | null;
@@ -58,6 +58,7 @@ export type IdStatus = "none" | "pending" | "verified" | "retake" | "rejected";
 export interface Profile {
   id: string; full_name: string; phone: string | null; photo_path: string | null; is_worker: boolean; is_admin: boolean;
   id_status: IdStatus; id_note: string | null; suspended: boolean; created_at: string;
+  plus_until?: string | null; card_brand?: string | null; card_last4?: string | null; card_exp?: string | null;
 }
 export interface PersonCard { full_name: string; photo_path: string | null; rating: number | null; jobs_done: number; id_verified: boolean; member_since: string }
 
@@ -83,7 +84,9 @@ export async function rpc<T = unknown>(fn: string, args: Record<string, unknown>
 }
 
 // Pilot jobs: no card hold, the customer pays the worker directly.
-export const isDirectPay = (j: { fee_cents: number; payment_intent_id: string | null }) => j.fee_cents === 0 && !j.payment_intent_id;
+// Direct pay: the job price goes from customer to worker (PayID or cash), never through a card hold. A booking fee charged
+// when the worker was chosen doesn't change that.
+export const isDirectPay = (j: { fee_cents: number; payment_intent_id: string | null }) => !j.payment_intent_id;
 
 export function avatarUrl(path: string | null | undefined): string | null {
   if (!path) return null;

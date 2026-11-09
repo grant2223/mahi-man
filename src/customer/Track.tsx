@@ -2,12 +2,13 @@ import { useCallback, useEffect, useState } from "react";
 import { api, isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
-import { elapsed, firstName, money, money2 } from "../lib/format";
+import { elapsed, firstName, initials, money, money2 } from "../lib/format";
 import { Icon, Logo, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen as ReportUser } from "../ui/Report";
 import { ChatScreen } from "../ui/Chat";
 import { PayScreen } from "./Pay";
 import { OffersView } from "./Offers";
+import { LiveMap, useTrip } from "../ui/LiveMap";
 import { AlertsAsk } from "../ui/AlertsAsk";
 import { alertsState, askedFor } from "../lib/push";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
@@ -37,6 +38,9 @@ export function Track({ id }: { id: string }) {
   const [reviewed, setReviewed] = useState<boolean | null>(null);
   const [payid, setPayid] = useState<string | null>(null);
   const [later, setLater] = useState(false);
+  const trip = useTrip(id, job?.status === "accepted");
+  const [route, setRoute] = useState<{ minutes: number; km: number } | null>(null);
+  const [mapOn, setMapOn] = useState(false);
 
   const load = useCallback(async () => {
     const { data } = await sb.from("jobs").select("*").eq("id", id).single();
@@ -86,9 +90,10 @@ export function Track({ id }: { id: string }) {
   const jobName = job.title || jt.name;
   const direct = isDirectPay(job);
   const wName = worker ? firstName(worker.full_name) : "Your worker";
-  const stepIdx = { awaiting_payment: 0, searching: 0, accepted: 2, in_progress: 3, finished: 4, confirmed: 4, disputed: 4, cancelled: 0, refunded: 4 }[job.status];
+  const stepIdx = { awaiting_payment: 0, searching: 0, accepted: trip ? 2 : 1, in_progress: 3, finished: 4, confirmed: 4, disputed: 4, cancelled: 0, refunded: 4 }[job.status];
   const pendingExtra = extras.find((e) => e.status === "pending");
-  const total = job.price_cents + job.fee_cents + job.extra_cents;
+  // What the job costs. On direct-pay jobs the booking fee was charged separately when the worker was chosen.
+  const total = job.price_cents + job.extra_cents + (direct ? 0 : job.fee_cents);
 
   async function confirm() {
     setBusy(true);
@@ -107,7 +112,7 @@ export function Track({ id }: { id: string }) {
   if (job.status === "searching") {
     return (
       <>
-        <OffersView jobId={id} title={jobName} price={money(job.price_cents)} asap={job.asap} startAt={job.start_at}
+        <OffersView jobId={id} title={jobName} price={money(job.price_cents)} feeDue={job.fee_status === "due" ? job.fee_cents : 0} asap={job.asap} startAt={job.start_at}
           searchingAt={job.searching_at ?? job.created_at} boosted={!!job.boosted} onBoosted={load} onChosen={load} onCancel={() => setScreen("cancel")} />
         {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
         {askAlerts && <AlertsAsk role="post" onDone={() => setAskAlerts(false)} />}
@@ -187,8 +192,19 @@ export function Track({ id }: { id: string }) {
     case "awaiting_payment": label = "Not booked yet"; big = money2(total); sub = "Hold the payment to send it to workers"; break;
     case "accepted": {
       const mins = eta ? Math.max(0, Math.round((new Date(eta).getTime() - now) / 60000)) : 0;
-      if (job.asap) { label = `${wName} is on the way`; if (mins > 0) { big = String(mins); bigUnit = "min"; } else { big = "Any minute"; } }
-      else { label = `${wName} is booked for`; big = new Date(job.start_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }); sub = new Date(job.start_at).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" }); }
+      if (trip) {
+        // Live: worker tapped "I'm on my way". ETA from the driving route when the map is on, otherwise their estimate.
+        const m = route?.minutes ?? mins;
+        label = `${wName} is on the way`;
+        if (m > 0) { big = String(m); bigUnit = "min"; } else { big = "Any minute"; }
+        const secs = Math.max(0, Math.round((now - new Date(trip.updated_at).getTime()) / 1000));
+        sub = `${route ? `${route.km} km away. ` : ""}Updated ${secs < 20 ? "just now" : secs < 90 ? `${secs} sec ago` : `${Math.round(secs / 60)} min ago`}.`;
+      } else if (job.asap) {
+        label = `${wName} is booked`;
+        big = new Date(eta ?? job.start_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
+        sub = `You'll see ${wName} on a map once they leave.`;
+      }
+      else { label = `${wName} is booked for`; big = new Date(job.start_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }); sub = `${new Date(job.start_at).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}. You'll see ${wName} on a map once they leave.`; }
       break;
     }
     case "in_progress": label = `${wName} is working`; big = elapsed(job.started_at!, now); sub = `Up to ${Number(jt.max_hours)} hrs`; break;
@@ -221,8 +237,9 @@ export function Track({ id }: { id: string }) {
           </>
         )}
       </section>
+      {trip && job.status === "accepted" && <LiveMap loc={trip} address={`${job.address}, ${suburb}`} initials={initials(worker?.full_name ?? wName)} onRoute={setRoute} onShown={setMapOn} />}
 
-      <div className="ticket">
+      <div className="ticket" style={trip && mapOn && job.status === "accepted" ? { marginTop: 12 } : undefined}>
         {worker ? (
           <>
             <div className="pad row">
@@ -246,6 +263,21 @@ export function Track({ id }: { id: string }) {
           </div>
         )}
 
+        {(job.fee_status === "paid" || job.fee_status === "refunded") && (
+          <>
+            <Perf />
+            <div className="stack" style={{ padding: "8px 16px 18px", gap: 4 }}>
+              <span className="row between"><span className="t17 w5">Booking fee</span><span className="t17 w5">{money2(job.fee_cents)}</span></span>
+              <span className="small light muted" style={{ lineHeight: 1.45 }}>
+                {job.fee_status === "refunded"
+                  ? "Refunded to your card. It can take 5 to 10 days to show."
+                  : ["accepted", "searching"].includes(job.status)
+                    ? `Paid. Receipt sent to your email. If ${wName} cancels or doesn't turn up, you choose someone else with no new fee. If the job never gets done, it's refunded.`
+                    : "Paid. Receipt sent to your email."}
+              </span>
+            </div>
+          </>
+        )}
         {job.status === "accepted" && code && (
           <>
             <Perf />
@@ -368,7 +400,9 @@ function CancelScreen({ job, onBack, onDone }: { job: Job; onBack: () => void; o
     <Screen title="Cancel booking" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>
-          {free ? (isDirectPay(job) ? "Cancelling is free. Your worker will be told straight away." : "No one has taken it yet, so cancelling is free. The hold on your card is released.")
+          {job.fee_status === "paid" && job.status === "searching" ? `Your ${money2(job.fee_cents)} booking fee is refunded, because the job was never done.`
+            : job.fee_status === "paid" && job.status === "accepted" ? `Your worker will be told straight away. The ${money2(job.fee_cents)} booking fee isn't refunded once you've chosen someone.`
+            : free ? (isDirectPay(job) ? "Cancelling is free. Your worker will be told straight away." : "No one has taken it yet, so cancelling is free. The hold on your card is released.")
             : `Someone is already on the way. Cancelling now costs ${money2(job.fee_cents + callout)}: the booking fee plus ${money2(callout)} to the worker for their trip. The rest is released.`}
         </p>
         {err && <p className="err">{err}</p>}

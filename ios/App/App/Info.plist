@@ -63,6 +63,14 @@
 	<string>More Mahi uses the microphone when you describe a job by voice or record a video of it.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>More Mahi turns what you say into a written job description you can check and edit.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>When you tap I'm on my way, your location is shared with that job's customer so they can see you coming. It stops when you enter the start code.</string>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>When you tap I'm on my way, your location keeps being shared with that job's customer while you use Maps to drive there. It stops when you enter the start code.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
 	<key>UISupportedInterfaceOrientations~ipad</key>

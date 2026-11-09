@@ -5,6 +5,10 @@ import { Icon, Logo, useNow, useToast } from "../ui/kit";
 import { go } from "../lib/router";
 import { shareLink, SITE } from "../lib/share";
 import { WorkerProfile } from "../ui/WorkerProfile";
+import { AddCardScreen, CardMark, cardLabel, stripeFor } from "./Cards";
+import { useSession } from "../lib/session";
+import { api } from "../lib/supabase";
+import { money2 } from "../lib/format";
 import { expLabel } from "../worker/Skills";
 
 export interface Offer {
@@ -18,9 +22,11 @@ interface Extra { worker_id: string; skills: string[]; years: number | null; gea
 const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
 
 // The customer's job while it's open: people who say they're available, and Yes or Ignore on each.
-export function OffersView({ jobId, title, price, asap, startAt, searchingAt, boosted, onChosen, onCancel, onBoosted }: {
-  jobId: string; title: string; price: string; asap: boolean; startAt: string; searchingAt: string; boosted: boolean; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
+export function OffersView({ jobId, title, price, asap, startAt, searchingAt, boosted, feeDue = 0, onChosen, onCancel, onBoosted }: {
+  jobId: string; title: string; price: string; asap: boolean; startAt: string; searchingAt: string; boosted: boolean; feeDue?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
 }) {
+  const { profile: me } = useSession();
+  const [needCard, setNeedCard] = useState<Offer | null>(null);
   const toast = useToast();
   const now = useNow(1000);
   const [offers, setOffers] = useState<Offer[] | null>(null);
@@ -51,9 +57,26 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
 
   async function choose(o: Offer) {
     setBusy(o.worker_id);
-    try { await rpc("choose_offer", { p_job: jobId, p_worker: o.worker_id }); toast(`${o.full_name.split(" ")[0]} is booked`); onChosen(); }
-    catch (e) { toast(e instanceof Error ? e.message : String(e)); setOffers((x) => (x ?? []).filter((y) => y.worker_id !== o.worker_id)); }
-    finally { setBusy(null); }
+    try {
+      if (feeDue > 0) {
+        // The booking fee is charged to the saved card now; the worker is only booked once it goes through.
+        let r = await api<{ booked?: boolean; action?: string; client_secret?: string; publishable_key?: string }>("choose_worker", { job_id: jobId, worker_id: o.worker_id });
+        if (r.action === "authenticate" && r.client_secret && r.publishable_key) {
+          const stripe = await stripeFor(r.publishable_key);
+          const res = await stripe?.handleNextAction({ clientSecret: r.client_secret });
+          if (!res || res.error) throw new Error(res?.error?.message ?? "Your bank didn't approve it. Try another card.");
+          r = await api("choose_worker", { job_id: jobId, worker_id: o.worker_id });
+        }
+        if (!r.booked) throw new Error("That didn't go through. Try again.");
+      } else {
+        await rpc("choose_offer", { p_job: jobId, p_worker: o.worker_id });
+      }
+      toast(`${o.full_name.split(" ")[0]} is booked`); onChosen();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (/card|declined|bank/i.test(msg)) { setNeedCard(o); toast(msg); }
+      else { toast(msg); setOffers((x) => (x ?? []).filter((y) => y.worker_id !== o.worker_id)); }
+    } finally { setBusy(null); }
   }
   async function ignore(o: Offer) {
     setOffers((x) => (x ?? []).filter((y) => y.worker_id !== o.worker_id));
@@ -97,6 +120,14 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
       )}
       {boosted && !shown.length && <div className="cp-note">{Icon.clockLine("var(--muted)")}<span>Boosted. Every worker in your category has been told.</span></div>}
 
+      {feeDue > 0 && shown.length > 0 && (
+        <div className="row" style={{ gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--line)", alignItems: "center", background: "var(--card)" }}>
+          {me?.card_last4 && <CardMark brand={me.card_brand} />}
+          <span className="t15 light" style={{ flex: 1 }}>
+            {me?.card_last4 ? <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> booking fee to {cardLabel(me)}.</> : <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> booking fee. You'll add a card first.</>}
+          </span>
+        </div>
+      )}
       <div className="offers">
         {shown.map((o) => {
           const left = Math.max(0, Math.ceil((new Date(o.expires_at).getTime() - now) / 60000));
@@ -166,6 +197,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
         <button className="link quiet" onClick={onCancel}>Cancel this job</button>
       </div>
       {profile && <WorkerProfile workerId={profile} onBack={() => setProfile(null)} />}
+      {needCard && <AddCardScreen onBack={() => setNeedCard(null)} onSaved={() => { const o = needCard; setNeedCard(null); window.setTimeout(() => choose(o), 200); }} />}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Icon, Screen, StepHero, Tile, useToast } from "./kit";
 import { VerifyFlow } from "./Verify";
 import { AbnStep } from "../worker/Signup";
 import { Credentials, JobsAndSkills } from "../worker/Skills";
+import { PaymentMethods, cardLabel } from "../customer/Cards";
 import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
 import { inviteText, shareLink, SITE } from "../lib/share";
 
@@ -16,7 +17,7 @@ export function Settings() {
   const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
   const [alerts, setAlerts] = useState<"granted" | "prompt" | "denied" | "unsupported">("unsupported");
   useEffect(() => { alertsState().then(setAlerts).catch(() => {}); }, []);
-  const [screen, setScreen] = useState<null | "verify" | "delete" | "payid" | "skills" | "creds">(null);
+  const [screen, setScreen] = useState<null | "verify" | "delete" | "payid" | "skills" | "creds" | "cards">(null);
 
   useEffect(() => {
     if (!session) return;
@@ -45,6 +46,7 @@ export function Settings() {
           </button>
         )}
         <button className="choice" onClick={() => go("/jobs")}><span className="t"><b>My jobs</b><span>Jobs you've posted</span></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => setScreen("cards")}><span className="t"><b>Payment methods</b><span>{profile.card_last4 ? `${cardLabel(profile)}, for booking fees` : "Card for booking fees"}</span></span>{Icon.chevron("var(--faint)")}</button>
         {profile.is_worker && <button className="choice" onClick={() => go("/work")}><span className="t"><b>Work</b><span>Your worker account</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("skills")}><span className="t"><b>Jobs and skills</b><span>What customers see on your offers</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("creds")}><span className="t"><b>Licences and certificates</b><span>Insurance, RSA, Blue Card, trade licences</span></span>{Icon.chevron("var(--faint)")}</button>}
@@ -79,6 +81,7 @@ export function Settings() {
         <button className="choice" onClick={() => setScreen("delete")}><span className="t"><b style={{ color: "var(--danger)" }}>Delete account</b><span>Removes your account, photos and messages for good</span></span></button>
       </div>
       {screen === "payid" && <AbnStep onBack={() => setScreen(null)} onSaved={() => { setScreen(null); toast("Saved"); }} />}
+      {screen === "cards" && <PaymentMethods onBack={() => setScreen(null)} />}
       {screen === "skills" && <JobsAndSkills onBack={() => setScreen(null)} />}
       {screen === "creds" && <Credentials onBack={() => setScreen(null)} />}
       {screen === "verify" && <VerifyFlow onClose={() => { setScreen(null); reload(); }} />}

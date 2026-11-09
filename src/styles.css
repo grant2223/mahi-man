@@ -559,3 +559,5 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .code-in { letter-spacing: 8px; font-size: 26px !important; font-variant-numeric: tabular-nums; }
 .offer .m.sk { color: var(--ink); font-weight: 400; }
 .name-link { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: none; font: inherit; font-size: 19px; font-weight: 500; color: var(--ink); cursor: pointer; text-align: left; }
+.trip-map { height: 320px; background: var(--stone); }
+.trip-me { width: 34px; height: 34px; transform: translate(-50%, -50%); border-radius: 4px; background: var(--emerald); border: 3px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center; color: #fff; font-size: 13px; font-weight: 600; box-sizing: border-box; }

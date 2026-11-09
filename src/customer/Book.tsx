@@ -9,6 +9,7 @@ import { AuthScreen } from "../ui/Auth";
 import { VoiceScreen, voiceSupported } from "../ui/Voice";
 import { MessagesLink } from "../ui/Messages";
 import { PayScreen } from "./Pay";
+import { AddCardScreen, CardMark, cardLabel } from "./Cards";
 import { lc } from "../worker/Skills";
 
 /* Post a job: price, show the job, who can take it, where, when, check. */
@@ -29,7 +30,7 @@ export interface PastWorker { worker_id: string; full_name: string; photo_path: 
 
 export function Book() {
   const path = usePath().split("?")[0];
-  const { session } = useSession();
+  const { session, profile } = useSession();
   const toast = useToast();
   const [types, setTypes] = useState<JobType[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
@@ -42,6 +43,9 @@ export function Book() {
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
   const [fee, setFee] = useState(15);
   const [pilot, setPilot] = useState(true);
+  const [feeMode, setFeeMode] = useState("off");
+  const [cardScreen, setCardScreen] = useState(false);
+  const cardAdded = useRef(false);
   const [feePct, setFeePct] = useState(12);
   const [feeMax, setFeeMax] = useState(3000);
   const [boostCents, setBoostCents] = useState(500);
@@ -59,9 +63,9 @@ export function Book() {
     sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
     sb.from("suburbs").select("id,name").order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
-    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_max_cents", "boost_cents"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_max_cents", "boost_cents", "fee_mode"]).then(({ data }) => {
       for (const r of data ?? []) {
-        if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true");
+        if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true"); if (r.key === "fee_mode") setFeeMode(r.value);
         if (r.key === "booking_fee_percent") setFeePct(Number(r.value)); if (r.key === "booking_fee_max_cents") setFeeMax(Number(r.value));
         if (r.key === "boost_cents") setBoostCents(Number(r.value));
       }
@@ -84,6 +88,8 @@ export function Book() {
       .then((r) => setSupply(r?.[0] ?? null)).catch(() => setSupply(null));
   }, [path, d.categoryId, d.suburbId]);
   const total = d.priceCents + (pilot ? 0 : Math.round((d.priceCents * fee) / 100));
+  const isPlus = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
+  const bookingFee = feeMode === "on_choose" && !isPlus ? Math.min(Math.round((d.priceCents * feePct) / 100), feeMax) : 0;
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
   const reusedPhotos = d.reuse.filter((r) => r.kind === "photo");
@@ -136,6 +142,7 @@ export function Book() {
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !/T\d/.test(d.startAt)) return go("/book/when");
     if (!session) { setAuth(true); return; }
+    if (bookingFee > 0 && !profile?.card_last4 && !cardAdded.current) { setCardScreen(true); return; }
     setBusy(true);
     try {
       const uid = session.user.id;
@@ -226,7 +233,22 @@ export function Book() {
           <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/where")} />
           <ReviewRow k="Where" v={`${d.address}, ${suburb?.name ?? ""}`} onChange={() => go("/book/where")} />
           <ReviewRow k="When" v={d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} onChange={() => go("/book/where")} />
-          <ReviewRow k="Your price" v={money(d.priceCents)} onChange={() => go("/book/price")} last />
+          <ReviewRow k="Your price" v={money(d.priceCents)} onChange={() => go("/book/price")} last={!(bookingFee > 0 && session)} />
+          {bookingFee > 0 && session && (
+            <div className="review-row" style={{ borderBottom: "1px solid var(--line)", cursor: "pointer" }} onClick={() => setCardScreen(true)}>
+              {profile?.card_last4 ? <span className="row" style={{ gap: 12, flex: 1 }}><CardMark brand={profile.card_brand} /><span className="t"><span className="k">Card for the booking fee</span><span className="v">{cardLabel(profile)}</span></span></span>
+                : <span className="t"><span className="k">Card for the booking fee</span><span className="v em">Add a card</span></span>}
+              {profile?.card_last4 ? <button className="link">Change</button> : Icon.chevron("var(--emerald)")}
+            </div>
+          )}
+          {bookingFee > 0 ? (
+            <div className="stack" style={{ padding: "16px 16px 18px", gap: 6 }}>
+              <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
+                The booking fee is only charged when you choose a worker. Nobody chosen, nothing charged. You pay the {money(d.priceCents)} to your worker by PayID or cash when it's done.{" "}
+                <a href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How it works</a>
+              </span>
+            </div>
+          ) : (
           <div className="stack" style={{ padding: "18px 16px 20px", gap: 6 }}>
             {!pilot && <><span className="small w5 em">Total, fixed</span>
             <span className="price">{money2(total)}</span></>}
@@ -241,6 +263,7 @@ export function Book() {
               </span>
             )}
           </div>
+          )}
         </div>
         {supply && supply.online_now > 0 && !skillList.some((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId && k.needs) && (
           <p className="t15 light" style={{ margin: "16px 20px 0", lineHeight: 1.45 }}>
@@ -260,11 +283,16 @@ export function Book() {
         {err && <p className="err" style={{ padding: "0 20px" }}>{err}</p>}
         <div style={{ flex: 1 }} />
         <div className="bottombar">
-          <span className="small light muted" style={{ maxWidth: 170, lineHeight: 1.4 }}>
-            {session ? "People who are free tell you, and you choose." : "Next, a quick account so workers can reach you."}
-          </span>
-          <button className="btn primary" disabled={busy} onClick={book}>{busy ? "Posting…" : "Post it"} {Icon.arrow("#fff")}</button>
+          {bookingFee > 0
+            ? <span className="stack"><span className="k">Booking fee</span><span className="v">{money2(bookingFee)}</span></span>
+            : <span className="small light muted" style={{ maxWidth: 170, lineHeight: 1.4 }}>
+                {session ? "People who are free tell you, and you choose." : "Next, a quick account so workers can reach you."}
+              </span>}
+          <button className="btn primary" disabled={busy} onClick={book}>
+            {busy ? "Posting…" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : "Post it"} {Icon.arrow("#fff")}
+          </button>
         </div>
+        {cardScreen && <AddCardScreen onBack={() => setCardScreen(false)} onSaved={() => { cardAdded.current = true; setCardScreen(false); window.setTimeout(book, 300); }} />}
         {auth && (
           <AuthScreen title="Almost there" reason="Sign in and your job posts straight away. Your photos are saved."
             onBack={() => setAuth(false)} onDone={() => { setAuth(false); window.setTimeout(book, 300); }} />
