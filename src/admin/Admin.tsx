@@ -28,25 +28,43 @@ export function Admin() {
     setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0 });
   }, []);
   useEffect(() => { if (profile?.is_admin) recount(); }, [profile?.is_admin, recount, tab]);
-  const TABS: [Tab, string][] = [["overview", "Overview"], ["jobs", "Jobs"], ["ids", `ID checks${counts.ids ? `  ${counts.ids}` : ""}`], ["licences", `Licence checks${counts.licences ? `  ${counts.licences}` : ""}`],
-    ["reports", `Reports${counts.reports ? `  ${counts.reports}` : ""}`], ["problems", `Disputes${counts.problems ? `  ${counts.problems}` : ""}`],
-    ["people", "People"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]];
+  // Full-width admin: a fixed side menu grouped by what needs doing, and the page on the right.
+  const GROUPS: { label: string; items: [Tab, string, number?][] }[] = [
+    { label: "", items: [["overview", "Overview"]] },
+    { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
+    { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "People"]] },
+    { label: "Setup", items: [["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
+  ];
+  const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
   if (!ready) return null;
   if (!session) return <div className="admin"><AuthScreen title="Admin sign in" reason="Sign in with your admin account." onBack={() => go("/")} onDone={() => {}} /></div>;
   if (!profile?.is_admin) return (
-    <div className="admin"><div className="admin-head"><span className="brand"><Logo /> More Mahi Admin</span><h1 style={{ margin: "16px 0 0", fontWeight: 600 }}>Admins only</h1>
+    <div className="admin solo"><div className="admin-head"><span className="brand"><Logo /> More Mahi Admin</span><h1 style={{ margin: "16px 0 0", fontWeight: 600 }}>Admins only</h1>
       <p className="light">This account isn't an admin. <button className="hero-link" onClick={() => sb.auth.signOut()}>Sign out</button></p></div></div>
   );
   return (
     <div className="admin">
-      <div className="admin-head">
-        <div className="row between">
-          <span className="brand"><Logo /> More Mahi Admin</span>
-          <button className="hero-link" onClick={() => sb.auth.signOut()}>Sign out</button>
+      <aside className="adm-side">
+        <span className="brand"><Logo /> More Mahi</span>
+        <nav>
+          {GROUPS.map((g) => (
+            <div key={g.label || "top"} className="adm-group">
+              {g.label && <span className="adm-label">{g.label}</span>}
+              {g.items.map(([k, l, n]) => (
+                <button key={k} className={tab === k ? "adm-link on" : "adm-link"} onClick={() => setTab(k)}>
+                  <span>{l}</span>{!!n && <span className="adm-count">{n}</span>}
+                </button>
+              ))}
+            </div>
+          ))}
+        </nav>
+        <div className="adm-me">
+          <span className="small light">{session.user.email}</span>
+          <button className="adm-signout" onClick={() => sb.auth.signOut()}>Sign out</button>
         </div>
-        <div className="tabs">{TABS.map(([k, l]) => <button key={k} className={tab === k ? "tab on" : "tab"} onClick={() => setTab(k)}>{l}</button>)}</div>
-      </div>
-      <div className="admin-body">
+      </aside>
+      <main className="adm-main">
+        <h1 className="adm-title">{TITLE[tab]}</h1>
         {tab === "overview" && <Overview />}
         {tab === "jobs" && <Jobs />}
         {tab === "ids" && <IdChecks onChanged={recount} />}
@@ -57,7 +75,7 @@ export function Admin() {
         {tab === "people" && <People />}
         {tab === "types" && <Types />}
         {tab === "settings" && <Settings />}
-      </div>
+      </main>
     </div>
   );
 }
@@ -104,6 +122,8 @@ function Overview() {
     </div>
   );
 }
+// Nothing to do: said once, on the page itself, no card.
+const AdmEmpty = ({ text }: { text: string }) => <div className="adm-empty">{Icon.tick("var(--emerald)", 28)}<span className="stack" style={{ gap: 4 }}><b>All clear</b><span>{text}</span></span></div>;
 const Stat = ({ n, l }: { n: number | string; l: string }) => <div className="stat"><b>{n}</b><span>{l}</span></div>;
 
 function Jobs() {
@@ -399,7 +419,7 @@ function IdChecks({ onChanged }: { onChanged: () => void }) {
   }
   const ago = (iso: string) => { const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 60 ? `${m} min ago` : `${Math.round(m / 60)} hrs ago`; };
 
-  if (!rows.length) return <div className="stat" style={{ maxWidth: 560 }}><b style={{ fontSize: 24 }}>Nothing waiting</b><span>New ID checks appear here, oldest first.</span></div>;
+  if (!rows.length) return <AdmEmpty text="New ID checks show up here, oldest first." />;
   return (
     <div className="row" style={{ alignItems: "stretch", gap: 20, flexWrap: "wrap" }}>
       <div style={{ width: 330, flexShrink: 0, background: "var(--card)", borderRadius: 6, overflow: "hidden", alignSelf: "flex-start" }}>
@@ -488,7 +508,7 @@ function LicenceChecks({ onChanged }: { onChanged: () => void }) {
   const ago = (iso: string) => { const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 60 ? `${m} min ago` : m < 2880 ? `${Math.round(m / 60)} hrs ago` : `${Math.round(m / 1440)} days ago`; };
   const isPdf = cur?.photo_path.toLowerCase().endsWith(".pdf");
 
-  if (!rows.length) return <div className="stat" style={{ maxWidth: 560 }}><b style={{ fontSize: 24 }}>Nothing waiting</b><span>Licences and certificates from workers appear here, oldest first.</span></div>;
+  if (!rows.length) return <AdmEmpty text="Licences and certificates from workers show up here, oldest first." />;
   return (
     <div className="row" style={{ alignItems: "stretch", gap: 20, flexWrap: "wrap" }}>
       <div style={{ width: 330, flexShrink: 0, background: "var(--card)", borderRadius: 6, overflow: "hidden", alignSelf: "flex-start" }}>
