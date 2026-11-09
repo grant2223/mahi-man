@@ -661,3 +661,96 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .area-sub { display: inline-flex; align-items: center; gap: 4px; padding: 6px 6px 6px 10px; border-radius: var(--r-control); background: var(--ground); font-size: 14px; }
 .area-sub button { display: inline-flex; background: none; border: 0; padding: 2px; cursor: pointer; }
 .area-paste { min-height: 160px; border: 0; border-radius: var(--r-control); background: var(--ground); padding: 12px; font: inherit; font-size: 15px; resize: vertical; }
+
+/* ---------- Landing page (moremahi.com, web only) ----------
+   One spacing scale: sections 88px apart (56 on phone), 24px gutters (16 on phone), headings 32px above content. */
+.ld { background: var(--card); min-height: 100dvh; color: var(--ink); }
+.ld a { color: inherit; text-decoration: none; }
+.ld-wrap { max-width: 1160px; margin: 0 auto; padding: 0 24px; }
+.ld h2 { margin: 0 0 32px; font-size: clamp(30px, 4vw, 46px); line-height: 1.05; letter-spacing: -1.4px; font-weight: 600; }
+.ld .btn { height: 54px; padding: 0 24px; font-size: 17px; }
+.btn.lime { background: var(--lime); color: var(--ink); }
+.btn.ghost { background: rgba(255,255,255,0.14); color: #fff; }
+.ld-nav { position: sticky; top: 0; z-index: 10; padding: calc(var(--safe-top) + 12px) 0 12px; background: #0b6b4f; color: #fff; }
+.ld-nav-in { display: flex; align-items: center; gap: 28px; }
+.ld-nav .brand { color: #fff; font-size: 20px; }
+.ld-links { display: flex; gap: 26px; margin-left: auto; font-size: 15px; }
+.ld-links a { color: rgba(255,255,255,0.88); }
+.ld .ld-nav-cta { height: 42px; padding: 0 18px; font-size: 15px; background: var(--lime); color: var(--ink); }
+.ld-hero { background: var(--hero); color: #fff; overflow: hidden; }
+.ld-hero-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 560px); gap: 48px; align-items: center; padding-top: 64px; padding-bottom: 72px; }
+.ld-hero-text { max-width: 580px; }
+/* Eight of the most common jobs, side by side, so people see real work at a glance. */
+.ld-mosaic { display: grid; grid-template-columns: repeat(4, 1fr); grid-auto-rows: 210px; gap: 8px; }
+.ld-mosaic img { width: 100%; height: 100%; object-fit: cover; display: block; border-radius: 6px; }
+.ld-mosaic img:nth-child(odd) { transform: translateY(18px); }
+.ld-pin { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; color: var(--lime); margin-bottom: 16px; }
+.ld-hero h1 { margin: 0 0 20px; font-size: clamp(50px, 7.5vw, 92px); line-height: 0.95; letter-spacing: -3px; font-weight: 600; }
+.ld-hero p { margin: 0 0 32px; font-size: 20px; font-weight: 300; line-height: 1.5; color: rgba(255,255,255,0.92); max-width: 500px; }
+.ld-ctas { gap: 12px; flex-wrap: wrap; }
+.ld-photo-empty { display: flex; align-items: flex-end; padding: 16px; background: rgba(0,0,0,0.12); color: rgba(127,127,127,0.9); font-size: 14px; }
+.ld-trust { background: var(--ground); }
+.ld-trust-in { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 24px; padding-top: 28px; padding-bottom: 28px; }
+.ld-trust-item { display: flex; gap: 10px; align-items: flex-start; }
+.ld-trust-item > span { display: flex; flex-direction: column; gap: 3px; }
+.ld-trust-item b { font-weight: 500; font-size: 16px; }
+.ld-trust-item span span { font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.4; }
+.ld-sec { padding: 88px 0; }
+.ld-sec.alt { background: var(--ground); }
+.ld-kicker { display: block; margin: 0 0 14px; font-size: 13px; letter-spacing: 0.6px; text-transform: uppercase; color: var(--emerald); font-weight: 600; }
+.ld-uses { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; margin-bottom: 48px; }
+.ld-use { display: flex; flex-direction: column; gap: 8px; }
+.ld-use-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); display: block; margin-bottom: 8px; }
+.ld-use b { font-size: 21px; font-weight: 600; letter-spacing: -0.3px; }
+.ld-use > span:last-child { font-size: 16px; font-weight: 300; line-height: 1.5; color: var(--muted); }
+.ld-cats { display: grid; grid-template-columns: repeat(auto-fill, minmax(176px, 1fr)); gap: 10px; }
+.ld-cat { display: flex; align-items: center; gap: 12px; min-height: 60px; padding: 0 16px; border-radius: var(--r-control); background: var(--ground); font-size: 15px; font-weight: 500; line-height: 1.25; }
+.ld-cat:hover { background: var(--emerald-tint); }
+.ld-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 40px; margin-bottom: 40px; }
+.ld-step { display: flex; flex-direction: column; gap: 10px; }
+.ld-step b { font-size: 22px; font-weight: 600; letter-spacing: -0.3px; }
+.ld-step > span:last-child { font-size: 16px; font-weight: 300; line-height: 1.55; color: var(--muted); }
+.ld-n { font-size: 48px; font-weight: 600; color: var(--emerald); letter-spacing: -1.5px; line-height: 1; }
+.ld-earn { background: var(--hero); color: #fff; padding: 88px 0; }
+.ld-earn-in { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); gap: 56px; align-items: center; }
+.ld-earn p { margin: 0 0 24px; font-size: 19px; font-weight: 300; line-height: 1.5; max-width: 520px; color: rgba(255,255,255,0.92); }
+.ld-earn ul { list-style: none; margin: 0 0 32px; padding: 0; display: flex; flex-direction: column; gap: 12px; font-size: 17px; }
+.ld-earn li { display: flex; gap: 10px; align-items: center; }
+.ld-earn-photo { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: var(--radius); display: block; }
+.ld-jobs { background: var(--card); color: var(--ink); border-radius: var(--radius); padding: 8px 22px; }
+.ld-jobs-k { display: block; padding: 14px 0 8px; font-size: 13px; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); }
+.ld-job { display: flex; gap: 14px; align-items: center; padding: 16px 0; border-top: 1px solid var(--line); }
+.ld-job b { font-size: 16px; font-weight: 500; }
+.ld-job span span { font-size: 14px; font-weight: 300; color: var(--muted); }
+.ld-job .p { font-size: 20px; font-weight: 600; color: var(--emerald); }
+.ld-faq details { border-top: 1px solid var(--line); padding: 20px 0; max-width: 780px; }
+.ld-faq details:last-child { border-bottom: 1px solid var(--line); }
+.ld-faq summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; font-size: 19px; font-weight: 500; cursor: pointer; list-style: none; }
+.ld-faq summary::-webkit-details-marker { display: none; }
+.ld-faq details[open] summary svg { transform: rotate(180deg); }
+.ld-faq details p { margin: 12px 0 0; font-size: 16px; font-weight: 300; line-height: 1.55; color: var(--muted); max-width: 680px; }
+.ld-final { background: var(--ground); padding: 72px 0; }
+.ld-final-in { display: flex; align-items: center; justify-content: space-between; gap: 24px; flex-wrap: wrap; }
+.ld-final h2 { margin: 0; max-width: 640px; }
+.ld-foot { background: var(--ink); color: rgba(255,255,255,0.8); padding: 32px 0 calc(var(--safe-bottom) + 32px); font-size: 15px; }
+.ld-foot-in { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.ld-foot .brand { color: #fff; }
+@media (max-width: 860px) {
+  .ld-wrap { padding: 0 16px; }
+  .ld-links { display: none; }
+  .ld-nav-in { justify-content: space-between; }
+  .ld .btn { height: 52px; padding: 0 20px; font-size: 16px; }
+  .ld-hero-in { grid-template-columns: 1fr; gap: 32px; padding-top: 44px; padding-bottom: 48px; }
+  .ld-mosaic { grid-auto-rows: 110px; gap: 6px; }
+  .ld-mosaic img:nth-child(odd) { transform: none; }
+  .ld-hero h1 { letter-spacing: -2px; }
+  .ld-hero p { font-size: 18px; margin-bottom: 26px; }
+  .ld-trust-in { grid-template-columns: 1fr 1fr; gap: 20px 16px; padding-top: 24px; padding-bottom: 24px; }
+  .ld-sec, .ld-earn { padding: 56px 0; }
+  .ld h2 { margin-bottom: 24px; }
+  .ld-uses { grid-template-columns: 1fr; gap: 28px; margin-bottom: 32px; }
+  .ld-cats { grid-template-columns: 1fr 1fr; }
+  .ld-steps { grid-template-columns: 1fr; gap: 28px; margin-bottom: 32px; }
+  .ld-earn-in { grid-template-columns: 1fr; gap: 32px; }
+  .ld-final { padding: 48px 0; }
+}

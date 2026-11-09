@@ -15,7 +15,7 @@ export function SideSwitch({ side }: { side: "help" | "work" }) {
   const work = profile?.is_worker ? "/work" : "/find";
   return (
     <div className="path-switch" role="tablist" aria-label="What are you here for?">
-      <button className={side === "help" ? "on" : ""} role="tab" aria-selected={side === "help"} onClick={() => { if (side !== "help") { setSide("help"); go("/"); } }}>Get help</button>
+      <button className={side === "help" ? "on" : ""} role="tab" aria-selected={side === "help"} onClick={() => { if (side !== "help") { setSide("help"); go("/post"); } }}>Get help</button>
       <button className={side === "work" ? "on" : ""} role="tab" aria-selected={side === "work"} onClick={() => { if (side !== "work") { setSide("work"); go(work); } }}>Do work</button>
     </div>
   );
