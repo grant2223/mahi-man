@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { api, avatarUrl, brandUrl, rpc, sb, type Category, type JobType } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
@@ -32,7 +32,7 @@ export function Admin() {
   const GROUPS: { label: string; items: [Tab, string, number?][] }[] = [
     { label: "", items: [["overview", "Overview"]] },
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
-    { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "People"]] },
+    { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"]] },
     { label: "Setup", items: [["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
   ];
   const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
@@ -690,53 +690,131 @@ function People() {
   const [q, setQ] = useState("");
   const [review, setReview] = useState<Set<string>>(new Set());
   const [admins, setAdmins] = useState<Set<string>>(new Set());
-  const { session } = useSession();
+  const [open, setOpen] = useState<string | null>(null);
   const load = useCallback(() => {
     rpc<Person[]>("admin_people").then(setRows).catch((e) => toast((e as Error).message));
     sb.from("admin_roles").select("email").then(({ data }) => setAdmins(new Set((data ?? []).map((r) => (r.email as string).toLowerCase()))));
     sb.from("workers").select("id").eq("needs_review", true).then(({ data }) => setReview(new Set((data ?? []).map((r) => r.id as string))));
   }, [toast]);
   useEffect(() => { load(); }, [load]);
+  const person = rows.find((r) => r.id === open);
+  if (person) return <UserDetail p={person} isAdmin={admins.has(person.email.toLowerCase())} review={review.has(person.id)} onBack={() => setOpen(null)} onChanged={load} />;
   const shown = rows.filter((r) => `${r.full_name} ${r.email}`.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <>
-      <label className="search" style={{ margin: "0 0 12px", maxWidth: 420, background: "var(--card)" }}>
+      <label className="search" style={{ margin: "0 0 16px", maxWidth: 420, background: "var(--card)" }}>
+        {Icon.search("var(--muted)")}
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or email" />
       </label>
       <div className="table-wrap">
-        <table>
-          <thead><tr><th>Photo</th><th>Name</th><th>Email</th><th>Role</th><th>ID</th><th>ABN</th><th>Jobs</th><th>Joined</th><th>Action</th></tr></thead>
+        <table className="rows">
+          <thead><tr><th>User</th><th>Role</th><th>ID</th><th>Jobs</th><th>Joined</th><th /></tr></thead>
           <tbody>
             {shown.map((p) => (
-              <tr key={p.id}>
-                <td>{p.photo_path ? <img src={avatarUrl(p.photo_path)!} alt="" style={{ width: 44, height: 44, objectFit: "cover", borderRadius: 4, display: "block" }} /> : "—"}</td>
-                <td>{p.full_name || "—"}</td>
-                <td>{p.email}</td>
-                <td>{admins.has(p.email.toLowerCase()) && <span className="badge g" style={{ marginRight: 6 }}>Admin</span>}{p.is_worker ? (p.approved ? <span className="badge g">Worker, ready</span> : <span className="badge">Worker, signing up</span>) : "Customer"}
-                  {review.has(p.id) && <><span className="badge r" style={{ marginLeft: 6 }}>Low ratings, offline</span>
-                    <button className="btn stone small" style={{ marginLeft: 6 }} onClick={async () => {
-                      try { await rpc("admin_clear_review", { p_worker: p.id }); toast("Cleared. They can go online again."); load(); } catch (e) { toast((e as Error).message); }
-                    }}>Clear</button></>}</td>
-                <td><span className={`badge ${ID_BADGE[p.id_status]?.[0] ?? ""}`}>{ID_BADGE[p.id_status]?.[1] ?? p.id_status}</span></td>
-                <td>{p.abn ?? "—"}</td>
-                <td>{p.jobs_posted} booked, {p.jobs_worked} worked</td>
-                <td>{new Date(p.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</td>
-                <td><span className="row" style={{ gap: 6 }}>
-                  <button className={p.suspended ? "btn primary small" : "btn stone small"} onClick={async () => {
-                    try { await rpc("admin_set_suspended", { p_user: p.id, p_suspended: !p.suspended }); toast("Saved"); load(); } catch (e) { toast((e as Error).message); }
-                  }}>{p.suspended ? "Unpause" : "Pause"}</button>
-                  {p.id !== session?.user.id && <button className="btn stone small" onClick={async () => {
-                    const on = !admins.has(p.email.toLowerCase());
-                    try { await rpc("admin_set_role", { p_email: p.email, p_admin: on }); toast(on ? `${p.full_name || p.email} is now an admin` : "Admin role removed"); load(); } catch (e) { toast((e as Error).message); }
-                  }}>{admins.has(p.email.toLowerCase()) ? "Remove admin" : "Make admin"}</button>}
+              <tr key={p.id} className="click" onClick={() => setOpen(p.id)}>
+                <td><span className="row" style={{ gap: 12 }}>
+                  {p.photo_path ? <img className="u-pic" src={avatarUrl(p.photo_path)!} alt="" /> : <span className="u-pic none">{(p.full_name || p.email).slice(0, 1).toUpperCase()}</span>}
+                  <span className="stack" style={{ gap: 1 }}><span className="w5">{p.full_name || "No name yet"}</span><span className="small muted light">{p.email}</span></span>
                 </span></td>
+                <td>{roleBadges(p, admins.has(p.email.toLowerCase()), review.has(p.id))}</td>
+                <td><span className={`badge ${ID_BADGE[p.id_status]?.[0] ?? ""}`}>{ID_BADGE[p.id_status]?.[1] ?? p.id_status}</span></td>
+                <td className="light">{p.jobs_posted} posted, {p.jobs_worked} worked</td>
+                <td className="light">{new Date(p.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</td>
+                <td style={{ width: 32 }}>{Icon.chevron("var(--faint)")}</td>
               </tr>
             ))}
-            {shown.length === 0 && <tr><td colSpan={9} className="muted">No one yet.</td></tr>}
+            {shown.length === 0 && <tr><td colSpan={6} className="muted">No one yet.</td></tr>}
           </tbody>
         </table>
       </div>
     </>
+  );
+}
+
+function roleBadges(p: Person, admin: boolean, review: boolean) {
+  return <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+    {admin && <span className="badge g">Admin</span>}
+    {p.is_worker ? (p.approved ? <span className="badge g">Worker</span> : <span className="badge">Worker, setting up</span>) : <span className="badge">Customer</span>}
+    {p.suspended && <span className="badge r">Paused</span>}
+    {review && <span className="badge r">Low ratings</span>}
+  </span>;
+}
+
+interface UJob { id: string; title: string | null; status: string; price_cents: number; created_at: string; customer_id: string; worker_id: string | null; job_types: { name: string } | null }
+// One user: everything about them on one page, with the actions at the top.
+function UserDetail({ p, isAdmin, review, onBack, onChanged }: { p: Person; isAdmin: boolean; review: boolean; onBack: () => void; onChanged: () => void }) {
+  const toast = useToast();
+  const { session } = useSession();
+  const [w, setW] = useState<Record<string, unknown> | null>(null);
+  const [cats, setCats] = useState<string[]>([]);
+  const [creds, setCreds] = useState<{ name: string; status: string; expiry: string | null }[]>([]);
+  const [jobs, setJobs] = useState<UJob[]>([]);
+  const [prof, setProf] = useState<Record<string, unknown> | null>(null);
+  useEffect(() => {
+    sb.from("profiles").select("first_name,middle_names,last_name,phone,id_note,card_brand,card_last4").eq("id", p.id).single().then(({ data }) => setProf(data));
+    sb.from("jobs").select("id,title,status,price_cents,created_at,customer_id,worker_id,job_types(name)").or(`customer_id.eq.${p.id},worker_id.eq.${p.id}`).order("created_at", { ascending: false }).limit(20)
+      .then(({ data }) => setJobs((data ?? []) as unknown as UJob[]));
+    if (!p.is_worker) return;
+    sb.from("workers").select("payid,bsb,account_number,abn,radius_km,online,suburbs:base_suburb_id(name)").eq("id", p.id).single().then(({ data }) => setW(data));
+    sb.from("worker_job_types").select("job_types(name)").eq("worker_id", p.id).then(({ data }) => setCats((data ?? []).map((r) => (r.job_types as unknown as { name: string } | null)?.name ?? "").filter(Boolean)));
+    sb.from("worker_credentials").select("status,expiry,credential_types(name)").eq("worker_id", p.id).order("created_at", { ascending: false })
+      .then(({ data }) => setCreds((data ?? []).map((r) => ({ name: (r.credential_types as unknown as { name: string } | null)?.name ?? "Licence", status: r.status as string, expiry: r.expiry as string | null }))));
+  }, [p.id, p.is_worker]);
+  const act = async (f: () => Promise<unknown>, msg: string) => { try { await f(); toast(msg); onChanged(); } catch (e) { toast((e as Error).message); } };
+  const dmy = (d: string) => new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
+  const bsb = w?.bsb as string | null, acct = w?.account_number as string | null;
+  const Row = ({ k, v }: { k: string; v: ReactNode }) => <div className="u-row"><span className="k">{k}</span><span className="v">{v}</span></div>;
+  return (
+    <div className="u-page">
+      <button className="u-back" onClick={onBack}>{Icon.back("var(--emerald)")} All users</button>
+      <div className="u-head">
+        {p.photo_path ? <img className="u-big" src={avatarUrl(p.photo_path)!} alt="" /> : <span className="u-big none">{(p.full_name || p.email).slice(0, 1).toUpperCase()}</span>}
+        <div className="stack" style={{ gap: 8, flex: 1, minWidth: 0 }}>
+          <h2>{p.full_name || "No name yet"}</h2>
+          <span className="light muted">{p.email}, joined {dmy(p.created_at)}</span>
+          {roleBadges(p, isAdmin, review)}
+        </div>
+        <div className="row" style={{ gap: 8, alignSelf: "flex-start", flexWrap: "wrap" }}>
+          {review && <button className="btn stone" onClick={() => act(() => rpc("admin_clear_review", { p_worker: p.id }), "Cleared. They can go online again.")}>Clear low ratings</button>}
+          {p.id !== session?.user.id && <button className="btn stone" onClick={() => act(() => rpc("admin_set_role", { p_email: p.email, p_admin: !isAdmin }), isAdmin ? "Admin role removed" : "Now an admin")}>{isAdmin ? "Remove admin" : "Make admin"}</button>}
+          <button className={p.suspended ? "btn primary" : "btn stone"} onClick={() => act(() => rpc("admin_set_suspended", { p_user: p.id, p_suspended: !p.suspended }), p.suspended ? "Unpaused" : "Paused")}>{p.suspended ? "Unpause" : "Pause account"}</button>
+        </div>
+      </div>
+      <div className="u-grid">
+        <section className="u-card">
+          <h3>Account</h3>
+          <Row k="Name" v={[prof?.first_name, prof?.middle_names, prof?.last_name].filter(Boolean).join(" ") || "—"} />
+          <Row k="Email" v={p.email} />
+          <Row k="Mobile" v={(prof?.phone as string) || "—"} />
+          <Row k="ID check" v={<span className={`badge ${ID_BADGE[p.id_status]?.[0] ?? ""}`}>{ID_BADGE[p.id_status]?.[1] ?? p.id_status}</span>} />
+          {!!prof?.id_note && <Row k="ID note" v={prof.id_note as string} />}
+          <Row k="Saved card" v={prof?.card_last4 ? `${String(prof.card_brand).toUpperCase()} ending ${prof.card_last4}` : "None"} />
+        </section>
+        {p.is_worker && (
+          <section className="u-card">
+            <h3>Work</h3>
+            <Row k="Status" v={p.approved ? (w?.online ? "Ready, online now" : "Ready, offline") : "Setting up"} />
+            <Row k="Area" v={w ? `${(w.suburbs as { name: string } | null)?.name ?? "Not set"}${w.radius_km ? `, up to ${w.radius_km} km` : ""}` : "—"} />
+            <Row k="My skills" v={cats.length ? cats.join(", ") : "None yet"} />
+            <Row k="Getting paid" v={w?.payid ? `PayID ${w.payid}` : bsb && acct ? `BSB ${bsb.slice(0, 3)}-${bsb.slice(3)}, Acc ${acct}` : "Not added"} />
+            <Row k="ABN" v={(w?.abn as string) || "None"} />
+            <Row k="Licences" v={creds.length ? creds.map((c) => `${c.name} (${c.status}${c.expiry ? `, to ${dmy(c.expiry)}` : ""})`).join(", ") : "None"} />
+          </section>
+        )}
+        <section className="u-card wide">
+          <h3>Jobs</h3>
+          {jobs.length ? jobs.map((j) => (
+            <div key={j.id} className="u-row">
+              <span className="k">{dmy(j.created_at)}</span>
+              <span className="v row between" style={{ gap: 12 }}>
+                <span>{j.title || j.job_types?.name || "Job"} <span className="muted light">{j.customer_id === p.id ? "posted" : "worked"}</span></span>
+                <span className="row" style={{ gap: 12 }}><span className="badge">{j.status}</span><span className="w5">{money2(j.price_cents)}</span></span>
+              </span>
+            </div>
+          )) : <p className="light muted" style={{ margin: 0 }}>No jobs yet.</p>}
+        </section>
+      </div>
+    </div>
   );
 }
 
@@ -862,6 +940,32 @@ function Types() {
   );
 }
 
+// Settings in groups, each with a plain explanation. Money is shown in dollars; nothing saves until Save.
+type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" } | { t: "text"; ph: string });
+const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
+  { title: "Payments", text: "How customers pay during the pilot, and when the booking fee is charged.", fields: [
+    { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
+    { k: "fee_mode", label: "Charge the booking fee", hint: "Charged to the customer's saved card when they choose a worker.", t: "toggle", on: "on_choose", off: "off" },
+    { k: "stripe_publishable_key", label: "Stripe publishable key", hint: "Starts with pk_. Needed before any card payments.", t: "text", ph: "pk_live_…" },
+  ] },
+  { title: "Fees and prices", text: "What customers are charged, and what's shown to them during the pilot.", fields: [
+    { k: "booking_fee_percent", label: "Booking fee", hint: "A share of the job price.", t: "num", unit: "%" },
+    { k: "booking_fee_max_cents", label: "Booking fee cap", hint: "The most one booking fee can be.", t: "num", unit: "$" },
+    { k: "fee_percent", label: "Fee when the card is held", hint: "Only used with pilot mode off.", t: "num", unit: "%" },
+    { k: "boost_cents", label: "Urgent boost", t: "num", unit: "$" },
+    { k: "plus_cents", label: "Plus, per month", t: "num", unit: "$" },
+  ] },
+  { title: "Jobs", text: "Timing rules for every job.", fields: [
+    { k: "widen_after_minutes", label: "Show to workers further away after", t: "num", unit: "minutes" },
+    { k: "auto_release_hours", label: "Close as done if the customer does nothing for", t: "num", unit: "hours" },
+    { k: "callout_cents", label: "Late-cancel payment to the worker", t: "num", unit: "$" },
+  ] },
+  { title: "Customers", text: "Checks a customer needs before they can book.", fields: [
+    { k: "customer_id_required", label: "ID check required to book", hint: "Off: customers are asked after their first booking.", t: "toggle", on: "true", off: "false" },
+  ] },
+];
+const isCents = (k: string) => k.endsWith("_cents");
+
 function Settings() {
   const toast = useToast();
   const [vals, setVals] = useState<Record<string, string>>({});
@@ -872,57 +976,58 @@ function Settings() {
       setVals(m); setOrig(m);
     });
   }, []);
-  const F: [string, string, string][] = [
-    ["pilot_mode", "Pilot mode", ""],
-    ["fee_mode", "Booking fee", ""],
-    ["customer_id_required", "Customer ID check", ""],
-    ["fee_percent", "Booking fee (% added to the job price)", "15"],
-    ["callout_cents", "Late-cancel payment to worker (cents)", "1500"],
-    ["auto_release_hours", "Auto-pay if customer doesn't confirm (hours)", "48"],
-    ["widen_after_minutes", "Show to workers further away after (minutes)", "10"],
-    ["booking_fee_percent", "Launch booking fee (% of the job, shown in the pilot)", "12"],
-    ["booking_fee_max_cents", "Launch booking fee cap (cents)", "3000"],
-    ["boost_cents", "Urgent boost price from launch (cents)", "500"],
-    ["plus_cents", "Plus price a month (cents)", "999"],
-    ["stripe_publishable_key", "Stripe publishable key (starts pk_)", "pk_live_…"],
-  ];
-  const changed = F.some(([k]) => vals[k] !== orig[k]);
+  const keys = SETTING_GROUPS.flatMap((g) => g.fields.map((f) => f.k));
+  const changed = keys.filter((k) => vals[k] !== orig[k]);
+  const shown = (k: string) => { const v = vals[k] ?? ""; return isCents(k) && v !== "" ? String(Number(v) / 100) : v; };
+  const set = (k: string, v: string) => setVals({ ...vals, [k]: isCents(k) ? (v === "" ? "" : String(Math.round(Number(v) * 100))) : v });
+  async function save() {
+    if (vals.stripe_publishable_key && !vals.stripe_publishable_key.startsWith("pk_")) return toast("The publishable key starts with pk_");
+    if (vals.pilot_mode === "false" && !vals.stripe_publishable_key) return toast("Add the Stripe publishable key before turning pilot mode off");
+    if (vals.fee_mode === "on_choose" && !vals.stripe_publishable_key) return toast("Connect Stripe and add the publishable key before turning the booking fee on");
+    for (const k of changed) {
+      const { error } = await sb.from("settings").update({ value: vals[k] }).eq("key", k);
+      if (error) return toast(error.message);
+    }
+    setOrig(vals); toast("Saved");
+  }
   return (
-    <div style={{ maxWidth: 560 }} className="stack">
-      {F.map(([k, l, ph]) => k === "customer_id_required" ? (
-        <label key={k} className="field" style={{ background: "var(--card)" }}><span className="k">{l}</span>
-          <select value={vals[k] ?? "false"} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} style={{ border: 0, background: "transparent", fontSize: 18, fontWeight: 500, padding: 0 }}>
-            <option value="false">Optional: customers are asked after their first booking</option>
-            <option value="true">Required before a customer can book</option>
-          </select></label>
-      ) : k === "fee_mode" ? (
-        <label key={k} className="field" style={{ background: "var(--card)" }}><span className="k">{l}</span>
-          <select value={vals[k] ?? "off"} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} style={{ border: 0, background: "transparent", fontSize: 18, fontWeight: 500, padding: 0 }}>
-            <option value="off">Off: no booking fee</option>
-            <option value="on_choose">On: charged to a saved card when the customer chooses a worker</option>
-          </select></label>
-      ) : k === "pilot_mode" ? (
-        <label key={k} className="field" style={{ background: "var(--card)" }}><span className="k">{l}</span>
-          <select value={vals[k] ?? "true"} onChange={(e) => setVals({ ...vals, [k]: e.target.value })} style={{ border: 0, background: "transparent", fontSize: 18, fontWeight: 500, padding: 0 }}>
-            <option value="true">On: no card, no fee, customers pay workers directly</option>
-            <option value="false">Off: card held, 15% fee, paid out by Stripe</option>
-          </select></label>
-      ) : (
-        <label key={k} className="field" style={{ background: "var(--card)" }}><span className="k">{l}</span>
-          <input value={vals[k] ?? ""} placeholder={ph} onChange={(e) => setVals({ ...vals, [k]: e.target.value.trim() })} /></label>
+    <div className="set-page">
+      {SETTING_GROUPS.map((g) => (
+        <section key={g.title} className="set-group">
+          <div className="set-about"><h3>{g.title}</h3><p>{g.text}</p></div>
+          <div className="set-card">
+            {g.fields.map((f) => (
+              <div key={f.k} className="set-row">
+                <span className="stack" style={{ gap: 3, flex: 1, minWidth: 0 }}>
+                  <span className="set-label">{f.label}</span>
+                  {f.hint && <span className="set-hint">{f.hint}</span>}
+                </span>
+                {f.t === "toggle" ? (
+                  <button className={`toggle${vals[f.k] === f.on ? " on" : ""}`} role="switch" aria-checked={vals[f.k] === f.on} aria-label={f.label}
+                    onClick={() => setVals({ ...vals, [f.k]: vals[f.k] === f.on ? f.off : f.on })} />
+                ) : f.t === "num" ? (
+                  <label className="set-num">
+                    {f.unit === "$" && <span>$</span>}
+                    <input inputMode="decimal" value={shown(f.k)} onChange={(e) => set(f.k, e.target.value.replace(/[^\d.]/g, ""))} />
+                    {f.unit !== "$" && <span>{f.unit}</span>}
+                  </label>
+                ) : (
+                  <input className="set-text" value={vals[f.k] ?? ""} placeholder={f.ph} onChange={(e) => setVals({ ...vals, [f.k]: e.target.value.trim() })} />
+                )}
+              </div>
+            ))}
+          </div>
+        </section>
       ))}
-      <div className="row" style={{ justifyContent: "flex-end" }}>
-        <button className="btn primary" disabled={!changed} onClick={async () => {
-          if (vals.stripe_publishable_key && !vals.stripe_publishable_key.startsWith("pk_")) return toast("The publishable key starts with pk_");
-          if (vals.pilot_mode === "false" && !vals.stripe_publishable_key) return toast("Add the Stripe publishable key before turning pilot mode off");
-          if (vals.fee_mode === "on_choose" && !vals.stripe_publishable_key) return toast("Connect Stripe and add the publishable key before turning the booking fee on");
-          for (const [k] of F) if (vals[k] !== orig[k]) {
-            const { error } = await sb.from("settings").update({ value: vals[k] }).eq("key", k);
-            if (error) return toast(error.message);
-          }
-          setOrig(vals); toast("Saved");
-        }}>Save</button>
-      </div>
+      {changed.length > 0 && (
+        <div className="set-bar">
+          <span>{changed.length === 1 ? "1 unsaved change" : `${changed.length} unsaved changes`}</span>
+          <span className="row" style={{ gap: 10 }}>
+            <button className="btn stone" onClick={() => setVals(orig)}>Discard</button>
+            <button className="btn primary" onClick={save}>Save</button>
+          </span>
+        </div>
+      )}
     </div>
   );
 }
