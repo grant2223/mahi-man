@@ -62,13 +62,13 @@ export function JobsAndSkills({ onBack }: { onBack: () => void }) {
   const { mine, load } = useMine();
   const [open, setOpen] = useState<number | null>(null);
   const [adding, setAdding] = useState(false);
-  if (!cat || !mine) return <Screen brand title="Jobs and skills" onBack={onBack}><div className="screen-body" /></Screen>;
+  if (!cat || !mine) return <Screen title="Jobs and skills" onBack={onBack}><div className="screen-body" /></Screen>;
   const myTypes = cat.types.filter((t) => mine.types.some((m) => m.job_type_id === t.id));
   const names = (catId: number, kind: "skill" | "gear") => cat.skills.filter((k) => k.category_id === catId && k.kind === kind && mine.skills.includes(k.id)).map((k) => k.name);
   const openType = cat.types.find((t) => t.id === open);
 
   return (
-    <Screen brand title="Jobs and skills" onBack={onBack}>
+    <Screen title="Jobs and skills" onBack={onBack}>
       <div className="screen-body" style={{ background: "var(--card)" }}>
         {myTypes.map((t) => {
           const sk = names(t.cat.id, "skill"), gear = names(t.cat.id, "gear");
@@ -148,7 +148,7 @@ function JobDetail({ type, catalog, mine, isNew, onBack, onSaved, onCredsChanged
   }
 
   return (
-    <Screen brand title={type.cat.name} onBack={onBack} right={<button className="btn primary small" disabled={busy} onClick={save}>Save</button>}>
+    <Screen title={type.cat.name} onBack={onBack} right={<button className="btn primary small" disabled={busy} onClick={save}>Save</button>}>
       <div className="screen-body" style={{ padding: 16 }}>
         <div className="stack">
           <button className="field sel" onClick={() => setPick("skills")}><span className="k">Skills</span><span className={skills.length ? "v w4" : "v ph"}>{skills.length ? nameOf(skills) : "Pick your skills"}</span></button>
@@ -189,7 +189,7 @@ export function Credentials({ onBack }: { onBack: () => void }) {
   const cat = useCatalog();
   const { mine, load } = useMine();
   const [add, setAdd] = useState<number | "new" | null>(null);
-  if (!cat || !mine) return <Screen brand title="Licences and certificates" onBack={onBack}><div className="screen-body" /></Screen>;
+  if (!cat || !mine) return <Screen title="Licences and certificates" onBack={onBack}><div className="screen-body" /></Screen>;
   const latest = [...latestCreds(mine.creds).values()];
   const status = (c: MyCred) => {
     if (c.status === "verified") return c.expiry && c.expiry < today() ? { t: `Expired ${dmy(c.expiry)}. Tap to add the new one`, ok: false } : { t: `Verified${c.expiry ? `, until ${dmy(c.expiry)}` : ""}`, ok: true };
@@ -198,7 +198,7 @@ export function Credentials({ onBack }: { onBack: () => void }) {
     return { t: `Not approved: ${c.reason ?? "tap to send it again"}`, ok: false };
   };
   return (
-    <Screen brand title="Licences and certificates" onBack={onBack}>
+    <Screen title="Licences and certificates" onBack={onBack}>
       <div className="screen-body" style={{ background: "var(--card)" }}>
         {latest.map((c) => {
           const s = status(c);
@@ -254,7 +254,7 @@ function AddCredential({ types, initial, onBack, onSaved }: { types: CredType[];
   }
 
   return (
-    <Screen brand title={t ? `Add ${lc(t.name)}` : "Add a licence or certificate"} onBack={onBack}>
+    <Screen title={t ? `Add ${lc(t.name)}` : "Add a licence or certificate"} onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <div className="stack">
           <button className="field sel" onClick={() => setPick(true)}><span className="k">Which one</span><span className={t ? "v w4" : "v ph"}>{t?.name ?? "Pick one"}</span></button>

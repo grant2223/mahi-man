@@ -391,7 +391,7 @@ function EmergencyScreen({ jobId, onBack }: { jobId: string; onBack: () => void 
     if (session) sb.from("incidents").insert({ job_id: jobId, reporter_id: session.user.id, kind: "emergency", details: "Emergency screen opened" }).then(() => {});
   }, [jobId, session]);
   return (
-    <Screen title="Emergency" onBack={onBack}>
+    <Screen tone="danger" title="Emergency" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>If you or anyone is in danger, get to safety and call 000 now. We've been alerted and will contact you.</p>
         <a className="btn danger block" href="tel:000" style={{ height: 64, fontSize: 22 }}>Call 000</a>
@@ -406,7 +406,7 @@ function ProblemScreen({ jobId, onBack }: { jobId: string; onBack: () => void })
   const toast = useToast();
   const [details, setDetails] = useState("");
   return (
-    <Screen title="Report a problem" onBack={onBack}>
+    <Screen tone="ink" title="Report a problem" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <label className="field"><span className="k">What's happening?</span><textarea value={details} onChange={(e) => setDetails(e.target.value)} style={{ minHeight: 120 }} /></label>
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>

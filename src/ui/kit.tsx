@@ -99,7 +99,8 @@ export function Tile({ name, photo, size = 56 }: { name: string; photo?: string 
 }
 
 /* ---------- Full-bleed screen (every menu, picker and sheet) ---------- */
-export function Screen({ title, onBack, children, right, brand }: { title: string; onBack: () => void; children: ReactNode; right?: ReactNode; brand?: boolean }) {
+// Every full-screen page has the emerald brand header. Emergency is red so it stands out; reports use dark ink.
+export function Screen({ title, onBack, children, right, tone = "brand" }: { title: string; onBack: () => void; children: ReactNode; right?: ReactNode; brand?: boolean; tone?: "brand" | "danger" | "ink" }) {
   useEffect(() => {
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
@@ -107,8 +108,8 @@ export function Screen({ title, onBack, children, right, brand }: { title: strin
   }, []);
   return (
     <div className="screen" role="dialog" aria-label={title}>
-      <div className={brand ? "screen-head brand" : "screen-head"}>
-        <button className="back" onClick={onBack} aria-label="Back">{Icon.back(brand ? "#fff" : undefined)}</button>
+      <div className={`screen-head brand ${tone}`}>
+        <button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button>
         <h3>{title}</h3>
         {right}
       </div>

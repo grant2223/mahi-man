@@ -565,3 +565,6 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .screen-head.brand { background: var(--hero); color: #fff; border-bottom: 0; padding: calc(var(--safe-top) + 14px) 16px 22px; }
 .screen-head.brand h3 { font-size: 24px; letter-spacing: -0.6px; }
 .screen-head.brand .btn.primary { background: var(--lime); color: var(--ink); box-shadow: none; }
+.screen-head.brand.danger { background: linear-gradient(180deg, #c8402f, #9e2a1d); }
+.screen-head.brand.ink { background: linear-gradient(180deg, #2c322f, #1d211f); }
+.screen-head.brand.danger .btn.primary, .screen-head.brand.ink .btn.primary { background: #fff; color: var(--ink); }
