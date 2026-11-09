@@ -5,11 +5,11 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money2, shrinkImage } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
-import { CatIcon, Icon, Logo, SearchPicker, useToast } from "../ui/kit";
+import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit";
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "areas" | "types" | "skills" | "settings";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -33,7 +33,7 @@ export function Admin() {
   const GROUPS: { label: string; items: [Tab, string, number?][] }[] = [
     { label: "", items: [["overview", "Overview"]] },
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
-    { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"]] },
+    { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["launch", "Launch list"]] },
     { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
   ];
   const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
@@ -74,6 +74,7 @@ export function Admin() {
         {tab === "reports" && <Reports onChanged={recount} />}
         {tab === "problems" && <Problems />}
         {tab === "people" && <People />}
+        {tab === "launch" && <LaunchList />}
         {tab === "areas" && <Areas />}
         {tab === "types" && <Types />}
         {tab === "settings" && <Settings />}
@@ -1174,5 +1175,59 @@ function Settings() {
         </div>
       )}
     </div>
+  );
+}
+
+// People who joined the launch from the website. Download the list as a CSV that TestFlight imports as testers,
+// then mark them invited once the TestFlight email has gone.
+interface Signup { id: number; first_name: string; last_name: string; email: string; created_at: string; invited_at: string | null }
+function LaunchList() {
+  const toast = useToast();
+  const [rows, setRows] = useState<Signup[] | null>(null);
+  const load = useCallback(() => {
+    sb.from("launch_signups").select("*").order("created_at", { ascending: false }).then(({ data, error }) => { if (error) toast(error.message); setRows((data ?? []) as Signup[]); });
+  }, [toast]);
+  useEffect(() => { load(); }, [load]);
+  const waiting = (rows ?? []).filter((r) => !r.invited_at);
+  function download() {
+    const q = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const csv = waiting.map((r) => [r.first_name, r.last_name, r.email].map(q).join(",")).join("\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
+    a.download = `more-mahi-testers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+  }
+  async function markAll() {
+    const { error } = await sb.from("launch_signups").update({ invited_at: new Date().toISOString() }).in("id", waiting.map((r) => r.id));
+    if (error) toast(error.message); else { toast("Saved"); load(); }
+  }
+  async function toggle(r: Signup) {
+    const { error } = await sb.from("launch_signups").update({ invited_at: r.invited_at ? null : new Date().toISOString() }).eq("id", r.id);
+    if (error) toast(error.message); else load();
+  }
+  if (!rows) return <Loading />;
+  return (
+    <>
+      <div className="row" style={{ gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <button className="btn primary" disabled={!waiting.length} onClick={download}>Download {waiting.length} for TestFlight</button>
+        <button className="btn stone" disabled={!waiting.length} onClick={markAll}>Mark {waiting.length} invited</button>
+      </div>
+      <div className="table-wrap">
+        <table className="rows">
+          <thead><tr><th>Name</th><th>Email</th><th>Joined</th><th>Invited</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td className="w5">{r.first_name} {r.last_name}</td>
+                <td className="light">{r.email}</td>
+                <td className="light">{new Date(r.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</td>
+                <td><button className={`badge ${r.invited_at ? "g" : ""}`} style={{ border: 0, cursor: "pointer" }} onClick={() => toggle(r)}>{r.invited_at ? "Invited" : "Not yet"}</button></td>
+              </tr>
+            ))}
+            {rows.length === 0 && <tr><td colSpan={4} className="muted">No one yet. Sign-ups from the website show here.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }

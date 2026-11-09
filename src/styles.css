@@ -776,3 +776,15 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .ld-store-soon b { font-size: 16px; font-weight: 500; }
 .ld-store-soon span { font-size: 13px; font-weight: 300; color: var(--muted); }
 @media (max-width: 899px) { .ld-app-in { flex-direction: column; align-items: flex-start; gap: 24px; } .ld-app { padding: 56px 0; } }
+
+/* Join the launch: names and email in one line on a computer, solid white fields on the stone background */
+.ld-join { width: 100%; box-sizing: border-box; display: grid; grid-template-columns: 1fr 1fr 1.4fr auto; gap: 10px; margin-top: 8px; max-width: 980px; }
+.ld-join input { min-width: 0; width: 100%; box-sizing: border-box; height: 56px; padding: 0 18px; border: 0; border-radius: 6px; background: #fff; font: inherit; font-size: 17px; font-weight: 400; color: var(--ink); outline: none; box-shadow: 0 1px 2px rgba(20,33,28,0.08); }
+.ld-join input:focus { box-shadow: 0 0 0 2px var(--emerald); }
+.ld-join input::placeholder { color: var(--muted); font-weight: 300; }
+.ld-join .btn { height: 56px; padding: 0 26px; white-space: nowrap; }
+.ld-join-err { margin: 12px 0 0; color: #b42318; font-size: 15px; }
+.ld-joined { display: flex; align-items: flex-start; gap: 12px; margin-top: 8px; }
+.ld-joined b { display: block; font-size: 20px; font-weight: 500; }
+.ld-joined span span { font-size: 16px; font-weight: 300; color: var(--muted); }
+@media (max-width: 899px) { .ld-join { grid-template-columns: 1fr 1fr; } .ld-join input[type=email], .ld-join .btn { grid-column: 1 / -1; } }

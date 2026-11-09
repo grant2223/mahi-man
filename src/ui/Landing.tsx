@@ -170,24 +170,36 @@ export function Landing() {
 }
 
 function LdLinks() {
+  const urls = useStores();
   return (
     <>
       <nav className="ld-links"><a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a></nav>
-      <a className="btn small ld-nav-cta" href="#app" onClick={(e) => { e.preventDefault(); if (document.getElementById("app")) toApp(); }}>Get the app</a>
+      <a className="btn small ld-nav-cta" href="#app" onClick={(e) => { e.preventDefault(); if (document.getElementById("app")) toApp(); }}>{urls && Object.keys(urls).length ? "Get the app" : "Join the launch"}</a>
     </>
   );
 }
 
-// The one way in. On a computer: scan the code with your phone. On a phone: the store buttons.
-// Both go through /get, which sends each phone to its store once the app is listed there.
+// The one way in. Before the app is in the stores: join the launch, and we email the TestFlight pilot link.
+// Once listed: on a computer, scan the code; on a phone, the store buttons. Both go through /get.
 const STORES: [string, string][] = [["App Store", "app_store_url"], ["Google Play", "play_store_url"]];
-function GetApp({ full }: { full?: boolean }) {
-  const [svg, setSvg] = useState("");
-  const [urls, setUrls] = useState<Record<string, string>>({});
+let storeCache: Record<string, string> | null = null;
+function useStores() {
+  const [urls, setUrls] = useState(storeCache);
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", STORES.map(([, k]) => k)).then(({ data }) => setUrls(Object.fromEntries((data ?? []).map((r) => [r.key, r.value]))));
+    if (storeCache) return;
+    sb.from("settings").select("key,value").in("key", STORES.map(([, k]) => k))
+      .then(({ data }) => { storeCache = Object.fromEntries((data ?? []).filter((r) => r.value).map((r) => [r.key, r.value])); setUrls(storeCache); });
   }, []);
-  useEffect(() => { QRCode.toString(`${location.origin}/get`, { type: "svg", margin: 0, color: { dark: "#14211c", light: "#00000000" } }).then(setSvg); }, []);
+  return urls;
+}
+
+function GetApp({ full }: { full?: boolean }) {
+  const urls = useStores();
+  const listed = !!urls && Object.keys(urls).length > 0;
+  const [svg, setSvg] = useState("");
+  useEffect(() => { if (listed) QRCode.toString(`${location.origin}/get`, { type: "svg", margin: 0, color: { dark: "#14211c", light: "#00000000" } }).then(setSvg); }, [listed]);
+  if (!urls) return <section className={`ld-app${full ? " full" : ""}`} id="app" />;
+  if (!listed) return <JoinLaunch full={full} />;
   return (
     <section className={`ld-app${full ? " full" : ""}`} id="app">
       <div className="ld-wrap ld-app-in">
@@ -196,11 +208,42 @@ function GetApp({ full }: { full?: boolean }) {
           <p>Post a job, pick your person and hear the moment someone's keen. Or find work near you. It all happens in the app.</p>
           {desktop()
             ? <span className="ld-app-how">{Icon.arrow("var(--emerald)")} Point your phone's camera at the code</span>
-            : <div className="ld-stores">{STORES.map(([name, k]) => urls[k]
-                ? <a key={k} className="btn primary" href={urls[k]}>Get it on {name}</a>
-                : <span key={k} className="ld-store-soon"><b>{name}</b><span>Coming soon</span></span>)}</div>}
+            : <div className="ld-stores">{STORES.filter(([, k]) => urls[k]).map(([name, k]) => <a key={k} className="btn primary" href={urls[k]}>Get it on {name}</a>)}</div>}
         </div>
         {desktop() && <span className="ld-qr" aria-label="QR code to open More Mahi on your phone" dangerouslySetInnerHTML={{ __html: svg }} />}
+      </div>
+    </section>
+  );
+}
+
+function JoinLaunch({ full }: { full?: boolean }) {
+  const [f, setF] = useState({ first: "", last: "", email: "" });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  const [done, setDone] = useState("");
+  async function submit(e: React.FormEvent) {
+    e.preventDefault(); setErr(""); setBusy(true);
+    try { await rpc("join_launch", { p_first: f.first, p_last: f.last, p_email: f.email }); setDone(f.first.trim()); }
+    catch (x) { setErr(x instanceof Error ? x.message : String(x)); } finally { setBusy(false); }
+  }
+  return (
+    <section className={`ld-app${full ? " full" : ""}`} id="app">
+      <div className="ld-wrap">
+        <div className="ld-app-text">
+          <h2>Join the launch.</h2>
+          <p>More Mahi opens first to a pilot group on iPhone. Leave your details and we'll email you the link to get the app.</p>
+        </div>
+        {done ? (
+          <div className="ld-joined">{Icon.shieldTick("var(--emerald)")}<span><b>You're on the list, {done}.</b><span>Watch your inbox for the link to get the app.</span></span></div>
+        ) : (
+          <form className="ld-join" onSubmit={submit}>
+            <input aria-label="First name" placeholder="First name" autoComplete="given-name" value={f.first} onChange={(e) => setF({ ...f, first: e.target.value })} required />
+            <input aria-label="Last name" placeholder="Last name" autoComplete="family-name" value={f.last} onChange={(e) => setF({ ...f, last: e.target.value })} required />
+            <input aria-label="Email" placeholder="Email" type="email" autoComplete="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required />
+            <button className="btn primary" disabled={busy}>{busy ? "Joining…" : "Join the launch"}</button>
+          </form>
+        )}
+        {err && <p className="ld-join-err">{err}</p>}
       </div>
     </section>
   );
