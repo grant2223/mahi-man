@@ -105,7 +105,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
 
   if (j.status === "finished" && isDirectPay(j)) {
     const told = !!j.customer_paid_at;
-    const at = told ? new Date(j.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" }) : "";
+    const at = told ? new Date(j.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : "";
     return (
       <>
         <DoneHero jobName={jobName} step={3} big={money(earn)} lime
@@ -183,7 +183,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
       {j.status === "accepted" && !j.asap && j.confirm_asked_at && !j.day_confirmed_at && (
         <div className="confirm-bar">
           <span className="stack" style={{ gap: 2, flex: 1 }}>
-            <b>Still on for {new Date(j.start_at).toLocaleDateString("en-AU", { weekday: "short", timeZone: "Australia/Brisbane" })} at {new Date(j.start_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase()}?</b>
+            <b>Still on for {new Date(j.start_at).toLocaleDateString("en-AU", { weekday: "short" })} at {new Date(j.start_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase()}?</b>
             <span>Confirm, or hand it back so someone else can take it.</span>
           </span>
           <span className="row" style={{ gap: 10, width: "100%", justifyContent: "flex-end" }}>

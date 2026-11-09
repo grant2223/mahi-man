@@ -59,7 +59,7 @@ export function Terms() {
       <h2>Bookings and prices</h2>
       <ul>
         <li>Every job has a fixed price that covers what is listed as included. Anything not included needs the customer's agreement in the app before it is done.</li>
-        <li>During the Cairns pilot, the customer pays the worker directly by bank transfer or cash when the job is finished, never before.</li>
+        <li>During the pilot, the customer pays the worker directly by bank transfer or cash when the job is finished, never before.</li>
         <li>Customers can cancel free of charge before a worker arrives.</li>
       </ul>
       <h2>Booking fee</h2>

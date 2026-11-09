@@ -6,6 +6,7 @@ import { money } from "../lib/format";
 import { CatIcon, Icon, Logo, SearchPicker } from "../ui/kit";
 import { SideSwitch } from "../ui/SideSwitch";
 import { HeaderIcons } from "../ui/HeaderIcons";
+import { AreaPin, useArea } from "../lib/area";
 
 interface FeedJob {
   id: string; job_name: string; category_id: number | null; category: string | null; icon: string; suburb: string;
@@ -23,14 +24,16 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
   const [pick, setPick] = useState(false);
   const [urls, setUrls] = useState<Record<string, string>>({});
 
+  const { area } = useArea();
   useEffect(() => {
     let live = true;
-    const load = () => rpc<FeedJob[]>("jobs_feed").then((r) => { if (live) setJobs(r); }).catch(() => live && setJobs([]));
+    if (!area) return;
+    const load = () => rpc<FeedJob[]>("jobs_feed", { p_area: area.id }).then((r) => { if (live) setJobs(r); }).catch(() => live && setJobs([]));
     load();
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
     const t = window.setInterval(load, 30000);
     return () => { live = false; window.clearInterval(t); };
-  }, [session?.user.id]);
+  }, [session?.user.id, area?.id]);
 
   useEffect(() => {
     const paths = (jobs ?? []).map((j) => j.cover_path).filter(Boolean) as string[];
@@ -52,7 +55,7 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
           {session
             ? <HeaderIcons />
-            : <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>}
+            : <AreaPin />}
         </div>
         <SideSwitch side="work" />
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 168, right: -32 }} />
@@ -128,14 +131,13 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
   );
 }
 
-// "Today 2:00 pm", "Tomorrow 8:00 am", "Sun 9:00 am" in Cairns time.
+// "Today 2:00 pm", "Tomorrow 8:00 am", "Sun 9:00 am", in the viewer's own time.
 function dayTime(iso: string) {
-  const tz = "Australia/Brisbane";
-  const day = (d: Date) => d.toLocaleDateString("en-AU", { timeZone: tz });
+  const day = (d: Date) => d.toLocaleDateString("en-AU", {});
   const d = new Date(iso);
-  const time = d.toLocaleTimeString("en-AU", { timeZone: tz, hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
+  const time = d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
   const now = new Date();
   if (day(d) === day(now)) return `Today ${time}`;
   if (day(d) === day(new Date(now.getTime() + 864e5))) return `Tomorrow ${time}`;
-  return `${d.toLocaleDateString("en-AU", { timeZone: tz, weekday: "short" })} ${time}`;
+  return `${d.toLocaleDateString("en-AU", { weekday: "short" })} ${time}`;
 }

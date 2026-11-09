@@ -12,7 +12,7 @@ export const firstName = (name: string) => name.trim().split(/\s+/)[0] || "Your 
 export const whenLabel = (asap: boolean, iso: string) => {
   if (asap) return "Today, ASAP";
   const d = new Date(iso);
-  return d.toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" });
+  return d.toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 };
 
 export const hours = (h: number) => (Number(h) < 1 ? `${Math.round(Number(h) * 60)} min` : Number(h) === 1 ? "1 hr" : `${Number(h)} hrs`);

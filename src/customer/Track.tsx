@@ -25,6 +25,7 @@ export function Track({ id }: { id: string }) {
   const [job, setJob] = useState<Job | null>(null);
   const [jt, setJt] = useState<JobType | null>(null);
   const [suburb, setSuburb] = useState("");
+  const [region, setRegion] = useState("Australia");
   const [askAlerts, setAskAlerts] = useState(false);
   const searching = job?.status === "searching";
   useEffect(() => {
@@ -54,8 +55,10 @@ export function Track({ id }: { id: string }) {
     if (!jt) {
       const { data: t } = await sb.from("job_types").select("*").eq("id", j.job_type_id).single();
       setJt(t as JobType);
-      const { data: s } = await sb.from("suburbs").select("name").eq("id", j.suburb_id).single();
+      const { data: s } = await sb.from("suburbs").select("name, areas(state, country)").eq("id", j.suburb_id).single();
       setSuburb(s?.name ?? "");
+      const a = s?.areas as unknown as { state: string; country: string } | null;
+      setRegion(a ? `${a.state}, ${a.country === "NZ" ? "New Zealand" : "Australia"}` : "Australia");
     }
     if (j.worker_id) {
       const card = await rpc<PersonCard[]>("person_card", { p_person: j.worker_id });
@@ -142,7 +145,7 @@ export function Track({ id }: { id: string }) {
       <div className="app">
         <DoneHero jobName={jobName} step={3} big={money(owed)}
           label={paid ? `Waiting for ${wName} to confirm` : `${wName} has finished`}
-          sub={paid ? `You told ${wName} you paid at ${new Date(job.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" })}` : `Check the photos, pay ${wName}, then tell us`} />
+          sub={paid ? `You told ${wName} you paid at ${new Date(job.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}` : `Check the photos, pay ${wName}, then tell us`} />
         {(job.included?.length ?? 0) > 0 && (
           <div className="cp-sec" style={{ gap: 8 }}>
             <span className="cp-title" style={{ marginBottom: 0 }}>What {wName} did</span>
@@ -244,7 +247,7 @@ export function Track({ id }: { id: string }) {
           </>
         )}
       </section>
-      {trip && job.status === "accepted" && <LiveMap loc={trip} address={`${job.address}, ${suburb}`} initials={initials(worker?.full_name ?? wName)} onRoute={setRoute} onShown={setMapOn} />}
+      {trip && job.status === "accepted" && <LiveMap loc={trip} address={`${job.address}, ${suburb}, ${region}`} initials={initials(worker?.full_name ?? wName)} onRoute={setRoute} onShown={setMapOn} />}
 
       <div className="ticket" style={trip && mapOn && job.status === "accepted" ? { marginTop: 12 } : undefined}>
         {worker ? (

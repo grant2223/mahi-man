@@ -267,7 +267,7 @@ const OUTCOME: Record<string, string> = {
   pay_full: "Paid in full", return_finish: "Finish the job, then paid in full", part: "Part payment", nothing: "Nothing owed", agreed: "Sorted between you",
 };
 
-const when = (iso: string) => new Date(iso).toLocaleString("en-AU", { weekday: "long", hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" }).replace(",", "");
+const when = (iso: string) => new Date(iso).toLocaleString("en-AU", { weekday: "long", hour: "numeric", minute: "2-digit" }).replace(",", "");
 
 export function DisputeView({ job, jobName, otherName, isWorker, onChanged, footer }: { job: Job; jobName: string; otherName: string; isWorker: boolean; onChanged: () => void; footer?: ReactNode }) {
   const toast = useToast();
@@ -281,7 +281,7 @@ export function DisputeView({ job, jobName, otherName, isWorker, onChanged, foot
   if (!d) return null;
 
   const decideBy = d.decide_by ? new Date(d.decide_by) : null;
-  const big = decideBy ? decideBy.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }) : "Soon";
+  const big = decideBy ? decideBy.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }) : "Soon";
   const mine = d.reporter_is_me;
   const steps = [
     { done: true, title: mine ? "You reported it" : `${d.reporter_name} reported a problem`, note: `${d.reason}, ${when(d.created_at)}` },

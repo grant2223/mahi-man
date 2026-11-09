@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
-import { api, avatarUrl, brandUrl, rpc, sb, type Category, type JobType } from "../lib/supabase";
+import { api, avatarUrl, brandUrl, rpc, sb, type Area, type Category, type JobType } from "../lib/supabase";
+import { loadMapKit } from "../ui/LiveMap";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money2, shrinkImage } from "../lib/format";
@@ -8,7 +9,7 @@ import { CatIcon, Icon, Logo, SearchPicker, useToast } from "../ui/kit";
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "types" | "skills" | "settings";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "areas" | "types" | "skills" | "settings";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -33,7 +34,7 @@ export function Admin() {
     { label: "", items: [["overview", "Overview"]] },
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
     { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"]] },
-    { label: "Setup", items: [["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
+    { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
   ];
   const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
   if (!ready) return null;
@@ -73,6 +74,7 @@ export function Admin() {
         {tab === "reports" && <Reports onChanged={recount} />}
         {tab === "problems" && <Problems />}
         {tab === "people" && <People />}
+        {tab === "areas" && <Areas />}
         {tab === "types" && <Types />}
         {tab === "settings" && <Settings />}
       </main>
@@ -537,7 +539,7 @@ function LicenceChecks({ onChanged }: { onChanged: () => void }) {
               <span className="stack" style={{ gap: 2 }}><span className="small muted">Expires</span><span className="t17">{cur.expiry ? new Date(cur.expiry + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "No expiry given"}</span></span>
               <span className="stack" style={{ gap: 2 }}><span className="small muted">Name on account</span><span className="t17">{cur.profiles.full_name}{cur.profiles.id_status === "verified" ? ", ID verified" : ", ID not verified yet"}</span></span>
               <a className="link" style={{ padding: 0 }} target="_blank" rel="noreferrer"
-                href={`https://www.google.com/search?q=${encodeURIComponent(`Queensland ${cur.credential_types.name} register check`)}`}>Find the register to check it</a>
+                href={`https://www.google.com/search?q=${encodeURIComponent(`${cur.credential_types.name} register check Australia`)}`}>Find the register to check it</a>
             </div>
           </div>
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
@@ -812,6 +814,149 @@ function UserDetail({ p, isAdmin, review, onBack, onChanged }: { p: Person; isAd
               </span>
             </div>
           )) : <p className="light muted" style={{ margin: 0 }}>No jobs yet.</p>}
+        </section>
+      </div>
+    </div>
+  );
+}
+
+// ---------- Areas: open More Mahi city by city ----------
+const STATES = ["QLD", "NSW", "VIC", "SA", "WA", "TAS", "NT", "ACT"];
+type AreaRow = Area & { suburbs: { count: number }[] };
+
+// Find a place on Apple Maps. Used to set an area's centre and each suburb's position, which job distances are worked out from.
+async function locate(q: string): Promise<{ lat: number; lng: number } | null> {
+  const mk = await loadMapKit();
+  if (!mk) return null;
+  return new Promise((res) => new mk.Geocoder({ language: "en-AU" }).lookup(q, (err: unknown, data: { results?: { coordinate: { latitude: number; longitude: number } }[] }) => {
+    const c = !err && data?.results?.[0]?.coordinate;
+    res(c ? { lat: c.latitude, lng: c.longitude } : null);
+  }));
+}
+
+function Areas() {
+  const toast = useToast();
+  const [rows, setRows] = useState<AreaRow[]>([]);
+  const [open, setOpen] = useState<number | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [name, setName] = useState("");
+  const [state, setState] = useState("QLD");
+  const [pickState, setPickState] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    sb.from("areas").select("*, suburbs(count)").order("sort").order("name").then(({ data }) => setRows((data ?? []) as AreaRow[]));
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const area = rows.find((r) => r.id === open);
+  if (area) return <AreaDetail area={area} onBack={() => setOpen(null)} onChanged={load} />;
+
+  async function add() {
+    if (!name.trim()) return toast("Type the area's name");
+    setBusy(true);
+    const at = await locate(`${name.trim()}, ${state}, Australia`);
+    if (!at) { setBusy(false); return toast("Couldn't find that place on the map. Check the spelling."); }
+    const { error } = await sb.from("areas").insert({ name: name.trim(), state, lat: at.lat, lng: at.lng, active: false, sort: 100 });
+    setBusy(false);
+    if (error) return toast(error.message);
+    setName(""); setAdding(false); toast("Area added. Add its suburbs, then open it."); load();
+  }
+
+  return (
+    <div className="stack" style={{ gap: 16 }}>
+      <p className="light muted" style={{ margin: 0, maxWidth: 640 }}>Each area has its own suburbs. Customers and workers only see the areas that are open.</p>
+      <div className="table-wrap">
+        <table className="rows">
+          <thead><tr><th>Area</th><th>State</th><th>Suburbs</th><th>Status</th><th /></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="click" onClick={() => setOpen(r.id)}>
+                <td className="w5">{r.name}</td>
+                <td className="light">{r.state}</td>
+                <td className="light">{r.suburbs?.[0]?.count ?? 0}</td>
+                <td>{r.active ? <span className="badge g">Open</span> : <span className="badge">Not open yet</span>}</td>
+                <td style={{ width: 32 }}>{Icon.chevron("var(--faint)")}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {adding ? (
+        <div className="u-card stack" style={{ gap: 12, maxWidth: 560 }}>
+          <h3 style={{ margin: 0 }}>New area</h3>
+          <div className="row" style={{ gap: 10 }}>
+            <label className="field" style={{ flex: 1 }}><span className="k">Area name</span><input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Townsville" /></label>
+            <button className="field sel" style={{ width: 140 }} onClick={() => setPickState(true)}><span className="k">State</span><span className="v w4">{state}</span></button>
+          </div>
+          <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
+            <button className="btn stone" onClick={() => setAdding(false)}>Cancel</button>
+            <button className="btn primary" disabled={busy} onClick={add}>{busy ? "Finding it…" : "Add area"}</button>
+          </div>
+        </div>
+      ) : <button className="btn primary" style={{ alignSelf: "flex-start" }} onClick={() => setAdding(true)}>{Icon.plus("#fff")} Add an area</button>}
+      {pickState && <SearchPicker title="State" placeholder="Search" value={[state]} options={STATES.map((s) => ({ id: s, label: s }))}
+        onClose={() => setPickState(false)} onChange={(v) => setState(String(v[0]))} />}
+    </div>
+  );
+}
+
+function AreaDetail({ area, onBack, onChanged }: { area: AreaRow; onBack: () => void; onChanged: () => void }) {
+  const toast = useToast();
+  const [subs, setSubs] = useState<{ id: number; name: string }[]>([]);
+  const [paste, setPaste] = useState("");
+  const [busy, setBusy] = useState("");
+  const load = useCallback(() => { sb.from("suburbs").select("id,name").eq("area_id", area.id).order("name").then(({ data }) => setSubs(data ?? [])); }, [area.id]);
+  useEffect(() => { load(); }, [load]);
+
+  async function addSuburbs() {
+    const names = [...new Set(paste.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean))].filter((n) => !subs.some((s) => s.name.toLowerCase() === n.toLowerCase()));
+    if (!names.length) return toast("Paste suburb names, one per line");
+    const missed: string[] = [];
+    let added = 0;
+    for (const [i, n] of names.entries()) {
+      setBusy(`Finding ${i + 1} of ${names.length}…`);
+      const at = await locate(`${n}, ${area.state}, Australia`);
+      if (!at) { missed.push(n); continue; }
+      const { error } = await sb.from("suburbs").insert({ name: n, area_id: area.id, lat: at.lat, lng: at.lng });
+      if (error) missed.push(n); else added++;
+    }
+    setBusy(""); setPaste(missed.join("\n")); load(); onChanged();
+    toast(missed.length ? `Added ${added}. Couldn't find ${missed.length}, left in the box to check.` : `Added ${added} suburbs`);
+  }
+  async function setOpenState(active: boolean) {
+    if (active && !subs.length) return toast("Add suburbs before opening this area");
+    const { error } = await sb.from("areas").update({ active }).eq("id", area.id);
+    if (error) return toast(error.message);
+    toast(active ? `${area.name} is open` : `${area.name} is closed to new jobs`); onChanged();
+  }
+  async function remove(id: number, n: string) {
+    const { error } = await sb.from("suburbs").delete().eq("id", id);
+    if (error) return toast(`${n} has jobs or workers, so it stays`);
+    load(); onChanged();
+  }
+
+  return (
+    <div className="u-page">
+      <button className="u-back" onClick={onBack}>{Icon.back("var(--emerald)")} All areas</button>
+      <div className="u-head">
+        <div className="stack" style={{ gap: 8, flex: 1 }}>
+          <h2>{area.name}, {area.state}</h2>
+          <span>{area.active ? <span className="badge g">Open</span> : <span className="badge">Not open yet</span>}</span>
+        </div>
+        <button className={area.active ? "btn stone" : "btn primary"} onClick={() => setOpenState(!area.active)}>{area.active ? "Close this area" : "Open this area"}</button>
+      </div>
+      <div className="u-grid">
+        <section className="u-card">
+          <h3>Suburbs ({subs.length})</h3>
+          <div className="area-subs">
+            {subs.map((s) => <span key={s.id} className="area-sub">{s.name}<button aria-label={`Remove ${s.name}`} onClick={() => remove(s.id, s.name)}>{Icon.x("var(--muted)")}</button></span>)}
+            {!subs.length && <p className="light muted" style={{ margin: 0 }}>None yet.</p>}
+          </div>
+        </section>
+        <section className="u-card stack" style={{ gap: 12 }}>
+          <h3 style={{ margin: 0 }}>Add suburbs</h3>
+          <p className="light muted" style={{ margin: 0, fontSize: 14 }}>Paste names, one per line. Each one is found on the map so job distances work.</p>
+          <textarea className="area-paste" value={paste} onChange={(e) => setPaste(e.target.value)} placeholder={"Aitkenvale\nAnnandale\nBelgian Gardens"} />
+          <button className="btn primary" style={{ alignSelf: "flex-end" }} disabled={!!busy} onClick={addSuburbs}>{busy || "Add suburbs"}</button>
         </section>
       </div>
     </div>

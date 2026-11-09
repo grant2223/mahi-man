@@ -8,7 +8,7 @@ import { api, rpc } from "../lib/supabase";
 type MK = any;
 declare global { interface Window { mapkit?: MK; __mkReady?: Promise<MK | null> } }
 
-function loadMapKit(): Promise<MK | null> {
+export function loadMapKit(): Promise<MK | null> {
   if (window.__mkReady) return window.__mkReady;
   window.__mkReady = (async () => {
     const r = await api<{ token: string | null }>("map_token").catch(() => ({ token: null }));
@@ -66,7 +66,7 @@ export function LiveMap({ loc, address, initials, onRoute, onShown }: {
       const me = new mk.Annotation(new mk.Coordinate(loc.lat, loc.lng), () => el, { anchorOffset: new DOMPoint(0, 0) });
       map.addAnnotation(me);
       st.current = { mk, map, me, dest: null, destCoord: null, line: null, lastRoute: 0 };
-      new mk.Geocoder({ language: "en-AU" }).lookup(`${address}, Queensland, Australia`, (err: unknown, data: MK) => {
+      new mk.Geocoder({ language: "en-AU" }).lookup(address, (err: unknown, data: MK) => {
         if (err || !st.current || !data?.results?.length) return;
         const c = data.results[0].coordinate;
         st.current.destCoord = c;

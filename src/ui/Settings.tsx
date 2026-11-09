@@ -9,6 +9,7 @@ import { Credentials, JobsAndSkills } from "../worker/Skills";
 import { PaymentMethods, cardLabel } from "../customer/Cards";
 import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
 import { inviteText, shareLink, SITE } from "../lib/share";
+import { AreaRow } from "../lib/area";
 
 // Account settings: ID check, blocked people, legal pages and in-app account deletion (Apple 5.1.1(v)).
 export function Settings() {
@@ -45,6 +46,7 @@ export function Settings() {
             {Icon.chevron("var(--faint)")}
           </button>
         )}
+        <AreaRow />
         <button className="choice" onClick={() => go("/jobs")}><span className="t"><b>My jobs</b><span>Jobs you've posted</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => setScreen("cards")}><span className="t"><b>Payment methods</b><span>{profile.card_last4 ? `${cardLabel(profile)}, for booking fees` : "Card for booking fees"}</span></span>{Icon.chevron("var(--faint)")}</button>
         {profile.is_worker && <button className="choice" onClick={() => go("/work")}><span className="t"><b>Work</b><span>Your worker account</span></span>{Icon.chevron("var(--faint)")}</button>}

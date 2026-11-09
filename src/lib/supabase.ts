@@ -53,12 +53,13 @@ export interface JobType {
   custom_price: boolean; min_price_cents: number; max_price_cents: number;
 }
 export interface Category { id: number; name: string; icon: string; photo_path: string | null; sort: number; active: boolean }
-export interface Suburb { id: number; name: string }
+export interface Suburb { id: number; name: string; area_id?: number }
+export interface Area { id: number; name: string; state: string; country: "AU" | "NZ"; currency: string; lat: number; lng: number; active: boolean; sort: number }
 export type IdStatus = "none" | "pending" | "verified" | "retake" | "rejected";
 export interface Profile {
   id: string; full_name: string; phone: string | null; photo_path: string | null; is_worker: boolean; is_admin: boolean;
   id_status: IdStatus; id_note: string | null; suspended: boolean; created_at: string;
-  first_name?: string | null; middle_names?: string | null; last_name?: string | null;
+  first_name?: string | null; middle_names?: string | null; last_name?: string | null; area_id?: number | null;
   plus_until?: string | null; card_brand?: string | null; card_last4?: string | null; card_exp?: string | null;
 }
 export interface PersonCard { full_name: string; photo_path: string | null; rating: number | null; jobs_done: number; id_verified: boolean; member_since: string }

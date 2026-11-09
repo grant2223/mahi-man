@@ -655,3 +655,9 @@ table.rows tr.click:hover td { background: #f7f6f2; }
 
 /* iPhone: the status bar (clock, battery) gets a solid strip, so the page never shows through under it when scrolling. */
 body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: #0d6f52; z-index: 100; pointer-events: none; }
+.area-pin { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px 0; color: #fff; font-size: 15px; cursor: pointer; }
+.area-pin:disabled { cursor: default; opacity: 1; }
+.area-subs { display: flex; flex-wrap: wrap; gap: 6px; }
+.area-sub { display: inline-flex; align-items: center; gap: 4px; padding: 6px 6px 6px 10px; border-radius: var(--r-control); background: var(--ground); font-size: 14px; }
+.area-sub button { display: inline-flex; background: none; border: 0; padding: 2px; cursor: pointer; }
+.area-paste { min-height: 160px; border: 0; border-radius: var(--r-control); background: var(--ground); padding: 12px; font: inherit; font-size: 15px; resize: vertical; }

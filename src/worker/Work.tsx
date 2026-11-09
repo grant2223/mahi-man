@@ -201,7 +201,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <div className="wrap-list">
           {wrapups.map((j) => (
             <button key={j.id} className="wrap-row" onClick={() => onOpen(j)}>
-              <span className="t"><b>{WRAP_LABEL[j.status] ?? "Open"}</b><span>{j.title || (j as Job & { job_types?: { name: string } }).job_types?.name || "Job"}, {money(j.price_cents + j.extra_cents)}, {new Date(j.finished_at ?? j.created_at).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" })}</span></span>
+              <span className="t"><b>{WRAP_LABEL[j.status] ?? "Open"}</b><span>{j.title || (j as Job & { job_types?: { name: string } }).job_types?.name || "Job"}, {money(j.price_cents + j.extra_cents)}, {new Date(j.finished_at ?? j.created_at).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}</span></span>
               {Icon.chevron("var(--faint)")}
             </button>
           ))}
