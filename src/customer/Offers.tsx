@@ -10,6 +10,7 @@ import { useSession } from "../lib/session";
 import { api } from "../lib/supabase";
 import { money2 } from "../lib/format";
 import { expLabel } from "../worker/Skills";
+import { VerifyFlow } from "../ui/Verify";
 
 export interface Offer {
   worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_done: number;
@@ -25,7 +26,9 @@ const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minu
 export function OffersView({ jobId, title, price, asap, startAt, searchingAt, boosted, feeDue = 0, onChosen, onCancel, onBoosted }: {
   jobId: string; title: string; price: string; asap: boolean; startAt: string; searchingAt: string; boosted: boolean; feeDue?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
 }) {
-  const { profile: me } = useSession();
+  const { profile: me, reload } = useSession();
+  const [verifying, setVerifying] = useState(false);
+  const unverified = !!me && me.id_status !== "verified" && me.id_status !== "pending";
   const [needCard, setNeedCard] = useState<Offer | null>(null);
   const toast = useToast();
   const now = useNow(1000);
@@ -120,6 +123,15 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
       )}
       {boosted && !shown.length && <div className="cp-note">{Icon.clockLine("var(--muted)")}<span>Boosted. Every worker in your category has been told.</span></div>}
 
+      {unverified && !shown.length && (
+        <div className="boost-row">
+          <span className="stack" style={{ gap: 2, flex: 1 }}>
+            <b>Get offers faster</b>
+            <span>Workers pick verified customers first. It takes about 2 minutes.</span>
+          </span>
+          <button className="btn primary small" onClick={() => setVerifying(true)}>Verify</button>
+        </div>
+      )}
       {feeDue > 0 && shown.length > 0 && (
         <div className="row" style={{ gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--line)", alignItems: "center", background: "var(--card)" }}>
           {me?.card_last4 && <CardMark brand={me.card_brand} />}
@@ -196,6 +208,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
       <div style={{ padding: "0 16px calc(var(--safe-bottom) + 24px)" }}>
         <button className="link quiet" onClick={onCancel}>Cancel this job</button>
       </div>
+      {verifying && <VerifyFlow onClose={() => { setVerifying(false); reload(); }} />}
       {profile && <WorkerProfile workerId={profile} onBack={() => setProfile(null)} />}
       {needCard && <AddCardScreen onBack={() => setNeedCard(null)} onSaved={() => { const o = needCard; setNeedCard(null); window.setTimeout(() => choose(o), 200); }} />}
     </div>

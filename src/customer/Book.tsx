@@ -12,6 +12,7 @@ import { AddCardScreen, CardMark, cardLabel } from "./Cards";
 import { lc } from "../worker/Skills";
 import { SideSwitch } from "../ui/SideSwitch";
 import { HeaderIcons } from "../ui/HeaderIcons";
+import { PhotoStep } from "../worker/Signup";
 
 /* Post a job: price, show the job, who can take it, where, when, check. */
 
@@ -47,6 +48,8 @@ export function Book() {
   const [feeMode, setFeeMode] = useState("off");
   const [cardScreen, setCardScreen] = useState(false);
   const cardAdded = useRef(false);
+  const [photoScreen, setPhotoScreen] = useState(false);
+  const photoAdded = useRef(false);
   const [feePct, setFeePct] = useState(12);
   const [feeMax, setFeeMax] = useState(3000);
   const [boostCents, setBoostCents] = useState(500);
@@ -143,6 +146,8 @@ export function Book() {
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !/T\d/.test(d.startAt)) return go("/book/when");
     if (!session) { setAuth(true); return; }
+    // A face to go with the job: workers see it before they offer.
+    if (!profile?.photo_path && !photoAdded.current) { setPhotoScreen(true); return; }
     if (bookingFee > 0 && !profile?.card_last4 && !cardAdded.current) { setCardScreen(true); return; }
     setBusy(true);
     try {
@@ -293,6 +298,8 @@ export function Book() {
             {busy ? "Posting…" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : "Post it"} {Icon.arrow("#fff")}
           </button>
         </div>
+        {photoScreen && <PhotoStep note="Workers see it before they offer, so they know who they're meeting." saveLabel="Save and post" photoOnly
+          onBack={() => setPhotoScreen(false)} onSaved={() => { photoAdded.current = true; setPhotoScreen(false); window.setTimeout(book, 300); }} />}
         {cardScreen && <AddCardScreen onBack={() => setCardScreen(false)} onSaved={() => { cardAdded.current = true; setCardScreen(false); window.setTimeout(book, 300); }} />}
         {auth && (
           <AuthScreen title="Almost there" reason="Sign in and your job posts straight away. Your photos are saved."

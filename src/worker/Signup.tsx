@@ -82,7 +82,7 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged, onBack }: { 
   );
 }
 
-export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+export function PhotoStep({ onBack, onSaved, note = "A clear photo of your face. Customers see it before you arrive.", saveLabel = "Save", photoOnly = false }: { onBack: () => void; onSaved: () => void; note?: string; saveLabel?: string; photoOnly?: boolean }) {
   const { session, profile, reload } = useSession();
   const fromProfile = (): NameParts => ({ first: profile?.first_name ?? "", middle: profile?.middle_names ?? "", last: profile?.last_name ?? "" });
   const [name, setName] = useState<NameParts>(fromProfile());
@@ -122,10 +122,10 @@ export function PhotoStep({ onBack, onSaved }: { onBack: () => void; onSaved: ()
             }} />
           </label>
         </div>
-        <p className="small light muted" style={{ lineHeight: 1.45 }}>A clear photo of your face. Customers see it before you arrive.</p>
-        <NameFields value={name} onChange={setName} />
+        <p className="small light muted" style={{ lineHeight: 1.45 }}>{note}</p>
+        {!photoOnly && <NameFields value={name} onChange={setName} />}
         {err && <p className="err">{err}</p>}
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}><button className="btn primary" disabled={busy} onClick={save}>Save</button></div>
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}><button className="btn primary" disabled={busy} onClick={save}>{busy ? "Saving…" : saveLabel}</button></div>
       </div>
     </Screen>
   );
