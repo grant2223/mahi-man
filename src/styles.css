@@ -577,3 +577,5 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 /* A job's own photo stands in for it wherever it's listed. */
 .recent-row .sq.pic { background-size: cover; background-position: center; }
 .li-pic { width: 52px; height: 52px; flex-shrink: 0; border-radius: var(--r-control); background-size: cover; background-position: center; margin-right: 2px; }
+
+.hero-back { background: none; border: 0; padding: 8px; margin: -8px 0 -8px -8px; display: inline-flex; cursor: pointer; }

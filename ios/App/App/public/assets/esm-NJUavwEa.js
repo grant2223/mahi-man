@@ -1,0 +1,2 @@
+const __vite__mapDeps=(i,m=__vite__mapDeps,d=(m.f||(m.f=["assets/web-DfHKnBUQ.js","assets/index-pXdg9WIh.js","assets/index-CK59gSkz.css"])))=>i.map(i=>d[i]);
+import{r as e,t}from"./index-pXdg9WIh.js";var n=e(`SignInWithApple`,{web:()=>t(()=>import(`./web-DfHKnBUQ.js`).then(e=>new e.SignInWithAppleWeb),__vite__mapDeps([0,1,2]))});export{n as SignInWithApple};

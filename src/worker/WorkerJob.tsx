@@ -32,6 +32,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
   const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after" | "cant">(null);
   const [busy, setBusy] = useState(false);
   const [payid, setPayid] = useState<string | null>(null);
+  const [bank, setBank] = useState<string | null>(null);
   const [report, setReport] = useState(false);
   // The trip: location shared with the customer from "I'm on my way" until the start code.
   const [onWay, setOnWay] = useState(tripJob() === job.id);
@@ -59,7 +60,10 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     sb.from("job_types").select("*").eq("id", job.job_type_id).single().then(({ data }) => setJt(data as JobType));
     sb.from("suburbs").select("name").eq("id", job.suburb_id).single().then(({ data }) => setSuburb(data?.name ?? ""));
     rpc<PersonCard[]>("person_card", { p_person: job.customer_id }).then((c) => setCust(c[0] ?? null));
-    sb.from("workers").select("payid").single().then(({ data }) => setPayid(data?.payid ?? null));
+    sb.from("workers").select("payid,bsb,account_number").single().then(({ data }) => {
+      setPayid(data?.payid ?? null);
+      setBank(data?.bsb && data?.account_number ? `BSB ${data.bsb.slice(0, 3)}-${data.bsb.slice(3)}, Acc ${data.account_number}` : null);
+    });
     sb.from("job_media").select("path,kind,sort").eq("job_id", job.id).order("sort").then(async ({ data }) => {
       const rows = (data ?? []) as { path: string; kind: string }[];
       const urls = await mediaUrls(rows.map((r) => r.path));
@@ -106,7 +110,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
       <>
         <DoneHero jobName={jobName} step={3} big={money(earn)} lime
           label={told ? `${cName} says they've paid you` : "Get paid"}
-          sub={told ? `Marked paid at ${at}` : `Collect it from ${cName} now, by PayID or cash`} />
+          sub={told ? `Marked paid at ${at}` : `Collect it from ${cName} now, by bank transfer or cash`} />
         {told ? (
           <div className="cp-sec">
             <span className="cp-title" style={{ marginBottom: 2 }}>Check your bank, then confirm</span>
@@ -118,8 +122,8 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
             <div className="cp-payid">
               {Icon.card("var(--emerald)")}
               <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>
-                <span style={{ fontSize: 17, fontWeight: 500 }}>{payid ? `${cName} can see your PayID` : "Add your PayID"}</span>
-                <span className="t15 light muted">{payid ? showPayid(payid) : `No PayID saved. Ask ${cName} for cash, or send it in Messages.`}</span>
+                <span style={{ fontSize: 17, fontWeight: 500 }}>{payid ? `${cName} can see your PayID` : bank ? `${cName} can see your bank account` : "Add how you get paid"}</span>
+                <span className="t15 light muted">{payid ? showPayid(payid) : bank ?? `Nothing saved. Ask ${cName} for cash, or send your details in Messages.`}</span>
               </span>
             </div>
           </>
@@ -156,7 +160,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         </div>
         <span className="sub">
           {j.status === "in_progress" ? <>You earn <span style={{ color: "var(--lime)", fontWeight: 500 }}>{money(earn)}</span> when the customer confirms</>
-            : j.status === "finished" ? (isDirectPay(j) ? `Collect ${money(earn)} from the customer now: PayID or cash` : "They have 48 hours to confirm, then you're paid automatically")
+            : j.status === "finished" ? (isDirectPay(j) ? `Collect ${money(earn)} from the customer now: bank transfer or cash` : "They have 48 hours to confirm, then you're paid automatically")
               : "Ask for their 4-digit start code when you arrive"}
         </span>
         {j.status === "accepted" && !onWay && canLeave && (

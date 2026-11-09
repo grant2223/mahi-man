@@ -85,7 +85,7 @@ export async function rpc<T = unknown>(fn: string, args: Record<string, unknown>
 }
 
 // Pilot jobs: no card hold, the customer pays the worker directly.
-// Direct pay: the job price goes from customer to worker (PayID or cash), never through a card hold. A booking fee charged
+// Direct pay: the job price goes from customer to worker (bank transfer or cash), never through a card hold. A booking fee charged
 // when the worker was chosen doesn't change that.
 export const isDirectPay = (j: { fee_cents: number; payment_intent_id: string | null }) => !j.payment_intent_id;
 

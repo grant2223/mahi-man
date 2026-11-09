@@ -5,6 +5,8 @@ import { shrinkImage, validAbn } from "../lib/format";
 import { Icon, Logo, NameFields, Screen, SearchPicker, Tile, nameError, nameRow, type NameParts } from "../ui/kit";
 import { VerifyFlow } from "../ui/Verify";
 import { Credentials, JobsAndSkills } from "./Skills";
+import { setSide } from "../ui/SideSwitch";
+import { go } from "../lib/router";
 
 export interface Steps { photo: boolean; id_and_bank: boolean; abn: boolean; area: boolean; jobs: boolean }
 type StepKey = keyof Steps | "creds";
@@ -12,7 +14,7 @@ type StepKey = keyof Steps | "creds";
 const STEP_INFO: { key: keyof Steps; title: string; hint: string }[] = [
   { key: "photo", title: "Your photo", hint: "Customers see it before you arrive" },
   { key: "id_and_bank", title: "Verify your ID", hint: "Passport or national ID, plus a selfie" },
-  { key: "abn", title: "ABN and PayID", hint: "Your ABN, and where customers pay you" },
+  { key: "abn", title: "Getting paid", hint: "Your PayID or bank account" },
   { key: "area", title: "Where you work", hint: "Your suburb and how far you'll travel" },
   { key: "jobs", title: "Jobs and skills", hint: "What you do, how long you've done it, your gear" },
 ];
@@ -33,7 +35,10 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: S
     <>
       <section className="hero">
         <div className="hero-top">
-          <span className="brand"><Logo /> More Mahi</span>
+          <span className="row" style={{ gap: 6 }}>
+            <button className="hero-back" aria-label="Back" onClick={() => { setSide("help"); go("/"); }}>{Icon.back("#fff")}</button>
+            <span className="brand"><Logo /> More Mahi</span>
+          </span>
           <span className="t15 light" style={{ color: "rgba(255,255,255,0.85)" }}>Worker</span>
         </div>
         <h1 className="mid">Get ready<br />to earn</h1>
@@ -64,8 +69,6 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: S
         </span>
         <button className="btn stone small" onClick={() => setOpen("creds")}>Add</button>
       </section>
-
-      <div className="footer"><button className="link quiet" onClick={() => sb.auth.signOut()}>Sign out</button></div>
 
       {open === "photo" && <PhotoStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
       {open === "id_and_bank" && (idStatus === "verified"
@@ -133,7 +136,7 @@ function ApprovalStep({ onBack }: { onBack: () => void }) {
     <Screen title="ID verified" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>Your ID is verified.</p>
-        <p className="t15 light muted" style={{ lineHeight: 1.45 }}>Customers pay you directly by PayID or cash when each job is done. You keep 100%.</p>
+        <p className="t15 light muted" style={{ lineHeight: 1.45 }}>Customers pay you directly by bank transfer or cash when each job is done. You keep 100%.</p>
       </div>
     </Screen>
   );
@@ -167,28 +170,41 @@ function PayoutStep({ done, onBack }: { done: boolean; onBack: () => void }) {
 }
 
 export function AbnStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+  // Customers pay the worker straight to their bank when the job's done: PayID, or BSB and account number.
+  // ABN is optional. Most customers are households, who don't need one.
   const [abn, setAbn] = useState("");
   const [payid, setPayid] = useState("");
+  const [bsb, setBsb] = useState("");
+  const [acct, setAcct] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  useEffect(() => { sb.from("workers").select("abn,payid").single().then(({ data }) => { if (data?.abn) setAbn(data.abn); if (data?.payid) setPayid(data.payid); }); }, []);
+  useEffect(() => { sb.from("workers").select("abn,payid,bsb,account_number").single().then(({ data }) => {
+    if (data?.abn) setAbn(data.abn); if (data?.payid) setPayid(data.payid); if (data?.bsb) setBsb(data.bsb); if (data?.account_number) setAcct(data.account_number);
+  }); }, []);
+  const digits = (v: string) => v.replace(/\D/g, "");
   return (
-    <Screen title="ABN and PayID" onBack={onBack}>
+    <Screen title="Getting paid" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16, background: "var(--card)" }}>
-        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>You work for yourself, so you need an ABN. It's free and takes about 10 minutes.</p>
-        <label className="field"><span className="k">ABN (11 digits)</span><input inputMode="numeric" value={abn} onChange={(e) => setAbn(e.target.value)} placeholder="51 824 753 556" /></label>
-        <a className="link" style={{ display: "inline-block", margin: "10px 0 22px" }} href="https://www.abr.gov.au/business-super-funds-charities/applying-abn" target="_blank" rel="noreferrer">Don't have one? Get it free</a>
-        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Customers pay your PayID when the job is done. They only see it then.</p>
-        <label className="field"><span className="k">PayID: your mobile, email or ABN</span><input value={payid} onChange={(e) => setPayid(e.target.value)} placeholder="0412 345 678" autoCapitalize="none" /></label>
-        <p className="small light muted" style={{ margin: "8px 2px 0", lineHeight: 1.45 }}>No PayID? Set one up in your banking app.</p>
+        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Customers pay you straight to your bank when the job's done. They only see these details then.</p>
+        <label className="field"><span className="k">PayID: your mobile or email</span><input value={payid} onChange={(e) => setPayid(e.target.value)} placeholder="0412 345 678" autoCapitalize="none" /></label>
+        <div className="or-line"><span>or</span></div>
+        <div className="row" style={{ gap: 10 }}>
+          <label className="field" style={{ flex: "0 0 38%" }}><span className="k">BSB</span><input inputMode="numeric" value={bsb} onChange={(e) => setBsb(e.target.value)} placeholder="064 000" /></label>
+          <label className="field" style={{ flex: 1 }}><span className="k">Account number</span><input inputMode="numeric" value={acct} onChange={(e) => setAcct(e.target.value)} placeholder="1234 5678" /></label>
+        </div>
+        <label className="field" style={{ marginTop: 26 }}><span className="k">ABN, if you have one</span><input inputMode="numeric" value={abn} onChange={(e) => setAbn(e.target.value)} placeholder="51 824 753 556" /></label>
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 18 }}>
           <button className="btn primary" disabled={busy} onClick={async () => {
             setErr("");
-            if (!validAbn(abn)) return setErr("That ABN doesn't look right. Check the 11 digits.");
-            if (payid.trim().length < 3) return setErr("Add the mobile, email or ABN your PayID uses.");
+            const hasBank = !!(digits(bsb) || digits(acct));
+            if (!payid.trim() && !hasBank) return setErr("Add your PayID, or your BSB and account number.");
+            if (hasBank && digits(bsb).length !== 6) return setErr("A BSB is 6 digits.");
+            if (hasBank && (digits(acct).length < 5 || digits(acct).length > 10)) return setErr("Check your account number.");
+            if (abn.trim() && !validAbn(abn)) return setErr("That ABN doesn't look right. Check the 11 digits.");
             setBusy(true);
-            try { await api("worker_save", { abn, payid: payid.trim() }); onSaved(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+            try { await api("worker_save", { abn: abn.trim(), payid: payid.trim(), bsb: digits(bsb), account_number: digits(acct) }); onSaved(); }
+            catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
           }}>{busy ? "Saving…" : "Save"}</button>
         </div>
       </div>

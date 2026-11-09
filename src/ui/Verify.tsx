@@ -9,7 +9,7 @@ const REGIONS = "AF AL DZ AD AO AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA 
 
 type Stage = "intro" | "doc" | "selfie" | "sending" | "sent";
 
-// Full-bleed ID check. Photos go to a private store, only the More Mahi team sees them, and they're deleted once checked.
+// Full-bleed ID check. Photos go to a private store that only the More Mahi team can see.
 export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSubmitted?: () => void }) {
   const { session, profile, reload } = useSession();
   const names = useMemo(() => {
@@ -71,9 +71,6 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
           <h1 style={{ margin: "18px 0 8px", fontSize: 44 }}>Sent for<br />checking</h1>
           <p className="lede" style={{ maxWidth: 300 }}>We check it by hand, usually within a few hours.</p>
         </section>
-        <p className="t15 light muted" style={{ margin: "20px 20px 0", lineHeight: 1.45 }}>
-          If a photo is blurry we'll tell you exactly what to retake. Your ID photos are deleted as soon as they're checked.
-        </p>
         <div style={{ flex: 1 }} />
         <div className="bottombar" style={{ justifyContent: "flex-end" }}>
           <button className="btn primary" onClick={onClose}>Done {Icon.arrow("#fff")}</button>
@@ -112,7 +109,6 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
               </span>
             </button>
           </div>
-          <p className="small light muted" style={{ margin: 0, lineHeight: 1.45 }}>Only the More Mahi team sees your ID. It's deleted once checked.</p>
           {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
         </div>
       </div>

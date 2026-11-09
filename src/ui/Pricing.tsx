@@ -39,8 +39,8 @@ export function Pricing() {
         <span className="cp-title">Right now: the pilot</span>
         {feeOn
           ? <Li b={`Booking fee: ${cfg.pct}%, up to ${money(cfg.max)}`} s="Charged to your saved card only when you choose a worker. Nobody chosen, nothing charged. If your worker drops out, you choose again with no new fee, and if the job never gets done it's refunded." />
-          : <Li b="No booking fee" s="Post a job and pay your worker directly by PayID or cash when it's done." />}
-        {feeOn && <Li b="Pay your worker directly" s="The job price goes straight to your worker by PayID or cash when it's done." />}
+          : <Li b="No booking fee" s="Post a job and pay your worker directly by bank transfer or cash when it's done." />}
+        {feeOn && <Li b="Pay your worker directly" s="The job price goes straight to your worker by bank transfer or cash when it's done." />}
         <Li b="Urgent boost is free" s="Every worker in your category gets an alert and your job goes to the top." />
         <Li b="Workers keep 100%" s="Always. Now and after launch." />
       </div>
@@ -77,7 +77,7 @@ export function Pricing() {
 
       <div className="cp-sec" style={{ paddingBottom: "calc(var(--safe-bottom) + 32px)" }}>
         <span className="cp-title">How we keep it good</span>
-        <Li b="Verified people" s="ID checked by us. ABN and PayID for workers." />
+        <Li b="Verified people" s="ID checked by us." />
         <Li b="Ratings for each kind of job" s="See how someone rates for cleaning, not just overall, and who nearby has used them." />
         <Li b="Ticked off and photographed" s="Workers tick off everything that was included and add after photos before they can finish." />
         <Li b="A high bar" s="Workers whose ratings drop are taken offline until we've checked in with them." />

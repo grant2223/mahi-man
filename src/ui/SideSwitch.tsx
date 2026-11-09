@@ -7,15 +7,16 @@ import { useSession } from "../lib/session";
 // new visitors start on Get help, the way Airtasker, hipages and Thumbtack lead with posting.
 const KEY = "mm-side";
 export const lastSide = (): "help" | "work" => { try { return localStorage.getItem(KEY) === "work" ? "work" : "help"; } catch { return "help"; } };
+export const setSide = (side: "help" | "work") => { try { localStorage.setItem(KEY, side); } catch { /* private mode */ } };
 
 export function SideSwitch({ side }: { side: "help" | "work" }) {
   const { profile } = useSession();
-  useEffect(() => { try { localStorage.setItem(KEY, side); } catch { /* private mode */ } }, [side]);
+  useEffect(() => setSide(side), [side]);
   const work = profile?.is_worker ? "/work" : "/find";
   return (
     <div className="path-switch" role="tablist" aria-label="What are you here for?">
-      <button className={side === "help" ? "on" : ""} role="tab" aria-selected={side === "help"} onClick={() => side !== "help" && go("/")}>Get help</button>
-      <button className={side === "work" ? "on" : ""} role="tab" aria-selected={side === "work"} onClick={() => side !== "work" && go(work)}>Do work</button>
+      <button className={side === "help" ? "on" : ""} role="tab" aria-selected={side === "help"} onClick={() => { if (side !== "help") { setSide("help"); go("/"); } }}>Get help</button>
+      <button className={side === "work" ? "on" : ""} role="tab" aria-selected={side === "work"} onClick={() => { if (side !== "work") { setSide("work"); go(work); } }}>Do work</button>
     </div>
   );
 }

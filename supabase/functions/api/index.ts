@@ -174,7 +174,7 @@ Deno.serve(async (req) => {
       case "worker_save": {
         // ABN is checked here so a typo never blocks a payout later.
         if (body.abn !== undefined && body.abn !== "" && !validAbn(body.abn)) return fail("That ABN doesn't look right. Check the 11 digits.");
-        if (body.payid !== undefined) {
+        if (body.payid !== undefined && String(body.payid).trim() !== "") {
           const pid = String(body.payid).trim();
           const phone = pid.replace(/[\s-]/g, "");
           const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(pid);
@@ -183,10 +183,17 @@ Deno.serve(async (req) => {
           if (!isEmail && !isPhone && !isAbn) return fail("Enter the mobile number, email or ABN your PayID is set up with.");
           body.payid = isPhone ? phone : isAbn ? pid.replace(/\s/g, "") : pid.toLowerCase();
         }
+        // Or a plain bank account: BSB is 6 digits, account number 5 to 10.
+        for (const k of ["bsb", "account_number"]) if (body[k] !== undefined) body[k] = String(body[k]).replace(/\D/g, "");
+        if (body.bsb && !/^\d{6}$/.test(body.bsb)) return fail("A BSB is 6 digits.");
+        if (body.account_number && !/^\d{5,10}$/.test(body.account_number)) return fail("Check your account number.");
+        if (!!body.bsb !== !!body.account_number && (body.bsb !== undefined || body.account_number !== undefined)) return fail("Add both your BSB and account number.");
         const patch: Record<string, unknown> = {};
         // Insurance only comes through a checked certificate (Licences and certificates), never straight from the phone.
-        for (const k of ["abn", "payid", "has_vehicle", "base_suburb_id", "radius_km"]) {
-          if (body[k] !== undefined) patch[k] = k === "abn" ? String(body.abn).replace(/\s/g, "") : body[k];
+        for (const k of ["abn", "payid", "bsb", "account_number", "has_vehicle", "base_suburb_id", "radius_km"]) {
+          if (body[k] === undefined) continue;
+          const v = k === "abn" ? String(body.abn).replace(/\s/g, "") : body[k];
+          patch[k] = ["abn", "payid", "bsb", "account_number"].includes(k) && v === "" ? null : v;
         }
         await admin.from("workers").update(patch).eq("id", user.id);
         return ok(await refreshWorker(user.id));
@@ -460,7 +467,8 @@ async function refreshWorker(id: string) {
   const steps = {
     photo: !!p?.photo_path && !!p?.full_name,
     id_and_bank: pilot ? idVerified : payoutsReady && idVerified,
-    abn: !!w?.abn && (!pilot || !!w?.payid),
+    // "abn" is the Getting paid step. ABN itself is optional: a PayID or a bank account is enough.
+    abn: !!w?.payid || (!!w?.bsb && !!w?.account_number),
     area: !!w?.base_suburb_id,
     jobs: (count ?? 0) > 0,
   };

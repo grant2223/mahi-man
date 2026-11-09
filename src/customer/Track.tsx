@@ -13,6 +13,8 @@ import { AlertsAsk } from "../ui/AlertsAsk";
 import { alertsState, askedFor } from "../lib/push";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
 
+interface PayDetails { payid: string | null; bsb: string | null; account_number: string | null; account_name: string }
+
 interface Extra { id: string; amount_cents: number; reason: string; status: string }
 const STEPS = ["Booked", "Matched", "On the way", "Working", "Done"];
 
@@ -36,7 +38,9 @@ export function Track({ id }: { id: string }) {
   const [screen, setScreen] = useState<null | "chat" | "report" | "cancel" | "pay" | "reportUser" | { extra: Extra }>(null);
   const [busy, setBusy] = useState(false);
   const [reviewed, setReviewed] = useState<boolean | null>(null);
-  const [payid, setPayid] = useState<string | null>(null);
+  const [pay, setPay] = useState<PayDetails | null>(null);
+  const payid = pay?.payid ?? null;
+  const bank = !payid && pay?.bsb && pay?.account_number ? pay : null;
   const [later, setLater] = useState(false);
   const trip = useTrip(id, job?.status === "accepted");
   const [route, setRoute] = useState<{ minutes: number; km: number } | null>(null);
@@ -65,7 +69,7 @@ export function Track({ id }: { id: string }) {
     const { data: ex } = await sb.from("extra_requests").select("id,amount_cents,reason,status").eq("job_id", id).order("created_at");
     setExtras((ex ?? []) as Extra[]);
     if (["finished", "disputed", "confirmed"].includes(j.status) && j.worker_id) {
-      rpc<string | null>("job_payid", { p_job: id }).then(setPayid).catch(() => {});
+      rpc<PayDetails[]>("job_pay_details", { p_job: id }).then((r) => setPay(r?.[0] ?? null)).catch(() => {});
     }
     if (j.status === "confirmed") {
       const { data: me } = await sb.auth.getUser();
@@ -162,11 +166,14 @@ export function Track({ id }: { id: string }) {
         <div className="cp-payid">
           {Icon.card("var(--emerald)")}
           <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>
-            <span className="k">{wName}'s PayID</span>
-            <span className="v">{payid ? showPayid(payid) : `Ask ${wName} in Messages`}</span>
+            <span className="k">{bank ? `${wName}'s bank account` : `${wName}'s PayID`}</span>
+            {bank
+              ? <><span className="v">BSB {bank.bsb!.slice(0, 3)}-{bank.bsb!.slice(3)}</span><span className="v">Acc {bank.account_number}</span></>
+              : <span className="v">{payid ? showPayid(payid) : `Ask ${wName} in Messages`}</span>}
+            {bank && <span className="t14 light muted">{bank.account_name}</span>}
           </span>
-          {payid
-            ? <button className="btn stone small" onClick={() => { navigator.clipboard?.writeText(payid).then(() => toast("Copied"), () => toast(payid)); }}>Copy</button>
+          {payid || bank
+            ? <button className="btn stone small" onClick={() => { const t = payid ?? `BSB ${bank!.bsb} Account ${bank!.account_number} ${bank!.account_name}`; navigator.clipboard?.writeText(t).then(() => toast("Copied"), () => toast(t)); }}>Copy</button>
             : <button className="btn stone small" onClick={() => setScreen("chat")}>Message</button>}
         </div>
         <Note icon="clock">{paid
@@ -326,7 +333,7 @@ export function Track({ id }: { id: string }) {
           <>
             <Perf />
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 12 }}>
-              <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${wName} ${money2(total)} directly (PayID or cash), then confirm. If you don't confirm or report a problem, the job closes after 48 hours.` : "If you don't confirm or report a problem, payment releases automatically 48 hours after the job was finished."}</span>
+              <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${wName} ${money2(total)} directly (bank transfer or cash), then confirm. If you don't confirm or report a problem, the job closes after 48 hours.` : "If you don't confirm or report a problem, payment releases automatically 48 hours after the job was finished."}</span>
               <div className="row between">
                 <button className="link quiet" onClick={() => setScreen("report")}>Report a problem</button>
                 <button className="btn primary" disabled={busy} onClick={confirm}>{busy ? "Saving…" : direct ? "Confirm it's done" : "Confirm and pay"}</button>
@@ -351,7 +358,7 @@ export function Track({ id }: { id: string }) {
           {Icon.lock("var(--ink)")}
           <span className="stack" style={{ gap: 3 }}>
             <span className="t17 w5">{direct ? `Pay ${money2(total)} when it's done` : `${money2(total)} held, not paid`}</span>
-            <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${worker ? wName : "your worker"} by PayID or cash once the job is finished.` : `${worker ? wName : "Your worker"} is paid only after you confirm the job is done.`}</span>
+            <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${worker ? wName : "your worker"} by bank transfer or cash once the job is finished.` : `${worker ? wName : "Your worker"} is paid only after you confirm the job is done.`}</span>
           </span>
         </section>
       )}

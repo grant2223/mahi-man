@@ -245,7 +245,7 @@ export function Book() {
           {bookingFee > 0 ? (
             <div className="stack" style={{ padding: "16px 16px 18px", gap: 6 }}>
               <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
-                The booking fee is only charged when you choose a worker. Nobody chosen, nothing charged. You pay the {money(d.priceCents)} to your worker by PayID or cash when it's done.{" "}
+                The booking fee is only charged when you choose a worker. Nobody chosen, nothing charged. You pay the {money(d.priceCents)} to your worker by bank transfer or cash when it's done.{" "}
                 <a href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How it works</a>
               </span>
             </div>
@@ -255,7 +255,7 @@ export function Book() {
             <span className="price">{money2(total)}</span></>}
             {!pilot && <span className="small light muted">Job {money2(d.priceCents)} + booking fee {money2(total - d.priceCents)}</span>}
             <span className="t15 light muted" style={{ marginTop: pilot ? 0 : 8, lineHeight: 1.45 }}>
-              {pilot ? "Pay your worker by PayID or cash once it's done." : "Your card is held, not charged, until you confirm the job is done."}
+              {pilot ? "Pay your worker by bank transfer or cash once it's done." : "Your card is held, not charged, until you confirm the job is done."}
             </span>
             {pilot && (
               <span className="t15 light muted" style={{ lineHeight: 1.45 }}>

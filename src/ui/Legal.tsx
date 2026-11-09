@@ -24,7 +24,7 @@ export function Privacy() {
         <li>ID check: a photo of your passport, national ID card or driver licence and a selfie. These are seen only by the More Mahi team, used only to confirm who you are, and deleted as soon as the check is decided. We keep the result (verified or not) and the ID type and country.</li>
         <li>Jobs: the job you book or take, the photos and video you add, your description, the address and suburb, times, prices and reviews.</li>
         <li>Messages you send through the app.</li>
-        <li>Workers: ABN, suburb and travel distance, the job types you do with your skills, experience and gear, and any licences or certificates you add (a photo, the number and the expiry date). These are checked by the More Mahi team and only "verified" is shown to customers.</li>
+        <li>Workers: PayID or bank account (shown to a customer only once their job is done), ABN if you give one, suburb and travel distance, the job types you do with your skills, experience and gear, and any licences or certificates you add (a photo, the number and the expiry date). These are checked by the More Mahi team and only "verified" is shown to customers.</li>
         <li>Payments: if you add a card, it is collected and stored by our payment provider, Stripe. We never see or keep your full card number. We keep the card type, last 4 digits and expiry so you can see which card is saved, plus a record of fees charged and refunded.</li>
         <li>Location on the way to a job: when a worker taps "I'm on my way", their phone's location is shared with that job's customer until they enter the start code. It is never collected at any other time, and the trip is deleted when it ends.</li>
         <li>Basic technical information needed to run the app, such as sign-in times.</li>
@@ -59,7 +59,7 @@ export function Terms() {
       <h2>Bookings and prices</h2>
       <ul>
         <li>Every job has a fixed price that covers what is listed as included. Anything not included needs the customer's agreement in the app before it is done.</li>
-        <li>During the Cairns pilot, the customer pays the worker directly by PayID or cash when the job is finished, never before.</li>
+        <li>During the Cairns pilot, the customer pays the worker directly by bank transfer or cash when the job is finished, never before.</li>
         <li>Customers can cancel free of charge before a worker arrives.</li>
       </ul>
       <h2>Booking fee</h2>
@@ -101,10 +101,10 @@ export function Support() {
       <h2>Contact us</h2>
       <p>Email <a href={`mailto:${SUPPORT_EMAIL}?subject=More%20Mahi%20help`}>{SUPPORT_EMAIL}</a>. We reply within one business day, and review reports within 24 hours.</p>
       <h2>Common questions</h2>
-      <p><b className="w5">When do I pay?</b> When the job is finished, directly to your worker by PayID or cash. Never before.</p>
+      <p><b className="w5">When do I pay?</b> When the job is finished, directly to your worker by bank transfer or cash. Never before.</p>
       <p><b className="w5">What if the job is bigger than booked?</b> Your worker asks for the extra in the app. Nothing extra is owed unless you approve it.</p>
       <p><b className="w5">How do I delete my account?</b> Settings, then Delete account.</p>
-      <p><b className="w5">How do I become a worker?</b> Go to <a href="/work" onClick={(e) => { e.preventDefault(); go("/work"); }}>Work with More Mahi</a>. You'll need a photo, an ABN and your passport or national ID.</p>
+      <p><b className="w5">How do I become a worker?</b> Go to <a href="/work" onClick={(e) => { e.preventDefault(); go("/work"); }}>Work with More Mahi</a>. You'll need a photo, your passport or national ID, and your PayID or bank account.</p>
     </Page>
   );
 }
