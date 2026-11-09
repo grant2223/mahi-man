@@ -13,13 +13,14 @@ import { Settings } from "./ui/Settings";
 import { VerifyPage } from "./ui/Verify";
 import { Privacy, Support, Terms } from "./ui/Legal";
 import { Pricing } from "./ui/Pricing";
+import { lastSide } from "./ui/SideSwitch";
 import { startPush } from "./lib/push";
 
 void startPush();
 
 function Routes() {
   const path = usePath().split("?")[0];
-  const { session, ready } = useSession();
+  const { session, ready, profile } = useSession();
   if (path === "/reset") return <div className="app"><ResetPassword onDone={() => go("/", true)} /></div>;
   // Admin lives on its own address (admin.moremahi.com) and opens for anyone with the admin role. /admin keeps working on the main site until that address is connected.
   if (location.hostname.startsWith("admin.") || path.startsWith("/admin")) return <Admin />;
@@ -46,7 +47,15 @@ function Routes() {
     return <MyJobs />;
   }
   if (path === "/messages" || path.startsWith("/messages/")) return <MessagesPage jobId={path.split("/")[2]} />;
-  if (path === "/") return <Feed />;
+  if (path === "/find") return <Feed />;
+  if (path === "/") {
+    // Opens on the side they used last. Everyone else starts on Get help.
+    if (lastSide() === "work") {
+      if (!ready || (session && !profile)) return null;
+      go(profile?.is_worker ? "/work" : "/find", true); return null;
+    }
+    return <Book />;
+  }
   return <Book />;
 }
 

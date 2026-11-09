@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, mediaUrls, rpc, sb, type IdStatus, type Job } from "../lib/supabase";
+import { api, firstPhoto, mediaUrls, rpc, sb, type IdStatus, type Job } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { hours, money, money2, whenLabel } from "../lib/format";
@@ -11,7 +11,9 @@ import { WorkerJob } from "./WorkerJob";
 import { ActionBar, reviewSkipped } from "../ui/Completion";
 import { MessagesLink } from "../ui/Messages";
 import { AlertsAsk } from "../ui/AlertsAsk";
-import { alertsState, askedFor, signOut } from "../lib/push";
+import { alertsState, askedFor } from "../lib/push";
+import { SideSwitch } from "../ui/SideSwitch";
+import { SettingsIcon } from "../ui/HeaderIcons";
 
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
@@ -171,13 +173,15 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       <section className="hero" style={{ paddingBottom: 20 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
-          <span className="row" style={{ gap: 12 }}>
+          <span className="row" style={{ gap: 18 }}>
             <MessagesLink />
+            <SettingsIcon />
             <button style={{ background: "none", border: 0, padding: 0, cursor: "pointer", display: "flex" }} onClick={toggle} aria-label={online ? "Go offline" : "Go online"}>
               <span className={online ? "switch on" : "switch"} />
             </button>
           </span>
         </div>
+        <SideSwitch side="work" />
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 150, right: -30 }} />
         <h1 className="mid" style={{ position: "relative", margin: "18px 0 8px" }}>{online ? <>Jobs<br />near you</> : <>You're<br />offline</>}</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 210 }}>
@@ -233,13 +237,6 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         </div>
       )}
       <History />
-      <div className="footer between">
-        <button className="link quiet" onClick={() => go("/post")}>Post a job</button>
-        <span className="row" style={{ gap: 18 }}>
-          <button className="link quiet" onClick={() => go("/settings")}>Settings</button>
-          <button className="link quiet" onClick={() => signOut()}>Sign out</button>
-        </span>
-      </div>
       {open && <OfferScreen o={open} pilot={pilot} onBack={() => setOpen(null)}
         onPass={async () => { await rpc("pass_job", { p_job: open.id }); setOpen(null); poll(); }}
         onOffered={() => { const id = open.id; setOpen(null); setWaiting(id); poll(); }} onGone={() => { setOpen(null); poll(); }} />}
@@ -407,10 +404,12 @@ function WaitingScreen({ o, onWithdraw, onClose }: { o: MyOffer; onWithdraw: () 
 
 function History() {
   const { session } = useSession();
-  const [jobs, setJobs] = useState<(Job & { job_types: { name: string } })[]>([]);
+  const [jobs, setJobs] = useState<(Job & { job_types: { name: string }; job_media: { path: string; kind: string; sort: number }[] })[]>([]);
+  const [pics, setPics] = useState<Record<string, string>>({});
+  useEffect(() => { if (jobs.length) mediaUrls(jobs.map((j) => firstPhoto(j.job_media)).filter(Boolean) as string[]).then(setPics); }, [jobs]);
   useEffect(() => {
     if (!session) return;
-    sb.from("jobs").select("*, job_types(name)").eq("worker_id", session.user.id).in("status", ["finished", "confirmed", "disputed", "refunded", "cancelled"])
+    sb.from("jobs").select("*, job_types(name), job_media(path,kind,sort)").eq("worker_id", session.user.id).in("status", ["finished", "confirmed", "disputed", "refunded", "cancelled"])
       .order("accepted_at", { ascending: false }).limit(20).then(({ data }) => setJobs((data ?? []) as never));
   }, [session]);
   if (!jobs.length) return null;
@@ -420,6 +419,7 @@ function History() {
       <div style={{ background: "var(--card)", borderRadius: 6 }}>
         {jobs.map((j) => (
           <div key={j.id} className="li" style={{ cursor: "default" }}>
+            {(() => { const p = firstPhoto(j.job_media); return p && pics[p] ? <span className="li-pic" style={{ backgroundImage: `url("${pics[p]}")` }} /> : null; })()}
             <span className="t"><b>{j.title || j.job_types.name}</b><span>{whenLabel(j.asap, j.start_at)}</span></span>
             <span className={j.status === "confirmed" ? "t15 w5 em" : "small muted"}>{j.status === "confirmed" ? money(j.price_cents + j.extra_cents) : j.status === "finished" ? "Awaiting confirm" : j.status === "disputed" ? "Being checked" : j.status === "cancelled" ? "Cancelled" : "Refunded"}</span>
           </div>

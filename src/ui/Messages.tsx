@@ -35,11 +35,12 @@ export function useUnread() {
 }
 
 // The "Messages" link in the top bar, with the unread count.
-export function MessagesLink({ dark = false }: { dark?: boolean }) {
+export function MessagesLink() {
   const n = useUnread();
   return (
-    <a className={`hero-link msg-link${dark ? " dark" : ""}`} href="/messages" onClick={(e) => { e.preventDefault(); go("/messages"); }}>
-      Messages{n > 0 && <span className="count">{n > 9 ? "9+" : n}</span>}
+    <a className="hero-icon" href="/messages" aria-label={n > 0 ? `Messages, ${n} unread` : "Messages"} onClick={(e) => { e.preventDefault(); go("/messages"); }}>
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>
+      {n > 0 && <span className="count">{n > 9 ? "9+" : n}</span>}
     </a>
   );
 }

@@ -100,6 +100,10 @@ export function brandUrl(path: string | null | undefined): string | null {
 }
 
 // Private job photos and videos: short-lived signed links.
+// The first photo of a job, which stands in for it wherever it is listed.
+export const firstPhoto = (m: { path: string; kind: string; sort: number }[] | null | undefined) =>
+  [...(m ?? [])].filter((x) => x.kind === "photo").sort((a, b) => a.sort - b.sort)[0]?.path ?? null;
+
 export async function mediaUrls(paths: string[]): Promise<Record<string, string>> {
   const clean = paths.filter(Boolean);
   if (!clean.length) return {};

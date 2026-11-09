@@ -568,3 +568,12 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .screen-head.brand.danger { background: linear-gradient(180deg, #c8402f, #9e2a1d); }
 .screen-head.brand.ink { background: linear-gradient(180deg, #2c322f, #1d211f); }
 .screen-head.brand.danger .btn.primary, .screen-head.brand.ink .btn.primary { background: #fff; color: var(--ink); }
+
+/* Top bar icons: plain white icons, no boxes. The unread count sits on the corner. */
+.hero-icons { gap: 18px; align-items: center; }
+.hero-icon { position: relative; display: inline-flex; padding: 4px; margin: -4px; color: #fff; text-decoration: none; }
+.hero-icon .count { position: absolute; top: -4px; right: -8px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 3px; background: var(--lime); color: var(--ink); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+
+/* A job's own photo stands in for it wherever it's listed. */
+.recent-row .sq.pic { background-size: cover; background-position: center; }
+.li-pic { width: 52px; height: 52px; flex-shrink: 0; border-radius: var(--r-control); background-size: cover; background-position: center; margin-right: 2px; }

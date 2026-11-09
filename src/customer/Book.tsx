@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
+import { firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go, usePath } from "../lib/router";
 import { money, money2, shrinkImage } from "../lib/format";
@@ -7,10 +7,11 @@ import { draftMedia, type DraftItem } from "../lib/draftMedia";
 import { CatIcon, Icon, Logo, SearchPicker, StepHero, useToast } from "../ui/kit";
 import { AuthScreen } from "../ui/Auth";
 import { VoiceScreen, voiceSupported } from "../ui/Voice";
-import { MessagesLink } from "../ui/Messages";
 import { PayScreen } from "./Pay";
 import { AddCardScreen, CardMark, cardLabel } from "./Cards";
 import { lc } from "../worker/Skills";
+import { SideSwitch } from "../ui/SideSwitch";
+import { HeaderIcons } from "../ui/HeaderIcons";
 
 /* Post a job: price, show the job, who can take it, where, when, check. */
 
@@ -308,7 +309,7 @@ export function Book() {
 
 const afterLabel = (m: number) => (m >= 60 ? `${m / 60} hour${m === 60 ? "" : "s"}` : `${m} minutes`);
 
-// ---------- I have work: one button, then your recent jobs ----------
+// ---------- Get help: one button, then your recent jobs ----------
 interface Recent {
   id: string; title: string | null; details: string; skill_ids: number[] | null; included: string[] | null; excluded: string[] | null; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
   status: string; worker_id: string | null; job_types: { category_id: number | null } | null; suburbs: { name: string } | null;
@@ -323,6 +324,9 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
       .eq("customer_id", uid).neq("status", "awaiting_payment").order("created_at", { ascending: false }).limit(5)
       .then(({ data }) => setRecent((data ?? []) as unknown as Recent[]));
   }, [uid]);
+  // Each recent job shows its own first photo, so it's recognisable at a glance. The category icon only fills in when there's no photo.
+  const [pics, setPics] = useState<Record<string, string>>({});
+  useEffect(() => { if (recent?.length) mediaUrls(recent.map((r) => firstPhoto(r.job_media)).filter(Boolean) as string[]).then(setPics); }, [recent]);
 
   const again = (r: Recent) => onStart({
     categoryId: r.job_types?.category_id ?? null, priceCents: r.price_cents, suburbId: r.suburb_id, address: r.address, notes: r.notes,
@@ -336,14 +340,11 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
           {signedIn
-            ? <span className="row" style={{ gap: 8 }}><MessagesLink /><a className="hero-link" href="/jobs" onClick={(e) => { e.preventDefault(); go("/jobs"); }}>My jobs</a></span>
+            ? <HeaderIcons />
             : <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>}
         </div>
-        <div className="path-switch" role="tablist" aria-label="What are you here for?">
-          <button role="tab" aria-selected="false" onClick={() => go("/")}>I want work</button>
-          <button className="on" role="tab" aria-selected="true">I have work</button>
-        </div>
-        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 190, right: -30 }} />
+        <SideSwitch side="help" />
+        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 160, right: -30 }} />
         <h1 className="mid" style={{ position: "relative", margin: "26px 0 10px" }}>Need a hand?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Get help now with your odd job.</p>
       </section>
@@ -361,7 +362,9 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
               const c = cats.find((x) => x.id === r.job_types?.category_id);
               return (
                 <div key={r.id} className="recent-row">
-                  <span className="sq"><CatIcon name={c?.icon} size={28} /></span>
+                  {(() => { const p = firstPhoto(r.job_media); return p && pics[p]
+                    ? <span className="sq pic" style={{ backgroundImage: `url("${pics[p]}")` }} />
+                    : <span className="sq"><CatIcon name={c?.icon} size={28} /></span>; })()}
                   <span className="t">
                     <b>{r.title || r.details}</b>
                     <span>{money(r.price_cents)}, {r.suburbs?.name ?? ""}, {new Date(r.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</span>

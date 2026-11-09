@@ -3,15 +3,16 @@ import { mediaUrls, rpc, sb, type Category } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money } from "../lib/format";
-import { MessagesLink } from "../ui/Messages";
 import { CatIcon, Icon, Logo, SearchPicker } from "../ui/kit";
+import { SideSwitch } from "../ui/SideSwitch";
+import { HeaderIcons } from "../ui/HeaderIcons";
 
 interface FeedJob {
   id: string; job_name: string; category_id: number | null; category: string | null; icon: string; suburb: string;
   asap: boolean; start_at: string; pay_cents: number; has_video: boolean; cover_path: string | null; customer_verified: boolean;
 }
 
-// "I want work": the home screen. Every job open right now, filtered by category.
+// "Do work": the home screen. Every job open right now, filtered by category.
 export function Feed() {
   const { session, profile } = useSession();
   const isWorker = !!profile?.is_worker;
@@ -49,13 +50,10 @@ export function Feed() {
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
           {session
-            ? <span className="row" style={{ gap: 8 }}><MessagesLink /><a className="hero-link" href="/jobs" onClick={(e) => { e.preventDefault(); go("/jobs"); }}>My jobs</a></span>
+            ? <HeaderIcons />
             : <span className="row t15" style={{ gap: 6 }}>{Icon.pin("#fff")} Cairns</span>}
         </div>
-        <div className="path-switch" role="tablist" aria-label="What are you here for?">
-          <button className="on" role="tab" aria-selected="true">I want work</button>
-          <button role="tab" aria-selected="false" onClick={() => go("/post")}>I have work</button>
-        </div>
+        <SideSwitch side="work" />
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 168, right: -32 }} />
         <h1 className="mid" style={{ position: "relative", margin: "22px 0 10px" }}>Want more<br />mahi?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Local jobs, open now. Keep 100% of the price.</p>
