@@ -4,7 +4,7 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { hours, money, money2, whenLabel } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
-import { Icon, Loading, Logo, Perf, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
+import { Icon, Loading, Logo, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen } from "../ui/Report";
 import { Signup, type Steps } from "./Signup";
 import { WorkerJob } from "./WorkerJob";
@@ -180,22 +180,26 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
 
   return (
     <>
-      <section className="hero" style={{ paddingBottom: 20 }}>
+      <section className="hero" style={{ paddingBottom: 40 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
           <span className="row" style={{ gap: 18 }}>
             <MessagesLink />
             <SettingsIcon />
-            <button style={{ background: "none", border: 0, padding: 0, cursor: "pointer", display: "flex" }} onClick={toggle} aria-label={online ? "Go offline" : "Go online"}>
-              <span className={online ? "switch on" : "switch"} />
-            </button>
           </span>
         </div>
         <SideSwitch side="work" />
-        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 150, right: -30 }} />
-        <h1 className="mid" style={{ position: "relative", margin: "18px 0 8px" }}>{online ? <>Jobs<br />near you</> : <>You're<br />offline</>}</h1>
+        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 122, right: -24 }} />
+        {/* Title, and beside it the switch that says whether they're available for jobs. */}
+        <div className="title-row">
+          <h1 className="mid" style={{ margin: "18px 0 8px" }}>{online ? <>Jobs<br />near you</> : <>You're<br />offline</>}</h1>
+          <button className="avail-sw" onClick={toggle} aria-label={online ? "Go offline" : "Go online"} aria-pressed={online}>
+            <span>{online ? "Online" : "Offline"}</span>
+            <span className={online ? "switch on" : "switch"} />
+          </button>
+        </div>
         <p className="lede" style={{ position: "relative", maxWidth: 210 }}>
-          {online ? (offers.length ? `${offers.length} open near you. You keep the full price.` : "No jobs open right now.") : "Switch on when you're free to take jobs."}
+          {online ? (offers.length ? `${offers.length} open near you. You keep the full price.` : "No jobs open right now. New ones show here.") : "Switch on when you are available for work."}
         </p>
       </section>
 
@@ -242,8 +246,6 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
           <div className="pad row between">
             <span className="stack" style={{ gap: 2 }}><span className="small muted">Earned this week</span><span className="price" style={{ fontSize: 44 }}>{money2(week)}</span></span>
           </div>
-          <Perf />
-          <div className="pad t15 light muted" style={{ paddingTop: 8, lineHeight: 1.45 }}>Go online to see jobs. Take only the ones you want.</div>
         </div>
       )}
       <History />
