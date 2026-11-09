@@ -4,12 +4,16 @@ import { elapsed } from "../lib/format";
 import { Icon, Logo, useNow, useToast } from "../ui/kit";
 import { go } from "../lib/router";
 import { shareLink, SITE } from "../lib/share";
+import { WorkerProfile } from "../ui/WorkerProfile";
+import { expLabel } from "../worker/Skills";
 
 export interface Offer {
   worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_done: number;
   jobs_for_me: number; eta_minutes: number; distance_km: number | null; expires_at: string; is_new: boolean;
   category: string | null; cat_rating: number | null; cat_jobs: number; local_customers: number; suburb: string;
 }
+
+interface Extra { worker_id: string; skills: string[]; years: number | null; gear: string[]; creds: string[] }
 
 const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
 
@@ -33,12 +37,16 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
   const shown = (offers ?? []).filter((o) => new Date(o.expires_at).getTime() > now);
   const [boosting, setBoosting] = useState(false);
   const [recs, setRecs] = useState<Record<string, number>>({});
+  const [extras, setExtras] = useState<Record<string, Extra>>({});
+  const [profile, setProfile] = useState<string | null>(null);
   const ids = (offers ?? []).map((o) => o.worker_id).join(",");
   useEffect(() => {
     if (!ids) return;
     rpc<{ worker_id: string; people: number }[]>("recommended_counts", { p_workers: ids.split(",") })
       .then((r) => setRecs(Object.fromEntries((r ?? []).map((x) => [x.worker_id, Number(x.people)])))).catch(() => {});
-  }, [ids]);
+    rpc<Extra[]>("offer_extras", { p_job: jobId })
+      .then((r) => setExtras(Object.fromEntries((r ?? []).map((x) => [x.worker_id, x])))).catch(() => {});
+  }, [ids, jobId]);
   const widened = now - new Date(searchingAt).getTime() > 10 * 60000;
 
   async function choose(o: Offer) {
@@ -101,21 +109,34 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
                 <span className="ph">{photo ? <img src={photo} alt="" /> : null}</span>
                 <span className="t">
                   <span className="row between" style={{ gap: 8, alignItems: "baseline" }}>
-                    <b>{o.full_name}</b>
+                    <button className="name-link" onClick={() => setProfile(o.worker_id)}>{o.full_name}{Icon.chevron("var(--muted)")}</button>
                     <span className={`left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
                   </span>
-                  <span className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+                  <span className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>
                     {o.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
                     {o.jobs_for_me > 0 && <span className="badge-ver">Used before</span>}
+                    {(extras[o.worker_id]?.creds ?? []).map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c}</span>)}
                   </span>
+                  {(() => {
+                    const x = extras[o.worker_id];
+                    if (!x) return null;
+                    const exp = [x.years != null ? expLabel(x.years) : "", x.gear.length ? `brings ${x.gear.slice(0, 2).join(", ").toLowerCase()}` : ""].filter(Boolean).join(", ");
+                    return <>
+                      {x.skills.length > 0 && <span className="m sk">{x.skills.slice(0, 2).join(", ")}{x.skills.length > 2 ? ` +${x.skills.length - 2}` : ""}</span>}
+                      {exp && <span className="m">{exp.charAt(0).toUpperCase() + exp.slice(1)}</span>}
+                    </>;
+                  })()}
                   <span className="m">
                     {o.is_new ? `New to More Mahi, ${o.jobs_done} job${o.jobs_done === 1 ? "" : "s"}`
                       : o.category && o.cat_jobs > 0 ? `${o.cat_rating ? `${o.cat_rating} for ${o.category.toLowerCase()}, ` : ""}${o.cat_jobs} job${o.cat_jobs === 1 ? "" : "s"}`
                       : `${o.rating ? `${o.rating} rating, ` : ""}${o.jobs_done} jobs`}
                     {o.jobs_for_me > 0 ? `, ${o.jobs_for_me} for you` : ""}
                   </span>
-                  {(recs[o.worker_id] ?? 0) > 0 && <span className="m em">Recommended by {recs[o.worker_id]} {recs[o.worker_id] === 1 ? "person" : "people"}</span>}
-                  {o.local_customers > 0 && <span className="m">Used by {o.local_customers} {o.local_customers === 1 ? "person" : "people"} in {o.suburb}</span>}
+                  {(() => {
+                    const r = recs[o.worker_id] ?? 0;
+                    const parts = [r > 0 ? `Recommended by ${r} ${r === 1 ? "person" : "people"}` : "", o.local_customers > 0 ? `${r > 0 ? "used" : "Used"} by ${o.local_customers} in ${o.suburb}` : ""].filter(Boolean);
+                    return parts.length ? <span className={r > 0 ? "m em" : "m"}>{parts.join(", ")}</span> : null;
+                  })()}
                   <span className="e">Can be there {at}{o.distance_km != null ? `, ${o.distance_km} km away` : ""}</span>
                 </span>
               </div>
@@ -144,6 +165,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
       <div style={{ padding: "0 16px calc(var(--safe-bottom) + 24px)" }}>
         <button className="link quiet" onClick={onCancel}>Cancel this job</button>
       </div>
+      {profile && <WorkerProfile workerId={profile} onBack={() => setProfile(null)} />}
     </div>
   );
 }

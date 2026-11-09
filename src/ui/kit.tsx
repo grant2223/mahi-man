@@ -132,7 +132,7 @@ export function DateField({ label, value, onChange, min, max }: { label: string;
 }
 
 /* ---------- Searchable dropdown, full bleed ---------- */
-export interface Option { id: number | string; label: string; hint?: string; disabled?: boolean; right?: string }
+export interface Option { id: number | string; label: string; hint?: string; disabled?: boolean; right?: string; action?: () => void }
 
 export function SearchPicker(props: {
   title: string; options: Option[]; value: (number | string)[]; multi?: boolean;
@@ -142,6 +142,8 @@ export function SearchPicker(props: {
   const [sel, setSel] = useState(props.value);
   const shown = useMemo(() => props.options.filter((o) => o.label.toLowerCase().includes(q.trim().toLowerCase())), [q, props.options]);
   const pick = (id: number | string) => {
+    const opt = props.options.find((o) => o.id === id);
+    if (opt?.action) { opt.action(); return; }
     if (!props.multi) { props.onChange([id]); props.onClose(); return; }
     setSel((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
   };
@@ -161,7 +163,7 @@ export function SearchPicker(props: {
             <button key={o.id} className="opt" disabled={o.disabled} onClick={() => pick(o.id)} style={o.disabled ? { opacity: 0.45 } : undefined}>
               <span className="stack" style={{ gap: 2 }}>
                 <b>{o.label}</b>
-                {o.hint && <span className="small muted light">{o.hint}</span>}
+                {o.hint && <span className={o.action ? "small em" : "small muted light"}>{o.hint}</span>}
               </span>
               <span className="row" style={{ gap: 14 }}>
                 {o.right !== undefined && <span className="t15 light muted">{o.right}</span>}

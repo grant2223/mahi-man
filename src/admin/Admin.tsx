@@ -8,7 +8,7 @@ import { CatIcon, Icon, Logo, SearchPicker, useToast } from "../ui/kit";
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "reports" | "problems" | "people" | "types" | "settings";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "types" | "skills" | "settings";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -17,19 +17,20 @@ const STATUS_BADGE: Record<string, string> = {
 export function Admin() {
   const { session, profile, ready } = useSession();
   const [tab, setTab] = useState<Tab>("overview");
-  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0 });
+  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0 });
   const recount = useCallback(async () => {
-    const [a, b, c] = await Promise.all([
+    const [a, b, c, d] = await Promise.all([
       sb.from("id_checks").select("id", { count: "exact", head: true }).eq("status", "pending"),
       sb.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
       sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
+      sb.from("worker_credentials").select("id", { count: "exact", head: true }).eq("status", "pending"),
     ]);
-    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0 });
+    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0 });
   }, []);
   useEffect(() => { if (profile?.is_admin) recount(); }, [profile?.is_admin, recount, tab]);
-  const TABS: [Tab, string][] = [["overview", "Overview"], ["jobs", "Jobs"], ["ids", `ID checks${counts.ids ? `  ${counts.ids}` : ""}`],
+  const TABS: [Tab, string][] = [["overview", "Overview"], ["jobs", "Jobs"], ["ids", `ID checks${counts.ids ? `  ${counts.ids}` : ""}`], ["licences", `Licence checks${counts.licences ? `  ${counts.licences}` : ""}`],
     ["reports", `Reports${counts.reports ? `  ${counts.reports}` : ""}`], ["problems", `Disputes${counts.problems ? `  ${counts.problems}` : ""}`],
-    ["people", "People"], ["types", "Job types"], ["settings", "Settings"]];
+    ["people", "People"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]];
   if (!ready) return null;
   if (!session) return <div className="admin"><AuthScreen title="Admin sign in" reason="Sign in with your admin account." onBack={() => go("/")} onDone={() => {}} /></div>;
   if (!profile?.is_admin) return (
@@ -49,6 +50,8 @@ export function Admin() {
         {tab === "overview" && <Overview />}
         {tab === "jobs" && <Jobs />}
         {tab === "ids" && <IdChecks onChanged={recount} />}
+        {tab === "licences" && <LicenceChecks onChanged={recount} />}
+        {tab === "skills" && <Skills />}
         {tab === "reports" && <Reports onChanged={recount} />}
         {tab === "problems" && <Problems />}
         {tab === "people" && <People />}
@@ -430,6 +433,164 @@ function IdChecks({ onChanged }: { onChanged: () => void }) {
         options={(pick === "retake" ? RETAKE_REASONS : REJECT_REASONS).map((r) => ({ id: r, label: r }))}
         onChange={(v) => decide(pick, String(v[0]))} onClose={() => setPick(null)} />}
     </div>
+  );
+}
+
+// ---------- Licences and certificates sent by workers ----------
+interface CredCheck { id: string; worker_id: string; number: string; expiry: string | null; photo_path: string; created_at: string;
+  credential_types: { name: string; short: string }; profiles: { full_name: string; photo_path: string | null; id_status: string } }
+const CRED_RETAKE = ["Photo is blurry", "Card is cut off", "Number doesn't match the card", "Expiry date doesn't match"];
+const CRED_REJECT = ["Name doesn't match their ID", "Expired", "Not on the register", "Wrong document"];
+
+function LicenceChecks({ onChanged }: { onChanged: () => void }) {
+  const toast = useToast();
+  const [rows, setRows] = useState<CredCheck[]>([]);
+  const [sel, setSel] = useState<string | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [pick, setPick] = useState<null | "retake" | "rejected">(null);
+  const [busy, setBusy] = useState(false);
+  const load = useCallback(() => {
+    sb.from("worker_credentials").select("id,worker_id,number,expiry,photo_path,created_at,credential_types(name,short),profiles!worker_credentials_profile_fkey(full_name,photo_path,id_status)")
+      .eq("status", "pending").order("created_at").then(({ data }) => {
+        const list = (data ?? []) as unknown as CredCheck[];
+        setRows(list);
+        setSel((cur) => (cur && list.some((r) => r.id === cur) ? cur : list[0]?.id ?? null));
+      });
+  }, []);
+  useEffect(() => { load(); }, [load]);
+  const cur = rows.find((r) => r.id === sel) ?? null;
+  useEffect(() => {
+    setUrl(null);
+    if (cur) sb.storage.from("insurance").createSignedUrl(cur.photo_path, 900).then(({ data }) => setUrl(data?.signedUrl ?? null));
+  }, [cur]);
+  async function decide(decision: "verified" | "retake" | "rejected", reason = "") {
+    if (!cur) return;
+    setBusy(true);
+    try {
+      await rpc("admin_credential_decide", { p_id: cur.id, p_decision: decision, p_reason: reason });
+      toast(decision === "verified" ? `${cur.credential_types.short} verified for ${cur.profiles.full_name}` : "Sent. They'll see what to fix.");
+      load(); onChanged();
+    } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
+  }
+  const ago = (iso: string) => { const m = Math.round((Date.now() - new Date(iso).getTime()) / 60000); return m < 60 ? `${m} min ago` : m < 2880 ? `${Math.round(m / 60)} hrs ago` : `${Math.round(m / 1440)} days ago`; };
+  const isPdf = cur?.photo_path.toLowerCase().endsWith(".pdf");
+
+  if (!rows.length) return <div className="stat" style={{ maxWidth: 560 }}><b style={{ fontSize: 24 }}>Nothing waiting</b><span>Licences and certificates from workers appear here, oldest first.</span></div>;
+  return (
+    <div className="row" style={{ alignItems: "stretch", gap: 20, flexWrap: "wrap" }}>
+      <div style={{ width: 330, flexShrink: 0, background: "var(--card)", borderRadius: 6, overflow: "hidden", alignSelf: "flex-start" }}>
+        <div className="row between" style={{ padding: "16px 18px", borderBottom: "1px solid var(--line)" }}>
+          <span style={{ fontSize: 20, fontWeight: 600 }}>Waiting</span><span className="t15 muted">Oldest first</span>
+        </div>
+        {rows.map((r) => (
+          <button key={r.id} className="li" style={r.id === sel ? { background: "var(--emerald-tint)" } : undefined} onClick={() => setSel(r.id)}>
+            {r.profiles.photo_path ? <img src={avatarUrl(r.profiles.photo_path)!} alt="" style={{ width: 44, height: 44, borderRadius: 4, objectFit: "cover" }} /> : <span className="tile" style={{ width: 44, height: 44 }} />}
+            <span className="t"><b style={{ fontSize: 16 }}>{r.profiles.full_name}</b><span>{r.credential_types.name}, {ago(r.created_at)}</span></span>
+          </button>
+        ))}
+      </div>
+      {cur && (
+        <div className="stack" style={{ flex: "999 1 560px", minWidth: 0, background: "var(--card)", borderRadius: 6, padding: "20px 22px", gap: 16 }}>
+          <span className="stack" style={{ gap: 2 }}>
+            <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: -0.6 }}>{cur.profiles.full_name}</span>
+            <span className="t15 light muted">{cur.credential_types.name}, sent {ago(cur.created_at)}</span>
+          </span>
+          <div className="row" style={{ gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+            {url ? (isPdf ? <a className="btn stone" href={url} target="_blank" rel="noreferrer">Open the PDF</a>
+              : <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="" style={{ width: 460, maxWidth: "100%", height: 300, objectFit: "contain", background: "#1d211f", borderRadius: 4, display: "block" }} /></a>)
+              : <span style={{ width: 460, maxWidth: "100%", height: 300, background: "var(--stone)", borderRadius: 4, display: "block" }} />}
+            <div className="stack" style={{ gap: 14 }}>
+              <span className="stack" style={{ gap: 2 }}><span className="small muted">Number</span><span className="t17">{cur.number || "Not given"}</span></span>
+              <span className="stack" style={{ gap: 2 }}><span className="small muted">Expires</span><span className="t17">{cur.expiry ? new Date(cur.expiry + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "No expiry given"}</span></span>
+              <span className="stack" style={{ gap: 2 }}><span className="small muted">Name on account</span><span className="t17">{cur.profiles.full_name}{cur.profiles.id_status === "verified" ? ", ID verified" : ", ID not verified yet"}</span></span>
+              <a className="link" style={{ padding: 0 }} target="_blank" rel="noreferrer"
+                href={`https://www.google.com/search?q=${encodeURIComponent(`Queensland ${cur.credential_types.name} register check`)}`}>Find the register to check it</a>
+            </div>
+          </div>
+          <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
+            <span className="t15 light muted" style={{ flex: 1, minWidth: 240 }}>Check: the name matches their ID, the number is on the register, it isn't expired. The photo is kept while it's valid.</span>
+            <button className="btn stone" disabled={busy} onClick={() => setPick("retake")}>Ask to retake</button>
+            <button className="btn danger" disabled={busy} onClick={() => setPick("rejected")}>Reject</button>
+            <button className="btn primary" disabled={busy} onClick={() => decide("verified")}>Approve</button>
+          </div>
+        </div>
+      )}
+      {pick && <SearchPicker title={pick === "retake" ? "What should they retake?" : "Why is it rejected?"} value={[]}
+        options={(pick === "retake" ? CRED_RETAKE : CRED_REJECT).map((r) => ({ id: r, label: r }))}
+        onChange={(v) => decide(pick, String(v[0]))} onClose={() => setPick(null)} />}
+    </div>
+  );
+}
+
+// ---------- Skills and gear for each category, and which licence a skill needs ----------
+interface SkillRow { id: number; category_id: number; kind: "skill" | "gear"; name: string; credential_type_id: number | null; sort: number; active: boolean }
+function Skills() {
+  const toast = useToast();
+  const [cats, setCats] = useState<Category[]>([]);
+  const [cat, setCat] = useState<number | null>(null);
+  const [rows, setRows] = useState<SkillRow[]>([]);
+  const [creds, setCreds] = useState<{ id: number; name: string }[]>([]);
+  const [dirty, setDirty] = useState<Record<number, Partial<SkillRow>>>({});
+  useEffect(() => {
+    sb.from("categories").select("*").order("sort").then(({ data }) => { const c = (data ?? []) as Category[]; setCats(c); setCat((x) => x ?? c[0]?.id ?? null); });
+    sb.from("credential_types").select("id,name").order("sort").then(({ data }) => setCreds((data ?? []) as { id: number; name: string }[]));
+  }, []);
+  const load = useCallback(() => {
+    if (cat == null) return;
+    sb.from("skills").select("*").eq("category_id", cat).order("kind").order("sort").then(({ data }) => { setRows((data ?? []) as SkillRow[]); setDirty({}); });
+  }, [cat]);
+  useEffect(() => { load(); }, [load]);
+  const set = (id: number, p: Partial<SkillRow>) => setDirty((d) => ({ ...d, [id]: { ...d[id], ...p } }));
+  const val = <K extends keyof SkillRow>(r: SkillRow, k: K): SkillRow[K] => (dirty[r.id]?.[k] ?? r[k]) as SkillRow[K];
+  async function save() {
+    for (const [id, p] of Object.entries(dirty)) {
+      const { error } = await sb.from("skills").update(p).eq("id", Number(id));
+      if (error) return toast(error.message);
+    }
+    toast("Saved"); load();
+  }
+  async function add(kind: "skill" | "gear") {
+    if (cat == null) return;
+    const n = rows.filter((r) => r.kind === kind).length + 1;
+    const { error } = await sb.from("skills").insert({ category_id: cat, kind, name: kind === "skill" ? `New skill ${n}` : `New gear ${n}`, sort: n });
+    if (error) toast(error.message); else load();
+  }
+  return (
+    <>
+      <div className="row" style={{ gap: 12, marginBottom: 14, alignItems: "center" }}>
+        <h2 style={{ margin: 0, fontSize: 22, fontWeight: 600 }}>Skills for</h2>
+        <select value={cat ?? ""} onChange={(e) => setCat(Number(e.target.value))} style={{ fontSize: 17, height: 44, padding: "0 12px", border: 0, borderRadius: 4, background: "var(--card)", minWidth: 220 }}>
+          {cats.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      </div>
+      <div className="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Type</th><th>Needs</th><th>Order</th><th>Live</th></tr></thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id}>
+                <td><input value={val(r, "name")} onChange={(e) => set(r.id, { name: e.target.value })} style={{ minWidth: 240 }} /></td>
+                <td><select value={val(r, "kind")} onChange={(e) => set(r.id, { kind: e.target.value as "skill" | "gear" })}><option value="skill">Skill</option><option value="gear">Gear</option></select></td>
+                <td>{val(r, "kind") === "skill" ? (
+                  <select value={String(val(r, "credential_type_id") ?? "")} onChange={(e) => set(r.id, { credential_type_id: e.target.value ? Number(e.target.value) : null })}>
+                    <option value="">Nothing</option>{creds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>) : <span className="small muted">Nothing</span>}</td>
+                <td><input inputMode="numeric" value={String(val(r, "sort"))} onChange={(e) => set(r.id, { sort: Number(e.target.value || 0) })} style={{ width: 70 }} /></td>
+                <td><select value={val(r, "active") ? "1" : "0"} onChange={(e) => set(r.id, { active: e.target.value === "1" })}><option value="1">Live</option><option value="0">Hidden</option></select></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div className="row between" style={{ marginTop: 16 }}>
+        <span className="row" style={{ gap: 10 }}>
+          <button className="btn stone small" onClick={() => add("skill")}>Add a skill</button>
+          <button className="btn stone small" onClick={() => add("gear")}>Add gear</button>
+        </span>
+        <button className="btn primary" disabled={!Object.keys(dirty).length} onClick={save}>Save</button>
+      </div>
+      <p className="small muted">A skill that needs a licence only shows on workers who have that licence verified. Jobs asking for it only go to those workers.</p>
+    </>
   );
 }
 

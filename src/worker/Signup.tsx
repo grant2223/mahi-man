@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
-import { api, sb, type IdStatus, type JobType, type Suburb } from "../lib/supabase";
+import { api, sb, type IdStatus, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { shrinkImage, validAbn } from "../lib/format";
-import { DateField, Icon, Logo, Screen, SearchPicker, Tile, useToast } from "../ui/kit";
+import { Icon, Logo, Screen, SearchPicker, Tile } from "../ui/kit";
 import { VerifyFlow } from "../ui/Verify";
+import { Credentials, JobsAndSkills } from "./Skills";
 
 export interface Steps { photo: boolean; id_and_bank: boolean; abn: boolean; area: boolean; jobs: boolean }
-type StepKey = keyof Steps | "insurance";
+type StepKey = keyof Steps | "creds";
 
 const STEP_INFO: { key: keyof Steps; title: string; hint: string }[] = [
   { key: "photo", title: "Your photo", hint: "Customers see it before you arrive" },
   { key: "id_and_bank", title: "Verify your ID", hint: "Passport or national ID, plus a selfie" },
   { key: "abn", title: "ABN and PayID", hint: "Your ABN, and where customers pay you" },
   { key: "area", title: "Where you work", hint: "Your suburb and how far you'll travel" },
-  { key: "jobs", title: "Jobs you'll do", hint: "Cleaning, gardens, pets, errands and more" },
+  { key: "jobs", title: "Jobs and skills", hint: "What you do, how long you've done it, your gear" },
 ];
 
 export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: Steps; pilot: boolean; idStatus: IdStatus; idNote: string | null; onChanged: () => void }) {
@@ -58,10 +59,10 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: S
       <section className="row" style={{ margin: "22px 20px 0", alignItems: "flex-start", gap: 14 }}>
         {Icon.shield("var(--ink)")}
         <span className="stack" style={{ flex: 1, gap: 4 }}>
-          <span className="t17 w5">Liability insurance <span className="light muted">optional</span></span>
-          <span className="small light muted" style={{ lineHeight: 1.45 }}>Upload your certificate to unlock mowing and power-tool jobs.</span>
+          <span className="t17 w5">Licences and certificates <span className="light muted">optional</span></span>
+          <span className="small light muted" style={{ lineHeight: 1.45 }}>Insurance, RSA, Blue Card, trade licences. Unlocks jobs that need them.</span>
         </span>
-        <button className="btn stone small" onClick={() => setOpen("insurance")}>Upload</button>
+        <button className="btn stone small" onClick={() => setOpen("creds")}>Add</button>
       </section>
 
       <div className="footer"><button className="link quiet" onClick={() => sb.auth.signOut()}>Sign out</button></div>
@@ -72,8 +73,8 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged }: { steps: S
         : <VerifyFlow onClose={() => { setOpen(null); onChanged(); }} onSubmitted={onChanged} />)}
       {open === "abn" && <AbnStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
       {open === "area" && <AreaStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
-      {open === "jobs" && <JobsStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
-      {open === "insurance" && <InsuranceStep onBack={() => setOpen(null)} onSaved={() => { setOpen(null); onChanged(); }} />}
+      {open === "jobs" && <JobsAndSkills onBack={() => { setOpen(null); api("worker_status").catch(() => {}).finally(onChanged); }} />}
+      {open === "creds" && <Credentials onBack={() => { setOpen(null); onChanged(); }} />}
     </>
   );
 }
@@ -226,76 +227,6 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
       {pick === "suburb" && <SearchPicker title="Your suburb" placeholder="Search Cairns suburbs" value={base ? [base] : []} options={suburbs.map((s) => ({ id: s.id, label: s.name }))} onChange={(v) => setBase(Number(v[0]))} onClose={() => setPick(null)} />}
       {pick === "radius" && <SearchPicker title="How far you'll travel" value={[radius]} options={radii.map((r) => ({ id: r, label: `Up to ${r} km` }))} onChange={(v) => setRadius(Number(v[0]))} onClose={() => setPick(null)} />}
       {pick === "vehicle" && <SearchPicker title="Ute or trailer" value={[vehicle ? 1 : 0]} options={[{ id: 1, label: "Yes, I have one" }, { id: 0, label: "No" }]} onChange={(v) => setVehicle(v[0] === 1)} onClose={() => setPick(null)} />}
-    </Screen>
-  );
-}
-
-function JobsStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
-  const { session } = useSession();
-  const [types, setTypes] = useState<JobType[]>([]);
-  const [mine, setMine] = useState<number[] | null>(null);
-  const [ins, setIns] = useState(false);
-  const [veh, setVeh] = useState(false);
-  useEffect(() => {
-    sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
-    sb.from("worker_job_types").select("job_type_id").then(({ data }) => setMine((data ?? []).map((r) => r.job_type_id)));
-    sb.from("workers").select("insurance_expiry,has_vehicle").single().then(({ data }) => {
-      setIns(!!data?.insurance_expiry && new Date(data.insurance_expiry) >= new Date());
-      setVeh(!!data?.has_vehicle);
-    });
-  }, []);
-  if (mine === null || !session) return null;
-  return (
-    <SearchPicker title="Jobs you'll do" multi placeholder="Search jobs" value={mine}
-      options={types.map((t) => {
-        const need = [t.needs_insurance && !ins ? "insurance" : "", t.needs_vehicle && !veh ? "a vehicle" : ""].filter(Boolean).join(" and ");
-        return { id: t.id, label: t.name, hint: need ? `Needs ${need} first` : undefined, disabled: !!need };
-      })}
-      onClose={onBack}
-      onChange={async (v) => {
-        const ids = v.map(Number);
-        await sb.from("worker_job_types").delete().eq("worker_id", session.user.id);
-        if (ids.length) await sb.from("worker_job_types").insert(ids.map((id) => ({ worker_id: session.user.id, job_type_id: id })));
-        await api("worker_status");
-        onSaved();
-      }} />
-  );
-}
-
-function InsuranceStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
-  const { session } = useSession();
-  const toast = useToast();
-  const [file, setFile] = useState<File | null>(null);
-  const [expiry, setExpiry] = useState("");
-  const [current, setCurrent] = useState<{ path: string | null; expiry: string | null }>({ path: null, expiry: null });
-  const [err, setErr] = useState("");
-  useEffect(() => { sb.from("workers").select("insurance_path,insurance_expiry").single().then(({ data }) => data && setCurrent({ path: data.insurance_path, expiry: data.insurance_expiry })); }, []);
-  return (
-    <Screen title="Liability insurance" onBack={onBack}>
-      <div className="screen-body" style={{ padding: 16 }}>
-        <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>Public liability cover (from about $180 a year) unlocks mowing and power-tool jobs.</p>
-        {current.expiry && <p className="t15 em">On file, valid until {new Date(current.expiry).toLocaleDateString("en-AU")}</p>}
-        <div className="stack">
-          <label className="field" style={{ cursor: "pointer" }}>
-            <span className="k">Certificate (PDF or photo)</span>
-            <span className={file ? "v" : "v ph"}>{file?.name ?? "Choose file"}</span>
-            <input type="file" accept="application/pdf,image/*" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          </label>
-          <DateField label="Expiry date" value={expiry} onChange={setExpiry} min={new Date().toISOString().slice(0, 10)} />
-        </div>
-        {err && <p className="err">{err}</p>}
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>
-          <button className="btn primary" disabled={!file || !expiry} onClick={async () => {
-            if (!session || !file) return;
-            if (new Date(expiry) < new Date()) return setErr("That certificate has expired");
-            const ext = file.name.split(".").pop() || "pdf";
-            const path = `${session.user.id}/cert-${Date.now()}.${ext}`;
-            const { error } = await sb.storage.from("insurance").upload(path, file);
-            if (error) return setErr(error.message);
-            try { await api("worker_save", { insurance_path: path, insurance_expiry: expiry }); toast("Saved"); onSaved(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
-          }}>Save</button>
-        </div>
-      </div>
     </Screen>
   );
 }

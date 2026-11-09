@@ -263,8 +263,10 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
   const [mins, setMins] = useState<number | null>(o.asap ? guess : 30);
   const [report, setReport] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [skills, setSkills] = useState<{ name: string; needs: string | null }[]>([]);
 
   useEffect(() => {
+    rpc<{ name: string; needs: string | null }[]>("job_skills", { p_job: o.id }).then((r) => setSkills(r ?? [])).catch(() => {});
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     sb.from("job_media").select("path,kind,sort").eq("job_id", o.id).order("sort").then(async ({ data }) => {
@@ -331,6 +333,12 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
             <h2 style={{ margin: "8px 0 0", fontSize: 17, fontWeight: 600 }}>What they want done</h2>
             <p className="light" style={{ margin: 0, fontSize: 16, lineHeight: 1.5 }}>{o.details}</p>
           </div>
+          {skills.length > 0 && (
+            <div className="stack" style={{ gap: 6 }}>
+              <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>Skills needed</h2>
+              <p className="light" style={{ margin: 0, fontSize: 16, lineHeight: 1.5 }}>{skills.map((k) => k.name).join(", ")}</p>
+            </div>
+          )}
           {(o.included.length > 0 || o.excluded.length > 0) && (
             <div className="stack" style={{ gap: 8 }}>
               <h2 style={{ margin: "0 0 2px", fontSize: 17, fontWeight: 600 }}>Included</h2>

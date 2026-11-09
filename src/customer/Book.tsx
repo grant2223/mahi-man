@@ -9,6 +9,7 @@ import { AuthScreen } from "../ui/Auth";
 import { VoiceScreen, voiceSupported } from "../ui/Voice";
 import { MessagesLink } from "../ui/Messages";
 import { PayScreen } from "./Pay";
+import { lc } from "../worker/Skills";
 
 /* Post a job: price, show the job, who can take it, where, when, check. */
 
@@ -16,7 +17,7 @@ interface Reused { path: string; kind: "photo" | "video" }
 interface Draft {
   categoryId: number | null; priceCents: number; suburbId: number | null; address: string; notes: string; details: string;
   asap: boolean; startAt: string; invited: string[]; openAfter: number | null; reuse: Reused[];
-  included: string[]; excluded: string[]; priceSet?: boolean; boost?: boolean;
+  included: string[]; excluded: string[]; priceSet?: boolean; boost?: boolean; skills?: number[];
 }
 const DRAFT_KEY = "mm-draft-2";
 const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [], included: [], excluded: [] };
@@ -32,6 +33,12 @@ export function Book() {
   const toast = useToast();
   const [types, setTypes] = useState<JobType[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
+  const [skillList, setSkillList] = useState<{ id: number; category_id: number; name: string; needs: string | null }[]>([]);
+  useEffect(() => {
+    sb.from("skills").select("id,category_id,name,sort,credential_types(name)").eq("kind", "skill").eq("active", true).order("sort")
+      .then(({ data }) => setSkillList(((data ?? []) as unknown as { id: number; category_id: number; name: string; credential_types: { name: string } | null }[])
+        .map((k) => ({ id: k.id, category_id: k.category_id, name: k.name, needs: k.credential_types?.name ?? null }))));
+  }, []);
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
   const [fee, setFee] = useState(15);
   const [pilot, setPilot] = useState(true);
@@ -149,7 +156,7 @@ export function Book() {
         p_asap: d.asap, p_start_at: d.asap ? new Date().toISOString() : new Date(d.startAt).toISOString(),
         p_details: d.details, p_media: uploaded, p_price_cents: d.priceCents,
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
-        p_included: d.included ?? [], p_excluded: d.excluded ?? [],
+        p_included: d.included ?? [], p_excluded: d.excluded ?? [], p_skills: (d.skills ?? []).filter((id) => skillList.some((k) => k.id === id && k.category_id === d.categoryId)),
       });
       if (d.boost && pilot) await rpc("boost_job", { p_job: id }).catch(() => {});
       const finish = async () => {
@@ -176,7 +183,7 @@ export function Book() {
   }
 
   if (path === "/book/details") {
-    return <DetailsStep d={d} setD={setD} cats={cats} cat={cat} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null} err={err} setErr={setErr} bar={bar} />;
+    return <DetailsStep d={d} setD={setD} cats={cats} cat={cat} skillList={skillList} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null} err={err} setErr={setErr} bar={bar} />;
   }
 
   if (path === "/book/photos") {
@@ -214,6 +221,7 @@ export function Book() {
             <button className="link" onClick={() => go("/book/details")}>Change</button>
           </div>
           <ReviewRow k="What's included" v={`${(d.included ?? []).length} thing${(d.included ?? []).length === 1 ? "" : "s"}${(d.excluded ?? []).length ? `, ${d.excluded.length} not included` : ""}`} onChange={() => go("/book/details")} />
+          {(() => { const sk = skillList.filter((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId); return sk.length ? <ReviewRow k="Skills needed" v={sk.map((k) => k.name).join(", ")} onChange={() => go("/book/details")} /> : null; })()}
           <ReviewRow k="Photos and video" v={`${photoCount} photo${photoCount === 1 ? "" : "s"}${video || reusedVideo ? " and a video" : ", no video"}`} onChange={() => go("/book/photos")} />
           <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/where")} />
           <ReviewRow k="Where" v={`${d.address}, ${suburb?.name ?? ""}`} onChange={() => go("/book/where")} />
@@ -234,7 +242,7 @@ export function Book() {
             )}
           </div>
         </div>
-        {supply && supply.online_now > 0 && (
+        {supply && supply.online_now > 0 && !skillList.some((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId && k.needs) && (
           <p className="t15 light" style={{ margin: "16px 20px 0", lineHeight: 1.45 }}>
             <span className="w5 em">{supply.online_now} {cat?.name.toLowerCase() ?? ""} worker{supply.online_now === 1 ? "" : "s"} online near {suburb?.name} now.</span>
             {supply.typical_minutes != null && ` Usually someone's free in about ${supply.typical_minutes} min.`}
@@ -274,7 +282,7 @@ const afterLabel = (m: number) => (m >= 60 ? `${m / 60} hour${m === 60 ? "" : "s
 
 // ---------- I have work: one button, then your recent jobs ----------
 interface Recent {
-  id: string; title: string | null; details: string; included: string[] | null; excluded: string[] | null; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
+  id: string; title: string | null; details: string; skill_ids: number[] | null; included: string[] | null; excluded: string[] | null; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
   status: string; worker_id: string | null; job_types: { category_id: number | null } | null; suburbs: { name: string } | null;
   job_media: { path: string; kind: "photo" | "video"; sort: number }[];
 }
@@ -283,14 +291,14 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   const [recent, setRecent] = useState<Recent[] | null>(null);
   useEffect(() => {
     if (!uid) { setRecent([]); return; }
-    sb.from("jobs").select("id,title,details,included,excluded,price_cents,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
+    sb.from("jobs").select("id,title,details,skill_ids,included,excluded,price_cents,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
       .eq("customer_id", uid).neq("status", "awaiting_payment").order("created_at", { ascending: false }).limit(5)
       .then(({ data }) => setRecent((data ?? []) as unknown as Recent[]));
   }, [uid]);
 
   const again = (r: Recent) => onStart({
     categoryId: r.job_types?.category_id ?? null, priceCents: r.price_cents, suburbId: r.suburb_id, address: r.address, notes: r.notes,
-    details: r.details, included: r.included ?? [], excluded: r.excluded ?? [], reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
+    details: r.details, skills: r.skill_ids ?? [], included: r.included ?? [], excluded: r.excluded ?? [], reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
     invited: r.worker_id && ["finished", "confirmed"].includes(r.status) ? [r.worker_id] : [],
   });
 
@@ -418,14 +426,18 @@ function ReviewRow({ k, v, onChange, last }: { k: string; v: string; onChange: (
 }
 
 // ---------- Step 1: What's the job ----------
-function DetailsStep({ d, setD, cats, cat, suggest, err, setErr, bar }: {
-  d: Draft; setD: (d: Draft) => void; cats: Category[]; cat: Category | null; suggest: (catId: number) => number | null;
+function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar }: {
+  d: Draft; setD: (d: Draft) => void; cats: Category[]; cat: Category | null; skillList: { id: number; category_id: number; name: string; needs: string | null }[]; suggest: (catId: number) => number | null;
   err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
 }) {
   const detailsBox = useRef<HTMLTextAreaElement>(null);
   const [voice, setVoice] = useState(false);
   const [dictate, setDictate] = useState(false);
   const [pickCat, setPickCat] = useState(false);
+  const [pickSkills, setPickSkills] = useState(false);
+  const catSkills = skillList.filter((k) => k.category_id === cat?.id);
+  const chosen = catSkills.filter((k) => (d.skills ?? []).includes(k.id));
+  const needs = [...new Set(chosen.map((k) => k.needs).filter(Boolean))] as string[];
   const next = () => {
     if (!cat) return setErr("Pick what kind of job it is.");
     if (d.details.trim().length < 15) return setErr("Say what you want done.");
@@ -447,6 +459,17 @@ function DetailsStep({ d, setD, cats, cat, suggest, err, setErr, bar }: {
             {Icon.down("var(--ink)")}
           </button>
         </div>
+
+        {catSkills.length > 0 && (
+          <div className="sec">
+            <h2>Skills needed <span className="h-opt">Optional</span></h2>
+            <button className="cp-select" onClick={() => setPickSkills(true)}>
+              <span className={chosen.length ? "" : "ph"}>{chosen.length ? chosen.map((k) => k.name).join(", ") : "Pick any that apply"}</span>
+              {Icon.down("var(--ink)")}
+            </button>
+            {needs.length > 0 && <span className="t15 em" style={{ lineHeight: 1.4 }}>Only workers with a verified {needs.map(lc).join(" and ")} can take this job.</span>}
+          </div>
+        )}
 
         <div className="sec">
           <h2>Exactly what you want done</h2>
@@ -483,7 +506,10 @@ function DetailsStep({ d, setD, cats, cat, suggest, err, setErr, bar }: {
       {bar("Continue", next, false, "photos")}
       {pickCat && <SearchPicker title="What kind of job?" placeholder="Search categories" value={d.categoryId ? [d.categoryId] : []}
         options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
-        onChange={(v) => { const id = Number(v[0]); const sp = suggest(id); setD({ ...d, categoryId: id, ...(!d.priceSet && sp ? { priceCents: sp } : {}) }); setErr(""); }} />}
+        onChange={(v) => { const id = Number(v[0]); const sp = suggest(id); setD({ ...d, categoryId: id, skills: id === d.categoryId ? d.skills : [], ...(!d.priceSet && sp ? { priceCents: sp } : {}) }); setErr(""); }} />}
+      {pickSkills && <SearchPicker title="Skills needed" multi placeholder="Search skills" value={chosen.map((k) => k.id)}
+        options={catSkills.map((k) => ({ id: k.id, label: k.name, hint: k.needs ? `Only workers with a verified ${lc(k.needs)}` : undefined }))}
+        onClose={() => setPickSkills(false)} onChange={(v) => setD({ ...d, skills: v.map(Number) })} />}
       {voice && <VoiceScreen jobName={cat?.name ?? "Odd job"} onBack={() => setVoice(false)}
         onDone={(text) => { setD({ ...d, details: d.details.trim() ? `${d.details.trim()} ${text}` : text }); setVoice(false); }} />}
     </div>

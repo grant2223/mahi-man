@@ -105,6 +105,7 @@ a { color: inherit; }
 .t15 { font-size: 15px; }
 .t17 { font-size: 17px; }
 .w5 { font-weight: 500; }
+.w4 { font-weight: 400; }
 .em { color: var(--emerald); }
 .err { color: var(--danger); font-size: 14px; }
 
@@ -556,3 +557,5 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .or-line { display: flex; align-items: center; gap: 12px; margin: 18px 0; color: var(--faint); font-size: 14px; }
 .or-line::before, .or-line::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .code-in { letter-spacing: 8px; font-size: 26px !important; font-variant-numeric: tabular-nums; }
+.offer .m.sk { color: var(--ink); font-weight: 400; }
+.name-link { display: inline-flex; align-items: center; gap: 2px; padding: 0; border: 0; background: none; font: inherit; font-size: 19px; font-weight: 500; color: var(--ink); cursor: pointer; text-align: left; }
