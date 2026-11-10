@@ -2,11 +2,11 @@
 
 Odd jobs marketplace for Cairns, Queensland. Customers book fixed-price local jobs (cleaning, garden, moving and rubbish, assembly); verified local workers take them.
 
-- Live: https://mahiman.vercel.app (moving to mahiman.com)
+- Live: https://mahiman.app (also mahiman.com.au; mahiman.vercel.app until the domains are connected)
 - Frontend: Vite + React + TypeScript, deployed on Vercel from `main`
 - Backend: Supabase project "Odd Jobs Cairns" (Sydney region): Postgres with row-level security, storage, edge functions in `supabase/functions`
-- Admin console: `/admin`, signed in as admin@mahiman.com
-- Support: hello@mahiman.com
+- Admin console: `/admin`, signed in as admin@mahiman.app
+- Support: hello@mahiman.app
 
 ## iPhone app (TestFlight)
 

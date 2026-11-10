@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { go } from "../lib/router";
 import { StepHero } from "./kit";
 
-export const SUPPORT_EMAIL = "hello@mahiman.com";
+export const SUPPORT_EMAIL = "hello@mahiman.app";
 const UPDATED = "7 November 2026";
 
 function Page({ title, children }: { title: string; children: ReactNode }) {

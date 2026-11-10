@@ -92,7 +92,7 @@ export function Work() {
   if (current) return <div className="app"><WorkerJob key={current.id} job={current} onChanged={refresh} onLeave={() => { hide(current.id); refresh(); }} /></div>;
   if (status.suspended) return (
     <div className="app"><section className="hero"><span className="brand"><Logo /> Mahi Man</span><h1 className="mid">Account paused</h1>
-      <p className="lede">Your worker account is paused. Email hello@mahiman.com and we'll sort it out.</p></section></div>
+      <p className="lede">Your worker account is paused. Email hello@mahiman.app and we'll sort it out.</p></section></div>
   );
   // Still setting up: jobs first, so they can see what's on offer, and the checklist one tap away.
   if (!status.approved) {
