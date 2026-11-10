@@ -316,7 +316,7 @@ Deno.serve(async (req) => {
                 amount: job.fee_cents, currency: "aud", customer: me.stripe_customer_id, payment_method: me.card_pm,
                 off_session: true, confirm: true, receipt_email: user.email ?? undefined,
                 description: `Mahi Man booking fee: ${job.title ?? "odd job"}`, metadata: { job_id: job.id, kind: "booking_fee" },
-                statement_descriptor_suffix: "MORE MAHI",
+                statement_descriptor_suffix: "MAHI MAN",
               });
             } catch (e) {
               const err = e as { code?: string; raw?: { payment_intent?: { id: string; client_secret: string } } };

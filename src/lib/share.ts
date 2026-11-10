@@ -1,7 +1,7 @@
 import { Capacitor } from "@capacitor/core";
 
-// The public address people land on from a shared link (moves to moremahi.com when the domain is live).
-export const SITE = "https://quickmahi.vercel.app";
+// The public address people land on from a shared link (moves to mahiman.com when the domain is live).
+export const SITE = "https://mahiman.vercel.app";
 
 // Opens the phone's own share sheet (Messages, WhatsApp and so on). Returns false if nothing could be shared.
 export async function shareLink(text: string, url: string): Promise<"shared" | "copied" | "none"> {

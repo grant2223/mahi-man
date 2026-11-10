@@ -5,7 +5,7 @@ import { money } from "../lib/format";
 import { go } from "../lib/router";
 import { CatIcon, Icon, Logo } from "./kit";
 
-/* moremahi.com for first-time visitors on the web. Sells to locals with jobs on their list first,
+/* mahiman.com for first-time visitors on the web. Sells to locals with jobs on their list first,
    then to people who want extra work. The app itself opens straight on Get help. */
 
 // The website is this page only. Every way in leads to the app section; only the legal pages open on the web.

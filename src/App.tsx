@@ -37,7 +37,7 @@ function Routes() {
   const path = usePath().split("?")[0];
   const { session, ready, profile } = useSession();
   if (path === "/reset") return <div className="app"><ResetPassword onDone={() => go("/", true)} /></div>;
-  // Admin lives on its own address (admin.moremahi.com) and opens for anyone with the admin role. /admin keeps working on the main site until that address is connected.
+  // Admin lives on its own address (admin.mahiman.com) and opens for anyone with the admin role. /admin keeps working on the main site until that address is connected.
   if (location.hostname.startsWith("admin.") || path.startsWith("/admin")) return <Admin />;
   if (path.startsWith("/work")) return <Work />;
   // The scanned code: phones go to the store when the app is listed there, otherwise straight into Mahi Man.
