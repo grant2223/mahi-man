@@ -23,6 +23,7 @@ interface Draft {
   categoryId: number | null; priceCents: number; suburbId: number | null; address: string; notes: string; details: string;
   asap: boolean; startAt: string; invited: string[]; openAfter: number | null; reuse: Reused[];
   included: string[]; excluded: string[]; priceSet?: boolean; boost?: boolean; skills?: number[];
+  budgetMin?: number | null; budgetMax?: number | null;
 }
 const DRAFT_KEY = "mm-draft-2";
 const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [], included: [], excluded: [] };
@@ -38,11 +39,11 @@ export function Book() {
   const toast = useToast();
   const [types, setTypes] = useState<JobType[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
-  const [skillList, setSkillList] = useState<{ id: number; category_id: number; name: string; needs: string | null }[]>([]);
+  const [skillList, setSkillList] = useState<{ id: number; category_id: number; name: string; needs: string | null; trade: boolean }[]>([]);
   useEffect(() => {
-    sb.from("skills").select("id,category_id,name,sort,credential_types(name)").eq("kind", "skill").eq("active", true).order("sort")
-      .then(({ data }) => setSkillList(((data ?? []) as unknown as { id: number; category_id: number; name: string; credential_types: { name: string } | null }[])
-        .map((k) => ({ id: k.id, category_id: k.category_id, name: k.name, needs: k.credential_types?.name ?? null }))));
+    sb.from("skills").select("id,category_id,name,sort,credential_types(name,trade)").eq("kind", "skill").eq("active", true).order("sort")
+      .then(({ data }) => setSkillList(((data ?? []) as unknown as { id: number; category_id: number; name: string; credential_types: { name: string; trade: boolean } | null }[])
+        .map((k) => ({ id: k.id, category_id: k.category_id, name: k.name, needs: k.credential_types?.name ?? null, trade: !!k.credential_types?.trade }))));
   }, []);
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
   const [fee, setFee] = useState(15);
@@ -92,6 +93,9 @@ export function Book() {
   const cat = cats.find((c) => c.id === d.categoryId) ?? null;
   const jt = types.find((t) => t.category_id === d.categoryId) ?? null;
   const suburb = suburbs.find((s) => s.id === d.suburbId) ?? null;
+  // A job that needs a trade licence (electrical, plumbing, gas...) is a trade job: a budget, and licensed tradies send their price.
+  const tradeSkill = skillList.find((k) => k.trade && k.category_id === d.categoryId && (d.skills ?? []).includes(k.id)) ?? null;
+  const isTrade = !!tradeSkill;
   useEffect(() => {
     if (path !== "/book/check" || !d.categoryId || !d.suburbId) return;
     rpc<{ online_now: number; typical_minutes: number | null }[]>("supply_near", { p_category: d.categoryId, p_suburb: d.suburbId })
@@ -99,7 +103,8 @@ export function Book() {
   }, [path, d.categoryId, d.suburbId]);
   const total = d.priceCents + (pilot ? 0 : Math.round((d.priceCents * fee) / 100));
   const isPlus = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
-  const bookingFee = feeMode === "on_choose" && !isPlus ? Math.min(Math.round((d.priceCents * feePct) / 100), feeMax) : 0;
+  const bookingFee = feeMode === "on_choose" && !isPlus && !isTrade ? Math.min(Math.round((d.priceCents * feePct) / 100), feeMax) : 0;
+  const budgetOk = !!d.budgetMin && !!d.budgetMax && d.budgetMin >= 5000 && d.budgetMax >= d.budgetMin;
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
   const reusedPhotos = d.reuse.filter((r) => r.kind === "photo");
@@ -151,6 +156,7 @@ export function Book() {
     if (!photoCount) return go("/book/photos");
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !/T\d/.test(d.startAt)) return go("/book/when");
+    if (isTrade && !budgetOk) return go("/book/price");
     if (!session) { setAuth(true); return; }
     // A face to go with the job: workers see it before they offer.
     if (!profile?.photo_path && !photoAdded.current) { setPhotoScreen(true); return; }
@@ -176,6 +182,7 @@ export function Book() {
         p_details: d.details, p_media: uploaded, p_price_cents: d.priceCents,
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
         p_included: d.included ?? [], p_excluded: d.excluded ?? [], p_skills: (d.skills ?? []).filter((id) => skillList.some((k) => k.id === id && k.category_id === d.categoryId)),
+        p_budget_min_cents: isTrade ? d.budgetMin : null, p_budget_max_cents: isTrade ? d.budgetMax : null,
       });
       if (d.boost && pilot) await rpc("boost_job", { p_job: id }).catch(() => {});
       const finish = async () => {
@@ -183,7 +190,7 @@ export function Book() {
         await draftMedia.clear();
         go(`/job/${id}`);
       };
-      if (pilot) await finish(); else setPayJob(id);
+      if (pilot || isTrade) await finish(); else setPayJob(id);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally { setBusy(false); }
@@ -197,6 +204,10 @@ export function Book() {
   );
 
   // ---------- Screens ----------
+  if (path === "/book/price" && isTrade) {
+    return <BudgetStep title={d.details} licence={tradeSkill!.needs ?? "licence"} catName={cat?.name ?? ""} min={d.budgetMin ?? null} max={d.budgetMax ?? null}
+      onChange={(budgetMin, budgetMax) => setD({ ...d, budgetMin, budgetMax })} />;
+  }
   if (path === "/book/price") {
     return <PriceStep value={d.priceCents} catName={d.priceSet ? null : cat?.name ?? null} onChange={(v) => setD({ ...d, priceCents: v, priceSet: true })} />;
   }
@@ -211,7 +222,7 @@ export function Book() {
   }
 
   if (path === "/book/where" || path === "/book/when" || path === "/book/who") {
-    return <WhereStep d={d} setD={setD} suburbs={suburbs} suburb={suburb} past={past} bar={bar} />;
+    return <WhereStep d={d} setD={setD} suburbs={suburbs} suburb={suburb} past={past} bar={bar} trade={isTrade} />;
   }
 
   if (path === "/book/check") {
@@ -242,10 +253,12 @@ export function Book() {
           <ReviewRow k="What's included" v={`${(d.included ?? []).length} thing${(d.included ?? []).length === 1 ? "" : "s"}${(d.excluded ?? []).length ? `, ${d.excluded.length} not included` : ""}`} onChange={() => go("/book/details")} />
           {(() => { const sk = skillList.filter((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId); return sk.length ? <ReviewRow k="Skills needed" v={sk.map((k) => k.name).join(", ")} onChange={() => go("/book/details")} /> : null; })()}
           <ReviewRow k="Photos and video" v={`${photoCount} photo${photoCount === 1 ? "" : "s"}${video || reusedVideo ? " and a video" : ", no video"}`} onChange={() => go("/book/photos")} />
-          <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/where")} />
+          {isTrade ? <ReviewRow k="Who can take it" v={`Licensed tradies, ${lc(tradeSkill!.needs ?? "licence")} checked`} onChange={() => go("/book/details")} /> : <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/where")} />}
           <ReviewRow k="Where" v={`${d.address}, ${suburb?.name ?? ""}`} onChange={() => go("/book/where")} />
           <ReviewRow k="When" v={d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} onChange={() => go("/book/where")} />
-          <ReviewRow k="Your price" v={money(d.priceCents)} onChange={() => go("/book/price")} last={!(bookingFee > 0 && session)} />
+          {isTrade
+            ? <ReviewRow k="Your budget" v={budgetOk ? `${money(d.budgetMin!)}–${money(d.budgetMax!)}` : "Set your budget"} onChange={() => go("/book/price")} last />
+            : <ReviewRow k="Your price" v={money(d.priceCents)} onChange={() => go("/book/price")} last={!(bookingFee > 0 && session)} />}
           {bookingFee > 0 && session && (
             <div className="review-row" style={{ borderBottom: "1px solid var(--line)", cursor: "pointer" }} onClick={() => setCardScreen(true)}>
               {profile?.card_last4 ? <span className="row" style={{ gap: 12, flex: 1 }}><CardMark brand={profile.card_brand} /><span className="t"><span className="k">Card for the booking fee</span><span className="v">{cardLabel(profile)}</span></span></span>
@@ -253,7 +266,13 @@ export function Book() {
               {profile?.card_last4 ? <button className="link">Change</button> : Icon.chevron("var(--emerald)")}
             </div>
           )}
-          {bookingFee > 0 ? (
+          {isTrade ? (
+            <div className="stack" style={{ padding: "16px 16px 18px", gap: 6 }}>
+              <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
+                Up to 2 licensed tradies send you a fixed price. You choose, or say no to both. You pay the tradie directly when it's done. Nothing to pay Mahi Man.
+              </span>
+            </div>
+          ) : bookingFee > 0 ? (
             <div className="stack" style={{ padding: "16px 16px 18px", gap: 6 }}>
               <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
                 The booking fee is only charged when you choose a worker. Nobody chosen, nothing charged. You pay the {money(d.priceCents)} to your worker by bank transfer or cash when it's done.{" "}
@@ -277,13 +296,13 @@ export function Book() {
           </div>
           )}
         </div>
-        {supply && supply.online_now > 0 && !skillList.some((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId && k.needs) && (
+        {!isTrade && supply && supply.online_now > 0 && !skillList.some((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId && k.needs) && (
           <p className="t15 light" style={{ margin: "16px 20px 0", lineHeight: 1.45 }}>
             <span className="w5 em">{supply.online_now} {cat?.name.toLowerCase() ?? ""} worker{supply.online_now === 1 ? "" : "s"} online near {suburb?.name} now.</span>
             {supply.typical_minutes != null && ` Usually someone's free in about ${supply.typical_minutes} min.`}
           </p>
         )}
-        {pilot && (
+        {pilot && !isTrade && (
           <button className={`boost-pick${d.boost ? " on" : ""}`} onClick={() => setD({ ...d, boost: !d.boost })} aria-pressed={!!d.boost}>
             <span className="stack" style={{ gap: 2, flex: 1 }}>
               <b>Urgent boost</b>
@@ -298,7 +317,7 @@ export function Book() {
           {bookingFee > 0
             ? <span className="stack"><span className="k">Booking fee</span><span className="v">{money2(bookingFee)}</span></span>
             : <span className="small light muted" style={{ maxWidth: 170, lineHeight: 1.4 }}>
-                {session ? "People who are free tell you, and you choose." : "Next, a quick account so workers can reach you."}
+                {!session ? "Next, a quick account so workers can reach you." : isTrade ? "Licensed tradies send their price, and you choose." : "People who are free tell you, and you choose."}
               </span>}
           <button className="btn primary" disabled={busy} onClick={book}>
             {busy ? "Posting…" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : "Post it"} {Icon.arrow("#fff")}
@@ -481,6 +500,53 @@ function PriceStep({ value, catName, onChange }: { value: number; catName: strin
           <span>Help is usually about $45 an hour. Fair prices get taken faster.</span>
         </div>
         {err && <p className="err" style={{ margin: "12px 0 0" }}>{err}</p>}
+      </div>
+      <div style={{ flex: 1 }} />
+      <div className="bottombar">
+        <span className="t15 light muted">Next, check and post</span>
+        <button className="btn primary" onClick={next}>Continue {Icon.arrow("#fff")}</button>
+      </div>
+    </div>
+  );
+}
+
+// Trade jobs: a budget, not a price. Licensed tradies see it, then each sends a fixed price.
+function BudgetStep({ title, licence, catName, min, max, onChange }: { title: string; licence: string; catName: string; min: number | null; max: number | null; onChange: (min: number | null, max: number | null) => void }) {
+  const [lo, setLo] = useState(min ? String(min / 100) : "");
+  const [hi, setHi] = useState(max ? String(max / 100) : "");
+  const [err, setErr] = useState("");
+  const clean = (v: string) => v.replace(/[^0-9]/g, "").slice(0, 5);
+  const name = title.split(/(?<=[.!?])\s/)[0].replace(/[.!?]$/, "").slice(0, 70);
+  const next = () => {
+    const a = Number(lo) * 100, b = Number(hi) * 100;
+    if (!a || !b) return setErr("Add both amounts.");
+    if (a < 5000) return setErr("The lowest budget is $50.");
+    if (b < a) return setErr("Up to has to be more than From.");
+    if (b > 2000000) return setErr("The highest budget is $20,000.");
+    onChange(a, b); go("/book/check");
+  };
+  const Li = ({ b, t }: { b: string; t: string }) => <div className="price-li">{Icon.tick("var(--emerald)", 20)}<span><b>{b}</b>{t}</span></div>;
+  return (
+    <div className="app" style={{ background: "var(--card)" }}>
+      <StepHero step={4} of={STEPS} title="What's your budget?" sub="Licensed tradies see it before they take your job." onBack={() => history.back()} />
+      <div className="cp-sec">
+        <span className="cp-title">{name}</span>
+        <span className="t15 light muted">{catName}, needs {lc(licence)}</span>
+        <div className="row" style={{ gap: 10, marginTop: 14 }}>
+          <label className="field" style={{ flex: 1 }}><span className="k">From</span>
+            <span className="row" style={{ gap: 2 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={lo} placeholder="150" aria-label="Budget from"
+              onChange={(e) => { const v = clean(e.target.value); setLo(v); setErr(""); onChange(v ? Number(v) * 100 : null, hi ? Number(hi) * 100 : null); }} /></span></label>
+          <label className="field" style={{ flex: 1 }}><span className="k">Up to</span>
+            <span className="row" style={{ gap: 2 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={hi} placeholder="300" aria-label="Budget up to"
+              onChange={(e) => { const v = clean(e.target.value); setHi(v); setErr(""); onChange(lo ? Number(lo) * 100 : null, v ? Number(v) * 100 : null); }} /></span></label>
+        </div>
+        {err && <p className="err" style={{ margin: "12px 0 0" }}>{err}</p>}
+      </div>
+      <div className="cp-sec">
+        <span className="cp-title">What happens next</span>
+        <Li b="Up to 2 licensed tradies take it." t="Licence and insurance checked by us." />
+        <Li b="Each one sends you their price." t="Fixed, so you know what you'll pay before anyone comes." />
+        <Li b="You choose, or say no to both." t="Nothing to pay Mahi Man." />
       </div>
       <div style={{ flex: 1 }} />
       <div className="bottombar">
@@ -733,8 +799,8 @@ const OPEN_AFTER: { id: string; label: string; v: number | null }[] = [
   { id: "never", label: "Keep it just for them", v: null },
 ];
 
-function WhereStep({ d, setD, suburbs, suburb, past, bar }: {
-  d: Draft; setD: (d: Draft) => void; suburbs: Suburb[]; suburb: Suburb | null; past: PastWorker[];
+function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
+  d: Draft; setD: (d: Draft) => void; suburbs: Suburb[]; suburb: Suburb | null; past: PastWorker[]; trade: boolean;
   bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
 }) {
   const { area } = useArea();
@@ -817,7 +883,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar }: {
           )}
         </div>
 
-        {past.length > 0 && (
+        {past.length > 0 && !trade && (
           <div className="sec">
             <h2>Who can take it?</h2>
             <button className="field sel" onClick={() => setPick("people")}>
@@ -839,7 +905,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar }: {
         )}
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next, false, "your price")}
+      {bar("Continue", next, false, trade ? "your budget" : "your price")}
       {changeArea.picker}
       {pick === "suburb" && <SearchPicker title="Suburb" placeholder={`Search ${area?.name ?? ""} suburbs`} value={d.suburbId ? [d.suburbId] : []}
         options={[...(changeArea.option ? [changeArea.option] : []), ...suburbs.map((s) => ({ id: s.id, label: s.name }))]} onChange={(v) => { setD({ ...d, suburbId: Number(v[0]) }); setErr(""); }} onClose={() => setPick(null)} />}
