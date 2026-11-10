@@ -831,3 +831,4 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .rec-yn { display: flex; gap: 10px; padding: 16px; border-bottom: 1px solid var(--line); background: var(--card); }
 .rec-yn .btn { flex: 1; }
 .late-hero { background: linear-gradient(180deg, #8a5a10, #6e4609); }
+.adm-sub { font-size: 20px; font-weight: 600; letter-spacing: -0.4px; }

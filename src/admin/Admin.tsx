@@ -9,7 +9,7 @@ import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit"
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -18,15 +18,17 @@ const STATUS_BADGE: Record<string, string> = {
 export function Admin() {
   const { session, profile, ready } = useSession();
   const [tab, setTab] = useState<Tab>("overview");
-  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0 });
+  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0 });
   const recount = useCallback(async () => {
-    const [a, b, c, d] = await Promise.all([
+    const [a, b, c, d, e, f] = await Promise.all([
       sb.from("id_checks").select("id", { count: "exact", head: true }).eq("status", "pending"),
       sb.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
       sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
       sb.from("worker_credentials").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      sb.from("fees_owed").select("id", { count: "exact", head: true }).eq("status", "open"),
+      sb.from("workers").select("id", { count: "exact", head: true }).eq("needs_review", true),
     ]);
-    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0 });
+    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0 });
   }, []);
   useEffect(() => { if (profile?.is_admin) recount(); }, [profile?.is_admin, recount, tab]);
   // Full-width admin: a fixed side menu grouped by what needs doing, and the page on the right.
@@ -34,6 +36,7 @@ export function Admin() {
     { label: "", items: [["overview", "Overview"]] },
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
     { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["launch", "Launch list"]] },
+    { label: "Trust", items: [["cancels", "Cancellations", counts.fees], ["strikes", "Strikes", counts.strikes], ["reviews", "Reviews"]] },
     { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
   ];
   const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
@@ -78,17 +81,20 @@ export function Admin() {
         {tab === "areas" && <Areas />}
         {tab === "types" && <Types />}
         {tab === "settings" && <Settings />}
+        {tab === "cancels" && <Cancellations onChanged={recount} />}
+        {tab === "strikes" && <Strikes onChanged={recount} />}
+        {tab === "reviews" && <Reviews />}
       </main>
     </div>
   );
 }
 
 function Overview() {
-  const [s, setS] = useState({ live: 0, searching: 0, weekJobs: 0, weekFees: 0, workers: 0, online: 0, problems: 0, accept: "—", repeat: 0, cancelled: 0 });
+  const [s, setS] = useState({ live: 0, searching: 0, weekJobs: 0, weekFees: 0, workers: 0, online: 0, problems: 0, accept: "—", repeat: 0, cancelled: 0, owed: 0 });
   useEffect(() => {
     (async () => {
       const since = new Date(Date.now() - 7 * 864e5).toISOString();
-      const [live, searching, week, workers, online, problems, recent] = await Promise.all([
+      const [live, searching, week, workers, online, problems, recent, owed] = await Promise.all([
         sb.from("jobs").select("id", { count: "exact", head: true }).in("status", ["accepted", "in_progress", "finished"]),
         sb.from("jobs").select("id", { count: "exact", head: true }).eq("status", "searching"),
         sb.from("jobs").select("fee_cents").or(`and(fee_status.eq.paid,fee_paid_at.gte.${since}),and(status.eq.confirmed,confirmed_at.gte.${since},payment_intent_id.not.is.null)`),
@@ -96,6 +102,7 @@ function Overview() {
         sb.from("workers").select("id", { count: "exact", head: true }).eq("online", true),
         sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
         sb.from("jobs").select("customer_id,status,searching_at,accepted_at").gte("created_at", since),
+        sb.from("fees_owed").select("amount_cents").eq("status", "open"),
       ]);
       const r = recent.data ?? [];
       const waits = r.filter((j) => j.searching_at && j.accepted_at).map((j) => (new Date(j.accepted_at!).getTime() - new Date(j.searching_at!).getTime()) / 60000);
@@ -107,6 +114,7 @@ function Overview() {
         accept: waits.length ? `${Math.round(waits.reduce((a, b) => a + b, 0) / waits.length)} min` : "—",
         repeat: Object.values(per).filter((n) => n > 1).length,
         cancelled: r.filter((j) => j.status === "cancelled").length,
+        owed: (owed.data ?? []).reduce((a, f) => a + f.amount_cents, 0),
       });
     })();
   }, []);
@@ -118,6 +126,7 @@ function Overview() {
       <Stat n={s.accept} l="Average wait for a worker, 7 days" />
       <Stat n={s.repeat} l="Customers who booked again, 7 days" />
       <Stat n={s.cancelled} l="Cancelled, 7 days" />
+      <Stat n={money2(s.owed)} l="Cancellation fees owed" />
       <Stat n={money2(s.weekFees)} l="Your fees, last 7 days" />
       <Stat n={s.workers} l="Approved workers" />
       <Stat n={s.online} l="Workers online now" />
@@ -1241,6 +1250,235 @@ function LaunchList() {
           </tbody>
         </table>
       </div>
+    </>
+  );
+}
+
+/* ---------- Trust: cancellations and fees, strikes, reviews ---------- */
+const day = (d: string) => new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short" });
+const dayTime = (d: string) => new Date(d).toLocaleString("en-AU", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, (_m, a: string) => ` ${a.toLowerCase()}m`);
+const CANCEL_KIND: Record<string, string> = {
+  free: "Before the worker set off", fee: "After the worker set off", late: "Worker more than 15 min late", no_show: "Worker didn't turn up",
+  new_time: "Didn't accept the new time", not_moving: "Worker wasn't moving", customer_no_show: "Customer not home",
+  cant_make_it: "More than 2 hours before", no_answer: "Didn't confirm the day before", cancelled_soon: "Within 2 hours of the start",
+  cancelled_on_way: "On the way", emergency: "Emergency", late_arrival: "Arrived more than 15 min late",
+};
+const FEE_KIND: Record<string, string> = { customer_cancel: "Late cancel", customer_no_show: "Not home", worker_cancel: "Worker cancelled", worker_no_show: "Worker didn't turn up" };
+const FEE_FILTERS: [string, string][] = [["open", "Owed"], ["payout", "Paid by card, to pay the worker"], ["paid", "Paid"], ["waived", "Waived"], ["all", "All"]];
+
+interface FeeRow { id: number; created_at: string; kind: string; amount_cents: number; status: string; payer_name: string; payee_id: string | null; payee_name: string; job_title: string | null; paid_at: string | null; payment_ref: string | null; paid_out_at: string | null }
+interface CancelRow { at: string; who: string; person: string; other: string | null; job_title: string | null; kind: string; fee_cents: number; strike: boolean }
+
+// Fees people owe for cancelling, and every cancellation in the last 90 days.
+function Cancellations({ onChanged }: { onChanged: () => void }) {
+  const toast = useToast();
+  const [filter, setFilter] = useState("open");
+  const [pick, setPick] = useState(false);
+  const [fees, setFees] = useState<FeeRow[] | null>(null);
+  const [cancels, setCancels] = useState<CancelRow[]>([]);
+  const load = useCallback(() => {
+    rpc<FeeRow[]>("admin_fees", { p_status: filter }).then(setFees).catch((e) => toast((e as Error).message));
+    rpc<CancelRow[]>("admin_cancellations").then(setCancels).catch(() => {});
+  }, [filter, toast]);
+  useEffect(() => { load(); }, [load]);
+  const act = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); toast(msg); load(); onChanged(); } catch (e) { toast((e as Error).message); } };
+  if (!fees) return <Loading />;
+  return (
+    <>
+      <div className="row between" style={{ marginBottom: 12, alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
+        <h2 className="adm-sub" style={{ margin: 0 }}>Fees</h2>
+        <button className="cp-select" style={{ height: 44, minWidth: 280, background: "var(--card)" }} onClick={() => setPick(true)}>
+          <span>{FEE_FILTERS.find(([k]) => k === filter)?.[1]}</span>{Icon.down("var(--muted)")}
+        </button>
+      </div>
+      <div className="table-wrap">
+        <table className="rows">
+          <thead><tr><th>Date</th><th>Who pays</th><th>To</th><th>Job</th><th>Why</th><th>Amount</th><th>Status</th><th /></tr></thead>
+          <tbody>
+            {fees.map((f) => (
+              <tr key={f.id}>
+                <td className="light" style={{ whiteSpace: "nowrap" }}>{dayTime(f.created_at)}</td>
+                <td className="w5">{f.payer_name}</td>
+                <td>{f.payee_name}</td>
+                <td className="light">{f.job_title ?? "—"}</td>
+                <td className="light">{FEE_KIND[f.kind] ?? f.kind}</td>
+                <td className="w5">{money2(f.amount_cents)}</td>
+                <td>{f.status === "open" ? <span className="badge y">Owed</span> : f.status === "waived" ? <span className="badge">Waived</span>
+                  : <span className="badge g">{f.payment_ref === "direct" ? "Paid direct" : f.payment_ref === "admin" ? "Marked paid" : f.paid_out_at || !f.payee_id ? "Paid by card" : "Card, not paid out"}</span>}</td>
+                <td><span className="row" style={{ gap: 6, justifyContent: "flex-end" }}>
+                  {f.status === "open" && <>
+                    <button className="btn stone small" onClick={() => act(() => rpc("admin_fee_status", { p_id: f.id, p_status: "paid" }), "Marked paid")}>Mark paid</button>
+                    <button className="btn stone small" onClick={() => act(() => rpc("admin_fee_status", { p_id: f.id, p_status: "waived" }), "Waived")}>Waive</button>
+                  </>}
+                  {f.status === "paid" && f.payee_id && !f.paid_out_at && f.payment_ref !== "direct" && f.payment_ref !== "admin" &&
+                    <button className="btn primary small" onClick={() => act(() => rpc("admin_fee_paid_out", { p_id: f.id }), "Marked paid out")}>Paid {f.payee_name.split(" ")[0]}</button>}
+                  {f.status !== "open" && <button className="btn stone small" onClick={() => act(() => rpc("admin_fee_status", { p_id: f.id, p_status: "open" }), "Reopened")}>Reopen</button>}
+                </span></td>
+              </tr>
+            ))}
+            {fees.length === 0 && <tr><td colSpan={8} className="muted">Nothing here.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="adm-sub" style={{ margin: "32px 0 12px" }}>Cancellations, last 90 days</h2>
+      <div className="table-wrap">
+        <table className="rows">
+          <thead><tr><th>Date</th><th>Cancelled by</th><th>Other side</th><th>Job</th><th>What happened</th><th>Fee</th><th>Worker strike</th></tr></thead>
+          <tbody>
+            {cancels.map((c, i) => (
+              <tr key={i}>
+                <td className="light">{dayTime(c.at)}</td>
+                <td><span className="row" style={{ gap: 8 }}><span className={`badge ${c.who === "Worker" ? "y" : ""}`}>{c.who}</span><span className="w5">{c.person}</span></span></td>
+                <td className="light">{c.other ?? "—"}</td>
+                <td className="light">{c.job_title ?? "—"}</td>
+                <td>{CANCEL_KIND[c.kind] ?? c.kind}</td>
+                <td>{c.fee_cents ? money2(c.fee_cents) : <span className="muted">Free</span>}</td>
+                <td>{c.strike ? <span className="badge r">Strike</span> : ""}</td>
+              </tr>
+            ))}
+            {cancels.length === 0 && <tr><td colSpan={7} className="muted">No cancellations yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {pick && <SearchPicker title="Show fees" placeholder="Search" options={FEE_FILTERS.map(([id, label]) => ({ id, label }))} value={[filter]}
+        onClose={() => setPick(false)} onChange={(v) => setFilter(String(v[0]))} />}
+    </>
+  );
+}
+
+interface StrikeRow { worker_id: string; name: string; photo_path: string | null; strikes_30: number; strikes_90: number; offline_until: string | null; needs_review: boolean; turns_up: number | null; last_at: string | null }
+interface DropRow { id: number; created_at: string; kind: string; strike: boolean; fee_cents: number; reason: string | null; job_title: string | null }
+
+// Workers with strikes or cancellations in the last 90 days. Open one to remove a strike or change whether they're offline.
+function Strikes({ onChanged }: { onChanged: () => void }) {
+  const toast = useToast();
+  const [rows, setRows] = useState<StrikeRow[] | null>(null);
+  const [open, setOpen] = useState<StrikeRow | null>(null);
+  const load = useCallback(() => { rpc<StrikeRow[]>("admin_strikes").then((r) => { setRows(r); setOpen((o) => (o ? r.find((x) => x.worker_id === o.worker_id) ?? null : null)); }).catch((e) => toast((e as Error).message)); }, [toast]);
+  useEffect(() => { load(); }, [load]);
+  if (!rows) return <Loading />;
+  if (open) return <StrikeDetail w={open} onBack={() => setOpen(null)} onChanged={() => { load(); onChanged(); }} />;
+  if (!rows.length) return <AdmEmpty text="No worker has a strike or a cancellation in the last 90 days." />;
+  return (
+    <div className="table-wrap">
+      <table className="rows">
+        <thead><tr><th>Worker</th><th>Turns up</th><th>Strikes, 30 days</th><th>Strikes, 90 days</th><th>Status</th><th>Last</th><th /></tr></thead>
+        <tbody>
+          {rows.map((w) => (
+            <tr key={w.worker_id} className="click" onClick={() => setOpen(w)}>
+              <td><span className="row" style={{ gap: 12 }}>
+                {w.photo_path ? <img className="u-pic" src={avatarUrl(w.photo_path)!} alt="" /> : <span className="u-pic none">{w.name.slice(0, 1).toUpperCase()}</span>}
+                <span className="w5">{w.name}</span>
+              </span></td>
+              <td>{w.turns_up != null ? `${w.turns_up}%` : <span className="muted">New</span>}</td>
+              <td className={w.strikes_30 >= 3 ? "w5" : ""}>{w.strikes_30} of 3</td>
+              <td>{w.strikes_90} of 5</td>
+              <td>{w.needs_review ? <span className="badge r">Needs review</span> : w.offline_until ? <span className="badge y">Offline until {day(w.offline_until)}</span> : <span className="badge g">Active</span>}</td>
+              <td className="light">{w.last_at ? day(w.last_at) : "—"}</td>
+              <td style={{ width: 32 }}>{Icon.chevron("var(--faint)")}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function StrikeDetail({ w, onBack, onChanged }: { w: StrikeRow; onBack: () => void; onChanged: () => void }) {
+  const toast = useToast();
+  const [drops, setDrops] = useState<DropRow[]>([]);
+  const load = useCallback(() => { rpc<DropRow[]>("admin_worker_drops", { p_worker: w.worker_id }).then(setDrops).catch(() => {}); }, [w.worker_id]);
+  useEffect(() => { load(); }, [load]);
+  const act = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); toast(msg); load(); onChanged(); } catch (e) { toast((e as Error).message); } };
+  return (
+    <div className="u-page">
+      <button className="u-back" onClick={onBack}>{Icon.back("var(--emerald)")} All strikes</button>
+      <div className="u-head">
+        {w.photo_path ? <img className="u-big" src={avatarUrl(w.photo_path)!} alt="" /> : <span className="u-big none">{w.name.slice(0, 1).toUpperCase()}</span>}
+        <div className="stack" style={{ gap: 8, flex: 1, minWidth: 0 }}>
+          <h2>{w.name}</h2>
+          <span className="light muted">Turns up {w.turns_up != null ? `${w.turns_up}%` : "new"}, {w.strikes_30} strikes in 30 days, {w.strikes_90} in 90 days</span>
+          <span>{w.needs_review ? <span className="badge r">Needs review</span> : w.offline_until ? <span className="badge y">Offline until {day(w.offline_until)}</span> : <span className="badge g">Active</span>}</span>
+        </div>
+        <div className="row" style={{ gap: 8, alignSelf: "flex-start", flexWrap: "wrap" }}>
+          {w.needs_review && <button className="btn primary" onClick={() => act(() => rpc("admin_clear_review", { p_worker: w.worker_id }), "Cleared. They can go online again.")}>Clear review</button>}
+          {w.offline_until
+            ? <button className="btn stone" onClick={() => act(() => rpc("admin_set_offline", { p_worker: w.worker_id, p_days: null }), "They can go online again")}>Let them back online</button>
+            : <button className="btn stone" onClick={() => act(() => rpc("admin_set_offline", { p_worker: w.worker_id, p_days: 7 }), "Offline for 7 days")}>Take offline for 7 days</button>}
+        </div>
+      </div>
+      <div className="table-wrap" style={{ marginTop: 20 }}>
+        <table className="rows">
+          <thead><tr><th>Date</th><th>Job</th><th>What happened</th><th>Fee</th><th>Strike</th><th /></tr></thead>
+          <tbody>
+            {drops.map((d) => (
+              <tr key={d.id}>
+                <td className="light">{dayTime(d.created_at)}</td>
+                <td className="light">{d.job_title ?? "—"}</td>
+                <td>{CANCEL_KIND[d.kind] ?? d.kind}{d.reason ? <span className="small muted light" style={{ display: "block" }}>{d.reason}</span> : null}</td>
+                <td>{d.fee_cents ? money2(d.fee_cents) : <span className="muted">None</span>}</td>
+                <td>{d.strike ? <span className="badge r">Strike</span> : <span className="muted">No</span>}</td>
+                <td style={{ textAlign: "right" }}>
+                  <button className="btn stone small" onClick={() => act(() => rpc("admin_strike_set", { p_id: d.id, p_strike: !d.strike }), d.strike ? "Strike removed" : "Strike added back")}>{d.strike ? "Remove strike" : "Add strike back"}</button>
+                </td>
+              </tr>
+            ))}
+            {drops.length === 0 && <tr><td colSpan={6} className="muted">Nothing yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+interface ReviewRow { job_id: string; from_id: string; created_at: string; from_name: string; to_name: string; of_worker: boolean; recommend: boolean | null; scores: Record<string, number> | null; comment: string | null; job_title: string | null; revealed: boolean }
+const SCORE_LABEL: Record<string, string> = { on_time: "On time", prepared: "Prepared", quality: "Quality", communication: "Comms", friendliness: "Friendly", description: "As described", paid: "Paid", respect: "Respect" };
+
+// Every review, newest first. Remove one that breaks the rules.
+function Reviews() {
+  const toast = useToast();
+  const [rows, setRows] = useState<ReviewRow[] | null>(null);
+  const [side, setSide] = useState<"all" | "worker" | "customer">("all");
+  const [pick, setPick] = useState(false);
+  const load = useCallback(() => { rpc<ReviewRow[]>("admin_reviews").then(setRows).catch((e) => toast((e as Error).message)); }, [toast]);
+  useEffect(() => { load(); }, [load]);
+  if (!rows) return <Loading />;
+  const SIDES: [typeof side, string][] = [["all", "All reviews"], ["worker", "Customers reviewing workers"], ["customer", "Workers reviewing customers"]];
+  const shown = rows.filter((r) => side === "all" || (side === "worker") === r.of_worker);
+  return (
+    <>
+      <div className="row" style={{ marginBottom: 12, justifyContent: "flex-end" }}>
+        <button className="cp-select" style={{ height: 44, minWidth: 280, background: "var(--card)" }} onClick={() => setPick(true)}>
+          <span>{SIDES.find(([k]) => k === side)?.[1]}</span>{Icon.down("var(--muted)")}
+        </button>
+      </div>
+      <div className="table-wrap">
+        <table className="rows">
+          <thead><tr><th>Date</th><th>From</th><th>About</th><th>Recommend</th><th>Ratings</th><th>Comment</th><th>Shown</th><th /></tr></thead>
+          <tbody>
+            {shown.map((r) => (
+              <tr key={r.job_id + r.from_id}>
+                <td className="light" style={{ whiteSpace: "nowrap" }}>{day(r.created_at)}</td>
+                <td><span className="stack" style={{ gap: 1 }}><span className="w5">{r.from_name}</span><span className="small muted light">{r.of_worker ? "Customer" : "Worker"}, {r.job_title ?? ""}</span></span></td>
+                <td>{r.to_name}</td>
+                <td>{r.recommend == null ? <span className="muted">—</span> : r.recommend ? <span className="badge g">Yes</span> : <span className="badge r">No</span>}</td>
+                <td className="small">{r.scores ? Object.entries(r.scores).map(([k, v]) => (
+                  <span key={k} style={{ display: "inline-block", marginRight: 10, whiteSpace: "nowrap" }}><span className="muted light">{SCORE_LABEL[k] ?? k}</span> <b style={{ color: v <= 2 ? "var(--danger)" : undefined }}>{v}</b></span>
+                )) : <span className="muted">—</span>}</td>
+                <td className="light" style={{ maxWidth: 260 }}>{r.comment || <span className="muted">—</span>}</td>
+                <td>{r.revealed ? <span className="badge g">Shown</span> : <span className="badge">Waiting</span>}</td>
+                <td style={{ textAlign: "right" }}><button className="btn stone small" onClick={async () => {
+                  try { await rpc("admin_review_delete", { p_job: r.job_id, p_from: r.from_id }); toast("Review removed"); load(); } catch (e) { toast((e as Error).message); }
+                }}>Remove</button></td>
+              </tr>
+            ))}
+            {shown.length === 0 && <tr><td colSpan={8} className="muted">No reviews yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {pick && <SearchPicker title="Show reviews" placeholder="Search" options={SIDES.map(([id, label]) => ({ id, label }))} value={[side]}
+        onClose={() => setPick(false)} onChange={(v) => setSide(String(v[0]) as typeof side)} />}
     </>
   );
 }
