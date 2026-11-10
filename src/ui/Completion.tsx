@@ -14,7 +14,7 @@ export function DoneHero({ jobName, label, big, lime, sub, step }: { jobName: st
   return (
     <section className="hero cp-hero">
       <div className="hero-top cp-top">
-        <span className="brand"><Logo /> More Mahi</span>
+        <span className="brand"><Logo /> Mahi Man</span>
         <span className="jn">{jobName}</span>
       </div>
       <span className="label" style={{ marginTop: 18 }}>{label}</span>
@@ -254,7 +254,7 @@ export function ProblemScreen({ job, jobName, otherName, isWorker, onBack, onDon
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
       <ActionBar>
-        <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={send}>{busy ? "Sending…" : "Send to More Mahi"}</button>
+        <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={send}>{busy ? "Sending…" : "Send to Mahi Man"}</button>
       </ActionBar>
       {pick === "reason" && <SearchPicker title="What went wrong?" value={[reason]} options={reasons.map((r) => ({ id: r, label: r }))} onClose={() => setPick(null)} onChange={(v) => setReason(String(v[0]))} />}
       {pick === "fix" && <SearchPicker title="What would put it right?" value={[fix]} options={fixes.map((r) => ({ id: r, label: r }))} onClose={() => setPick(null)} onChange={(v) => setFix(String(v[0]))} />}
@@ -288,7 +288,7 @@ export function DisputeView({ job, jobName, otherName, isWorker, onChanged, foot
     d.response
       ? { done: true, title: mine ? `${otherName} gave their side` : "You gave your side", note: when(d.responded_at!) }
       : { done: false, title: mine ? `${otherName} gives their side` : "Give your side", note: d.respond_by ? `By ${when(d.respond_by)}` : "Within 24 hours" },
-    { done: d.resolved, title: "More Mahi decides", note: d.resolved && d.outcome ? OUTCOME[d.outcome] ?? "Decided" : "We look at the photos, messages and both sides" },
+    { done: d.resolved, title: "Mahi Man decides", note: d.resolved && d.outcome ? OUTCOME[d.outcome] ?? "Decided" : "We look at the photos, messages and both sides" },
     { done: d.resolved, title: "You both hear from us", note: "In the app" },
   ];
 
@@ -296,7 +296,7 @@ export function DisputeView({ job, jobName, otherName, isWorker, onChanged, foot
     <div className="app">
       <section className="hero cp-hero">
         <div className="hero-top cp-top">
-          <span className="brand"><Logo /> More Mahi</span>
+          <span className="brand"><Logo /> Mahi Man</span>
           <span className="jn">{jobName}</span>
         </div>
         <span className="label" style={{ marginTop: 18 }}>{d.resolved ? "Decided" : "We're looking into it"}</span>
@@ -306,7 +306,7 @@ export function DisputeView({ job, jobName, otherName, isWorker, onChanged, foot
 
       {d.resolved && d.decision_note && (
         <div className="cp-sec">
-          <span className="cp-title">From More Mahi</span>
+          <span className="cp-title">From Mahi Man</span>
           <span className="t16 light" style={{ lineHeight: 1.5 }}>{d.decision_note}</span>
         </div>
       )}

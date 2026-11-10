@@ -6,7 +6,7 @@ import { money } from "../lib/format";
 import { Icon, StepHero, useToast } from "./kit";
 import { AuthScreen } from "./Auth";
 
-// How More Mahi works and what it costs, now in the pilot and once it launches. Numbers come from the live settings.
+// How Mahi Man works and what it costs, now in the pilot and once it launches. Numbers come from the live settings.
 export function Pricing() {
   const { session } = useSession();
   const toast = useToast();
@@ -53,7 +53,7 @@ export function Pricing() {
       </div>
 
       <div className="cp-sec" id="plus">
-        <span className="cp-title">More Mahi Plus, {plusPrice} a month</span>
+        <span className="cp-title">Mahi Man Plus, {plusPrice} a month</span>
         <Li b="No booking fees, ever" s="Pays for itself after a couple of jobs." />
         <Li b="Priority on every job" s="Every Plus job is boosted: top of the list, and every worker in your category is told." />
         <Li b="Top-rated first" s="Your jobs reach workers rated 4.8 and up before anyone else." />

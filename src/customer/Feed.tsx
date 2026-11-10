@@ -64,7 +64,7 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
     <div className="app">
       <section className="hero" style={{ paddingBottom: 24 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
-          <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
+          <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
           {session
             ? <HeaderIcons />
             : <AreaPin />}

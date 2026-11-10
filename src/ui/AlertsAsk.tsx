@@ -23,7 +23,7 @@ export function AlertsAsk({ role, onDone }: { role: "post" | "work"; onDone: () 
   return (
     <div className="screen alerts-ask" role="dialog" aria-label={c.title}>
       <div className="top">
-        <span className="brand-t">More Mahi</span>
+        <span className="brand-t">Mahi Man</span>
         <h1>{c.title}</h1>
         <img src="/mascot.png" alt="" />
       </div>

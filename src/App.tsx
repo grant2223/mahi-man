@@ -40,13 +40,13 @@ function Routes() {
   // Admin lives on its own address (admin.moremahi.com) and opens for anyone with the admin role. /admin keeps working on the main site until that address is connected.
   if (location.hostname.startsWith("admin.") || path.startsWith("/admin")) return <Admin />;
   if (path.startsWith("/work")) return <Work />;
-  // The scanned code: phones go to the store when the app is listed there, otherwise straight into More Mahi.
+  // The scanned code: phones go to the store when the app is listed there, otherwise straight into Mahi Man.
   if (path === "/get") return <GetRedirect />;
   if (path === "/privacy") return <Privacy />;
   if (path === "/terms") return <Terms />;
   if (path === "/support") return <Support />;
   if (path === "/pricing") return <Pricing />;
-  // More Mahi is an app. The website is the landing page only; any app screen opened in a browser points to the app.
+  // Mahi Man is an app. The website is the landing page only; any app screen opened in a browser points to the app.
   if (!Capacitor.isNativePlatform()) return path === "/" ? <Landing /> : <GetAppPage />;
   if (path === "/settings") {
     if (ready && !session) { go("/", true); return null; }

@@ -27,7 +27,7 @@ export function MyJobs() {
     <div className="app">
       <section className="hero short">
         <div className="hero-top">
-          <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
+          <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
           <HeaderIcons jobs={false} />
         </div>
         <SideSwitch side="help" />

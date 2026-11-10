@@ -30,7 +30,7 @@ export async function startTrip(jobId: string): Promise<void> {
   lastSent = 0;
   if (Capacitor.isNativePlatform()) {
     watcher = await BG.addWatcher(
-      { backgroundMessage: "Sharing your location with your customer until you arrive.", backgroundTitle: "More Mahi", requestPermissions: true, stale: false, distanceFilter: 25 },
+      { backgroundMessage: "Sharing your location with your customer until you arrive.", backgroundTitle: "Mahi Man", requestPermissions: true, stale: false, distanceFilter: 25 },
       (loc, err) => {
         if (err) {
           if (err.code === "NOT_AUTHORIZED") { stopTrip(jobId); BG.openSettings().catch(() => {}); }
@@ -44,7 +44,7 @@ export async function startTrip(jobId: string): Promise<void> {
       let first = true;
       webWatch = navigator.geolocation.watchPosition(
         (p) => { send(jobId, p.coords.latitude, p.coords.longitude, p.coords.heading, p.coords.accuracy); if (first) { first = false; resolve(); } },
-        (e) => { if (first) { first = false; stopTrip(jobId); reject(new Error(e.code === 1 ? "Allow location for More Mahi to share your trip." : "Couldn't get your location. Try again.")); } },
+        (e) => { if (first) { first = false; stopTrip(jobId); reject(new Error(e.code === 1 ? "Allow location for Mahi Man to share your trip." : "Couldn't get your location. Try again.")); } },
         { enableHighAccuracy: true, maximumAge: 5000 },
       );
     });

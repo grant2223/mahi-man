@@ -375,7 +375,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
     <div className="app" style={{ background: "var(--ground)" }}>
       <section className="hero" style={{ paddingBottom: 28 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
-          <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
+          <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
           {signedIn
             ? <HeaderIcons />
             : <AreaPin />}

@@ -33,9 +33,54 @@ const USES: [string, string, string][] = [
   ["Rubbish removal", "Tip runs, green waste and clean-outs. Loaded up and gone.", "1670175035057-eec020c03eb9"],
 ];
 
+// Every answer here is how the platform actually works (the terms and privacy policy say the same). Fees come from the live settings.
+const faq = (fee: { pct: number; max: number; plus: number }): [string, [string, string][]][] => [
+  ["Getting help", [
+    ["How fast can someone come?", "The moment you post, workers who are switched on near you get an alert. If nobody says they're keen within 10 minutes, workers further out can see your job too."],
+    ["What jobs can I post?", "Cleaning, moving, rubbish removal, garden, assembly, handyman, pets, errands, events, babysitting and tutoring, tech help, and anything else you need a hand with."],
+    ["Who sets the price?", "You do. Your price covers what you list as included. Anything extra needs your OK in the app before it's done."],
+    ["Do I get to choose who comes?", "Yes. People who are available say they're keen, and you see their photo, rating, skills and verified licences before you choose one."],
+    ["Can I cancel?", "Yes, free of charge before your worker arrives."],
+    ["Can I post jobs and do work?", "Yes. One account does both. Switch between Get help and Do work any time."],
+  ]],
+  ["Doing work", [
+    ["Who can work on Mahi Man?", "Anyone 18 or over with their real name and photo. You verify your ID before you take your first job."],
+    ["Do I need an ABN?", "No. You can start without one."],
+    ["Do you take a cut of my pay?", "No. Workers keep 100% of the job price, now and after launch. The connection fee is paid by the customer."],
+    ["How do I get paid?", "During the pilot, the customer pays you directly by bank transfer or cash when the job is finished. From launch, you're paid through the app once the customer confirms the job is done."],
+    ["Can I choose when I work?", "Yes. Switch on when you're available, take only the jobs you want, and switch off when you're done."],
+    ["What about jobs that need a licence?", "Electrical work, an RSA and similar jobs only go to workers whose licence we've checked and is in date."],
+  ]],
+  ["Payments and fees", [
+    ["What does it cost?", `Nothing during the pilot: you pay your worker directly by bank transfer or cash. From launch, customers pay a ${fee.pct}% connection fee, up to ${money(fee.max)} a job.`],
+    ["How do payments work after the pilot?", `You pay in the app when you accept someone. We hold the money while the job is done. When you confirm it's done, the payment is released to your worker, and the ${fee.pct}% connection fee stays with Mahi Man.`],
+    ["What if my worker cancels or doesn't turn up?", "Your job reopens and you choose someone else, with no new fee."],
+    ["Will I get a refund?", "If the job never gets done, the fee is refunded to your card automatically. If you cancel after choosing a worker, the fee isn't refunded."],
+    ["Is my card safe?", "Cards are stored by Stripe, our payment provider. We never see or keep your full card number."],
+    ["Is there a way to skip the fees?", `Mahi Man Plus, $${(fee.plus / 100).toFixed(2)} a month, has no booking fees and puts your jobs first. It opens with in-app payments.`],
+  ]],
+  ["Safety and trust", [
+    ["Who's coming to my place?", "Someone whose ID we've checked by hand. You see their photo, rating and skills before you choose them."],
+    ["Who sees my address?", "Only the worker who takes your job. Everyone else sees just your suburb."],
+    ["Will they get my phone number?", "No. Phone numbers and emails are never shown. You message each other in the app."],
+    ["Can I see when they're on the way?", "Yes. From when your worker taps \"I'm on my way\" until they arrive, you see them on a map. Their location is never shared at any other time."],
+    ["What if it's not done right?", "Don't pay yet. Report it in the app and we'll sort it out with both of you."],
+    ["Are the reviews real?", "Only people who booked someone can review them."],
+    ["What happens to my ID photos?", "Only the Mahi Man team sees them, and they're deleted as soon as your check is done."],
+  ]],
+];
+
 export function Landing() {
   useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
+  // The connection fee customers pay from launch, from the live settings.
+  const [fee, setFee] = useState({ pct: 12, max: 3000, plus: 999 });
+  useEffect(() => {
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "plus_cents"]).then(({ data }) => {
+      const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
+      setFee((f) => ({ pct: m.booking_fee_percent || f.pct, max: m.booking_fee_max_cents || f.max, plus: m.plus_cents || f.plus }));
+    });
+  }, []);
   const [open, setOpen] = useState<{ id: string; job_name: string; category: string | null; icon: string; suburb: string; asap: boolean; pay_cents: number }[]>([]);
   useEffect(() => {
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
@@ -45,7 +90,7 @@ export function Landing() {
   return (
     <div className="ld">
       <header className="ld-nav"><div className="ld-wrap ld-nav-in">
-        <a className="brand" href="/" onClick={link("/")}><Logo /> More Mahi</a>
+        <a className="brand" href="/" onClick={link("/")}><Logo /> Mahi Man</a>
         <LdLinks />
       </div></header>
 
@@ -53,8 +98,8 @@ export function Landing() {
         <div className="ld-wrap ld-hero-in">
           <div className="ld-hero-text">
             <span className="ld-pin">{Icon.pin("#d4f04c")} Australia wide</span>
-            <h1>Get it done today.</h1>
-            <p>Cleaning, yard work, moving, the lot. Locals who can come today, and you only pay when you're happy with it.</p>
+            <h1>Get the help you need within minutes.</h1>
+            <span className="ld-tag">Post, accept, job done!</span>
             <div className="row ld-ctas">
               <a className="btn lime" href="/post" onClick={link("/post")}>Post a job, free {Icon.arrow("var(--ink)")}</a>
               <a className="btn ghost" href="/find" onClick={link("/find")}>Want work?</a>
@@ -102,11 +147,20 @@ export function Landing() {
 
       <section className="ld-sec alt" id="how">
         <div className="ld-wrap">
-          <h2>Sorted in three steps.</h2>
+          <h2>How it works.</h2>
+          <span className="ld-who">Customers simply post a job, select help, job done!</span>
           <div className="ld-steps">
-            {[["Tell us the job", "Talk or type. It takes a minute, and you set the price."],
-              ["Pick your person", "Locals who are free say so. See their photo, reviews and skills, and choose."],
-              ["Pay when it's done", "Check the after photos. Happy? Pay them directly. Not happy? Tell us first."]].map(([b, t], i) => (
+            {[["Post a job", "Add a photo, say what needs doing and set your price."],
+              ["Select help", "People who are available say so. See their photo, reviews and skills, and choose."],
+              ["Job done", "Check the after photos and pay when you're happy."]].map(([b, t], i) => (
+              <div key={b} className="ld-step"><span className="ld-n">{i + 1}</span><b>{b}</b><span>{t}</span></div>
+            ))}
+          </div>
+          <span className="ld-who">Workers simply see the work available, accept the job, get paid!</span>
+          <div className="ld-steps">
+            {[["See the work", "Switch on when you're available and see the jobs near you."],
+              ["Accept the job", "Say you're keen on the ones you want. The customer picks who goes."],
+              ["Get paid", "Do the job, add the after photos, and get paid to your bank."]].map(([b, t], i) => (
               <div key={b} className="ld-step"><span className="ld-n">{i + 1}</span><b>{b}</b><span>{t}</span></div>
             ))}
           </div>
@@ -144,12 +198,14 @@ export function Landing() {
       <section className="ld-sec">
         <div className="ld-wrap ld-faq">
           <h2>Good questions.</h2>
-          {[["What does it cost?", "Posting a job is free while we launch. You set the price and pay the worker directly when it's done."],
-            ["Who's coming to my place?", "A local whose ID we've checked by hand. You see their photo, reviews and skills before you choose them."],
-            ["What if it's not done right?", "Don't pay yet. Report it in the app and we'll sort it out with both of you."],
-            ["Can I post jobs and do work?", "Yes. One account does both. Switch between Get help and Do work any time."]].map(([q, a]) => (
-            <details key={q}><summary>{q}{Icon.down("var(--muted)")}</summary><p>{a}</p></details>
-          ))}
+          <div className="ld-faq-groups">
+            {faq(fee).map(([group, items]) => (
+              <div key={group} className="ld-faq-group">
+                <h3>{group}</h3>
+                {items.map(([q, a]) => <details key={q}><summary>{q}{Icon.down("var(--muted)")}</summary><p>{a}</p></details>)}
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -157,7 +213,7 @@ export function Landing() {
 
       <footer className="ld-foot">
         <div className="ld-wrap ld-foot-in">
-          <span className="brand"><Logo /> More Mahi</span>
+          <span className="brand"><Logo /> Mahi Man</span>
           <span className="row" style={{ gap: 20 }}>
             <a href="/privacy" onClick={link("/privacy")}>Privacy</a>
             <a href="/terms" onClick={link("/terms")}>Terms</a>
@@ -204,13 +260,13 @@ function GetApp({ full }: { full?: boolean }) {
     <section className={`ld-app${full ? " full" : ""}`} id="app">
       <div className="ld-wrap ld-app-in">
         <div className="ld-app-text">
-          <h2>More Mahi lives on your phone.</h2>
+          <h2>Mahi Man lives on your phone.</h2>
           <p>Post a job, pick your person and hear the moment someone's keen. Or find work near you. It all happens in the app.</p>
           {desktop()
             ? <span className="ld-app-how">{Icon.arrow("var(--emerald)")} Point your phone's camera at the code</span>
             : <div className="ld-stores">{STORES.filter(([, k]) => urls[k]).map(([name, k]) => <a key={k} className="btn primary" href={urls[k]}>Get it on {name}</a>)}</div>}
         </div>
-        {desktop() && <span className="ld-qr" aria-label="QR code to open More Mahi on your phone" dangerouslySetInnerHTML={{ __html: svg }} />}
+        {desktop() && <span className="ld-qr" aria-label="QR code to open Mahi Man on your phone" dangerouslySetInnerHTML={{ __html: svg }} />}
       </div>
     </section>
   );
@@ -231,7 +287,7 @@ function JoinLaunch({ full }: { full?: boolean }) {
       <div className="ld-wrap">
         <div className="ld-app-text">
           <h2>Join the launch.</h2>
-          <p>More Mahi opens first to a pilot group on iPhone. Leave your details and we'll email you the link to get the app.</p>
+          <p>Mahi Man opens first to a pilot group on iPhone. Leave your details and we'll email you the link to get the app.</p>
         </div>
         {done ? (
           <div className="ld-joined">{Icon.shieldTick("var(--emerald)")}<span><b>You're on the list, {done}.</b><span>Watch your inbox for the link to get the app.</span></span></div>
@@ -254,7 +310,7 @@ export function GetAppPage() {
   return (
     <div className="ld">
       <header className="ld-nav"><div className="ld-wrap ld-nav-in">
-        <a className="brand" href="/" onClick={(e) => { e.preventDefault(); go("/"); }}><Logo /> More Mahi</a>
+        <a className="brand" href="/" onClick={(e) => { e.preventDefault(); go("/"); }}><Logo /> Mahi Man</a>
         <LdLinks />
       </div></header>
       <GetApp full />

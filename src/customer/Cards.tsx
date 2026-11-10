@@ -5,7 +5,7 @@ import { api } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { Icon, Screen, useToast } from "../ui/kit";
 
-/* Saved card for the booking fee. Card details go straight to Stripe; More Mahi only keeps the brand and last 4 digits. */
+/* Saved card for the booking fee. Card details go straight to Stripe; Mahi Man only keeps the brand and last 4 digits. */
 
 const stripeCache: Record<string, Promise<Stripe | null>> = {};
 export const stripeFor = (pk: string) => (stripeCache[pk] ??= loadStripe(pk));
@@ -76,7 +76,7 @@ function CardForm({ onSaved }: { onSaved: () => void }) {
         <span className="stack" style={{ gap: 2 }}><span className="t17">Save this card for next time</span><span className="small light muted">Remove it any time in Settings.</span></span>
       </button>
       <p className="small light muted" style={{ lineHeight: 1.5, margin: "0 0 16px" }}>
-        By adding this card you allow More Mahi to charge the booking fee shown on each job when you choose a worker. Cards are handled by Stripe. More Mahi never sees your full card number.
+        By adding this card you allow Mahi Man to charge the booking fee shown on each job when you choose a worker. Cards are handled by Stripe. Mahi Man never sees your full card number.
       </p>
       {err && <p className="err">{err}</p>}
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
@@ -107,7 +107,7 @@ export function PaymentMethods({ onBack }: { onBack: () => void }) {
           </div>
         ) : <p className="t17 light" style={{ padding: "20px 16px 0", margin: 0 }}>No card saved.</p>}
         <div style={{ padding: 16 }}><button className="btn stone" onClick={() => setAdd(true)}>{Icon.plus("var(--ink)")} {p?.card_last4 ? "Use a different card" : "Add a card"}</button></div>
-        <p className="t15 light muted" style={{ padding: "0 16px", margin: 0, lineHeight: 1.45 }}>Cards are stored by Stripe, not on More Mahi.</p>
+        <p className="t15 light muted" style={{ padding: "0 16px", margin: 0, lineHeight: 1.45 }}>Cards are stored by Stripe, not on Mahi Man.</p>
       </div>
       {add && <AddCardScreen onBack={() => setAdd(false)} onSaved={() => { setAdd(false); toast("Card saved"); }} />}
     </Screen>

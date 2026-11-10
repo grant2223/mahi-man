@@ -38,7 +38,7 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged, onBack }: { 
         <div className="hero-top">
           <span className="row" style={{ gap: 6 }}>
             <button className="hero-back" aria-label="Back" onClick={() => { if (onBack) onBack(); else { setSide("help"); go("/"); } }}>{Icon.back("#fff")}</button>
-            <span className="brand"><Logo /> More Mahi</span>
+            <span className="brand"><Logo /> Mahi Man</span>
           </span>
           <span className="t15 light" style={{ color: "rgba(255,255,255,0.85)" }}>Worker</span>
         </div>

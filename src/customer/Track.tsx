@@ -91,7 +91,7 @@ export function Track({ id }: { id: string }) {
     return () => { sb.removeChannel(ch); };
   }, [id, load]);
 
-  if (!job || !jt || !session) return <div className="app"><section className="hero short"><button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button></section><Loading /></div>;
+  if (!job || !jt || !session) return <div className="app"><section className="hero short"><button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button></section><Loading /></div>;
 
   const eta = job.eta_at;
   const jobName = job.title || jt.name;
@@ -104,7 +104,7 @@ export function Track({ id }: { id: string }) {
 
   async function confirm() {
     setBusy(true);
-    try { await api("confirm_job", { job_id: id }); toast(direct ? "Done. Thanks for using More Mahi." : "Paid. Thanks for using More Mahi."); await load(); }
+    try { await api("confirm_job", { job_id: id }); toast(direct ? "Done. Thanks for using Mahi Man." : "Paid. Thanks for using Mahi Man."); await load(); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
@@ -219,7 +219,7 @@ export function Track({ id }: { id: string }) {
     }
     case "in_progress": label = `${wName} is working`; big = elapsed(job.started_at!, now); sub = `Up to ${Number(jt.max_hours)} hrs`; break;
     case "finished": label = "Job done"; big = money2(total); sub = direct ? `Check the photos, pay ${wName} directly, then confirm` : "Check the photos, then confirm to pay"; break;
-    case "confirmed": label = direct ? "Done" : "Paid and done"; big = money2(total); sub = "Thanks for using More Mahi"; break;
+    case "confirmed": label = direct ? "Done" : "Paid and done"; big = money2(total); sub = "Thanks for using Mahi Man"; break;
     case "cancelled": label = "Cancelled"; big = "—"; sub = "This booking was cancelled"; break;
   }
 
@@ -227,7 +227,7 @@ export function Track({ id }: { id: string }) {
     <div className="app">
       <section className="hero short">
         <div className="hero-top">
-          <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
+          <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
           <span className="small light" style={{ color: "rgba(255,255,255,0.85)" }}>{jobName}</span>
         </div>
         <span className="label">{label}</span>

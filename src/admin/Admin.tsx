@@ -40,13 +40,13 @@ export function Admin() {
   if (!ready) return null;
   if (!session) return <div className="admin"><AuthScreen title="Admin sign in" reason="Sign in with your admin account." onBack={() => go("/")} onDone={() => {}} /></div>;
   if (!profile?.is_admin) return (
-    <div className="admin solo"><div className="admin-head"><span className="brand"><Logo /> More Mahi Admin</span><h1 style={{ margin: "16px 0 0", fontWeight: 600 }}>Admins only</h1>
+    <div className="admin solo"><div className="admin-head"><span className="brand"><Logo /> Mahi Man Admin</span><h1 style={{ margin: "16px 0 0", fontWeight: 600 }}>Admins only</h1>
       <p className="light">This account isn't an admin. <button className="hero-link" onClick={() => sb.auth.signOut()}>Sign out</button></p></div></div>
   );
   return (
     <div className="admin">
       <aside className="adm-side">
-        <span className="brand"><Logo /> More Mahi</span>
+        <span className="brand"><Logo /> Mahi Man</span>
         <nav>
           {GROUPS.map((g) => (
             <div key={g.label || "top"} className="adm-group">
@@ -821,7 +821,7 @@ function UserDetail({ p, isAdmin, review, onBack, onChanged }: { p: Person; isAd
   );
 }
 
-// ---------- Areas: open More Mahi city by city ----------
+// ---------- Areas: open Mahi Man city by city ----------
 const STATES = ["QLD", "NSW", "VIC", "SA", "WA", "TAS", "NT", "ACT"];
 type AreaRow = Area & { suburbs: { count: number }[] };
 

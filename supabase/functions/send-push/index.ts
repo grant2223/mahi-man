@@ -1,4 +1,4 @@
-// More Mahi: sends queued alerts (public.push_queue) to phones: Apple (APNs) for iPhones, Firebase (FCM) for Android.
+// Mahi Man: sends queued alerts (public.push_queue) to phones: Apple (APNs) for iPhones, Firebase (FCM) for Android.
 // Runs when an alert is queued. Keys come from Edge Function secrets; a platform without keys is skipped.
 import { createClient } from "npm:@supabase/supabase-js@2";
 

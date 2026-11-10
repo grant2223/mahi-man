@@ -19,4 +19,4 @@ export async function shareLink(text: string, url: string): Promise<"shared" | "
   }
 }
 
-export const inviteText = "I've been using More Mahi for odd jobs. Post a job, or earn extra cash doing them.";
+export const inviteText = "I've been using Mahi Man for odd jobs. Post a job, or earn extra cash doing them.";

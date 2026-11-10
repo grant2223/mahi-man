@@ -90,7 +90,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
     <div className="app" style={{ background: "var(--card)" }}>
       <section className="hero cp-hero" style={{ paddingBottom: 24 }}>
         <div className="hero-top cp-top">
-          <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
+          <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
           <span className="jn">{title}, {price}</span>
         </div>
         {shown.length ? (
@@ -170,7 +170,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
                     </>;
                   })()}
                   <span className="m">
-                    {o.is_new ? `New to More Mahi, ${o.jobs_done} job${o.jobs_done === 1 ? "" : "s"}`
+                    {o.is_new ? `New to Mahi Man, ${o.jobs_done} job${o.jobs_done === 1 ? "" : "s"}`
                       : o.category && o.cat_jobs > 0 ? `${o.cat_rating ? `${o.cat_rating} for ${o.category.toLowerCase()}, ` : ""}${o.cat_jobs} job${o.cat_jobs === 1 ? "" : "s"}`
                       : `${o.rating ? `${o.rating} rating, ` : ""}${o.jobs_done} jobs`}
                     {o.jobs_for_me > 0 ? `, ${o.jobs_for_me} for you` : ""}
@@ -199,7 +199,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
       {!shown.length && (
         <div className="cp-note">
           <span>Know someone who could do this? <button className="link" style={{ padding: 0 }} onClick={async () => {
-            const r = await shareLink(`Paid job on More Mahi: ${title}, ${price}. Workers keep 100%.`, `${SITE}/work`);
+            const r = await shareLink(`Paid job on Mahi Man: ${title}, ${price}. Workers keep 100%.`, `${SITE}/work`);
             if (r === "copied") toast("Link copied. Paste it in a message.");
           }}>Share the job</button></span>
         </div>

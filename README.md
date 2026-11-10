@@ -1,4 +1,4 @@
-# More Mahi
+# Mahi Man
 
 Odd jobs marketplace for Cairns, Queensland. Customers book fixed-price local jobs (cleaning, garden, moving and rubbish, assembly); verified local workers take them.
 

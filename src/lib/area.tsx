@@ -4,7 +4,7 @@ import { sb, type Area } from "./supabase";
 import { useSession } from "./session";
 import { Icon, SearchPicker } from "../ui/kit";
 
-/* The area someone is using More Mahi in. Their saved choice wins; otherwise the one they picked on this device;
+/* The area someone is using Mahi Man in. Their saved choice wins; otherwise the one they picked on this device;
    otherwise, while only one area is open, that one. Every screen that lists suburbs or jobs uses it. */
 
 const KEY = "mm-area";

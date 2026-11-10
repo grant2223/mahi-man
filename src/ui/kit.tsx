@@ -61,20 +61,9 @@ export function Loading({ label = "Loading" }: { label?: string }) {
 }
 
 /* ---------- Brand mark: house and tick ---------- */
-export function Logo({ w = 40, light = true }: { w?: number; light?: boolean }) {
-  const c = light ? "#ffffff" : "#0b6b4f";
-  return (
-    <svg width={w} height={Math.round(w * 0.81)} viewBox="0 0 104 84" aria-hidden="true">
-      <rect x="24" y="7" width="8" height="18" rx="1" fill={c} />
-      <path d="M5 40 L48 5 L86 37" fill="none" stroke={c} strokeWidth="8" strokeLinejoin="round" />
-      <path d="M20 33 L20 67" fill="none" stroke={c} strokeWidth="8" />
-      <rect x="43" y="28" width="8" height="8" rx="1" fill={c} />
-      <rect x="53" y="28" width="8" height="8" rx="1" fill={c} />
-      <rect x="43" y="38" width="8" height="8" rx="1" fill={c} />
-      <rect x="53" y="38" width="8" height="8" rx="1" fill={c} />
-      <path d="M39 63 L56 77 L97 42" fill="none" stroke="#f0a030" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+// The Mahi Man mark: his head, as drawn on the mascot. `w` is its height in the header.
+export function Logo({ w = 40 }: { w?: number; light?: boolean }) {
+  return <img className="logo-mark" src="/mahi-head.png" width={w} height={w} alt="" aria-hidden="true" />;
 }
 
 /* ---------- Step header used by every booking and ID step ---------- */

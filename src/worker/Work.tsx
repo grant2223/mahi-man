@@ -26,7 +26,7 @@ function BecomeWorker({ onDone }: { onDone: () => Promise<void> }) {
   }, []);
   return (
     <div className="app">
-      <section className="hero short"><span className="brand"><Logo /> More Mahi</span>
+      <section className="hero short"><span className="brand"><Logo /> Mahi Man</span>
         {err && <><p className="lede" style={{ marginTop: 16 }}>{err}</p><button className="btn white" style={{ marginTop: 16, alignSelf: "flex-start" }} onClick={() => location.reload()}>Try again</button></>}
       </section>
       {!err && <Loading />}
@@ -72,13 +72,13 @@ export function Work() {
   }, []);
 
   const [setupOpen, setSetupOpen] = useState(false);
-  if (!ready) return <div className="app"><section className="hero short"><span className="brand"><Logo /> More Mahi</span></section><Loading /></div>;
+  if (!ready) return <div className="app"><section className="hero short"><span className="brand"><Logo /> Mahi Man</span></section><Loading /></div>;
 
   // Not a worker yet: straight into sign-up. The jobs feed already explains what's needed.
   if (!session) {
     return (
       <div className="app">
-        <AuthScreen title="Earn with More Mahi" reason="Here's what you need to start:"
+        <AuthScreen title="Earn with Mahi Man" reason="Here's what you need to start:"
           need={["A clear photo of yourself", "Your passport or national ID. We verify you, usually within a few hours", "Your PayID or bank account, so customers can pay you"]}
           onBack={() => (history.length > 1 ? history.back() : go("/"))}
           onDone={async () => { await rpc("become_worker"); await reload(); }} />
@@ -87,10 +87,10 @@ export function Work() {
   }
   if (!profile?.is_worker) return <BecomeWorker onDone={reload} />;
 
-  if (!status || current === undefined) return <div className="app"><section className="hero short"><span className="brand"><Logo /> More Mahi</span>{err && <p className="lede" style={{ marginTop: 16 }}>{err}</p>}</section>{!err && <Loading />}</div>;
+  if (!status || current === undefined) return <div className="app"><section className="hero short"><span className="brand"><Logo /> Mahi Man</span>{err && <p className="lede" style={{ marginTop: 16 }}>{err}</p>}</section>{!err && <Loading />}</div>;
   if (current) return <div className="app"><WorkerJob key={current.id} job={current} onChanged={refresh} onLeave={() => { hide(current.id); refresh(); }} /></div>;
   if (status.suspended) return (
-    <div className="app"><section className="hero"><span className="brand"><Logo /> More Mahi</span><h1 className="mid">Account paused</h1>
+    <div className="app"><section className="hero"><span className="brand"><Logo /> Mahi Man</span><h1 className="mid">Account paused</h1>
       <p className="lede">Your worker account is paused. Email hello@moremahi.com and we'll sort it out.</p></section></div>
   );
   // Still setting up: jobs first, so they can see what's on offer, and the checklist one tap away.
@@ -182,7 +182,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
     <>
       <section className="hero" style={{ paddingBottom: 40 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
-          <button className="brand" onClick={() => go("/")}><Logo /> More Mahi</button>
+          <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
           <span className="row" style={{ gap: 18 }}>
             <MessagesLink />
             <SettingsIcon />
@@ -390,7 +390,7 @@ function WaitingScreen({ o, onWithdraw, onClose }: { o: MyOffer; onWithdraw: () 
     <div className="screen" role="dialog" aria-label="Waiting to be chosen" style={{ background: "var(--card)" }}>
       <section className="hero cp-hero" style={{ paddingBottom: 26 }}>
         <div className="hero-top cp-top">
-          <span className="brand"><Logo /> More Mahi</span>
+          <span className="brand"><Logo /> Mahi Man</span>
           <span className="jn">{o.title}, {money(o.pay_cents)}</span>
         </div>
         <span className="label" style={{ marginTop: 18 }}>Waiting for {o.customer_name} to choose</span>

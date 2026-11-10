@@ -39,7 +39,7 @@ export function ReportScreen({ name, userId, jobId, messageId, onBack, onDone }:
     <Screen tone="ink" title={`Report ${name}`} onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <p className="t15 light" style={{ marginTop: 0, lineHeight: 1.45 }}>
-          The More Mahi team reviews every report within 24 hours. {name} isn't told who reported them.
+          The Mahi Man team reviews every report within 24 hours. {name} isn't told who reported them.
         </p>
         <div className="stack">
           <button className="field" onClick={() => setPick(true)}>

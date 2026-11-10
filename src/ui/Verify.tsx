@@ -9,7 +9,7 @@ const REGIONS = "AF AL DZ AD AO AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA 
 
 type Stage = "intro" | "doc" | "selfie" | "sending" | "sent";
 
-// Full-bleed ID check. Photos go to a private store that only the More Mahi team can see.
+// Full-bleed ID check. Photos go to a private store that only the Mahi Man team can see.
 export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSubmitted?: () => void }) {
   const { session, profile, reload } = useSession();
   const names = useMemo(() => {

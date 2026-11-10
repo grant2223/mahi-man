@@ -69,14 +69,14 @@ export function Settings() {
         )}
         {pushSupported() && (
           <button className="choice" onClick={async () => { if (alerts === "prompt") setAlerts(await turnOnAlerts()); }}>
-            <span className="t"><b>Alerts</b><span>{alerts === "granted" ? "On. New jobs, offers, messages and payments" : alerts === "denied" ? "Off. Turn them on in iPhone Settings, More Mahi, Notifications" : "Off. Tap to turn on"}</span></span>
+            <span className="t"><b>Alerts</b><span>{alerts === "granted" ? "On. New jobs, offers, messages and payments" : alerts === "denied" ? "Off. Turn them on in iPhone Settings, Mahi Man, Notifications" : "Off. Tap to turn on"}</span></span>
             {alerts === "prompt" && Icon.chevron("var(--faint)")}
           </button>
         )}
-        <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>More Mahi Plus</b><span>No booking fees, priority on every job</span></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>Mahi Man Plus</b><span>No booking fees, priority on every job</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>How it works and what it costs</b></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={async () => { const r = await shareLink(inviteText, SITE); if (r === "copied") toast("Link copied. Paste it in a message."); }}><span className="t"><b>Invite a mate</b><span>Send a friend the link</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/support")}><span className="t"><b>Help and support</b><span>Contact the More Mahi team</span></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => go("/support")}><span className="t"><b>Help and support</b><span>Contact the Mahi Man team</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/privacy")}><span className="t"><b>Privacy policy</b></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/terms")}><span className="t"><b>Terms of use</b></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => signOut().then(() => go("/"))}><span className="t"><b>Sign out</b></span></button>

@@ -47,7 +47,7 @@ Deno.serve(async (req) => {
             currency: "aud",
             capture_method: "manual",
             automatic_payment_methods: { enabled: true },
-            description: "More Mahi booking",
+            description: "Mahi Man booking",
             metadata: { job_id: job.id, kind: "job" },
           });
           await admin.from("jobs").update({ payment_intent_id: pi.id }).eq("id", job.id);
@@ -76,7 +76,7 @@ Deno.serve(async (req) => {
             currency: "aud",
             capture_method: "manual",
             automatic_payment_methods: { enabled: true },
-            description: "More Mahi extra",
+            description: "Mahi Man extra",
             metadata: { job_id: er.job_id, request_id: er.id, kind: "extra" },
           });
           await admin.from("extra_requests").update({ payment_intent_id: pi.id }).eq("id", er.id);
@@ -157,7 +157,7 @@ Deno.serve(async (req) => {
             email: user.email,
             business_type: "individual",
             capabilities: { transfers: { requested: true } },
-            business_profile: { mcc: "7349", product_description: "Odd jobs booked through More Mahi" },
+            business_profile: { mcc: "7349", product_description: "Odd jobs booked through Mahi Man" },
             metadata: { user_id: user.id },
           });
           acct = a.id;
@@ -315,7 +315,7 @@ Deno.serve(async (req) => {
               pi = await s.paymentIntents.create({
                 amount: job.fee_cents, currency: "aud", customer: me.stripe_customer_id, payment_method: me.card_pm,
                 off_session: true, confirm: true, receipt_email: user.email ?? undefined,
-                description: `More Mahi booking fee: ${job.title ?? "odd job"}`, metadata: { job_id: job.id, kind: "booking_fee" },
+                description: `Mahi Man booking fee: ${job.title ?? "odd job"}`, metadata: { job_id: job.id, kind: "booking_fee" },
                 statement_descriptor_suffix: "MORE MAHI",
               });
             } catch (e) {

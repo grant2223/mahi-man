@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>More Mahi</string>
+        <string>Mahi Man</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -56,13 +56,13 @@
 		<string>UIInterfaceOrientationPortrait</string>
 	</array>
 	<key>NSCameraUsageDescription</key>
-	<string>More Mahi uses the camera so you can photograph the job and verify your ID.</string>
+	<string>Mahi Man uses the camera so you can photograph the job and verify your ID.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>More Mahi lets you add photos and a video of the job from your library.</string>
+	<string>Mahi Man lets you add photos and a video of the job from your library.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>More Mahi uses the microphone when you describe a job by voice or record a video of it.</string>
+	<string>Mahi Man uses the microphone when you describe a job by voice or record a video of it.</string>
 	<key>NSSpeechRecognitionUsageDescription</key>
-	<string>More Mahi turns what you say into a written job description you can check and edit.</string>
+	<string>Mahi Man turns what you say into a written job description you can check and edit.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>When you tap I'm on my way, your location is shared with that job's customer so they can see you coming. It stops when you enter the start code.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>

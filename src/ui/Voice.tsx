@@ -47,7 +47,7 @@ export function VoiceScreen({ jobName, onDone, onBack, raw = false }: { jobName:
     r.onerror = (e) => {
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
         setState("error");
-        setErr("Allow the microphone for More Mahi, or tap the box and use the microphone on your keyboard.");
+        setErr("Allow the microphone for Mahi Man, or tap the box and use the microphone on your keyboard.");
       }
     };
     rec.current = r;
