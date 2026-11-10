@@ -1,7 +1,7 @@
 {
-  "name": "More Mahi",
-  "short_name": "More Mahi",
-  "description": "Local hands, fixed prices. Book odd jobs in Cairns.",
+  "name": "Mahi Man",
+  "short_name": "Mahi Man",
+  "description": "Get the help you need within minutes. Post, accept, job done!",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#EFEDE6",
