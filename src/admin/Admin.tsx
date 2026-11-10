@@ -1194,7 +1194,7 @@ function LaunchList() {
     const csv = waiting.map((r) => [r.first_name, r.last_name, r.email].map(q).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `more-mahi-testers-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.download = `mahi-man-testers-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
   }
   async function markAll() {
