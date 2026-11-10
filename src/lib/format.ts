@@ -15,6 +15,15 @@ export const whenLabel = (asap: boolean, iso: string) => {
   return d.toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 };
 
+// "today, 3 pm", "tomorrow, 9 am", or "Thu 12 Nov, 9 am".
+export const dayTime = (iso: string) => {
+  const d = new Date(iso), now = new Date();
+  const t = d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(":00", "").replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
+  if (d.toDateString() === now.toDateString()) return `today, ${t}`;
+  if (d.toDateString() === new Date(now.getTime() + 864e5).toDateString()) return `tomorrow, ${t}`;
+  return `${d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}, ${t}`;
+};
+
 export const hours = (h: number) => (Number(h) < 1 ? `${Math.round(Number(h) * 60)} min` : Number(h) === 1 ? "1 hr" : `${Number(h)} hrs`);
 
 export function elapsed(fromIso: string, now: number) {

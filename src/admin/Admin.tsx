@@ -9,7 +9,7 @@ import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit"
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -18,17 +18,18 @@ const STATUS_BADGE: Record<string, string> = {
 export function Admin() {
   const { session, profile, ready } = useSession();
   const [tab, setTab] = useState<Tab>("overview");
-  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0 });
+  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0, invoices: 0 });
   const recount = useCallback(async () => {
-    const [a, b, c, d, e, f] = await Promise.all([
+    const [a, b, c, d, e, f, g] = await Promise.all([
       sb.from("id_checks").select("id", { count: "exact", head: true }).eq("status", "pending"),
       sb.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
       sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
       sb.from("worker_credentials").select("id", { count: "exact", head: true }).eq("status", "pending"),
       sb.from("fees_owed").select("id", { count: "exact", head: true }).eq("status", "open"),
       sb.from("workers").select("id", { count: "exact", head: true }).eq("needs_review", true),
+      sb.from("trade_orders").select("id", { count: "exact", head: true }).eq("status", "requested"),
     ]);
-    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0 });
+    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0, invoices: g.count ?? 0 });
   }, []);
   useEffect(() => { if (profile?.is_admin) recount(); }, [profile?.is_admin, recount, tab]);
   // Full-width admin: a fixed side menu grouped by what needs doing, and the page on the right.
@@ -37,6 +38,7 @@ export function Admin() {
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
     { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["launch", "Launch list"]] },
     { label: "Trust", items: [["cancels", "Cancellations", counts.fees], ["strikes", "Strikes", counts.strikes], ["reviews", "Reviews"]] },
+    { label: "Partners", items: [["tradies", "Tradies", counts.invoices]] },
     { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
   ];
   const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
@@ -84,6 +86,7 @@ export function Admin() {
         {tab === "cancels" && <Cancellations onChanged={recount} />}
         {tab === "strikes" && <Strikes onChanged={recount} />}
         {tab === "reviews" && <Reviews />}
+        {tab === "tradies" && <Tradies onChanged={recount} />}
       </main>
     </div>
   );
@@ -91,6 +94,8 @@ export function Admin() {
 
 function Overview() {
   const [s, setS] = useState({ live: 0, searching: 0, weekJobs: 0, weekFees: 0, workers: 0, online: 0, problems: 0, accept: "—", repeat: 0, cancelled: 0, owed: 0 });
+  const [tr, setTr] = useState<TradeSummary | null>(null);
+  useEffect(() => { rpc<TradeSummary>("admin_trade_summary").then(setTr).catch(() => {}); }, []);
   useEffect(() => {
     (async () => {
       const since = new Date(Date.now() - 7 * 864e5).toISOString();
@@ -128,6 +133,8 @@ function Overview() {
       <Stat n={s.cancelled} l="Cancelled, 7 days" />
       <Stat n={money2(s.owed)} l="Cancellation fees owed" />
       <Stat n={money2(s.weekFees)} l="Your fees, last 7 days" />
+      {tr && <Stat n={money2(tr.paid_30_cents)} l="Tradie plans paid, 30 days" />}
+      {tr && <Stat n={tr.no_quote_jobs} l="Trade jobs with no price after 2 hours" />}
       <Stat n={s.workers} l="Approved workers" />
       <Stat n={s.online} l="Workers online now" />
       <Stat n={s.problems} l="Open problems" />
@@ -1096,7 +1103,7 @@ function Types() {
 }
 
 // Settings in groups, each with a plain explanation. Money is shown in dollars; nothing saves until Save.
-type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" } | { t: "text"; ph: string });
+type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" | "jobs" | "tradies" } | { t: "text"; ph: string });
 const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   { title: "Payments", text: "How customers pay during the pilot, and when the booking fee is charged.", fields: [
     { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
@@ -1127,6 +1134,18 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "strikes_offline_30", label: "Offline after", hint: "Strikes in 30 days.", t: "num", unit: "strikes" },
     { k: "offline_days", label: "Offline for", t: "num", unit: "days" },
     { k: "strikes_review_90", label: "Account reviewed after", hint: "Strikes in 90 days.", t: "num", unit: "strikes" },
+  ] },
+  { title: "Trade jobs", text: "Jobs that need a trade licence. Tradies pay for jobs upfront and send a fixed price; customers pay Mahi Man nothing.", fields: [
+    { k: "trade_payg_cents", label: "Pay as you go, per job", t: "num", unit: "$" },
+    { k: "trade_plan_cents", label: "Trade plan, per month", t: "num", unit: "$" },
+    { k: "trade_plan_jobs", label: "Trade plan jobs", t: "num", unit: "jobs" },
+    { k: "trade_plan_extra_cents", label: "Trade plan, extra jobs", t: "num", unit: "$" },
+    { k: "trade_pro_cents", label: "Trade Pro, per month", t: "num", unit: "$" },
+    { k: "trade_pro_jobs", label: "Trade Pro jobs", t: "num", unit: "jobs" },
+    { k: "trade_pro_extra_cents", label: "Trade Pro, extra jobs", t: "num", unit: "$" },
+    { k: "trade_pro_head_start_minutes", label: "Trade Pro sees new jobs first by", t: "num", unit: "minutes" },
+    { k: "trade_quotes_per_job", label: "Prices per job", t: "num", unit: "tradies" },
+    { k: "trade_quiet_hours", label: "Job back if the customer doesn't reply in", t: "num", unit: "hours" },
   ] },
   { title: "Customers", text: "Checks a customer needs before they can book.", fields: [
     { k: "customer_id_required", label: "ID check required to book", hint: "Off: customers are asked after their first booking.", t: "toggle", on: "true", off: "false" },
@@ -1480,5 +1499,132 @@ function Reviews() {
       {pick && <SearchPicker title="Show reviews" placeholder="Search" options={SIDES.map(([id, label]) => ({ id, label }))} value={[side]}
         onClose={() => setPick(false)} onChange={(v) => setSide(String(v[0]) as typeof side)} />}
     </>
+  );
+}
+
+// ---------- Tradies: invoices to mark paid, and every tradie's plan ----------
+interface TradeSummary { orders_waiting: number; waiting_cents: number; active_plans: number; paid_30_cents: number; trade_jobs_30: number; no_quote_jobs: number }
+interface TradeOrder { id: number; created_at: string; worker_id: string; worker_name: string; business_name: string | null; email: string | null; kind: "plan" | "jobs"; plan: string; jobs: number; amount_cents: number; status: string; renewal: boolean; paid_at: string | null; note: string | null }
+interface Tradie { worker_id: string; full_name: string; business_name: string | null; licences: string[]; plan: string | null; status: string | null; jobs_left: number; renews_at: string | null; quotes_30: number; won_30: number; paid_cents: number }
+interface TradeLog { created_at: string; change: number; reason: string; job_title: string | null }
+const PLAN_LABEL: Record<string, string> = { payg: "Pay as you go", trade: "Trade", pro: "Trade Pro" };
+const TRADE_VIEWS: [string, string][] = [["requested", "Invoices to be paid"], ["tradies", "Tradies"], ["paid", "Paid invoices"], ["all", "All invoices"]];
+
+function Tradies({ onChanged }: { onChanged: () => void }) {
+  const toast = useToast();
+  const [view, setView] = useState("requested");
+  const [pick, setPick] = useState(false);
+  const [sum, setSum] = useState<TradeSummary | null>(null);
+  const [orders, setOrders] = useState<TradeOrder[] | null>(null);
+  const [tradies, setTradies] = useState<Tradie[] | null>(null);
+  const [open, setOpen] = useState<Tradie | null>(null);
+  const load = useCallback(() => {
+    rpc<TradeSummary>("admin_trade_summary").then(setSum).catch(() => {});
+    rpc<Tradie[]>("admin_tradies").then((r) => { setTradies(r); setOpen((o) => (o ? r.find((x) => x.worker_id === o.worker_id) ?? null : null)); }).catch((e) => toast((e as Error).message));
+    if (view !== "tradies") rpc<TradeOrder[]>("admin_trade_orders", { p_status: view }).then(setOrders).catch((e) => toast((e as Error).message));
+  }, [view, toast]);
+  useEffect(() => { load(); }, [load]);
+  const act = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); toast(msg); load(); onChanged(); } catch (e) { toast((e as Error).message); } };
+  if (open) return <TradieDetail t={open} onBack={() => setOpen(null)} onChanged={() => { load(); onChanged(); }} />;
+  const what = (o: TradeOrder) => o.kind === "plan" && o.plan !== "payg" ? `${PLAN_LABEL[o.plan]}, ${o.jobs} jobs${o.renewal ? ", renewal" : ""}` : `${o.jobs} job${o.jobs === 1 ? "" : "s"}, ${PLAN_LABEL[o.plan].toLowerCase()}`;
+  return (
+    <>
+      {sum && (
+        <div className="stats">
+          <Stat n={money2(sum.waiting_cents)} l={`${sum.orders_waiting} invoice${sum.orders_waiting === 1 ? "" : "s"} to be paid`} />
+          <Stat n={sum.active_plans} l="Monthly plans" />
+          <Stat n={money2(sum.paid_30_cents)} l="Paid, 30 days" />
+          <Stat n={sum.trade_jobs_30} l="Trade jobs posted, 30 days" />
+        </div>
+      )}
+      <div className="row between" style={{ marginBottom: 12, alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
+        <button className="cp-select" style={{ height: 44, minWidth: 280, background: "var(--card)" }} onClick={() => setPick(true)}>
+          <span>{TRADE_VIEWS.find(([k]) => k === view)?.[1]}</span>{Icon.down("var(--muted)")}
+        </button>
+      </div>
+      {view === "tradies" ? (
+        !tradies ? <Loading /> : !tradies.length ? <AdmEmpty text="No licensed tradies yet. They show here once a trade licence is sent in." /> : (
+          <div className="table-wrap"><table className="rows">
+            <thead><tr><th>Tradie</th><th>Licences</th><th>Plan</th><th>Jobs left</th><th>Prices sent, 30 days</th><th>Won</th><th>Paid in total</th><th /></tr></thead>
+            <tbody>{tradies.map((t) => (
+              <tr key={t.worker_id} className="click" onClick={() => setOpen(t)}>
+                <td><span className="w5">{t.business_name ?? t.full_name}</span>{t.business_name && <span className="small muted light" style={{ display: "block" }}>{t.full_name}</span>}</td>
+                <td className="light">{t.licences.length ? t.licences.join(", ") : "Being checked"}</td>
+                <td>{t.plan ? <span className={`badge ${t.status === "active" ? "g" : ""}`}>{PLAN_LABEL[t.plan]}{t.status === "stopped" ? ", stopped" : ""}</span> : <span className="muted">None</span>}{t.renews_at && <span className="small muted light" style={{ display: "block" }}>Renews {day(t.renews_at)}</span>}</td>
+                <td className="w5">{t.jobs_left}</td>
+                <td>{t.quotes_30}</td>
+                <td>{t.won_30}</td>
+                <td>{money2(t.paid_cents)}</td>
+                <td style={{ width: 32 }}>{Icon.chevron("var(--faint)")}</td>
+              </tr>))}</tbody>
+          </table></div>
+        )
+      ) : !orders ? <Loading /> : !orders.length ? <AdmEmpty text={view === "requested" ? "No invoices waiting to be paid." : "No invoices yet."} /> : (
+        <div className="table-wrap"><table className="rows">
+          <thead><tr><th>Sent</th><th>Tradie</th><th>Email</th><th>For</th><th>Amount</th><th>Status</th><th /></tr></thead>
+          <tbody>{orders.map((o) => (
+            <tr key={o.id}>
+              <td className="light" style={{ whiteSpace: "nowrap" }}>{dayTime(o.created_at)}</td>
+              <td><span className="w5">{o.business_name ?? o.worker_name}</span>{o.business_name && <span className="small muted light" style={{ display: "block" }}>{o.worker_name}</span>}</td>
+              <td className="light">{o.email ?? "—"}</td>
+              <td>{what(o)}</td>
+              <td className="w5">{money2(o.amount_cents)}</td>
+              <td>{o.status === "paid" ? <span className="badge g">Paid {o.paid_at ? day(o.paid_at) : ""}</span> : o.status === "cancelled" ? <span className="badge">Cancelled</span> : <span className="badge y">To be paid</span>}</td>
+              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                {o.status === "requested" && <>
+                  <button className="btn stone small" onClick={() => act(() => rpc("admin_trade_order_cancel", { p_id: o.id }), "Invoice cancelled")}>Cancel</button>{" "}
+                  <button className="btn primary small" onClick={() => act(() => rpc("admin_trade_order_paid", { p_id: o.id }), `Paid. ${o.jobs} job${o.jobs === 1 ? "" : "s"} added.`)}>Mark paid</button>
+                </>}
+              </td>
+            </tr>))}</tbody>
+        </table></div>
+      )}
+      {view === "requested" && orders && orders.length > 0 && <p className="light muted" style={{ marginTop: 14 }}>Email each tradie an invoice. Mark it paid when the money arrives, and their jobs are added straight away.</p>}
+      {pick && <SearchPicker title="Show" placeholder="Search" options={TRADE_VIEWS.map(([id, label]) => ({ id, label }))} value={[view]}
+        onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
+    </>
+  );
+}
+
+function TradieDetail({ t, onBack, onChanged }: { t: Tradie; onBack: () => void; onChanged: () => void }) {
+  const toast = useToast();
+  const [log, setLog] = useState<TradeLog[]>([]);
+  const [pick, setPick] = useState(false);
+  const load = useCallback(() => { rpc<TradeLog[]>("admin_trade_log", { p_worker: t.worker_id }).then(setLog).catch(() => {}); }, [t.worker_id]);
+  useEffect(() => { load(); }, [load]);
+  const adjust = async (n: number) => {
+    try { await rpc("admin_trade_adjust", { p_worker: t.worker_id, p_change: n, p_reason: n > 0 ? "Added by Mahi Man" : "Taken off by Mahi Man" }); toast(n > 0 ? `${n} added` : `${-n} taken off`); load(); onChanged(); }
+    catch (e) { toast((e as Error).message); }
+  };
+  return (
+    <div className="u-page">
+      <button className="u-back" onClick={onBack}>{Icon.back("var(--emerald)")} All tradies</button>
+      <div className="u-head">
+        <div className="stack" style={{ gap: 8, flex: 1, minWidth: 0 }}>
+          <h2>{t.business_name ?? t.full_name}</h2>
+          <span className="light muted">{t.business_name ? `${t.full_name}, ` : ""}{t.licences.join(", ") || "Licence being checked"}</span>
+          <span className="light">{t.plan ? `${PLAN_LABEL[t.plan]}${t.status === "stopped" ? ", stopped" : ""}` : "No plan"}, <b className="w5">{t.jobs_left} jobs left</b>{t.renews_at ? `, renews ${day(t.renews_at)}` : ""}</span>
+        </div>
+        <button className="btn stone" style={{ alignSelf: "flex-start" }} onClick={() => setPick(true)}>Change jobs left</button>
+      </div>
+      <div className="table-wrap" style={{ marginTop: 20 }}>
+        <table className="rows">
+          <thead><tr><th>Date</th><th>Jobs</th><th>Why</th><th>Job</th></tr></thead>
+          <tbody>
+            {log.map((l, i) => (
+              <tr key={i}>
+                <td className="light">{dayTime(l.created_at)}</td>
+                <td className="w5" style={{ color: l.change > 0 ? "var(--emerald)" : undefined }}>{l.change > 0 ? `+${l.change}` : l.change}</td>
+                <td>{l.reason}</td>
+                <td className="light">{l.job_title ?? "—"}</td>
+              </tr>
+            ))}
+            {log.length === 0 && <tr><td colSpan={4} className="muted">Nothing yet.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {pick && <SearchPicker title="Change jobs left" value={[]} options={[1, 2, 5, -1, -2].map((n) => ({ id: n, label: n > 0 ? `Add ${n} job${n === 1 ? "" : "s"}` : `Take ${-n} job${n === -1 ? "" : "s"} off` }))}
+        onClose={() => setPick(false)} onChange={(v) => adjust(Number(v[0]))} />}
+    </div>
   );
 }

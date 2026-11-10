@@ -23,6 +23,7 @@ export interface Job {
   start_at: string;
   asap: boolean;
   price_cents: number;
+  trade?: boolean; budget_min_cents?: number | null; budget_max_cents?: number | null;
   fee_cents: number; fee_status?: "none" | "due" | "paid" | "refunded"; fee_paid_at?: string | null; fee_refunded_at?: string | null;
   extra_cents: number;
   status: JobStatus;

@@ -16,6 +16,7 @@ import { alertsState, askedFor } from "../lib/push";
 import { SideSwitch } from "../ui/SideSwitch";
 import { SettingsIcon } from "../ui/HeaderIcons";
 import { Feed } from "../customer/Feed";
+import { TradeFeed, TradeJob, TradeJoin, TradePlan, TradePlans, TradeStrip, TradeWaiting, useTrade } from "./Trade";
 
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
@@ -109,16 +110,17 @@ const hide = (id: string) => { try { sessionStorage.setItem(`mm-hide-${id}`, "1"
 const unhide = (id: string) => { try { sessionStorage.removeItem(`mm-hide-${id}`); } catch { /* fine */ } };
 const WRAP_LABEL: Record<string, string> = { finished: "Get paid", disputed: "Being looked at", confirmed: "Leave a review" };
 
-interface Offer {
+export interface Offer {
   id: string; job_name: string; category: string | null; suburb: string; distance_km: number; earn_cents: number; max_hours: number;
   asap: boolean; start_at: string; details: string; included: string[]; excluded: string[]; cover_path: string | null; photo_count: number;
   video_path: string | null; customer_id: string; customer_name: string; customer_photo: string | null; customer_verified: boolean;
   customer_rating: number | null; customer_jobs: number; customer_since: string; others_keen: number; invited_me: boolean; customer_scores?: Scores | null;
+  trade?: boolean; budget_min_cents?: number | null; budget_max_cents?: number | null; spots_left?: number | null;
 }
 
-interface MyOffer {
+export interface MyOffer {
   job_id: string; title: string; category: string | null; icon: string; suburb: string; pay_cents: number; eta_minutes: number;
-  expires_at: string; status: string; customer_name: string;
+  expires_at: string; status: string; customer_name: string; trade?: boolean; can_come_at?: string | null; included?: string | null;
 }
 
 const startLabel = (o: Offer) => o.asap ? "Now" : new Date(o.start_at).toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" });
@@ -134,6 +136,12 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const [waiting, setWaiting] = useState<string | null>(null);
   const seen = useRef<Set<string>>(new Set());
   const pending = useRef(0);
+  const { trade, reload: reloadTrade } = useTrade();
+  const tradeLeft = trade?.plan?.jobs_left ?? 0;
+  const [tradeScreen, setTradeScreen] = useState<null | "join" | "plans" | "plan" | "feed">(null);
+  const [tradeOpen, setTradeOpen] = useState<Offer | null>(null);
+  const tradeJobs = offers.filter((o) => o.trade);
+  const jobs = offers.filter((o) => !o.trade);
 
   useEffect(() => {
     sb.from("workers").select("online").single().then(({ data }) => setOnline(!!data?.online));
@@ -162,18 +170,18 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   }, [covers, onTaken]);
 
   useEffect(() => {
-    if (!online && !mine.length) return;
+    if (!online && !mine.length && tradeLeft < 1) return;
     poll();
     const t = window.setInterval(poll, 8000);
     return () => window.clearInterval(t);
-  }, [online, poll, mine.length]);
+  }, [online, poll, mine.length, tradeLeft]);
 
   useEffect(() => { rpc<MyOffer[]>("my_offers").then((m) => { setMine(m); pending.current = m.filter((x) => x.status === "pending").length; }).catch(() => {}); }, []);
 
   const [ask, setAsk] = useState(false);
   async function toggle() {
     try {
-      await rpc("set_online", { p_online: !online }); setOnline(!online); if (online) setOffers([]);
+      await rpc("set_online", { p_online: !online }); setOnline(!online); if (online) setOffers((x) => x.filter((o) => o.trade));
       if (!online && !askedFor("work") && (await alertsState()) === "prompt") setAsk(true);
     }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); }
@@ -200,9 +208,11 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
           </button>
         </div>
         <p className="lede" style={{ position: "relative", maxWidth: 210 }}>
-          {online ? (offers.length ? "Which job could you help with?" : "No jobs open right now. New ones show here.") : "Switch on when you are available for work."}
+          {online ? (jobs.length ? "Which job could you help with?" : "No jobs open right now. New ones show here.") : "Switch on when you are available for work."}
         </p>
       </section>
+
+      <TradeStrip trade={trade} open={tradeJobs.length} onJoin={() => setTradeScreen("join")} onFeed={() => setTradeScreen("feed")} onPlan={() => setTradeScreen("plan")} />
 
       {wrapups.length > 0 && (
         <div className="wrap-list">
@@ -219,14 +229,14 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <div className="wrap-list">
           {mine.filter((m) => m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).map((m) => (
             <button key={m.job_id} className="wrap-row" onClick={() => setWaiting(m.job_id)}>
-              <span className="t"><b>Waiting for {m.customer_name}</b><span>{m.title}, {money(m.pay_cents)}, offer ends {new Date(m.expires_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span></span>
+              <span className="t"><b>Waiting for {m.customer_name}</b><span>{m.title}, {money(m.pay_cents)}, {m.trade ? "price sent" : `offer ends ${new Date(m.expires_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}`}</span></span>
               {Icon.chevron("var(--faint)")}
             </button>
           ))}
         </div>
       )}
 
-      {online && offers.map((o) => (
+      {online && jobs.map((o) => (
         <button key={o.id} className="job-row" onClick={() => setOpen(o)}>
           <span className={`pic ${o.cover_path && covers[o.cover_path] ? "" : "ph-0"}`} style={o.cover_path && covers[o.cover_path] ? { backgroundImage: `url("${covers[o.cover_path]}")` } : undefined}>
             {o.video_path && <span className="vid"><svg width="10" height="10" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M7 4l13 8-13 8z" /></svg>Video</span>}
@@ -255,10 +265,18 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         onOffered={() => { const id = open.id; setOpen(null); setWaiting(id); poll(); }} onGone={() => { setOpen(null); poll(); }} />}
       {waiting && (() => {
         const m = mine.find((x) => x.job_id === waiting);
+        if (m?.trade) return <TradeWaiting o={m} onWithdraw={async () => { await rpc("withdraw_offer", { p_job: m.job_id }); setWaiting(null); poll(); }} onClose={() => setWaiting(null)} />;
         return m ? <WaitingScreen o={m} onWithdraw={async () => { await rpc("withdraw_offer", { p_job: m.job_id }); setWaiting(null); poll(); }}
           onClose={() => setWaiting(null)} /> : null;
       })()}
       {ask && <AlertsAsk role="work" onDone={() => setAsk(false)} />}
+      {trade && tradeScreen === "join" && <TradeJoin trade={trade} onBack={() => setTradeScreen(null)} onPlans={() => setTradeScreen("plans")} />}
+      {trade && tradeScreen === "plans" && <TradePlans trade={trade} onBack={() => setTradeScreen(trade.plan || trade.order ? "plan" : "join")} onDone={() => { reloadTrade(); setTradeScreen("plan"); }} />}
+      {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={() => setTradeScreen(null)} onChanged={reloadTrade} onPlans={() => setTradeScreen("plans")} />}
+      {trade && tradeScreen === "feed" && <TradeFeed jobs={tradeJobs} covers={covers} left={tradeLeft} plan={trade.plan ? ({ payg: "Pay as you go", trade: "Trade plan", pro: "Trade Pro" } as const)[trade.plan.plan] : ""}
+        onBack={() => setTradeScreen(null)} onOpen={setTradeOpen} />}
+      {tradeOpen && <TradeJob o={tradeOpen} left={tradeLeft} onBack={() => setTradeOpen(null)}
+        onSent={() => { const id = tradeOpen.id; setTradeOpen(null); setTradeScreen(null); reloadTrade(); poll(); setWaiting(id); }} onGone={() => { setTradeOpen(null); poll(); }} />}
     </>
   );
 }

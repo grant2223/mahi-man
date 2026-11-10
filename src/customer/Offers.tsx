@@ -2,7 +2,10 @@ import { recLine, ScoreStrip, type Scores } from "../ui/Ratings";
 import { useEffect, useState } from "react";
 import { avatarUrl, rpc } from "../lib/supabase";
 import { elapsed } from "../lib/format";
-import { Icon, Logo, useNow, useToast } from "../ui/kit";
+import { Icon, Logo, StepHero, useNow, useToast } from "../ui/kit";
+import { Note } from "../ui/Completion";
+import { ChatScreen } from "../ui/Chat";
+import { dayTime, money } from "../lib/format";
 import { go } from "../lib/router";
 import { shareLink, SITE } from "../lib/share";
 import { WorkerProfile } from "../ui/WorkerProfile";
@@ -18,6 +21,7 @@ export interface Offer {
   jobs_for_me: number; eta_minutes: number; distance_km: number | null; expires_at: string; is_new: boolean;
   category: string | null; cat_rating: number | null; cat_jobs: number; local_customers: number; suburb: string;
   turns_up: number | null; scores: Scores | null;
+  price_cents: number | null; included: string | null; can_come_at: string | null; business_name: string | null;
 }
 
 interface Extra { worker_id: string; skills: string[]; years: number | null; gear: string[]; creds: string[] }
@@ -25,8 +29,9 @@ interface Extra { worker_id: string; skills: string[]; years: number | null; gea
 const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
 
 // The customer's job while it's open: people who say they're available, and Yes or Ignore on each.
-export function OffersView({ jobId, title, price, asap, startAt, searchingAt, boosted, feeDue = 0, onChosen, onCancel, onBoosted }: {
+export function OffersView({ jobId, title, price, asap, startAt, searchingAt, boosted, feeDue = 0, onChosen, onCancel, onBoosted, trade }: {
   jobId: string; title: string; price: string; asap: boolean; startAt: string; searchingAt: string; boosted: boolean; feeDue?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
+  trade?: { min: number; max: number } | null;
 }) {
   const { profile: me, reload } = useSession();
   const [verifying, setVerifying] = useState(false);
@@ -56,6 +61,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
       .then((r) => setExtras(Object.fromEntries((r ?? []).map((x) => [x.worker_id, x])))).catch(() => {});
   }, [ids, jobId]);
   const widened = now - new Date(searchingAt).getTime() > 10 * 60000;
+  const [chat, setChat] = useState<Offer | null>(null);
 
   async function choose(o: Offer) {
     setBusy(o.worker_id);
@@ -83,6 +89,59 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
   async function ignore(o: Offer) {
     setOffers((x) => (x ?? []).filter((y) => y.worker_id !== o.worker_id));
     rpc("ignore_offer", { p_job: jobId, p_worker: o.worker_id }).catch(() => {});
+  }
+
+  if (trade) {
+    return (
+      <div className="app" style={{ background: "var(--card)" }}>
+        <StepHero title="Prices from tradies" sub={`${title} · your budget ${money(trade.min)}–${money(trade.max)}`} onBack={() => go("/")} />
+        {!shown.length && (
+          <div className="cp-sec">
+            <span className="cp-title">Waiting for prices</span>
+            <span className="t15 light muted" style={{ lineHeight: 1.45 }}>Licensed tradies near you have been told. Up to 2 send you a fixed price, and it shows here. You get an alert for each one.</span>
+          </div>
+        )}
+        <div className="offers">
+          {shown.map((o) => {
+            const first = o.full_name.split(" ")[0];
+            const creds = extras[o.worker_id]?.creds ?? [];
+            const rec = recLine(o.scores, "customers");
+            return (
+              <div key={o.worker_id} className="offer">
+                <div className="row" style={{ gap: 14, alignItems: "flex-start" }}>
+                  <span className="ph">{avatarUrl(o.photo_path) ? <img src={avatarUrl(o.photo_path)!} alt="" /> : null}</span>
+                  <span className="t">
+                    <span className="row between" style={{ alignItems: "baseline", gap: 8 }}>
+                      <button className="name-link" onClick={() => setProfile(o.worker_id)}>{o.business_name ?? o.full_name}{Icon.chevron("var(--muted)")}</button>
+                      <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.8 }}>{money(o.price_cents ?? 0)}</span>
+                    </span>
+                    <span className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>
+                      {creds.map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c}</span>)}
+                      <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}Insured</span>
+                    </span>
+                    <span className="m">{o.business_name ? `${o.full_name}, ` : ""}{rec || (o.is_new ? "New to Mahi Man" : `${o.jobs_done} jobs`)} · fixed price</span>
+                    {o.included && <span className="m">Includes {o.included.charAt(0).toLowerCase() + o.included.slice(1)}</span>}
+                    {o.can_come_at && <span className="m em">Can come {dayTime(o.can_come_at)}</span>}
+                  </span>
+                </div>
+                <div className="row" style={{ gap: 10 }}>
+                  <button className="btn stone" style={{ flex: 1 }} onClick={() => setChat(o)} disabled={!!busy}>{Icon.msg("var(--ink)")} Message</button>
+                  <button className="btn primary" style={{ flex: 1 }} onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Choose ${first}`}</button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <Note icon="lock">You pay the tradie directly when the job's done. Choosing one tells the other straight away.</Note>
+        <div style={{ flex: 1 }} />
+        <div style={{ padding: "0 16px calc(var(--safe-bottom) + 24px)" }}>
+          <button className="link quiet" onClick={onCancel}>Cancel this job</button>
+        </div>
+        {profile && <WorkerProfile workerId={profile} onBack={() => setProfile(null)} />}
+        {chat && me && <ChatScreen jobId={jobId} me={me.id} workerId={chat.worker_id} otherName={chat.business_name ?? chat.full_name} otherPhoto={chat.photo_path}
+          sub={`${money(chat.price_cents ?? 0)}, ${title}`} onBack={() => setChat(null)} />}
+      </div>
+    );
   }
 
   return (

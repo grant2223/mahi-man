@@ -136,7 +136,8 @@ export function Track({ id }: { id: string }) {
     return (
       <>
         <OffersView jobId={id} title={jobName} price={money(job.price_cents)} feeDue={job.fee_status === "due" ? job.fee_cents : 0} asap={job.asap} startAt={job.start_at}
-          searchingAt={job.searching_at ?? job.created_at} boosted={!!job.boosted} onBoosted={load} onChosen={load} onCancel={() => setScreen("cancel")} />
+          searchingAt={job.searching_at ?? job.created_at} boosted={!!job.boosted} onBoosted={load} onChosen={load} onCancel={() => setScreen("cancel")}
+          trade={job.trade && job.budget_min_cents && job.budget_max_cents ? { min: job.budget_min_cents, max: job.budget_max_cents } : null} />
         {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
         {askAlerts && <AlertsAsk role="post" onDone={() => setAskAlerts(false)} />}
       </>

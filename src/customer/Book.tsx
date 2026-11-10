@@ -534,10 +534,10 @@ function BudgetStep({ title, licence, catName, min, max, onChange }: { title: st
         <span className="t15 light muted">{catName}, needs {lc(licence)}</span>
         <div className="row" style={{ gap: 10, marginTop: 14 }}>
           <label className="field" style={{ flex: 1 }}><span className="k">From</span>
-            <span className="row" style={{ gap: 2 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={lo} placeholder="150" aria-label="Budget from"
+            <span className="row" style={{ gap: 0 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={lo} placeholder="150" aria-label="Budget from"
               onChange={(e) => { const v = clean(e.target.value); setLo(v); setErr(""); onChange(v ? Number(v) * 100 : null, hi ? Number(hi) * 100 : null); }} /></span></label>
           <label className="field" style={{ flex: 1 }}><span className="k">Up to</span>
-            <span className="row" style={{ gap: 2 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={hi} placeholder="300" aria-label="Budget up to"
+            <span className="row" style={{ gap: 0 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={hi} placeholder="300" aria-label="Budget up to"
               onChange={(e) => { const v = clean(e.target.value); setHi(v); setErr(""); onChange(lo ? Number(lo) * 100 : null, v ? Number(v) * 100 : null); }} /></span></label>
         </div>
         {err && <p className="err" style={{ margin: "12px 0 0" }}>{err}</p>}

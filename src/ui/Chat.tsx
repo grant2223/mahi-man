@@ -3,7 +3,7 @@ import { avatarUrl, mediaUrls, rpc, sb } from "../lib/supabase";
 import { shrinkImage } from "../lib/format";
 import { Icon } from "./kit";
 
-interface Msg { id: string; sender_id: string; body: string; created_at: string; photo_path: string | null }
+interface Msg { id: string; sender_id: string; body: string; created_at: string; photo_path: string | null; thread_worker: string | null }
 
 const time = (iso: string) => new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
 const day = (iso: string) => {
@@ -14,9 +14,11 @@ const day = (iso: string) => {
 };
 
 // In-app messages, full screen: neither side ever sees the other's phone number or email.
-export function ChatScreen({ jobId, me, otherName, otherPhoto, sub, onBack, onViewJob }: {
-  jobId: string; me: string; otherName: string; otherPhoto?: string | null; sub?: string; onBack: () => void; onViewJob?: () => void;
+// Each job has one thread per worker: the booked worker, or, on a trade job, each tradie who sent a price.
+export function ChatScreen({ jobId, me, otherName, otherPhoto, sub, onBack, onViewJob, workerId }: {
+  jobId: string; me: string; otherName: string; otherPhoto?: string | null; sub?: string; onBack: () => void; onViewJob?: () => void; workerId?: string;
 }) {
+  const [thread, setThread] = useState<string | null>(workerId ?? null);
   const [msgs, setMsgs] = useState<Msg[]>([]);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [text, setText] = useState("");
@@ -30,17 +32,27 @@ export function ChatScreen({ jobId, me, otherName, otherPhoto, sub, onBack, onVi
     return () => { document.body.style.overflow = prev; };
   }, []);
 
+  // Without a worker given, the thread is the booked worker's.
   useEffect(() => {
-    sb.from("messages").select("id,sender_id,body,created_at,photo_path").eq("job_id", jobId).order("created_at").then(({ data }) => setMsgs((data ?? []) as Msg[]));
+    if (workerId) { setThread(workerId); return; }
+    sb.from("jobs").select("worker_id").eq("id", jobId).single().then(({ data }) => setThread((data?.worker_id as string | null) ?? null));
+  }, [jobId, workerId]);
+
+  useEffect(() => {
+    if (!thread) return;
+    sb.from("messages").select("id,sender_id,body,created_at,photo_path,thread_worker").eq("job_id", jobId).eq("thread_worker", thread).order("created_at")
+      .then(({ data }) => setMsgs((data ?? []) as Msg[]));
     rpc("mark_read", { p_job: jobId }).catch(() => {});
-    const ch = sb.channel(`msgs-${jobId}`)
+    const ch = sb.channel(`msgs-${jobId}-${thread}`)
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages", filter: `job_id=eq.${jobId}` }, (p) => {
-        setMsgs((m) => (m.some((x) => x.id === (p.new as Msg).id) ? m : [...m, p.new as Msg]));
+        const n = p.new as Msg;
+        if (n.thread_worker !== thread) return;
+        setMsgs((m) => (m.some((x) => x.id === n.id) ? m : [...m, n]));
         rpc("mark_read", { p_job: jobId }).catch(() => {});
       })
       .subscribe();
     return () => { sb.removeChannel(ch); };
-  }, [jobId]);
+  }, [jobId, thread]);
 
   useEffect(() => {
     const need = msgs.map((m) => m.photo_path).filter((p): p is string => !!p && !urls[p]);
@@ -50,9 +62,9 @@ export function ChatScreen({ jobId, me, otherName, otherPhoto, sub, onBack, onVi
 
   async function send(photo?: string) {
     const body = text.trim() || (photo ? "Photo" : "");
-    if (!body) return;
+    if (!body || !thread) return;
     setText("");
-    const { data, error } = await sb.from("messages").insert({ job_id: jobId, sender_id: me, body, photo_path: photo ?? null }).select("id,sender_id,body,created_at,photo_path").single();
+    const { data, error } = await sb.from("messages").insert({ job_id: jobId, sender_id: me, body, photo_path: photo ?? null, thread_worker: thread }).select("id,sender_id,body,created_at,photo_path,thread_worker").single();
     if (!error && data) setMsgs((m) => (m.some((x) => x.id === data.id) ? m : [...m, data as Msg]));
   }
 
