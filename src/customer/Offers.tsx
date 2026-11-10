@@ -1,3 +1,4 @@
+import { recLine, ScoreStrip, type Scores } from "../ui/Ratings";
 import { useEffect, useState } from "react";
 import { avatarUrl, rpc } from "../lib/supabase";
 import { elapsed } from "../lib/format";
@@ -16,6 +17,7 @@ export interface Offer {
   worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_done: number;
   jobs_for_me: number; eta_minutes: number; distance_km: number | null; expires_at: string; is_new: boolean;
   category: string | null; cat_rating: number | null; cat_jobs: number; local_customers: number; suburb: string;
+  turns_up: number | null; scores: Scores | null;
 }
 
 interface Extra { worker_id: string; skills: string[]; years: number | null; gear: string[]; creds: string[] }
@@ -45,14 +47,11 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
 
   const shown = (offers ?? []).filter((o) => new Date(o.expires_at).getTime() > now);
   const [boosting, setBoosting] = useState(false);
-  const [recs, setRecs] = useState<Record<string, number>>({});
   const [extras, setExtras] = useState<Record<string, Extra>>({});
   const [profile, setProfile] = useState<string | null>(null);
   const ids = (offers ?? []).map((o) => o.worker_id).join(",");
   useEffect(() => {
     if (!ids) return;
-    rpc<{ worker_id: string; people: number }[]>("recommended_counts", { p_workers: ids.split(",") })
-      .then((r) => setRecs(Object.fromEntries((r ?? []).map((x) => [x.worker_id, Number(x.people)])))).catch(() => {});
     rpc<Extra[]>("offer_extras", { p_job: jobId })
       .then((r) => setExtras(Object.fromEntries((r ?? []).map((x) => [x.worker_id, x])))).catch(() => {});
   }, [ids, jobId]);
@@ -157,6 +156,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
                   </span>
                   <span className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>
                     {o.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
+                    {o.turns_up != null && <span className={o.turns_up >= 90 ? "badge-ver" : "badge-unver"}>Turns up {o.turns_up}%</span>}
                     {o.jobs_for_me > 0 && <span className="badge-ver">Used before</span>}
                     {(extras[o.worker_id]?.creds ?? []).map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c}</span>)}
                   </span>
@@ -171,18 +171,19 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
                   })()}
                   <span className="m">
                     {o.is_new ? `New to Mahi Man, ${o.jobs_done} job${o.jobs_done === 1 ? "" : "s"}`
-                      : o.category && o.cat_jobs > 0 ? `${o.cat_rating ? `${o.cat_rating} for ${o.category.toLowerCase()}, ` : ""}${o.cat_jobs} job${o.cat_jobs === 1 ? "" : "s"}`
-                      : `${o.rating ? `${o.rating} rating, ` : ""}${o.jobs_done} jobs`}
+                      : o.category && o.cat_jobs > 0 ? `${o.cat_jobs} ${o.category.toLowerCase()} job${o.cat_jobs === 1 ? "" : "s"}`
+                      : `${o.jobs_done} jobs`}
                     {o.jobs_for_me > 0 ? `, ${o.jobs_for_me} for you` : ""}
                   </span>
                   {(() => {
-                    const r = recs[o.worker_id] ?? 0;
-                    const parts = [r > 0 ? `Recommended by ${r} ${r === 1 ? "person" : "people"}` : "", o.local_customers > 0 ? `${r > 0 ? "used" : "Used"} by ${o.local_customers} in ${o.suburb}` : ""].filter(Boolean);
-                    return parts.length ? <span className={r > 0 ? "m em" : "m"}>{parts.join(", ")}</span> : null;
+                    const r = recLine(o.scores, "customers");
+                    const parts = [r, o.local_customers > 0 ? `${r ? "used" : "Used"} by ${o.local_customers} in ${o.suburb}` : ""].filter(Boolean);
+                    return parts.length ? <span className={r ? "m em" : "m"}>{parts.join(", ")}</span> : null;
                   })()}
                   <span className="e">Can be there {at}{o.distance_km != null ? `, ${o.distance_km} km away` : ""}</span>
                 </span>
               </div>
+              <ScoreStrip scores={o.scores} worker />
               <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
                 <button className="btn stone" onClick={() => ignore(o)} disabled={!!busy}>Ignore</button>
                 <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Yes, choose ${first}`}</button>

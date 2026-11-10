@@ -33,14 +33,14 @@ const USES: [string, string, string][] = [
   ["Rubbish removal", "Tip runs, green waste and clean-outs. Loaded up and gone.", "1670175035057-eec020c03eb9"],
 ];
 
-// Every answer here is how the platform actually works (the terms and privacy policy say the same). Fees come from the live settings.
-const faq = (fee: { pct: number; max: number; plus: number }): [string, [string, string][]][] => [
+// Every answer here is how the platform actually works (the terms and privacy policy say the same). Fees and windows come from the live settings.
+type Fee = { pct: number; max: number; plus: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number };
+const faq = (fee: Fee): [string, [string, string][]][] => [
   ["Getting help", [
     ["How fast can someone come?", "The moment you post, workers who are switched on near you get an alert. If nobody says they're keen within 10 minutes, workers further out can see your job too."],
     ["What jobs can I post?", "Cleaning, moving, rubbish removal, garden, assembly, handyman, pets, errands, events, babysitting and tutoring, tech help, and anything else you need a hand with."],
     ["Who sets the price?", "You do. Your price covers what you list as included. Anything extra needs your OK in the app before it's done."],
-    ["Do I get to choose who comes?", "Yes. People who are available say they're keen, and you see their photo, rating, skills and verified licences before you choose one."],
-    ["Can I cancel?", "Yes, free of charge before your worker arrives."],
+    ["Do I get to choose who comes?", "Yes. People who are available say they're keen, and you see their photo, skills, verified licences, how often they turn up, and how past customers rated them before you choose one."],
     ["Can I post jobs and do work?", "Yes. One account does both. Switch between Get help and Do work any time."],
   ]],
   ["Doing work", [
@@ -51,21 +51,37 @@ const faq = (fee: { pct: number; max: number; plus: number }): [string, [string,
     ["Can I choose when I work?", "Yes. Switch on when you're available, take only the jobs you want, and switch off when you're done."],
     ["What about jobs that need a licence?", "Electrical work, an RSA and similar jobs only go to workers whose licence we've checked and is in date."],
   ]],
+  ["Cancelling: customers", [
+    ["Can I cancel?", `Yes. It's free until your worker is on the way. After that it's ${money(fee.cancel)}, and all of it goes to your worker for their time.`],
+    ["What if my worker is late?", `If they're more than ${fee.late} minutes past the time they gave you, you can cancel for free. If they change their time, you can accept it or cancel for free.`],
+    ["What if my worker cancels or doesn't turn up?", "Your job goes straight back to the top and everyone who can take it is told. If they cancel close to the start or don't turn up, you get credit and they get a strike."],
+    ["What if I'm not home when they arrive?", `Your worker waits ${fee.wait} minutes. If they still can't get in, the job is cancelled and the ${money(fee.cancel)} fee goes to them.`],
+    ["Is the connection fee refunded?", "Yes, if you cancel before your worker is on the way, or if they cancel. Once they're on the way, it isn't."],
+    ["What if I cancel a lot?", `After ${fee.lc30} late cancels in 30 days, you pay for your next jobs upfront.`],
+    ["What about storms or emergencies?", "Tell us through Get help. Nobody pays a cancellation fee."],
+  ]],
+  ["Cancelling: workers", [
+    ["Can I cancel a job I took?", `Yes. It's free more than ${fee.window / 60} hours before the start. Closer than that it's ${money(fee.soon)}, and once you're on the way it's ${money(fee.cancel)}. Either way it's a strike, and the fee goes to the customer as credit.`],
+    ["I'm running late. What do I do?", "Change your arrival time in the app before it passes. You can do it once per job. The customer can accept it or cancel for free, and there's no strike."],
+    ["What's a strike?", `Cancelling within ${fee.window / 60} hours of a job, cancelling on the way, not turning up, or arriving more than ${fee.late} minutes late.`],
+    ["What happens with strikes?", `${fee.s30} in 30 days and you're offline for ${fee.off} days. ${fee.s90} in 90 days and we review your account. Each strike drops off after 90 days.`],
+    ["What if the customer isn't home?", `Tap I'm here. If they still haven't answered after ${fee.wait} minutes, you can cancel and they pay you ${money(fee.cancel)} for your time.`],
+    ["What if I have an emergency?", "Tell us what happened when you cancel. Your first emergency in 90 days has no fee and no strike."],
+    ["What's my Turns up score?", "How often you turn up on time for the jobs you take. Customers see it on every offer you send."],
+  ]],
   ["Payments and fees", [
     ["What does it cost?", `Nothing during the pilot: you pay your worker directly by bank transfer or cash. From launch, customers pay a ${fee.pct}% connection fee, up to ${money(fee.max)} a job.`],
     ["How do payments work after the pilot?", `You pay in the app when you accept someone. We hold the money while the job is done. When you confirm it's done, the payment is released to your worker, and the ${fee.pct}% connection fee stays with Mahi Man.`],
-    ["What if my worker cancels or doesn't turn up?", "Your job reopens and you choose someone else, with no new fee."],
-    ["Will I get a refund?", "If the job never gets done, the fee is refunded to your card automatically. If you cancel after choosing a worker, the fee isn't refunded."],
     ["Is my card safe?", "Cards are stored by Stripe, our payment provider. We never see or keep your full card number."],
     ["Is there a way to skip the fees?", `Mahi Man Plus, $${(fee.plus / 100).toFixed(2)} a month, has no booking fees and puts your jobs first. It opens with in-app payments.`],
   ]],
   ["Safety and trust", [
-    ["Who's coming to my place?", "Someone whose ID we've checked by hand. You see their photo, rating and skills before you choose them."],
+    ["Who's coming to my place?", "Someone whose ID we've checked by hand. You see their photo, skills and how past customers rated them before you choose them."],
     ["Who sees my address?", "Only the worker who takes your job. Everyone else sees just your suburb."],
     ["Will they get my phone number?", "No. Phone numbers and emails are never shown. You message each other in the app."],
     ["Can I see when they're on the way?", "Yes. From when your worker taps \"I'm on my way\" until they arrive, you see them on a map. Their location is never shared at any other time."],
     ["What if it's not done right?", "Don't pay yet. Report it in the app and we'll sort it out with both of you."],
-    ["Are the reviews real?", "Only people who booked someone can review them."],
+    ["How do reviews work?", "Only people who booked each other can review. Customers rate workers on being on time, prepared, quality, communication and friendliness. Workers rate customers on the job description, being ready, paying on time and respect. Neither of you sees the other's review until you've both left one, or 7 days pass."],
     ["What happens to my ID photos?", "Only the Mahi Man team sees them, and they're deleted as soon as your check is done."],
   ]],
 ];
@@ -74,11 +90,15 @@ export function Landing() {
   useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
   // The connection fee customers pay from launch, from the live settings.
-  const [fee, setFee] = useState({ pct: 12, max: 3000, plus: 999 });
+  const [fee, setFee] = useState<Fee>({ pct: 12, max: 3000, plus: 999, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3 });
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "plus_cents"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "plus_cents", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
+      "noshow_wait_minutes", "worker_cancel_window_minutes", "strikes_offline_30", "offline_days", "strikes_review_90", "customer_late_cancels_30"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
-      setFee((f) => ({ pct: m.booking_fee_percent || f.pct, max: m.booking_fee_max_cents || f.max, plus: m.plus_cents || f.plus }));
+      setFee((f) => ({ pct: m.booking_fee_percent || f.pct, max: m.booking_fee_max_cents || f.max, plus: m.plus_cents || f.plus,
+        cancel: m.cancel_fee_cents || f.cancel, soon: m.worker_late_cancel_cents || f.soon, late: m.late_minutes || f.late, wait: m.noshow_wait_minutes || f.wait,
+        window: m.worker_cancel_window_minutes || f.window, s30: m.strikes_offline_30 || f.s30, off: m.offline_days || f.off, s90: m.strikes_review_90 || f.s90,
+        lc30: m.customer_late_cancels_30 || f.lc30 }));
     });
   }, []);
   const [open, setOpen] = useState<{ id: string; job_name: string; category: string | null; icon: string; suburb: string; asap: boolean; pay_cents: number }[]>([]);

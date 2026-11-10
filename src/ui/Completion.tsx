@@ -1,5 +1,6 @@
+import { CUSTOMER_KEYS, FaceRow, WORKER_KEYS } from "./Ratings";
 import { useEffect, useState, type ReactNode } from "react";
-import { avatarUrl, rpc, sb, type Dispute, type Job, type PersonCard } from "../lib/supabase";
+import { rpc, sb, type Dispute, type Job, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money, shrinkImage } from "../lib/format";
@@ -56,19 +57,19 @@ export function ActionBar({ children }: { children: ReactNode }) {
 }
 
 /* ---------- Reviews ---------- */
-const WORDS = ["", "Poor", "Not great", "OK", "Great", "Excellent"];
-
-export function ReviewView({ jobId, jobName, done, person, about, other, isWorker, onDone }: {
-  jobId: string; jobName: string; done: string; person: PersonCard | null; about: string; other: string; isWorker: boolean; onDone: () => void;
+// "Would you recommend them?", then each thing that matters rated with faces. Customers rate workers on five, workers rate customers on four.
+export function ReviewView({ jobId, jobName, done, other, isWorker, onDone }: {
+  jobId: string; jobName: string; done: string; person?: PersonCard | null; about?: string; other: string; isWorker: boolean; onDone: () => void;
 }) {
   const toast = useToast();
-  const [rating, setRating] = useState(0);
+  const keys = isWorker ? CUSTOMER_KEYS : WORKER_KEYS;
+  const [rec, setRec] = useState<boolean | null>(null);
+  const [scores, setScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState("");
   const [busy, setBusy] = useState(false);
-  const [recommend, setRecommend] = useState(true);
   const [saved, setSaved] = useState(false);
-  const photo = avatarUrl(person?.photo_path);
   const first = other.split(" ")[0];
+  const ready = rec !== null && keys.every((x) => scores[x.k]);
   if (saved) {
     return (
       <div className="app" style={{ background: "var(--card)" }}>
@@ -90,58 +91,29 @@ export function ReviewView({ jobId, jobName, done, person, about, other, isWorke
     );
   }
   return (
-    <div className="app">
+    <div className="app" style={{ background: "var(--card)" }}>
       <section className="hero cp-hero" style={{ paddingBottom: 26 }}>
         <span className="row t15 light" style={{ gap: 8, color: "rgba(255,255,255,0.85)" }}>{Icon.tick("var(--lime)", 16)}{jobName}, {done.toLowerCase()}</span>
-        <h1 className="mid" style={{ margin: "14px 0 0" }}>{isWorker ? `How was ${other}?` : `How did ${other} go?`}</h1>
+        <h1 className="mid" style={{ margin: "12px 0 0", fontSize: 34, lineHeight: 1.05 }}>Would you recommend {first}?</h1>
       </section>
-      <div className="cp-sec" style={{ flexDirection: "row", gap: 14, alignItems: "center" }}>
-        <span className="cp-photo">{photo ? <img src={photo} alt="" /> : null}</span>
-        <span className="stack" style={{ gap: 3 }}>
-          <span style={{ fontSize: 19, fontWeight: 500 }}>{person?.full_name ?? other}</span>
-          {person?.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
-          <span className="t14 light muted">{person?.rating ? `${person.rating} rating, ` : ""}{person?.jobs_done ?? 0} jobs</span>
-        </span>
+      <div className="rec-yn">
+        <button className={`btn ${rec === true ? "primary" : "stone"}`} onClick={() => setRec(true)} aria-pressed={rec === true}>{rec === true && Icon.tick("#fff", 20)} Yes</button>
+        <button className={`btn ${rec === false ? "primary" : "stone"}`} onClick={() => setRec(false)} aria-pressed={rec === false}>{rec === false && Icon.tick("#fff", 20)} No</button>
       </div>
-      <div className="cp-sec" style={{ borderTop: "1px solid var(--line)", gap: 14 }}>
-        <span className="cp-label">Your rating</span>
-        <div className="row" style={{ gap: 10 }}>
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button key={n} className="star-btn" onClick={() => setRating(n)} aria-label={`${n} stars`}>
-              <svg width="46" height="46" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8l2.8 5.9 6.4.8-4.7 4.4 1.2 6.4L12 17.2l-5.7 3.1 1.2-6.4-4.7-4.4 6.4-.8z" fill={n <= rating ? "#f0a030" : "#e3e0d7"} /></svg>
-            </button>
-          ))}
-        </div>
-        <span className="t15 light muted">{rating ? WORDS[rating] : "Tap a star"}</span>
+      {keys.map((x) => <FaceRow key={x.k} label={x.label} q={x.q} value={scores[x.k] ?? 0} onChange={(n) => setScores({ ...scores, [x.k]: n })} />)}
+      <div className="cp-sec" style={{ gap: 10 }}>
+        <label className="cp-label" htmlFor="rv">Anything else? <span className="t15 light muted">Optional</span></label>
+        <textarea id="rv" className="cp-text" style={{ height: 80 }} value={comment} maxLength={600} onChange={(e) => setComment(e.target.value)} />
       </div>
-      <div className="cp-sec" style={{ paddingTop: 0, gap: 10 }}>
-        <label className="cp-label" htmlFor="rv">{about}</label>
-        <textarea id="rv" className="cp-text" value={comment} maxLength={600} onChange={(e) => setComment(e.target.value)} />
-      </div>
-      {!isWorker && rating >= 4 && (
-        <div className="cp-sec" style={{ paddingTop: 0 }}>
-          <button className={`boost-pick${recommend ? " on" : ""}`} style={{ margin: 0, width: "100%" }} onClick={() => setRecommend(!recommend)} aria-pressed={recommend}>
-            <span className="stack" style={{ gap: 2, flex: 1 }}>
-              <b>Recommend {first}</b>
-              <span>People near you see "Recommended by" on {first}'s offers.</span>
-            </span>
-            <span className="box">{recommend && Icon.tick("#fff", 16)}</span>
-          </button>
-        </div>
-      )}
-      <Note icon="lock">{other} sees your review once they've reviewed you, or after 7 days. Neither of you can change it after that.{isWorker ? " Workers see a customer's rating before taking their next job." : ""}</Note>
+      <Note icon="lock">{first} sees your review once they've reviewed you, or after 7 days. Neither of you can change it after that.</Note>
       <div style={{ flex: 1 }} />
       <ActionBar>
         <button className="btn stone" style={{ flex: 1 }} onClick={() => { try { localStorage.setItem(`mm-review-later-${jobId}`, "1"); } catch { /* fine */ } onDone(); }}>Later</button>
-        <button className="btn primary" style={{ flex: 2 }} disabled={!rating || busy} onClick={async () => {
+        <button className="btn primary" style={{ flex: 2 }} disabled={!ready || busy} onClick={async () => {
           setBusy(true);
-          try {
-            await rpc("leave_review", { p_job: jobId, p_rating: rating, p_comment: comment });
-            if (!isWorker && rating >= 4 && recommend) await rpc("recommend_worker", { p_job: jobId }).catch(() => {});
-            setSaved(true); setBusy(false);
-          }
+          try { await rpc("leave_review", { p_job: jobId, p_recommend: rec, p_scores: scores, p_comment: comment }); setSaved(true); setBusy(false); }
           catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
-        }}>{busy ? "Saving…" : "Save review"}</button>
+        }}>{busy ? "Saving…" : ready ? "Save review" : "Rate every line"}</button>
       </ActionBar>
     </div>
   );

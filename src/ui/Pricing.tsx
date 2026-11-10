@@ -78,9 +78,9 @@ export function Pricing() {
       <div className="cp-sec" style={{ paddingBottom: "calc(var(--safe-bottom) + 32px)" }}>
         <span className="cp-title">How we keep it good</span>
         <Li b="Verified people" s="ID checked by us." />
-        <Li b="Ratings for each kind of job" s="See how someone rates for cleaning, not just overall, and who nearby has used them." />
+        <Li b="Rated on what matters" s="On time, prepared, quality, communication and friendliness, for each kind of job, plus how many customers recommend them." />
         <Li b="Ticked off and photographed" s="Workers tick off everything that was included and add after photos before they can finish." />
-        <Li b="A high bar" s="Workers whose ratings drop are taken offline until we've checked in with them." />
+        <Li b="A high bar" s="Workers who cancel late or don't turn up get strikes. Three in a month takes them offline, and low ratings mean we check in with them." />
       </div>
 
       {auth && <AuthScreen title="Get Plus first" reason="Sign in and we'll tell you the day Plus opens." onBack={() => setAuth(false)}

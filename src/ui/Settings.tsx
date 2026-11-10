@@ -1,3 +1,4 @@
+import { Reliability } from "../worker/Reliability";
 import { useEffect, useState } from "react";
 import { api, rpc, sb } from "../lib/supabase";
 import { useSession } from "../lib/session";
@@ -18,7 +19,7 @@ export function Settings() {
   const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
   const [alerts, setAlerts] = useState<"granted" | "prompt" | "denied" | "unsupported">("unsupported");
   useEffect(() => { alertsState().then(setAlerts).catch(() => {}); }, []);
-  const [screen, setScreen] = useState<null | "verify" | "delete" | "payid" | "skills" | "creds" | "cards">(null);
+  const [screen, setScreen] = useState<null | "verify" | "delete" | "payid" | "skills" | "creds" | "cards" | "reliability">(null);
 
   useEffect(() => {
     if (!session) return;
@@ -52,6 +53,7 @@ export function Settings() {
         {profile.is_worker && <button className="choice" onClick={() => go("/work")}><span className="t"><b>Work</b><span>Your worker account</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("skills")}><span className="t"><b>My skills</b><span>What customers see on your offers</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("creds")}><span className="t"><b>Licences and certificates</b><span>Insurance, RSA, Blue Card, trade licences</span></span>{Icon.chevron("var(--faint)")}</button>}
+        {profile.is_worker && <button className="choice" onClick={() => setScreen("reliability")}><span className="t"><b>Reliability</b><span>Turns up score and strikes</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("payid")}><span className="t"><b>Getting paid</b><span>Where customers pay you</span></span>{Icon.chevron("var(--faint)")}</button>}
         {blocked.length > 0 && (
           <div style={{ padding: "18px 20px 8px" }}>
@@ -84,6 +86,7 @@ export function Settings() {
       </div>
       {screen === "payid" && <AbnStep onBack={() => setScreen(null)} onSaved={() => { setScreen(null); toast("Saved"); }} />}
       {screen === "cards" && <PaymentMethods onBack={() => setScreen(null)} />}
+      {screen === "reliability" && <Reliability onBack={() => setScreen(null)} />}
       {screen === "skills" && <JobsAndSkills onBack={() => setScreen(null)} />}
       {screen === "creds" && <Credentials onBack={() => setScreen(null)} />}
       {screen === "verify" && <VerifyFlow onClose={() => { setScreen(null); reload(); }} />}

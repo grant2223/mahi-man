@@ -1,3 +1,4 @@
+import { FeePayScreen, OwedBanner, useOwed, type OwedFee } from "./Fees";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
@@ -365,6 +366,9 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   const [pics, setPics] = useState<Record<string, string>>({});
   useEffect(() => { if (recent?.length) mediaUrls(recent.map((r) => firstPhoto(r.job_media)).filter(Boolean) as string[]).then(setPics); }, [recent]);
 
+  const { owed, reload: reloadOwed } = useOwed(!!uid);
+  const [paying, setPaying] = useState<OwedFee | null>(null);
+
   const again = (r: Recent) => onStart({
     categoryId: r.job_types?.category_id ?? null, priceCents: r.price_cents, suburbId: r.suburb_id, address: r.address, notes: r.notes,
     details: r.details, skills: r.skill_ids ?? [], included: r.included ?? [], excluded: r.excluded ?? [], reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
@@ -387,8 +391,10 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         <Available />
       </section>
 
+      <OwedBanner owed={owed} onPay={setPaying} />
+      {paying && <FeePayScreen fee={paying} onBack={() => setPaying(null)} onPaid={() => { setPaying(null); reloadOwed(); }} />}
       <div className="post-body">
-        <button className="post-btn" onClick={() => onStart()}>
+        <button className="post-btn" onClick={() => (owed.length ? setPaying(owed[0]) : onStart())}>
           <span>Post a job</span>
           {Icon.arrow("var(--lime)")}
         </button>
@@ -843,7 +849,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar }: {
         onChange={(v) => { setD({ ...d, startAt: `${selDay}T${v[0]}` }); setErr(""); }} onClose={() => setPick(null)} />}
       {pick === "people" && (
         <SearchPicker title="People you've used" multi placeholder="Search by name" value={d.invited}
-          options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you${p.rating ? `, ${p.rating} rating` : ""}` }))}
+          options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` }))}
           onClose={() => setPick(null)} onChange={(v) => setD({ ...d, invited: v.map(String) })} />
       )}
       {pick === "after" && (

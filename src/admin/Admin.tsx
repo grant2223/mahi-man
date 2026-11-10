@@ -739,7 +739,7 @@ function roleBadges(p: Person, admin: boolean, review: boolean) {
     {admin && <span className="badge g">Admin</span>}
     {p.is_worker ? (p.approved ? <span className="badge g">Worker</span> : <span className="badge">Worker, setting up</span>) : <span className="badge">Customer</span>}
     {p.suspended && <span className="badge r">Paused</span>}
-    {review && <span className="badge r">Low ratings</span>}
+    {review && <span className="badge r">Needs review</span>}
   </span>;
 }
 
@@ -778,7 +778,7 @@ function UserDetail({ p, isAdmin, review, onBack, onChanged }: { p: Person; isAd
           {roleBadges(p, isAdmin, review)}
         </div>
         <div className="row" style={{ gap: 8, alignSelf: "flex-start", flexWrap: "wrap" }}>
-          {review && <button className="btn stone" onClick={() => act(() => rpc("admin_clear_review", { p_worker: p.id }), "Cleared. They can go online again.")}>Clear low ratings</button>}
+          {review && <button className="btn stone" onClick={() => act(() => rpc("admin_clear_review", { p_worker: p.id }), "Cleared. They can go online again.")}>Clear review</button>}
           {p.id !== session?.user.id && <button className="btn stone" onClick={() => act(() => rpc("admin_set_role", { p_email: p.email, p_admin: !isAdmin }), isAdmin ? "Admin role removed" : "Now an admin")}>{isAdmin ? "Remove admin" : "Make admin"}</button>}
           <button className={p.suspended ? "btn primary" : "btn stone"} onClick={() => act(() => rpc("admin_set_suspended", { p_user: p.id, p_suspended: !p.suspended }), p.suspended ? "Unpaused" : "Paused")}>{p.suspended ? "Unpause" : "Pause account"}</button>
         </div>
@@ -1087,7 +1087,7 @@ function Types() {
 }
 
 // Settings in groups, each with a plain explanation. Money is shown in dollars; nothing saves until Save.
-type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" } | { t: "text"; ph: string });
+type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" } | { t: "text"; ph: string });
 const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   { title: "Payments", text: "How customers pay during the pilot, and when the booking fee is charged.", fields: [
     { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
@@ -1104,7 +1104,20 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   { title: "Jobs", text: "Timing rules for every job.", fields: [
     { k: "widen_after_minutes", label: "Show to workers further away after", t: "num", unit: "minutes" },
     { k: "auto_release_hours", label: "Close as done if the customer does nothing for", t: "num", unit: "hours" },
-    { k: "callout_cents", label: "Late-cancel payment to the worker", t: "num", unit: "$" },
+  ] },
+  { title: "Cancellations", text: "What cancelling costs, and when. Fees paid by a customer go to the worker; fees paid by a worker become the customer's credit.", fields: [
+    { k: "cancel_fee_cents", label: "Cancellation fee", hint: "Customer cancels once the worker is on the way, or isn't there. Worker cancels on the way or doesn't turn up.", t: "num", unit: "$" },
+    { k: "worker_late_cancel_cents", label: "Worker cancels close to the start", t: "num", unit: "$" },
+    { k: "worker_cancel_window_minutes", label: "Workers can cancel free until", hint: "Before the start time.", t: "num", unit: "minutes" },
+    { k: "late_minutes", label: "Late after", hint: "Past the arrival time. Customers can then cancel free, and the worker gets a strike.", t: "num", unit: "minutes" },
+    { k: "noshow_wait_minutes", label: "Worker waits at the door for", hint: "Before they can cancel because the customer isn't there.", t: "num", unit: "minutes" },
+    { k: "on_way_window_minutes", label: "On the way counts from", hint: "Before the start time, for jobs booked for later.", t: "num", unit: "minutes" },
+    { k: "customer_late_cancels_30", label: "Customers pay upfront after", hint: "Late cancels in 30 days. Applies once card payments are on.", t: "num", unit: "cancels" },
+  ] },
+  { title: "Strikes", text: "Workers get a strike for cancelling late, not turning up, or arriving more than the late time after their arrival time.", fields: [
+    { k: "strikes_offline_30", label: "Offline after", hint: "Strikes in 30 days.", t: "num", unit: "strikes" },
+    { k: "offline_days", label: "Offline for", t: "num", unit: "days" },
+    { k: "strikes_review_90", label: "Account reviewed after", hint: "Strikes in 90 days.", t: "num", unit: "strikes" },
   ] },
   { title: "Customers", text: "Checks a customer needs before they can book.", fields: [
     { k: "customer_id_required", label: "ID check required to book", hint: "Off: customers are asked after their first booking.", t: "toggle", on: "true", off: "false" },

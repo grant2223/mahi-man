@@ -2,10 +2,11 @@ import { useCallback, useEffect, useState } from "react";
 import { isDirectPay, mediaUrls, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { elapsed, firstName, money, shrinkImage } from "../lib/format";
-import { Icon, Loading, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
+import { Icon, Loading, Perf, Screen, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ChatScreen } from "../ui/Chat";
 import { resumeTrip, startTrip, stopTrip, tripJob } from "../lib/trip";
 import { ReportScreen } from "../ui/Report";
+import { useRules } from "../lib/rules";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen as JobProblem, ReviewView, showPayid } from "../ui/Completion";
 
 interface Extra { id: string; amount_cents: number; reason: string; status: string }
@@ -29,7 +30,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     rpc("tick_items", { p_job: job.id, p_items: next }).catch((e) => { setDone(done); toast(e instanceof Error ? e.message : String(e)); });
   };
   const [extras, setExtras] = useState<Extra[]>([]);
-  const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after" | "cant">(null);
+  const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after" | "cant" | "eta">(null);
   const [busy, setBusy] = useState(false);
   const [payid, setPayid] = useState<string | null>(null);
   const [bank, setBank] = useState<string | null>(null);
@@ -37,6 +38,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
   // The trip: location shared with the customer from "I'm on my way" until the start code.
   const [onWay, setOnWay] = useState(tripJob() === job.id);
   const [askTrip, setAskTrip] = useState(false);
+  const rules = useRules();
   useEffect(() => { resumeTrip(j.id, j.status === "accepted").then(setOnWay); }, [j.id, j.status]);
   async function goNow() {
     try { await startTrip(j.id); setOnWay(true); try { localStorage.setItem("mm-trip-asked", "1"); } catch { /* */ } }
@@ -148,7 +150,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
 
   return (
     <>
-      <section className="hero" style={{ paddingBottom: j.status === "accepted" && onWay ? 24 : 96 }}>
+      <section className="hero" style={{ paddingBottom: j.status === "accepted" && (onWay || j.arrived_at) ? 24 : 96 }}>
         <div className="hero-top">
           <span className="t17 w5">{jobName}</span>
           <button className="btn danger small" style={{ height: 36 }} onClick={() => setScreen("emergency")}>Emergency</button>
@@ -163,7 +165,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
             : j.status === "finished" ? (isDirectPay(j) ? `Collect ${money(earn)} from the customer now: bank transfer or cash` : "They have 48 hours to confirm, then you're paid automatically")
               : "Ask for their 4-digit start code when you arrive"}
         </span>
-        {j.status === "accepted" && !onWay && canLeave && (
+        {j.status === "accepted" && !onWay && !j.arrived_at && canLeave && (
           <>
             <div className="row" style={{ gap: 10, marginTop: 20, position: "relative" }}>
               <button className="btn" style={{ background: "var(--lime)", color: "var(--ink)" }} onClick={() => (tripAsked ? goNow() : setAskTrip(true))}>I'm on my way {Icon.arrow("var(--ink)")}</button>
@@ -177,6 +179,36 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
           <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--emerald)", flexShrink: 0 }} />
           <span className="t15 light" style={{ flex: 1 }}>Sharing your location with {cName}. It stops when you enter the start code.</span>
           <button className="link quiet" onClick={async () => { await stopTrip(j.id); setOnWay(false); }}>Stop</button>
+        </div>
+      )}
+
+      {j.status === "accepted" && (onWay || j.arrived_at) && (
+        <div className="row" style={{ gap: 12, padding: "0 16px 16px", background: "var(--card)", alignItems: "center", position: "relative", zIndex: 1 }}>
+          {!j.arrived_at ? (
+            <>
+              <span className="t15 light muted" style={{ flex: 1 }}>At the door and {cName} isn't answering?</span>
+              <button className="btn stone small" disabled={busy} onClick={async () => {
+                setBusy(true);
+                try {
+                  const pos = await new Promise<GeolocationPosition | null>((res) => navigator.geolocation ? navigator.geolocation.getCurrentPosition(res, () => res(null), { timeout: 8000 }) : res(null));
+                  await rpc("worker_arrived", { p_job: j.id, p_lat: pos?.coords.latitude ?? null, p_lng: pos?.coords.longitude ?? null });
+                  toast(`${cName} has been told you're here`); await load();
+                } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+              }}>I'm here</button>
+            </>
+          ) : (() => {
+            const left = Math.ceil((new Date(j.arrived_at).getTime() + rules.wait * 60000 - now) / 60000);
+            return (
+              <>
+                <span className="t15 light muted" style={{ flex: 1 }}>{left > 0 ? `You arrived at ${hm(j.arrived_at)}. If ${cName} doesn't answer, you can cancel in ${left} min and get ${money(rules.fee)}.` : `You've waited ${rules.wait} minutes. Cancel and get ${money(rules.fee)} for your time.`}</span>
+                <button className="btn stone small" disabled={busy || left > 0} onClick={async () => {
+                  setBusy(true);
+                  try { await rpc("customer_not_here", { p_job: j.id }); await stopTrip(j.id); toast(`Cancelled. ${cName} pays you ${money(rules.fee)}.`); onChanged(); }
+                  catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
+                }}>Not here</button>
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -198,7 +230,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         </div>
       )}
 
-      <div className="ticket" style={{ marginTop: (j.status === "accepted" && onWay) || (j.status === "accepted" && !j.asap && j.confirm_asked_at && !j.day_confirmed_at) ? 16 : -70 }}>
+      <div className="ticket" style={{ marginTop: (j.status === "accepted" && (onWay || j.arrived_at)) || (j.status === "accepted" && !j.asap && j.confirm_asked_at && !j.day_confirmed_at) ? 16 : -70 }}>
         <div className="pad row">
           <Tile name={cust?.full_name ?? "?"} photo={cust?.photo_path} size={48} />
           <span className="stack" style={{ gap: 2, flex: 1, minWidth: 0 }}>
@@ -255,7 +287,8 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         </div>
       )}
 
-      <div className="row" style={{ margin: "14px 20px 0", justifyContent: "flex-end" }}>
+      <div className="row" style={{ margin: "14px 20px 0", justifyContent: j.status === "accepted" ? "space-between" : "flex-end" }}>
+        {j.status === "accepted" && <button className="link quiet" onClick={() => setScreen("cant")}>Cancel this job</button>}
         <button className="link quiet" onClick={() => setScreen("reportUser")}>Report {cName}</button>
       </div>
 
@@ -272,22 +305,9 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         {j.status === "finished" && <button className="btn stone" onClick={onChanged}>Back to jobs</button>}
       </div>
 
-      {screen === "cant" && (
-        <Screen title="Can't make it?" onBack={() => setScreen(null)}>
-          <div className="stack" style={{ padding: 20, gap: 14 }}>
-            <p className="t17 light" style={{ margin: 0, lineHeight: 1.45 }}>The job goes back out straight away. {cName} is told, and everyone who can take it gets an alert.</p>
-            <p className="t15 light muted" style={{ margin: 0, lineHeight: 1.45 }}>Late drop-outs move you down the list customers see, so only hand it back if you really can't go.</p>
-            <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 8 }}>
-              <button className="btn stone" onClick={() => setScreen(null)}>Keep the job</button>
-              <button className="btn danger" disabled={busy} onClick={async () => {
-                setBusy(true);
-                try { await rpc("cant_make_it", { p_job: j.id }); toast("Handed back. Thanks for letting them know."); onChanged(); }
-                catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
-              }}>Hand it back</button>
-            </div>
-          </div>
-        </Screen>
-      )}
+      {screen === "cant" && <WorkerCancelScreen job={j} name={cName} onBack={() => setScreen(null)} onEta={() => setScreen("eta")}
+        onDone={async () => { await stopTrip(j.id); setOnWay(false); onChanged(); }} />}
+      {screen === "eta" && <EtaScreen job={j} name={cName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "chat" && <ChatScreen jobId={j.id} me={session.user.id} otherName={cName} onBack={() => setScreen(null)} />}
       {screen === "reportUser" && <ReportScreen name={cName} userId={j.customer_id} jobId={j.id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
       {screen === "code" && <CodeScreen jobId={j.id} name={cName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); stopTrip(j.id); setOnWay(false); load(); }} />}
@@ -297,6 +317,94 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
       {screen === "emergency" && <EmergencyScreen jobId={j.id} onBack={() => setScreen(null)} />}
       {screen === "problem" && <ProblemScreen jobId={j.id} onBack={() => setScreen(null)} />}
     </>
+  );
+}
+
+const hm = (d: string | null | undefined) => d ? new Date(d).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase() : "";
+
+interface WorkerTerms { kind: "early" | "soon" | "on_way"; fee_cents: number; strike: boolean; emergency_free: boolean; customer: string; eta_at: string | null; eta_changed: boolean; strikes_30: number; strikes_limit: number }
+
+// Cancelling a job you took: free more than 2 hours out; a fee and a strike after that. Running late? Change the time instead.
+function WorkerCancelScreen({ job, name, onBack, onEta, onDone }: { job: Job; name: string; onBack: () => void; onEta: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const rules = useRules();
+  const [t, setT] = useState<WorkerTerms | null>(null);
+  const [emergency, setEmergency] = useState(false);
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { rpc<WorkerTerms>("worker_cancel_preview", { p_job: job.id }).then(setT).catch((e) => toast(e instanceof Error ? e.message : String(e))); }, [job.id]);
+  if (!t) return <Screen title="Cancel this job" onBack={onBack}><Loading /></Screen>;
+  const canEta = !t.eta_changed && t.eta_at && new Date(t.eta_at).getTime() > Date.now();
+  return (
+    <Screen title="Cancel this job" onBack={onBack}>
+      <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
+        <div className="cp-sec">
+          <span className="cp-title">{t.kind === "on_way" ? `You're on the way to ${name}` : t.kind === "soon" ? "The job starts soon" : "Hand the job back"}</span>
+          <span className="t16 light" style={{ lineHeight: 1.5 }}>
+            {!t.strike ? `It's free more than ${rules.window / 60} hours before the start. ${name} is told and the job goes back out.`
+              : emergency ? "Tell us what happened. The first emergency in 90 days has no fee or strike."
+              : `The fee goes to ${name} as credit. It also adds a strike.`}
+          </span>
+          {t.strike && !emergency && <div className="row between" style={{ padding: "10px 0 0" }}><span className="t16 light">Your strikes, last 30 days</span><span className="t17 w5">{t.strikes_30} of {t.strikes_limit}</span></div>}
+          {emergency && <textarea className="cp-text" style={{ marginTop: 10, height: 90 }} placeholder="What happened?" value={reason} onChange={(e) => setReason(e.target.value)} />}
+        </div>
+        {t.strike && !emergency && (canEta || t.emergency_free) && (
+          <div className="cp-sec">
+            <span className="cp-title">Running late instead?</span>
+            {canEta && <button className="choice" style={{ padding: "12px 0" }} onClick={onEta}>
+              <span className="t"><b style={{ fontWeight: 500 }}>Update your arrival time</b><span className="t15 light muted">Free, once per job, before {hm(t.eta_at)}</span></span>{Icon.chevron("var(--faint)")}
+            </button>}
+            {t.emergency_free && <button className="choice" style={{ padding: "12px 0", borderBottom: 0 }} onClick={() => setEmergency(true)}>
+              <span className="t"><b style={{ fontWeight: 500 }}>Emergency?</b><span className="t15 light muted">Tell us why. No fee or strike the first time.</span></span>{Icon.chevron("var(--faint)")}
+            </button>}
+          </div>
+        )}
+        <div style={{ flex: 1 }} />
+        <ActionBar>
+          <button className="btn stone" style={{ flex: 1 }} onClick={() => (emergency ? setEmergency(false) : onBack())}>{emergency ? "Back" : "Keep the job"}</button>
+          <button className="btn danger" style={{ flex: 1.4 }} disabled={busy || (emergency && reason.trim().length <= 3)} onClick={async () => {
+            setBusy(true);
+            try { await rpc("worker_cancel", { p_job: job.id, p_reason: emergency ? reason.trim() : null }); toast(`Cancelled. ${name} has been told.`); onDone(); }
+            catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
+          }}>{busy ? "Cancelling…" : emergency ? "Cancel, no fee" : !t.strike ? "Cancel the job" : `Cancel and pay ${money(t.fee_cents)}`}</button>
+        </ActionBar>
+      </div>
+    </Screen>
+  );
+}
+
+const REASONS = ["Traffic", "Previous job ran over", "Car trouble", "Weather", "Getting gear for the job", "Something else"];
+
+// Running late: change the arrival time once, up to 2 hours later. The customer can accept it or cancel for free.
+function EtaScreen({ job, name, onBack, onDone }: { job: Job; name: string; onBack: () => void; onDone: () => void }) {
+  const toast = useToast();
+  const base = new Date(job.eta_at ?? job.start_at).getTime();
+  const times = [10, 15, 20, 30, 45, 60, 90, 120].map((m) => ({ id: m, label: hm(new Date(base + m * 60000).toISOString()), hint: `${m} minutes later` }));
+  const [mins, setMins] = useState<number | null>(null);
+  const [reason, setReason] = useState<string | null>(null);
+  const [pick, setPick] = useState<null | "time" | "reason">(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <Screen title="Update arrival time" onBack={onBack}>
+      <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
+        <div className="cp-sec">
+          <div className="row" style={{ gap: 10 }}>
+            <div className="field" style={{ flex: 1 }}><span className="k">You said</span><span className="v">{hm(job.eta_at)}</span></div>
+            <button className="field" style={{ flex: 1 }} onClick={() => setPick("time")}><span className="k">New time</span><span className={mins ? "v" : "v ph"}>{mins ? hm(new Date(base + mins * 60000).toISOString()) : "Pick"}</span></button>
+          </div>
+          <button className="field" style={{ marginTop: 10 }} onClick={() => setPick("reason")}><span className="k">Reason</span><span className={reason ? "v" : "v ph"} style={{ fontSize: 16, fontWeight: reason ? 500 : 400 }}>{reason ?? "Pick a reason"}</span></button>
+        </div>
+        <Note icon="clock">You can do this once per job. {name} can accept the new time or cancel for free.</Note>
+        <div style={{ flex: 1 }} />
+        <ActionBar><button className="btn primary block" disabled={!mins || !reason || busy} onClick={async () => {
+          setBusy(true);
+          try { await rpc("update_eta", { p_job: job.id, p_new_at: new Date(base + mins! * 60000).toISOString(), p_reason: reason }); toast(`${name} has been told`); onDone(); }
+          catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
+        }}>Send to {name}</button></ActionBar>
+        {pick === "time" && <SearchPicker title="New arrival time" placeholder="Search times" options={times} value={mins ? [mins] : []} onClose={() => setPick(null)} onChange={(v) => setMins(Number(v[0]))} />}
+        {pick === "reason" && <SearchPicker title="Reason" placeholder="Search reasons" options={REASONS.map((r) => ({ id: r, label: r }))} value={reason ? [reason] : []} onClose={() => setPick(null)} onChange={(v) => setReason(String(v[0]))} />}
+      </div>
+    </Screen>
   );
 }
 

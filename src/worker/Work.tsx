@@ -1,3 +1,4 @@
+import { recLine, ScoreStrip, type Scores } from "../ui/Ratings";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, firstPhoto, mediaUrls, rpc, sb, type IdStatus, type Job } from "../lib/supabase";
 import { useSession } from "../lib/session";
@@ -112,7 +113,7 @@ interface Offer {
   id: string; job_name: string; category: string | null; suburb: string; distance_km: number; earn_cents: number; max_hours: number;
   asap: boolean; start_at: string; details: string; included: string[]; excluded: string[]; cover_path: string | null; photo_count: number;
   video_path: string | null; customer_id: string; customer_name: string; customer_photo: string | null; customer_verified: boolean;
-  customer_rating: number | null; customer_jobs: number; customer_since: string; others_keen: number; invited_me: boolean;
+  customer_rating: number | null; customer_jobs: number; customer_since: string; others_keen: number; invited_me: boolean; customer_scores?: Scores | null;
 }
 
 interface MyOffer {
@@ -334,9 +335,11 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
               <span style={{ fontSize: 18, fontWeight: 500 }}>{o.customer_name}</span>
               {o.customer_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not verified</span>}
             </span>
-            <span className="small light muted">{o.customer_rating ? `${o.customer_rating} from workers, ` : ""}{o.customer_jobs} job{o.customer_jobs === 1 ? "" : "s"} posted, joined {since}</span>
+            <span className="small light muted">{o.customer_jobs} job{o.customer_jobs === 1 ? "" : "s"} posted, joined {since}</span>
+            {o.customer_scores?.reviewed ? <span className="small em">{recLine(o.customer_scores, "workers")}</span> : null}
           </span>
         </div>
+        {o.customer_scores?.reviewed ? <div style={{ background: "var(--card)", padding: "0 20px 4px" }}><ScoreStrip scores={o.customer_scores} worker={false} /></div> : null}
         <div className="stack" style={{ background: "var(--card)", padding: "20px 20px 24px", gap: 22 }}>
           <div className="stack" style={{ gap: 8 }}>
             <h1 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: -0.7 }}>{o.job_name}</h1>
@@ -365,7 +368,7 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
               <button className="link" onClick={() => setEta(true)}>Change</button>
             </div>
           )}
-          <p className="small light muted" style={{ margin: 0, lineHeight: 1.45 }}>{o.customer_name.split(" ")[0]} sees your profile, rating and this time, and chooses who they want. Your offer lasts 15 minutes. The street address shows once you're chosen.</p>
+          <p className="small light muted" style={{ margin: 0, lineHeight: 1.45 }}>{o.customer_name.split(" ")[0]} sees your profile, scores and this time, and chooses who they want. Your offer lasts 15 minutes. The street address shows once you're chosen.</p>
           <button className="link quiet" style={{ alignSelf: "flex-start" }} onClick={() => setReport(true)}>{Icon.flag()} Report this job</button>
         </div>
       </div>

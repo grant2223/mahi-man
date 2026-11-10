@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { rpc } from "../lib/supabase";
 import { CatIcon, Icon, Screen, Tile } from "./kit";
 import { expLabel } from "../worker/Skills";
+import { recLine, ScoreStrip, type Scores } from "./Ratings";
 
 interface Profile {
-  name: string; photo: string | null; verified: boolean; rating: number | null; jobs: number; since: string;
+  name: string; photo: string | null; verified: boolean; rating: number | null; jobs: number; since: string; turns_up: number | null; scores: Scores | null;
   types: { category: string; icon: string; years: number | null; skills: string[]; gear: string[] }[];
   creds: string[];
 }
@@ -26,9 +27,11 @@ export function WorkerProfile({ workerId, onBack }: { workerId: string; onBack: 
               <span className="stack" style={{ gap: 4 }}>
                 <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: -0.6 }}>{p.name}</span>
                 {p.verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
-                <span className="t15 light muted">{p.rating ? `${p.rating} rating, ` : ""}{p.jobs} job{p.jobs === 1 ? "" : "s"}, since {since}</span>
+                <span className="t15 light muted">{p.jobs} job{p.jobs === 1 ? "" : "s"}, since {since}</span>
+                {(p.turns_up != null || p.scores?.reviewed) && <span className="t15 em">{[p.turns_up != null ? `Turns up ${p.turns_up}%` : "", recLine(p.scores, "customers")].filter(Boolean).join(". ")}</span>}
               </span>
             </div>
+            {p.scores?.reviewed ? <div style={{ marginTop: 14 }}><ScoreStrip scores={p.scores} worker /></div> : null}
           </div>
           {p.types.length > 0 && (
             <div className="cp-sec" style={{ marginTop: 10 }}>

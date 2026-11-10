@@ -101,50 +101,42 @@ Deno.serve(async (req) => {
         await releaseJob(body.job_id);
         return ok({ status: "confirmed" });
       }
+      // The customer cancels. The rules (free, $20 once the worker is on the way, free if they're late) and who owes whom
+      // are worked out in the database; this adds the card side when payments are on.
       case "cancel_job": {
         const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
         if (!job || job.customer_id !== user.id) return fail("Job not found");
-        const now = new Date().toISOString();
-        if (!job.payment_intent_id && ["awaiting_payment", "searching", "accepted"].includes(job.status)) {
-          // Booking fee: kept once the customer has chosen someone. If the job is searching again because the
-          // worker dropped out, it was never done, so the fee comes back.
-          let refunded = 0;
-          if (job.fee_status === "paid" && job.status === "searching") { await refundFee(job); refunded = job.fee_cents; }
-          await admin.from("jobs").update({ status: "cancelled", cancelled_at: now }).eq("id", job.id);
-          return ok({ charged_cents: job.fee_status === "paid" && !refunded ? job.fee_cents : 0, refunded_cents: refunded });
-        }
-        const s = stripe();
-        if (["awaiting_payment", "searching"].includes(job.status)) {
-          if (job.payment_intent_id) {
-            const pi = await s.paymentIntents.retrieve(job.payment_intent_id);
-            if (["requires_capture", "requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status)) {
-              await s.paymentIntents.cancel(job.payment_intent_id);
-            }
+        const { data: terms, error } = await admin.rpc("do_customer_cancel", { p_job: job.id, p_customer: user.id });
+        if (error) return fail(error.message);
+        const fee = terms.kind === "fee" ? Number(terms.fee_cents) : 0;
+        let paid = false;
+        // Connection fee: kept once the worker is on the way, refunded otherwise.
+        if (job.fee_status === "paid" && fee === 0) await refundFee(job);
+        if (job.payment_intent_id) {
+          // Paid in the app: release the hold, keeping the cancellation fee (and the connection fee) when there is one.
+          const s = stripe();
+          const pi = await s.paymentIntents.retrieve(job.payment_intent_id);
+          if (pi.status === "requires_capture" && fee > 0) {
+            const cap = await s.paymentIntents.capture(pi.id, { amount_to_capture: fee + (job.fee_status === "paid" ? 0 : job.fee_cents) });
+            await feePaid(terms.fee_id, job.worker_id, fee, cap.latest_charge, job.id);
+            paid = true;
+          } else if (["requires_capture", "requires_payment_method", "requires_confirmation", "requires_action"].includes(pi.status)) {
+            await s.paymentIntents.cancel(pi.id);
           }
-          await admin.from("jobs").update({ status: "cancelled", cancelled_at: now }).eq("id", job.id);
-          return ok({ charged_cents: 0 });
+        } else if (fee > 0 && terms.fee_id && me?.card_pm && Deno.env.get("STRIPE_SECRET_KEY")) {
+          // Saved card: charge it now. If it fails, the customer pays the worker directly, like the job itself.
+          paid = await chargeFee(terms.fee_id, user.id, user.email ?? undefined).catch(() => false);
         }
-        if (job.status === "accepted") {
-          const callout = Number(await setting("callout_cents"));
-          const keep = job.fee_cents + callout;
-          const pi = await s.paymentIntents.capture(job.payment_intent_id, { amount_to_capture: keep });
-          const { data: w } = await admin.from("workers").select("stripe_account_id").eq("id", job.worker_id).single();
-          if (w?.stripe_account_id && callout > 0) {
-            await s.transfers.create({
-              amount: callout,
-              currency: "aud",
-              destination: w.stripe_account_id,
-              source_transaction: typeof pi.latest_charge === "string" ? pi.latest_charge : pi.latest_charge?.id,
-              metadata: { job_id: job.id, kind: "callout" },
-            }, { idempotencyKey: `callout-${job.id}` });
-          }
-          await admin.from("jobs").update({ status: "cancelled", cancelled_at: now }).eq("id", job.id);
-          return ok({ charged_cents: keep });
-        }
-        return fail("The job has started. Use Get help and we will sort it out.");
+        return ok({ kind: terms.kind, fee_cents: fee, fee_id: terms.fee_id ?? null, paid });
       }
-
-      // ---------- Worker ----------
+      // Pay a cancellation fee you owe with your saved card.
+      case "pay_fee": {
+        const { data: f } = await admin.from("fees_owed").select("*").eq("id", body.fee_id).eq("payer_id", user.id).eq("status", "open").single();
+        if (!f) return fail("Nothing to pay");
+        if (!me?.card_pm) return fail("Add a card first");
+        const done = await chargeFee(f.id, user.id, user.email ?? undefined).catch(() => false);
+        return done ? ok({ paid: true }) : fail("Your card was declined. Add another card and try again.");
+      }
       case "worker_payouts": {
         const { data: w } = await admin.from("workers").select("*").eq("id", user.id).single();
         if (!w) return fail("Start your worker sign-up first");
@@ -442,6 +434,37 @@ Deno.serve(async (req) => {
     return fail(msg, 500);
   }
 });
+
+// Charges a fee someone owes to their saved card, then passes it on to the worker it's owed to.
+async function chargeFee(feeId: number, uid: string, email?: string): Promise<boolean> {
+  const { data: f } = await admin.from("fees_owed").select("*").eq("id", feeId).single();
+  const { data: p } = await admin.from("profiles").select("stripe_customer_id, card_pm").eq("id", uid).single();
+  if (!f || f.status !== "open" || !p?.card_pm || !p.stripe_customer_id) return false;
+  const pi = await stripe().paymentIntents.create({
+    amount: f.amount_cents, currency: "aud", customer: p.stripe_customer_id, payment_method: p.card_pm, off_session: true, confirm: true,
+    receipt_email: email, description: "Mahi Man cancellation fee", metadata: { fee_id: String(f.id), job_id: f.job_id ?? "", kind: f.kind },
+    statement_descriptor_suffix: "MAHI MAN",
+  }, { idempotencyKey: `fee-${f.id}` });
+  if (pi.status !== "succeeded") return false;
+  await feePaid(f.id, f.payee_id, f.amount_cents, pi.latest_charge, f.job_id);
+  return true;
+}
+
+// Marks a fee paid and sends it to the worker's payout account. Without one, admin pays them out.
+async function feePaid(feeId: number | null, payee: string | null, amount: number, charge: unknown, jobId: string | null) {
+  if (!feeId) return;
+  const chargeId = typeof charge === "string" ? charge : (charge as { id?: string } | null)?.id;
+  let paidOut: string | null = null;
+  if (payee && chargeId) {
+    const { data: w } = await admin.from("workers").select("stripe_account_id").eq("id", payee).single();
+    if (w?.stripe_account_id) {
+      await stripe().transfers.create({ amount, currency: "aud", destination: w.stripe_account_id, source_transaction: chargeId,
+        metadata: { fee_id: String(feeId), job_id: jobId ?? "", kind: "cancel_fee" } }, { idempotencyKey: `fee-out-${feeId}` });
+      paidOut = new Date().toISOString();
+    }
+  }
+  await admin.from("fees_owed").update({ status: "paid", paid_at: new Date().toISOString(), payment_ref: chargeId ?? "card", paid_out_at: paidOut }).eq("id", feeId);
+}
 
 async function customerFor(uid: string, email: string, name: string): Promise<string> {
   const { data: p } = await admin.from("profiles").select("stripe_customer_id").eq("id", uid).single();

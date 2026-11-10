@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
+import { useRules } from "../lib/rules";
 import { go } from "../lib/router";
 import { elapsed, firstName, initials, money, money2 } from "../lib/format";
 import { Icon, Loading, Logo, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
@@ -11,6 +12,7 @@ import { OffersView } from "./Offers";
 import { LiveMap, useTrip } from "../ui/LiveMap";
 import { AlertsAsk } from "../ui/AlertsAsk";
 import { alertsState, askedFor } from "../lib/push";
+import { FeePayScreen, useOwed, type OwedFee } from "./Fees";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
 
 interface PayDetails { payid: string | null; bsb: string | null; account_number: string | null; account_name: string }
@@ -46,6 +48,20 @@ export function Track({ id }: { id: string }) {
   const trip = useTrip(id, job?.status === "accepted");
   const [route, setRoute] = useState<{ minutes: number; km: number } | null>(null);
   const [mapOn, setMapOn] = useState(false);
+  // What cancelling would cost right now, and whether the worker is late or has changed their time.
+  const [terms, setTerms] = useState<CancelTerms | null>(null);
+  const accepted = job?.status === "accepted";
+  useEffect(() => {
+    if (!accepted) { setTerms(null); return; }
+    const get = () => rpc<CancelTerms>("cancel_preview", { p_job: id }).then(setTerms).catch(() => {});
+    get();
+    const t = window.setInterval(get, 30000);
+    return () => window.clearInterval(t);
+  }, [id, accepted, job?.eta_at, job?.on_way_at, job?.eta_changed_at, job?.eta_ok_at, job?.arrived_at]);
+  const { owed, reload: reloadOwed } = useOwed(job?.status === "cancelled");
+  const owedHere = owed.find((f) => f.job_id === id) ?? null;
+  const [paying, setPaying] = useState(false);
+  const rules = useRules();
 
   const load = useCallback(async () => {
     const { data } = await sb.from("jobs").select("*").eq("id", id).single();
@@ -257,13 +273,46 @@ export function Track({ id }: { id: string }) {
               <span className="stack" style={{ gap: 3, flex: 1 }}>
                 <span style={{ fontSize: 19, fontWeight: 500 }}>{worker.full_name}</span>
                 {worker.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not verified</span>}
-                <span className="small light muted">{worker.rating ? `${worker.rating} rating, ` : "New worker, "}{worker.jobs_done} jobs done</span>
+                <span className="small light muted">{[worker.turns_up != null ? `Turns up ${worker.turns_up}%` : "", worker.reviewed ? `recommended by ${worker.recommended} of ${worker.reviewed}` : "", `${worker.jobs_done} jobs done`].filter(Boolean).join(", ").replace(/^r/, "R")}</span>
               </span>
             </div>
             {["accepted", "in_progress", "finished", "disputed"].includes(job.status) && (
               <div style={{ padding: "0 16px 16px" }}>
                 <button className="btn stone block" style={{ background: "var(--ground)" }} onClick={() => setScreen("chat")}>{Icon.msg()} Message {wName}</button>
               </div>
+            )}
+            {job.status === "accepted" && terms && ["new_time", "late", "no_show"].includes(terms.kind) && (
+              <>
+                <Perf />
+                <div className="stack" style={{ padding: "8px 16px 18px", gap: 10 }}>
+                  <span className="t17 w5" style={{ color: "#8a5a10" }}>
+                    {terms.kind === "new_time" ? `${wName} is running late` : terms.kind === "late" ? `${wName} is ${terms.minutes_late} minutes late` : `${wName} hasn't set off`}
+                  </span>
+                  <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
+                    {terms.kind === "new_time" ? `New arrival ${hm(terms.eta_at)}${terms.eta_reason ? ` (${terms.eta_reason})` : ""}. Accept it, or cancel for free.`
+                      : terms.kind === "late" ? "You can keep waiting, or cancel for free."
+                      : `They said ${hm(terms.eta_at)}. You can cancel for free, and you get ${money(rules.fee)} credit.`}
+                  </span>
+                  <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
+                    <button className="btn stone small" onClick={() => setScreen("cancel")}>Cancel for free</button>
+                    {terms.kind === "new_time" && <button className="btn primary small" onClick={async () => {
+                      try { await rpc("accept_new_time", { p_job: id }); toast(`${wName} has been told`); load(); } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+                    }}>OK, {hm(terms.eta_at)}</button>}
+                  </div>
+                </div>
+              </>
+            )}
+            {job.status === "cancelled" && owedHere && (
+              <>
+                <Perf />
+                <div className="row between" style={{ padding: "8px 16px 18px", gap: 12 }}>
+                  <span className="stack" style={{ gap: 2 }}>
+                    <span className="t17 w5">Pay {owedHere.to} {money(owedHere.amount_cents)}</span>
+                    <span className="small light muted">Cancellation fee, needed before your next job</span>
+                  </span>
+                  <button className="btn primary small" onClick={() => setPaying(true)}>Pay</button>
+                </div>
+              </>
             )}
           </>
         ) : (
@@ -395,34 +444,94 @@ export function Track({ id }: { id: string }) {
       )}
       {screen === "report" && <ProblemScreen job={job} jobName={jobName} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "reportUser" && job.worker_id && <ReportUser name={wName} userId={job.worker_id} jobId={id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
-      {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+      {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); reloadOwed(); }} />}
+      {paying && owedHere && <FeePayScreen fee={owedHere} onBack={() => setPaying(false)} onPaid={() => { setPaying(false); reloadOwed(); }} />}
     </div>
   );
 }
 
+interface CancelTerms {
+  kind: "free" | "fee" | "late" | "no_show" | "new_time" | "not_moving" | "started";
+  fee_cents?: number; set_off_at?: string; minutes_late?: number; worker: string | null; eta_at: string | null; eta_reason: string | null;
+  booking_fee_cents: number; card: string | null; payments_live: boolean;
+}
+const hm = (d: string | null | undefined) => d ? new Date(d).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase() : "";
+
+// Cancelling: free until the worker is on the way; then a fee that goes to them. Free again if they're late.
 function CancelScreen({ job, onBack, onDone }: { job: Job; onBack: () => void; onDone: () => void }) {
-  const [err, setErr] = useState("");
+  const toast = useToast();
+  const [t, setT] = useState<CancelTerms | null>(null);
   const [busy, setBusy] = useState(false);
-  const [callout, setCallout] = useState(1500);
-  useEffect(() => { sb.from("settings").select("value").eq("key", "callout_cents").single().then(({ data }) => data && setCallout(Number(data.value))); }, []);
-  const free = job.status !== "accepted" || isDirectPay(job);
+  const [fee, setFee] = useState<OwedFee | null>(null);
+  const rules = useRules();
+  useEffect(() => { rpc<CancelTerms>("cancel_preview", { p_job: job.id }).then(setT).catch((e) => toast(e instanceof Error ? e.message : String(e))); }, [job.id]);
+  const w = t?.worker ?? "your worker";
+  const W = t?.worker ?? "Your worker";
+  async function doCancel() {
+    setBusy(true);
+    try {
+      const r = await api<{ kind: string; fee_cents: number; fee_id: number | null; paid: boolean }>("cancel_job", { job_id: job.id });
+      if (r.fee_cents > 0 && !r.paid && r.fee_id) {
+        const all = await rpc<{ owed: OwedFee[] }>("my_fees");
+        const f = all.owed.find((x) => x.id === r.fee_id);
+        if (f) { setFee(f); return; }
+      }
+      toast("Cancelled"); onDone();
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
+  }
+  if (fee) return <FeePayScreen fee={fee} onBack={onDone} onPaid={onDone} />;
+  if (!t) return <Screen title="Cancel booking" onBack={onBack}><Loading /></Screen>;
+
+  if (t.kind === "late" || t.kind === "no_show") {
+    return (
+      <div className="screen" role="dialog" aria-label="Cancel booking">
+        <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
+          <section className="step-hero late-hero" style={{ paddingBottom: 28 }}>
+            <div className="top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button></div>
+            <span style={{ color: "rgba(255,255,255,.85)", fontSize: 15 }}>{W} said {hm(t.eta_at)}</span>
+            <h1>{t.minutes_late} minutes late</h1>
+            <p>{t.kind === "late" ? `${W} is on the way but running late.` : `${W} hasn't set off.`}</p>
+          </section>
+          <div className="cp-sec">
+            <span className="cp-title">Your choice</span>
+            <div className="price-li">{Icon.tick("var(--emerald)", 20)}<span><b>Keep waiting.</b> {t.kind === "late" ? `${W} is still coming.` : `${W} may still turn up.`}</span></div>
+            <div className="price-li">{Icon.tick("var(--emerald)", 20)}<span><b>Cancel for free.</b> {t.kind === "no_show" ? `You get ${money(rules.fee)} credit, and ${w} gets a strike.` : `${W} gets a strike.`}</span></div>
+          </div>
+          <div style={{ flex: 1 }} />
+          <ActionBar>
+            <button className="btn stone" style={{ flex: 1 }} onClick={onBack}>Keep waiting</button>
+            <button className="btn primary" style={{ flex: 1.3 }} disabled={busy} onClick={doCancel}>{busy ? "Cancelling…" : "Cancel for free"}</button>
+          </ActionBar>
+        </div>
+      </div>
+    );
+  }
+
+  const title = t.kind === "fee" ? `${W} is on the way` : t.kind === "new_time" ? `${W} changed the time` : t.kind === "not_moving" ? `${W} hasn't moved` : t.kind === "started" ? "The job has started" : "Cancelling is free";
+  const body = t.kind === "fee"
+    ? `${W} set off at ${hm(t.set_off_at)}. The cancellation fee goes to ${w} for their time${t.booking_fee_cents ? ", and the connection fee isn't refunded" : ""}.`
+    : t.kind === "started" ? `${W} is already working. Use Get help and we'll sort it out.`
+    : t.kind === "new_time" ? `${W} now says ${hm(t.eta_at)}. You can cancel for free.`
+    : t.kind === "not_moving" ? `${W} hasn't moved in 10 minutes. You can cancel for free.`
+    : `${job.worker_id ? `${W} is told straight away.` : "Nobody has taken it yet."}${t.booking_fee_cents ? ` Your ${money2(t.booking_fee_cents)} connection fee is refunded.` : ""}`;
   return (
     <Screen title="Cancel booking" onBack={onBack}>
-      <div className="screen-body" style={{ padding: 16 }}>
-        <p className="t17" style={{ marginTop: 0, lineHeight: 1.45 }}>
-          {job.fee_status === "paid" && job.status === "searching" ? `Your ${money2(job.fee_cents)} booking fee is refunded, because the job was never done.`
-            : job.fee_status === "paid" && job.status === "accepted" ? `Your worker will be told straight away. The ${money2(job.fee_cents)} booking fee isn't refunded once you've chosen someone.`
-            : free ? (isDirectPay(job) ? "Cancelling is free. Your worker will be told straight away." : "No one has taken it yet, so cancelling is free. The hold on your card is released.")
-            : `Someone is already on the way. Cancelling now costs ${money2(job.fee_cents + callout)}: the booking fee plus ${money2(callout)} to the worker for their trip. The rest is released.`}
-        </p>
-        {err && <p className="err">{err}</p>}
-        <div className="row" style={{ justifyContent: "flex-end", gap: 10, marginTop: 16 }}>
-          <button className="btn stone" onClick={onBack}>Keep it</button>
-          <button className="btn danger" disabled={busy} onClick={async () => {
-            setBusy(true);
-            try { await api("cancel_job", { job_id: job.id }); onDone(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
-          }}>Cancel booking</button>
+      <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
+        <div className="cp-sec">
+          <span className="cp-title">{title}</span>
+          <span className="t16 light" style={{ lineHeight: 1.5 }}>{body}</span>
+          {t.kind === "fee" && t.card && t.payments_live && <span className="t15 light muted" style={{ marginTop: 6 }}>Charged to your {t.card}.</span>}
         </div>
+        {t.kind === "fee" && <Note icon="clock">Free to cancel until your worker is on the way, or if they're more than {rules.late} minutes late.</Note>}
+        <div style={{ flex: 1 }} />
+        <ActionBar>
+          {t.kind === "started"
+            ? <button className="btn primary block" onClick={() => { onBack(); go("/support"); }}>Get help</button>
+            : <>
+                <button className="btn stone" style={{ flex: 1 }} onClick={onBack}>Keep it</button>
+                <button className="btn danger" style={{ flex: 1.4 }} disabled={busy} onClick={doCancel}>{busy ? "Cancelling…" : t.kind === "fee" ? `Cancel and pay ${money(t.fee_cents ?? 0)}` : "Cancel booking"}</button>
+              </>}
+        </ActionBar>
       </div>
     </Screen>
   );

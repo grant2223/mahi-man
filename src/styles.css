@@ -816,3 +816,18 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 
 /* Mahi Man mark in headers: his head, no frame */
 .logo-mark { display: block; object-fit: contain; flex: none; }
+
+/* ---------- Reviews: faces and scores ---------- */
+.face-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 13px 16px; border-bottom: 1px solid var(--line); background: var(--card); }
+.face-row .t { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.face-row .t b { font-size: 17px; font-weight: 500; }
+.face-row .t span { font-size: 14px; font-weight: 300; color: var(--muted); }
+.face-row .faces { display: flex; gap: 2px; flex: none; }
+.face-row .faces button { padding: 0; border: 0; background: none; cursor: pointer; line-height: 0; }
+.score-strip { display: flex; background: var(--ground); border-radius: var(--r-control); padding: 10px 6px; }
+.score-strip > span { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0; min-width: 0; }
+.score-strip b { font-size: 18px; font-weight: 600; }
+.score-strip > span > span { font-size: 13px; font-weight: 300; color: var(--muted); white-space: nowrap; }
+.rec-yn { display: flex; gap: 10px; padding: 16px; border-bottom: 1px solid var(--line); background: var(--card); }
+.rec-yn .btn { flex: 1; }
+.late-hero { background: linear-gradient(180deg, #8a5a10, #6e4609); }

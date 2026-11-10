@@ -22,11 +22,12 @@ export function Privacy() {
       <ul>
         <li>Account details: your name, email address and profile photo.</li>
         <li>ID check: a photo of your passport, national ID card or driver licence and a selfie. These are seen only by the Mahi Man team, used only to confirm who you are, and deleted as soon as the check is decided. We keep the result (verified or not) and the ID type and country.</li>
-        <li>Jobs: the job you book or take, the photos and video you add, your description, the address and suburb, times, prices and reviews.</li>
+        <li>Jobs: the job you book or take, the photos and video you add, your description, the address and suburb, times, prices and reviews. A review is whether you'd recommend the other person, a rating for each thing that matters (for workers: on time, prepared, quality, communication and friendliness; for customers: job description, prepared, paid on completion and respect), and an optional comment.</li>
         <li>Messages you send through the app.</li>
         <li>Workers: PayID or bank account (shown to a customer only once their job is done), ABN if you give one, suburb and travel distance, the job types you do with your skills, experience and gear, and any licences or certificates you add (a photo, the number and the expiry date). These are checked by the Mahi Man team and only "verified" is shown to customers.</li>
         <li>Payments: if you add a card, it is collected and stored by our payment provider, Stripe. We never see or keep your full card number. We keep the card type, last 4 digits and expiry so you can see which card is saved, plus a record of fees charged and refunded.</li>
-        <li>Location on the way to a job: when a worker taps "I'm on my way", their phone's location is shared with that job's customer until they enter the start code. It is never collected at any other time, and the trip is deleted when it ends.</li>
+        <li>Location on the way to a job: when a worker taps "I'm on my way", their phone's location is shared with that job's customer until they enter the start code. It is never collected at any other time, and the trip is deleted when it ends. We keep where and when the trip started, and where the worker was when they tapped "I'm here", so we can settle a late arrival or a customer who wasn't home.</li>
+        <li>Reliability and cancellations: when a job is cancelled, who cancelled, when, and any fee; a worker's strikes and their "Turns up" score; and any credit a customer has.</li>
         <li>Basic technical information needed to run the app, such as sign-in times.</li>
       </ul>
       <p>We do not track you across other apps or websites and we do not sell your information.</p>
@@ -34,8 +35,9 @@ export function Privacy() {
       <p>To match jobs with nearby workers, show each side who they are dealing with, keep people safe, handle reports and disputes, and meet our legal obligations.</p>
       <h2>Who sees what</h2>
       <ul>
-        <li>Workers who can take a job see its photos, video, description, suburb and the customer's first name, last initial, photo and whether they are ID verified. The street address is only shown to the worker who takes the job.</li>
-        <li>Customers see their worker's first name, last initial, photo, rating, skills, experience, gear, verified licences and whether they are ID verified. While the worker is on the way to their job, the customer also sees the worker's location on a map.</li>
+        <li>Workers who can take a job see its photos, video, description, suburb and the customer's first name, last initial, photo, whether they are ID verified, and their average ratings and how many workers recommend them. The street address is only shown to the worker who takes the job.</li>
+        <li>Customers see their worker's first name, last initial, photo, average ratings, how many customers recommend them, their "Turns up" score, skills, experience, gear, verified licences and whether they are ID verified. While the worker is on the way to their job, the customer also sees the worker's location on a map.</li>
+        <li>A worker's strikes are only shown to that worker and the Mahi Man team.</li>
         <li>Phone numbers and email addresses are never shown to the other person.</li>
       </ul>
       <h2>Voice input</h2>
@@ -60,17 +62,30 @@ export function Terms() {
       <ul>
         <li>Every job has a fixed price that covers what is listed as included. Anything not included needs the customer's agreement in the app before it is done.</li>
         <li>During the pilot, the customer pays the worker directly by bank transfer or cash when the job is finished, never before.</li>
-        <li>Customers can cancel free of charge before a worker arrives.</li>
+      </ul>
+      <h2>Cancelling</h2>
+      <ul>
+        <li>Customers can cancel free of charge until their worker is on the way. Once the worker is on the way, a cancellation fee applies (shown in the app before you cancel, currently $20), and all of it goes to the worker for their time.</li>
+        <li>A worker is on the way from when they tap "I'm on my way". For a job booked for later, this only counts from 60 minutes before the start time.</li>
+        <li>Cancelling is free for the customer if the worker is more than 15 minutes past the arrival time they gave, if the worker hasn't moved, or if the worker changed their arrival time and the customer doesn't accept the new time.</li>
+        <li>If the customer isn't there or the worker can't get in, the worker waits 15 minutes and can then cancel. The customer pays the cancellation fee to the worker.</li>
+        <li>During the pilot, a customer pays a cancellation fee directly to the worker, and can't post another job until it's marked paid. Once card payments start, it's charged to the customer's saved card.</li>
+        <li>After 3 late cancellations in 30 days, a customer pays for their next jobs upfront in the app.</li>
+        <li>Workers can cancel free of charge more than 2 hours before the start. Within 2 hours it costs the worker $10, and once they're on the way or if they don't turn up, $20. The fee goes to the customer as credit against Mahi Man fees.</li>
+        <li>A worker can change their arrival time once per job, before it passes. Their first emergency in 90 days, told to us when they cancel, has no fee.</li>
+        <li>A worker gets a strike for cancelling within 2 hours, cancelling on the way, not turning up, or arriving more than 15 minutes after their arrival time. 3 strikes in 30 days takes them offline for 7 days, and 5 in 90 days means we review their account. Strikes last 90 days.</li>
+        <li>Storms, emergencies and safety problems are handled through Get help, with no cancellation fee for either side.</li>
+        <li>The amounts and times above can change. The app always shows what applies before you cancel.</li>
       </ul>
       <h2>Booking fee</h2>
       <ul>
         <li>When a booking fee applies, it is shown before you post the job. You add a card when you post, and nothing is charged then.</li>
         <li>The fee is charged to your card only when you choose a worker. If nobody is chosen, nothing is charged.</li>
         <li>If the worker you chose cancels or doesn't turn up, your job is reopened and you choose someone else with no new fee.</li>
-        <li>If the job is never done, for example you cancel after the worker drops out, the fee is refunded to your card automatically. We can also refund it when we decide a dispute.</li>
-        <li>If you cancel after choosing a worker, the fee is not refunded.</li>
+        <li>If you cancel before your worker is on the way, or the job is never done, the fee is refunded to your card automatically. We can also refund it when we decide a dispute.</li>
+        <li>If you cancel once your worker is on the way, the booking fee is not refunded.</li>
         <li>Plus members don't pay booking fees. You get a receipt by email for every fee and every refund.</li>
-        <li>By saving a card you allow us to charge the booking fee shown on each job when you choose a worker. You can remove a saved card at any time in Settings.</li>
+        <li>By saving a card you allow us to charge the booking fee shown on each job when you choose a worker, and any cancellation fee that applies under Cancelling. You can remove a saved card at any time in Settings.</li>
       </ul>
       <h2>Licences and live location</h2>
       <ul>
