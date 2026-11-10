@@ -10,6 +10,6 @@ Odd jobs marketplace for Cairns, Queensland. Customers book fixed-price local jo
 
 ## iPhone app (TestFlight)
 
-The Xcode project is in `ios/App/App.xcodeproj` (bundle ID `com.moremahi.app`, Swift Package Manager, no CocoaPods).
+The Xcode project is in `ios/App/App.xcodeproj` (bundle ID `com.mahiman.app`, Swift Package Manager, no CocoaPods).
 The web build is already copied into `ios/App/App/public`, so it opens and builds in Xcode with no extra steps.
 After any web change: `npm run ios` (builds the web app and copies it into the iPhone project).

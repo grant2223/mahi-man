@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: "com.moremahi.app",
+  appId: "com.mahiman.app",
   appName: "Mahi Man",
   webDir: "dist",
   backgroundColor: "#0B6B4F",

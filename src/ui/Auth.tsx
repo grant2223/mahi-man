@@ -48,7 +48,7 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
     const { SignInWithApple } = await import("@capacitor-community/apple-sign-in");
     let r;
     try {
-      r = await SignInWithApple.authorize({ clientId: "com.moremahi.app", redirectURI: "https://srcbzszaiorjztprleux.supabase.co/auth/v1/callback", scopes: "email name", nonce: await sha256(raw) });
+      r = await SignInWithApple.authorize({ clientId: "com.mahiman.app", redirectURI: "https://srcbzszaiorjztprleux.supabase.co/auth/v1/callback", scopes: "email name", nonce: await sha256(raw) });
     } catch { return; } // they closed the Apple sheet
     const { error } = await sb.auth.signInWithIdToken({ provider: "apple", token: r.response.identityToken, nonce: raw });
     if (error) throw error;

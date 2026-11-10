@@ -7,7 +7,7 @@ const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SE
 const APNS_KEY = Deno.env.get("APNS_KEY_P8");
 const APNS_KEY_ID = Deno.env.get("APNS_KEY_ID") ?? "J53YNHAJ3B";
 const APNS_TEAM_ID = Deno.env.get("APNS_TEAM_ID") ?? "3N7J224W53";
-const APNS_TOPIC = Deno.env.get("APNS_BUNDLE_ID") ?? "com.moremahi.app";
+const APNS_TOPIC = Deno.env.get("APNS_BUNDLE_ID") ?? "com.mahiman.app";
 const APNS_HOST = Deno.env.get("APNS_SANDBOX") === "true" ? "api.sandbox.push.apple.com" : "api.push.apple.com";
 const FCM_SA = Deno.env.get("FCM_SERVICE_ACCOUNT");
 
