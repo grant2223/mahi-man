@@ -51,6 +51,34 @@ export async function startTrip(jobId: string): Promise<void> {
   }
 }
 
+/* Where the phone is right now, once. In the app this goes through the native location plugin, so iOS asks once
+   with Mahi Man's own message; the web view's geolocation would add a second "localhost would like to use your
+   location" prompt. Resolves null if they say no or it takes too long. */
+export function currentPosition(timeoutMs = 10000): Promise<{ lat: number; lng: number } | null> {
+  if (!Capacitor.isNativePlatform()) {
+    if (!("geolocation" in navigator)) return Promise.resolve(null);
+    return new Promise((res) => navigator.geolocation.getCurrentPosition(
+      (p) => res({ lat: p.coords.latitude, lng: p.coords.longitude }), () => res(null),
+      { maximumAge: 300000, timeout: timeoutMs, enableHighAccuracy: false },
+    ));
+  }
+  return new Promise((res) => {
+    let id: string | null = null;
+    let done = false;
+    const finish = (v: { lat: number; lng: number } | null) => {
+      if (done) return;
+      done = true;
+      if (id) BG.removeWatcher({ id }).catch(() => {});
+      res(v);
+    };
+    setTimeout(() => finish(null), timeoutMs);
+    BG.addWatcher({ requestPermissions: true, stale: true }, (loc, err) => {
+      if (err || !loc) { if (err) finish(null); return; }
+      finish({ lat: loc.latitude, lng: loc.longitude });
+    }).then((w) => { id = w; if (done) BG.removeWatcher({ id: w }).catch(() => {}); }).catch(() => finish(null));
+  });
+}
+
 async function stopWatching() {
   if (watcher) { await BG.removeWatcher({ id: watcher }).catch(() => {}); watcher = null; }
   if (webWatch !== null) { navigator.geolocation.clearWatch(webWatch); webWatch = null; }

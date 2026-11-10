@@ -64,7 +64,7 @@
 	<key>NSSpeechRecognitionUsageDescription</key>
 	<string>Mahi Man turns what you say into a written job description you can check and edit.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>When you tap I'm on my way, your location is shared with that job's customer so they can see you coming. It stops when you enter the start code.</string>
+	<string>Mahi Man uses your location to open on your area and show jobs near you. When you tap I'm on my way, it's shared with that job's customer so they can see you coming, and stops when you enter the start code.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>When you tap I'm on my way, your location keeps being shared with that job's customer while you use Maps to drive there. It stops when you enter the start code.</string>
 	<key>UIBackgroundModes</key>

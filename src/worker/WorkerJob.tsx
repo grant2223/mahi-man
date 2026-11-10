@@ -4,7 +4,7 @@ import { useSession } from "../lib/session";
 import { elapsed, firstName, money, shrinkImage } from "../lib/format";
 import { Icon, Loading, Perf, Screen, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ChatScreen } from "../ui/Chat";
-import { resumeTrip, startTrip, stopTrip, tripJob } from "../lib/trip";
+import { currentPosition, resumeTrip, startTrip, stopTrip, tripJob } from "../lib/trip";
 import { ReportScreen } from "../ui/Report";
 import { useRules } from "../lib/rules";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen as JobProblem, ReviewView, showPayid } from "../ui/Completion";
@@ -190,8 +190,8 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
               <button className="btn stone small" disabled={busy} onClick={async () => {
                 setBusy(true);
                 try {
-                  const pos = await new Promise<GeolocationPosition | null>((res) => navigator.geolocation ? navigator.geolocation.getCurrentPosition(res, () => res(null), { timeout: 8000 }) : res(null));
-                  await rpc("worker_arrived", { p_job: j.id, p_lat: pos?.coords.latitude ?? null, p_lng: pos?.coords.longitude ?? null });
+                  const pos = await currentPosition(8000);
+                  await rpc("worker_arrived", { p_job: j.id, p_lat: pos?.lat ?? null, p_lng: pos?.lng ?? null });
                   toast(`${cName} has been told you're here`); await load();
                 } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
               }}>I'm here</button>

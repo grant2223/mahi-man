@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { sb, type Area } from "./supabase";
 import { useSession } from "./session";
+import { currentPosition } from "./trip";
 import { Icon, SearchPicker } from "../ui/kit";
 
 /* The area someone is using Mahi Man in. Their saved choice wins; otherwise the one they picked on this device;
@@ -32,12 +33,13 @@ let here: Here = null;
 let asked = false;
 let manual = false; // they picked an area themselves this visit, so their location doesn't override it
 function askHere() {
-  if (asked || !("geolocation" in navigator)) return;
+  if (asked) return;
   asked = true;
-  navigator.geolocation.getCurrentPosition((p) => {
-    here = { lat: p.coords.latitude, lng: p.coords.longitude };
+  currentPosition(15000).then((p) => {
+    if (!p) return;
+    here = p;
     listeners.forEach((f) => f());
-  }, () => {}, { maximumAge: 300000, timeout: 15000, enableHighAccuracy: false });
+  });
 }
 export function useHere(): Here {
   const [, tick] = useState(0);
