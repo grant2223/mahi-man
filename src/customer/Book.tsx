@@ -328,6 +328,31 @@ interface Recent {
   job_media: { path: string; kind: "photo" | "video"; sort: number }[];
 }
 
+// How many workers are switched on and cover where the customer is. Shown only from 10 up.
+function Available() {
+  const here = useHere();
+  const { area } = useArea();
+  const [n, setN] = useState<number | null>(null);
+  useEffect(() => {
+    if (!here && !area) return;
+    let live = true;
+    const args = here ? { p_lat: here.lat, p_lng: here.lng } : { p_area: area!.id };
+    const load = () => rpc<number>("workers_available", args).then((c) => live && setN(c)).catch(() => {});
+    load();
+    const t = window.setInterval(load, 60000);
+    return () => { live = false; window.clearInterval(t); };
+  }, [here?.lat, here?.lng, area?.id]);
+  // Under 10 says nothing. From 10 it rounds down: 10+, 20+, 50+, 100+.
+  if (!n || n < 10) return null;
+  const shown = n >= 100 ? "100+" : n >= 50 ? "50+" : n >= 20 ? "20+" : "10+";
+  return (
+    <span className="avail-now">
+      <span className="avail-dot" />
+      <span><b>{shown}</b> people available now</span>
+    </span>
+  );
+}
+
 function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn: boolean; uid: string | null; onStart: (p?: Partial<Draft>) => void }) {
   const [recent, setRecent] = useState<Recent[] | null>(null);
   useEffect(() => {
@@ -359,6 +384,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 160, right: -30 }} />
         <h1 className="mid" style={{ position: "relative", margin: "26px 0 10px" }}>Need a hand?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Get help now with your odd job.</p>
+        <Available />
       </section>
 
       <div className="post-body">
