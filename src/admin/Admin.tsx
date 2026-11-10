@@ -9,7 +9,7 @@ import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit"
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -18,9 +18,9 @@ const STATUS_BADGE: Record<string, string> = {
 export function Admin() {
   const { session, profile, ready } = useSession();
   const [tab, setTab] = useState<Tab>("overview");
-  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0, invoices: 0 });
+  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0, invoices: 0, partners: 0 });
   const recount = useCallback(async () => {
-    const [a, b, c, d, e, f, g] = await Promise.all([
+    const [a, b, c, d, e, f, g, h] = await Promise.all([
       sb.from("id_checks").select("id", { count: "exact", head: true }).eq("status", "pending"),
       sb.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
       sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
@@ -28,8 +28,9 @@ export function Admin() {
       sb.from("fees_owed").select("id", { count: "exact", head: true }).eq("status", "open"),
       sb.from("workers").select("id", { count: "exact", head: true }).eq("needs_review", true),
       sb.from("trade_orders").select("id", { count: "exact", head: true }).eq("status", "requested"),
+      sb.from("partners").select("id", { count: "exact", head: true }).eq("status", "applied"),
     ]);
-    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0, invoices: g.count ?? 0 });
+    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0, invoices: g.count ?? 0, partners: h.count ?? 0 });
   }, []);
   useEffect(() => { if (profile?.is_admin) recount(); }, [profile?.is_admin, recount, tab]);
   // Full-width admin: a fixed side menu grouped by what needs doing, and the page on the right.
@@ -38,7 +39,7 @@ export function Admin() {
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
     { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["launch", "Launch list"]] },
     { label: "Trust", items: [["cancels", "Cancellations", counts.fees], ["strikes", "Strikes", counts.strikes], ["reviews", "Reviews"]] },
-    { label: "Partners", items: [["tradies", "Tradies", counts.invoices]] },
+    { label: "Partners", items: [["partners", "Partners", counts.partners], ["tradies", "Tradies", counts.invoices]] },
     { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
   ];
   const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
@@ -87,6 +88,7 @@ export function Admin() {
         {tab === "strikes" && <Strikes onChanged={recount} />}
         {tab === "reviews" && <Reviews />}
         {tab === "tradies" && <Tradies onChanged={recount} />}
+        {tab === "partners" && <Partners onChanged={recount} />}
       </main>
     </div>
   );
@@ -1147,6 +1149,11 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "trade_quotes_per_job", label: "Prices per job", t: "num", unit: "tradies" },
     { k: "trade_quiet_hours", label: "Job back if the customer doesn't reply in", t: "num", unit: "hours" },
   ] },
+  { title: "Partners", text: "Local businesses that pay monthly to show one offer in the app.", fields: [
+    { k: "partner_cents", label: "Partner, per month", t: "num", unit: "$" },
+    { k: "partner_featured_cents", label: "Featured, per month", t: "num", unit: "$" },
+    { k: "partner_grace_days", label: "Offer stays up unpaid for", hint: "After the paid month ends.", t: "num", unit: "days" },
+  ] },
   { title: "Customers", text: "Checks a customer needs before they can book.", fields: [
     { k: "customer_id_required", label: "ID check required to book", hint: "Off: customers are asked after their first booking.", t: "toggle", on: "true", off: "false" },
   ] },
@@ -1625,6 +1632,184 @@ function TradieDetail({ t, onBack, onChanged }: { t: Tradie; onBack: () => void;
       </div>
       {pick && <SearchPicker title="Change jobs left" value={[]} options={[1, 2, 5, -1, -2].map((n) => ({ id: n, label: n > 0 ? `Add ${n} job${n === 1 ? "" : "s"}` : `Take ${-n} job${n === -1 ? "" : "s"} off` }))}
         onClose={() => setPick(false)} onChange={(v) => adjust(Number(v[0]))} />}
+    </div>
+  );
+}
+
+// ---------- Partners: applications to approve, live offers, payments, and the monthly numbers ----------
+interface PartnerRow {
+  id: number; business_name: string; abn: string; abn_valid: boolean; contact_name: string; email: string; phone: string; business_type: string; website: string | null;
+  plan: "partner" | "featured"; status: string; offer_title: string; offer_terms: string[]; offer_code: string | null; offer_until: string | null; audience: "customers" | "workers" | "both";
+  category_ids: number[]; after_job_line: string | null; address: string | null; suburb_id: number | null; photo_path: string | null; paid_until: string | null; note: string | null;
+  created_at: string; views_30: number; taps_30: number; uses_30: number; invoice_due_id: number | null; invoice_due_cents: number | null; showing: boolean;
+}
+interface PartnerInvoice { id: number; period_start: string; amount_cents: number; status: string; created_at: string; paid_at: string | null }
+const PARTNER_VIEWS: [string, string][] = [["applied", "Applications"], ["live", "Live"], ["due", "Payment due"], ["stopped", "Stopped"], ["all", "All"]];
+const WHO_LABEL: Record<string, string> = { customers: "Customers", workers: "Workers", both: "Customers and workers" };
+const fmtAbn = (a: string) => a.replace(/^(\d{2})(\d{3})(\d{3})(\d{3})$/, "$1 $2 $3 $4");
+
+function Partners({ onChanged }: { onChanged: () => void }) {
+  const toast = useToast();
+  const [view, setView] = useState("applied");
+  const [pick, setPick] = useState(false);
+  const [rows, setRows] = useState<PartnerRow[] | null>(null);
+  const [open, setOpen] = useState<number | null>(null);
+  const load = useCallback(() => { rpc<PartnerRow[]>("admin_partners", { p_view: open ? "all" : view }).then(setRows).catch((e) => toast((e as Error).message)); }, [view, open, toast]);
+  useEffect(() => { load(); }, [load]);
+  const act = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); toast(msg); load(); onChanged(); } catch (e) { toast((e as Error).message); } };
+  const row = open ? rows?.find((r) => r.id === open) : null;
+  if (open && row) return <PartnerDetail p={row} onBack={() => setOpen(null)} onChanged={() => { load(); onChanged(); }} />;
+  if (!rows) return <Loading />;
+  const label = PARTNER_VIEWS.find(([k]) => k === view)?.[1] ?? "";
+  return (
+    <>
+      <button className="cp-select" style={{ height: 44, minWidth: 280, background: "var(--card)" }} onClick={() => setPick(true)}>
+        <span>{label}{view === "applied" ? `, ${rows.length} waiting` : ""}</span>{Icon.down("var(--muted)")}
+      </button>
+      <div style={{ height: 18 }} />
+      {!rows.length ? <AdmEmpty text={view === "applied" ? "No applications waiting." : "Nothing here yet."} /> : view === "applied" ? (
+        <div className="table-wrap"><table className="rows"><thead><tr><th>Business</th><th>Contact</th><th>Offer</th><th>For</th><th>Plan</th><th>ABN</th><th>Sent</th><th /></tr></thead>
+          <tbody>{rows.map((r) => (
+            <tr key={r.id} className="click" onClick={() => setOpen(r.id)}>
+              <td><span className="w5">{r.business_name}</span><br /><span className="light muted">{r.business_type}</span></td>
+              <td className="light">{r.contact_name}</td><td>{r.offer_title}</td><td className="light">{WHO_LABEL[r.audience]}</td>
+              <td><span className={`badge ${r.plan === "featured" ? "g" : ""}`}>{r.plan === "featured" ? "Featured" : "Partner"}</span></td>
+              <td>{r.abn_valid ? <span className="badge g">Valid</span> : <span className="badge r">Not valid</span>}</td>
+              <td className="light">{dayTime(r.created_at)}</td>
+              <td style={{ whiteSpace: "nowrap" }} onClick={(e) => e.stopPropagation()}>
+                <button className="btn stone small" onClick={() => act(() => rpc("admin_partner_decide", { p_id: r.id, p_approve: false }), "Declined")}>Decline</button>{" "}
+                <button className="btn primary small" onClick={() => (r.suburb_id && r.offer_code && r.photo_path ? act(() => rpc("admin_partner_decide", { p_id: r.id, p_approve: true }), "Approved. Their first invoice is ready.") : (toast("Add their suburb, code and photo, then approve"), setOpen(r.id)))}>Approve</button>
+              </td>
+            </tr>))}</tbody></table></div>
+      ) : (
+        <div className="table-wrap"><table className="rows"><thead><tr><th>Business</th><th>Plan</th><th>Offer</th><th>For</th><th>Views, 30 days</th><th>Taps</th><th>Used</th><th>Payment</th><th /></tr></thead>
+          <tbody>{rows.map((r) => (
+            <tr key={r.id} className="click" onClick={() => setOpen(r.id)}>
+              <td className="w5">{r.business_name}</td>
+              <td><span className={`badge ${r.plan === "featured" ? "g" : ""}`}>{r.plan === "featured" ? "Featured" : "Partner"}</span></td>
+              <td>{r.offer_title}</td><td className="light">{WHO_LABEL[r.audience]}</td>
+              <td>{r.views_30}</td><td>{r.taps_30}</td><td className="w5">{r.uses_30}</td>
+              <td>{r.status === "stopped" || r.status === "declined" ? <span className="badge">{r.status === "declined" ? "Declined" : "Stopped"}</span>
+                : r.invoice_due_id ? <span className="badge y">{money2(r.invoice_due_cents ?? 0)} to pay{r.paid_until ? `, due ${day(r.paid_until)}` : ""}</span>
+                : r.status === "applied" ? <span className="badge y">Application</span>
+                : <span className="badge g">Paid to {r.paid_until ? day(r.paid_until) : "—"}</span>}</td>
+              <td style={{ width: 32 }}>{Icon.chevron("var(--faint)")}</td>
+            </tr>))}</tbody></table></div>
+      )}
+      <p className="light muted" style={{ marginTop: 14 }}>{view === "applied" ? "Approving adds their first month's invoice to send them. Their offer goes live when it's marked paid." : "Used means they called, got directions or copied the code. Open a partner to copy their monthly numbers."}</p>
+      {pick && <SearchPicker title="Show" placeholder="Search" options={PARTNER_VIEWS.map(([id, l]) => ({ id, label: l }))} value={[view]}
+        onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
+    </>
+  );
+}
+
+function PartnerDetail({ p, onBack, onChanged }: { p: PartnerRow; onBack: () => void; onChanged: () => void }) {
+  const toast = useToast();
+  const [f, setF] = useState({ ...p, terms: p.offer_terms.join("\n") });
+  useEffect(() => { setF({ ...p, terms: p.offer_terms.join("\n") }); }, [p]);
+  const [cats, setCats] = useState<Category[]>([]);
+  const [subs, setSubs] = useState<{ id: number; name: string; area: string }[]>([]);
+  const [inv, setInv] = useState<PartnerInvoice[]>([]);
+  const [pick, setPick] = useState<null | "who" | "plan" | "cats" | "suburb">(null);
+  const [busy, setBusy] = useState(false);
+  const loadInv = useCallback(() => { rpc<PartnerInvoice[]>("admin_partner_invoices", { p_id: p.id }).then(setInv).catch(() => {}); }, [p.id]);
+  useEffect(() => {
+    sb.from("categories").select("*").order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
+    sb.from("suburbs").select("id,name,areas(name)").order("name").then(({ data }) => setSubs(((data ?? []) as unknown as { id: number; name: string; areas: { name: string } | null }[]).map((x) => ({ id: x.id, name: x.name, area: x.areas?.name ?? "" }))));
+    loadInv();
+  }, [loadInv]);
+  const dirty = JSON.stringify({ ...p, terms: p.offer_terms.join("\n") }) !== JSON.stringify(f);
+  const act = async (fn: () => Promise<unknown>, msg: string) => { setBusy(true); try { await fn(); toast(msg); loadInv(); onChanged(); } catch (e) { toast((e as Error).message); } finally { setBusy(false); } };
+  const save = () => act(() => rpc("admin_partner_save", { p_id: p.id, p: {
+    business_name: f.business_name, offer_title: f.offer_title, offer_terms: f.terms.split("\n").map((x) => x.trim()).filter(Boolean), offer_code: f.offer_code ?? "",
+    offer_until: f.offer_until ?? "", audience: f.audience, plan: f.plan, category_ids: f.category_ids, after_job_line: f.after_job_line ?? "", address: f.address ?? "",
+    suburb_id: f.suburb_id ?? "", photo_path: f.photo_path ?? "", phone: f.phone, website: f.website ?? "" } }), "Saved");
+  const report = () => {
+    const t = `${p.business_name}, last 30 days on Mahi Man\nOffer: ${p.offer_title}\nSeen by ${p.views_30} people\nOpened by ${p.taps_30}\nUsed by ${p.uses_30} (called you, got directions or copied your code)`;
+    navigator.clipboard?.writeText(t).then(() => toast("Copied. Paste it in an email."), () => toast(t));
+  };
+  const In = ({ k, label, ph, wide }: { k: "business_name" | "offer_title" | "offer_code" | "after_job_line" | "address" | "phone" | "website"; label: string; ph?: string; wide?: boolean }) => (
+    <label className="field" style={wide ? { gridColumn: "1 / -1" } : undefined}><span className="k">{label}</span>
+      <input value={(f[k] as string | null) ?? ""} placeholder={ph} onChange={(e) => setF({ ...f, [k]: k === "offer_code" ? e.target.value.toUpperCase() : e.target.value })} /></label>
+  );
+  const Sel = ({ label, value, on }: { label: string; value: string; on: () => void }) => (
+    <button className="field sel" onClick={on}><span className="k">{label}</span><span className={value ? "v w4" : "v ph"}>{value || "Pick"}</span></button>
+  );
+  const sub = subs.find((x) => x.id === f.suburb_id);
+  return (
+    <div className="u-page">
+      <button className="u-back" onClick={onBack}>{Icon.back("var(--emerald)")} All partners</button>
+      <div className="u-head">
+        <label style={{ cursor: "pointer" }}>
+          {brandUrl(f.photo_path) ? <img src={brandUrl(f.photo_path)!} alt="" style={{ width: 120, height: 90, objectFit: "cover", borderRadius: 4, display: "block" }} />
+            : <span className="small em w5" style={{ display: "flex", width: 120, height: 90, borderRadius: 4, background: "var(--card)", alignItems: "center", justifyContent: "center" }}>Add photo</span>}
+          <input type="file" accept="image/*" hidden onChange={async (e) => { const file = e.target.files?.[0]; e.target.value = ""; if (!file) return; try { const path = await uploadBrand(file, `partner-${p.id}`); setF((x) => ({ ...x, photo_path: path })); } catch (er) { toast((er as Error).message); } }} />
+        </label>
+        <div className="stack" style={{ gap: 6, flex: 1, minWidth: 0 }}>
+          <h2>{p.business_name}</h2>
+          <span className="light muted">{p.contact_name}, {p.email}, {p.phone}</span>
+          <span className="light muted">ABN {fmtAbn(p.abn)} {p.abn_valid ? "" : "(not valid)"} · {p.business_type}{p.website ? ` · ${p.website}` : ""}</span>
+        </div>
+        <div className="row" style={{ gap: 8, alignSelf: "flex-start", flexWrap: "wrap" }}>
+          {p.status === "applied" && <>
+            <button className="btn stone" disabled={busy || dirty} onClick={() => act(() => rpc("admin_partner_decide", { p_id: p.id, p_approve: false }), "Declined")}>Decline</button>
+            <button className="btn primary" disabled={busy || dirty} onClick={() => act(() => rpc("admin_partner_decide", { p_id: p.id, p_approve: true }), "Approved. Their first invoice is ready.")}>Approve</button>
+          </>}
+          {(p.status === "live" || p.status === "approved") && <button className="btn stone" disabled={busy} onClick={() => act(() => rpc("admin_partner_stop", { p_id: p.id }), "Stopped. The offer is down.")}>Stop</button>}
+          {p.status === "stopped" && <button className="btn stone" disabled={busy} onClick={() => act(() => rpc("admin_partner_restart", { p_id: p.id }), "Restarted. A new invoice is ready.")}>Restart</button>}
+          {p.status === "live" && <button className="btn stone" onClick={report}>Copy monthly numbers</button>}
+        </div>
+      </div>
+      {p.status !== "applied" && (
+        <div className="stats" style={{ marginBottom: 0 }}>
+          <Stat n={p.showing ? "Showing" : "Not showing"} l={p.paid_until ? `Paid to ${day(p.paid_until)}` : "Not paid yet"} />
+          <Stat n={p.views_30} l="Seen, 30 days" /><Stat n={p.taps_30} l="Opened, 30 days" /><Stat n={p.uses_30} l="Used, 30 days" />
+        </div>
+      )}
+      <section className="set-group" style={{ borderBottom: 0 }}>
+        <div className="set-about"><h3>The offer</h3><p>What people see in the app. The code is only shown once someone opens the offer.</p></div>
+        <div className="set-card" style={{ padding: 18, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 12 }}>
+          {In({ k: "offer_title", label: "Offer", wide: true })}
+          {In({ k: "offer_code", label: "Code", ph: "MAHI10" })}
+          <label className="field"><span className="k">Until</span><input type="date" value={f.offer_until ?? ""} onChange={(e) => setF({ ...f, offer_until: e.target.value || null })} /></label>
+          <label className="field" style={{ gridColumn: "1 / -1", minHeight: 96, justifyContent: "flex-start" }}><span className="k">Terms, one per line</span>
+            <textarea value={f.terms} rows={3} placeholder={"Any skip bin, any size, delivered in Cairns.\nOne use per customer."} onChange={(e) => setF({ ...f, terms: e.target.value })} /></label>
+          <Sel label="Who it's for" value={WHO_LABEL[f.audience]} on={() => setPick("who")} />
+          <Sel label="Plan" value={f.plan === "featured" ? "Featured" : "Partner"} on={() => setPick("plan")} />
+          <Sel label="Show after these jobs" value={cats.filter((c) => f.category_ids.includes(c.id)).map((c) => c.name).join(", ")} on={() => setPick("cats")} />
+          {In({ k: "after_job_line", label: "Line before the offer, after a job", ph: "More to clear?" })}
+          {In({ k: "address", label: "Street address", ph: "14 Grafton St" })}
+          <Sel label="Suburb" value={sub ? `${sub.name}${sub.area ? `, ${sub.area}` : ""}` : ""} on={() => setPick("suburb")} />
+          {In({ k: "phone", label: "Phone, for Call them" })}
+          {In({ k: "website", label: "Website", ph: "Optional" })}
+        </div>
+      </section>
+      {dirty && (
+        <div className="set-bar">
+          <span>Unsaved changes</span>
+          <span className="row" style={{ gap: 10 }}><button className="btn stone" onClick={() => setF({ ...p, terms: p.offer_terms.join("\n") })}>Discard</button><button className="btn primary" disabled={busy} onClick={save}>Save</button></span>
+        </div>
+      )}
+      <h2 className="adm-sub" style={{ margin: "8px 0 0" }}>Invoices</h2>
+      <div className="table-wrap">
+        <table className="rows">
+          <thead><tr><th>Raised</th><th>For the month from</th><th>Amount</th><th>Status</th><th /></tr></thead>
+          <tbody>
+            {inv.map((i) => (
+              <tr key={i.id}>
+                <td className="light">{dayTime(i.created_at)}</td><td>{day(i.period_start)}</td><td className="w5">{money2(i.amount_cents)}</td>
+                <td>{i.status === "paid" ? <span className="badge g">Paid {i.paid_at ? day(i.paid_at) : ""}</span> : i.status === "cancelled" ? <span className="badge">Cancelled</span> : <span className="badge y">To be paid</span>}</td>
+                <td style={{ textAlign: "right" }}>{i.status === "requested" && <button className="btn primary small" disabled={busy} onClick={() => act(() => rpc("admin_partner_paid", { p_invoice: i.id }), "Paid. The offer is live.")}>Mark paid</button>}</td>
+              </tr>
+            ))}
+            {inv.length === 0 && <tr><td colSpan={5} className="muted">No invoices yet. Approving raises the first one.</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {pick === "who" && <SearchPicker title="Who it's for" value={[f.audience]} options={Object.entries(WHO_LABEL).map(([id, label]) => ({ id, label }))} onClose={() => setPick(null)} onChange={(v) => setF({ ...f, audience: String(v[0]) as PartnerRow["audience"] })} />}
+      {pick === "plan" && <SearchPicker title="Plan" value={[f.plan]} options={[{ id: "partner", label: "Partner" }, { id: "featured", label: "Featured" }]} onClose={() => setPick(null)} onChange={(v) => setF({ ...f, plan: String(v[0]) as PartnerRow["plan"] })} />}
+      {pick === "cats" && <SearchPicker title="Show after these jobs" multi placeholder="Search" value={f.category_ids} options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPick(null)} onChange={(v) => setF({ ...f, category_ids: v.map(Number) })} />}
+      {pick === "suburb" && <SearchPicker title="Suburb" placeholder="Search suburbs" value={f.suburb_id ? [f.suburb_id] : []} options={subs.map((x) => ({ id: x.id, label: x.name, hint: x.area }))} onClose={() => setPick(null)} onChange={(v) => setF({ ...f, suburb_id: Number(v[0]) })} />}
     </div>
   );
 }

@@ -28,6 +28,8 @@ export function Privacy() {
         <li>Payments: if you add a card, it is collected and stored by our payment provider, Stripe. We never see or keep your full card number. We keep the card type, last 4 digits and expiry so you can see which card is saved, plus a record of fees charged and refunded.</li>
         <li>Location on the way to a job: when a worker taps "I'm on my way", their phone's location is shared with that job's customer until they enter the start code. It is never collected at any other time, and the trip is deleted when it ends. We keep where and when the trip started, and where the worker was when they tapped "I'm here", so we can settle a late arrival or a customer who wasn't home.</li>
         <li>Trade jobs: the budget a customer sets; each tradie's price, what it includes and when they can come; a tradie's business name if they give one; their plan, invoices, payments and how many jobs they have left.</li>
+        <li>Local offers: which partner offers you see, open and use (call, get directions or copy the code), counted once a day. Partners only ever see totals, never who you are.</li>
+        <li>Partners: the business name, ABN, contact name, email, phone and offer a business sends us when it applies, and its invoices.</li>
         <li>Reliability and cancellations: when a job is cancelled, who cancelled, when, and any fee; a worker's strikes and their "Turns up" score; and any credit a customer has.</li>
         <li>Basic technical information needed to run the app, such as sign-in times.</li>
       </ul>
@@ -97,6 +99,12 @@ export function Terms() {
         <li>Tradies pay Mahi Man for trade jobs upfront, one at a time or on a monthly plan. Sending a price uses one job. The job is given back if the customer doesn't reply within 48 hours or cancels before choosing. It is not given back if the customer chooses the other tradie, says no, or the tradie withdraws their price.</li>
         <li>Monthly plans renew each month until stopped, with no contract. Unused jobs roll over for one month. Until card payments start, plans and jobs are paid by invoice and added once paid. Prices include GST where it applies and can change with notice in the app.</li>
         <li>Once a customer chooses a tradie, the job follows the same rules as every other job, including Cancelling.</li>
+      </ul>
+      <h2>Local offers</h2>
+      <ul>
+        <li>Offers in the app come from local partner businesses, which pay Mahi Man to show them. Each offer is the partner's own, on its own terms; the partner, not Mahi Man, is responsible for honouring it.</li>
+        <li>Partners pay monthly, by invoice until card payments start, with no contract. An offer goes live once the first month is paid and is taken down if a month isn't paid. Prices are shown on the Partner with us page, plus GST.</li>
+        <li>We can decline or remove any offer, for example if it is misleading or not honoured.</li>
       </ul>
       <h2>Licences and live location</h2>
       <ul>

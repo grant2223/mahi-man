@@ -83,6 +83,11 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["Is my card safe?", "Cards are stored by Stripe, our payment provider. We never see or keep your full card number."],
     ["Is there a way to skip the fees?", `Mahi Man Plus, $${(fee.plus / 100).toFixed(2)} a month, has no booking fees and puts your jobs first. It opens with in-app payments.`],
   ]],
+  ["Local offers", [
+    ["What are local offers?", "Deals from local businesses for Mahi Man customers and workers, like money off a skip bin or at the hardware store. Tap the tag at the top of the app to see them."],
+    ["How do I use one?", "Open the offer and show the code at the counter, or quote it when you book. Each business sets its own terms."],
+    ["I own a business. How do I join?", "Apply on our Partner with us page. We check your ABN and offer, usually within a day, and your offer goes live once the first month is paid. No contract."],
+  ]],
   ["Safety and trust", [
     ["Who's coming to my place?", "Someone whose ID we've checked by hand. You see their photo, skills and how past customers rated them before you choose them."],
     ["Who sees my address?", "Only the worker who takes your job. Everyone else sees just your suburb."],
@@ -244,6 +249,7 @@ export function Landing() {
         <div className="ld-wrap ld-foot-in">
           <span className="brand"><Logo /> Mahi Man</span>
           <span className="row" style={{ gap: 20 }}>
+            <a href="/partners" onClick={(e) => { e.preventDefault(); go("/partners"); }}>Partner with us</a>
             <a href="/privacy" onClick={link("/privacy")}>Privacy</a>
             <a href="/terms" onClick={link("/terms")}>Terms</a>
             <a href="/support" onClick={link("/support")}>Help</a>

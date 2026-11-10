@@ -1,5 +1,5 @@
 import { recLine, ScoreStrip, type Scores } from "../ui/Ratings";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { api, firstPhoto, mediaUrls, rpc, sb, type IdStatus, type Job } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
@@ -16,6 +16,7 @@ import { alertsState, askedFor } from "../lib/push";
 import { SideSwitch } from "../ui/SideSwitch";
 import { SettingsIcon } from "../ui/HeaderIcons";
 import { Feed } from "../customer/Feed";
+import { FeedOfferCard, OffersIcon, useFeedOffer } from "../ui/LocalOffers";
 import { TradeFeed, TradeJob, TradeJoin, TradePlan, TradePlans, TradeStrip, TradeWaiting, useTrade } from "./Trade";
 
 
@@ -141,6 +142,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const [tradeScreen, setTradeScreen] = useState<null | "join" | "plans" | "plan" | "feed">(null);
   const [tradeOpen, setTradeOpen] = useState<Offer | null>(null);
   const tradeJobs = offers.filter((o) => o.trade);
+  const feedOffer = useFeedOffer(online);
   const jobs = offers.filter((o) => !o.trade);
 
   useEffect(() => {
@@ -193,6 +195,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
           <span className="row" style={{ gap: 18 }}>
+            <OffersIcon side="work" />
             <MessagesLink />
             <SettingsIcon />
           </span>
@@ -236,8 +239,9 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         </div>
       )}
 
-      {online && jobs.map((o) => (
-        <button key={o.id} className="job-row" onClick={() => setOpen(o)}>
+      {online && jobs.map((o, i) => (<Fragment key={o.id}>
+        {i === 2 && feedOffer && <FeedOfferCard o={feedOffer} />}
+        <button className="job-row" onClick={() => setOpen(o)}>
           <span className={`pic ${o.cover_path && covers[o.cover_path] ? "" : "ph-0"}`} style={o.cover_path && covers[o.cover_path] ? { backgroundImage: `url("${covers[o.cover_path]}")` } : undefined}>
             {o.video_path && <span className="vid"><svg width="10" height="10" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M7 4l13 8-13 8z" /></svg>Video</span>}
           </span>
@@ -250,7 +254,8 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
           </span>
           <span className="p">{money(o.earn_cents)}</span>
         </button>
-      ))}
+      </Fragment>))}
+      {online && jobs.length < 3 && feedOffer && <FeedOfferCard o={feedOffer} />}
 
       {!online && (
         <div className="ticket" style={{ marginTop: 16 }}>

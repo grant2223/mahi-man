@@ -1,3 +1,4 @@
+import { AfterJobOffer } from "../ui/LocalOffers";
 import { useCallback, useEffect, useState } from "react";
 import { api, isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
@@ -196,6 +197,7 @@ export function Track({ id }: { id: string }) {
             ? <button className="btn stone small" onClick={() => { const t = payid ?? `BSB ${bank!.bsb} Account ${bank!.account_number} ${bank!.account_name}`; navigator.clipboard?.writeText(t).then(() => toast("Copied"), () => toast(t)); }}>Copy</button>
             : <button className="btn stone small" onClick={() => setScreen("chat")}>Message</button>}
         </div>
+        <AfterJobOffer jobId={id} />
         <Note icon="clock">{paid
           ? `Once ${wName} confirms they got it, you can both leave a review. If they don't answer within 24 hours, the job closes as paid.`
           : "Cash is fine too. Not happy with the job? Report it before paying. If you do nothing for 48 hours, the job closes as done."}</Note>

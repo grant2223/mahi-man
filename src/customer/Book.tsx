@@ -13,6 +13,7 @@ import { AddCardScreen, CardMark, cardLabel } from "./Cards";
 import { lc } from "../worker/Skills";
 import { SideSwitch } from "../ui/SideSwitch";
 import { HeaderIcons } from "../ui/HeaderIcons";
+import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
 import { PhotoStep } from "../worker/Signup";
 import { AreaPin, useArea, useChangeArea, useHere } from "../lib/area";
 
@@ -375,6 +376,7 @@ function Available() {
 
 function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn: boolean; uid: string | null; onStart: (p?: Partial<Draft>) => void }) {
   const [recent, setRecent] = useState<Recent[] | null>(null);
+  const feedOffer = useFeedOffer(true, "help");
   useEffect(() => {
     if (!uid) { setRecent([]); return; }
     sb.from("jobs").select("id,title,details,skill_ids,included,excluded,price_cents,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
@@ -445,6 +447,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
           </div>
         ) : null}
 
+        {feedOffer && <FeedOfferCard o={feedOffer} side="help" style={{ margin: "0 -16px", width: "calc(100% + 32px)", borderTop: "1px solid var(--line)" }} />}
         <p className="small light muted" style={{ margin: "18px 0 calc(var(--safe-bottom) + 18px)", lineHeight: 1.5 }}>
           <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
           <span className="sep" /><a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>

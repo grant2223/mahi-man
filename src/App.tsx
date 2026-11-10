@@ -1,3 +1,5 @@
+import { PartnerPage } from "./ui/PartnerPage";
+import { OfferDetail, OffersPage } from "./ui/LocalOffers";
 import { Capacitor } from "@capacitor/core";
 import { usePath, go } from "./lib/router";
 import { SessionProvider, useSession } from "./lib/session";
@@ -46,6 +48,7 @@ function Routes() {
   if (path === "/terms") return <Terms />;
   if (path === "/support") return <Support />;
   if (path === "/pricing") return <Pricing />;
+  if (path === "/partners") return <PartnerPage />;
   // Mahi Man is an app. The website is the landing page only; any app screen opened in a browser points to the app.
   if (!Capacitor.isNativePlatform()) return path === "/" ? <Landing /> : <GetAppPage />;
   if (path === "/settings") {
@@ -67,6 +70,8 @@ function Routes() {
   }
   if (path === "/messages" || path.startsWith("/messages/")) return <MessagesPage jobId={path.split("/")[2]} />;
   if (path === "/find") return <Feed />;
+  if (path === "/offers") return <OffersPage />;
+  if (/^\/offers\/\d+$/.test(path)) return <OfferDetail id={Number(path.split("/")[2])} />;
   if (path === "/") {
     // Opens on the side they used last. Everyone else starts on Get help.
     if (lastSide() === "work") {
