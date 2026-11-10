@@ -2,7 +2,7 @@
 // a page reload or the trip to their email to confirm a new account.
 export interface DraftItem { id: string; kind: "photo" | "video"; blob: Blob; name: string }
 
-const DB = "moremahi-draft";
+const DB = "mahiman-draft";
 const STORE = "media";
 
 function open(): Promise<IDBDatabase> {
