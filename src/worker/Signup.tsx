@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { SITE } from "../lib/share";
 import { api, rpc, sb, type IdStatus, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { shrinkImage, validAbn } from "../lib/format";
@@ -160,7 +162,11 @@ function PayoutStep({ done, onBack }: { done: boolean; onBack: () => void }) {
           <button className="btn primary" disabled={busy} onClick={async () => {
             setBusy(true); setErr("");
             try {
-              const r = await api<{ url: string }>("worker_payouts", { return_url: location.origin + "/work?payouts=1" });
+              // Stripe only returns to a web address. In the app it opens in the browser and comes back to a page that
+              // says to return to Mahi Man; Work re-checks payouts with Stripe when the app is opened again.
+              const native = Capacitor.isNativePlatform();
+              if (native) try { localStorage.setItem("mm-payouts", "1"); } catch { /* private mode */ }
+              const r = await api<{ url: string }>("worker_payouts", { return_url: native ? `${SITE}/payouts-done` : location.origin + "/work?payouts=1" });
               location.href = r.url;
             } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
           }}>{done ? "Update details" : "Start"} {Icon.arrow("#fff")}</button>

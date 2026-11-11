@@ -7,6 +7,9 @@
 		"contentInset": "never",
 		"limitsNavigationsToAppBoundDomains": false
 	},
+	"android": {
+		"useLegacyBridge": true
+	},
 	"plugins": {
 		"Keyboard": {
 			"resize": "native",
@@ -23,6 +26,7 @@
 	"packageClassList": [
 		"SignInWithApple",
 		"BackgroundGeolocation",
+		"AppPlugin",
 		"KeyboardPlugin",
 		"PushNotificationsPlugin",
 		"SharePlugin"

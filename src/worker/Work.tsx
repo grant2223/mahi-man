@@ -49,7 +49,9 @@ export function Work() {
     const uid = session.user.id;
     const since = new Date(Date.now() - 7 * 864e5).toISOString();
     // Everything at once. Back from Stripe, the edge function also re-checks payouts with Stripe.
-    const status = (location.search.includes("payouts=1") ? api<WorkerStatus>("worker_status") : rpc<WorkerStatus>("worker_status"))
+    let back = location.search.includes("payouts=1");
+    try { if (localStorage.getItem("mm-payouts")) { back = true; localStorage.removeItem("mm-payouts"); } } catch { /* private mode */ }
+    const status = (back ? api<WorkerStatus>("worker_status") : rpc<WorkerStatus>("worker_status"))
       .then(setStatus).catch((e) => setErr(e instanceof Error ? e.message : String(e)));
     const [, cur, open, closed] = await Promise.all([
       status,
@@ -68,6 +70,13 @@ export function Work() {
 
   useEffect(() => {
     if (session && profile?.is_worker) refresh();
+  }, [session, profile?.is_worker, refresh]);
+
+  // Back in the app after setting up payouts in the browser.
+  useEffect(() => {
+    const on = () => { if (document.visibilityState === "visible" && session && profile?.is_worker) refresh(); };
+    document.addEventListener("visibilitychange", on);
+    return () => document.removeEventListener("visibilitychange", on);
   }, [session, profile?.is_worker, refresh]);
 
   useEffect(() => {

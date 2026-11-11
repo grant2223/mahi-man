@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
+import { Capacitor } from "@capacitor/core";
 import { brandUrl, rpc } from "../lib/supabase";
 import { go } from "../lib/router";
 import { useArea } from "../lib/area";
@@ -117,7 +118,7 @@ export function OfferDetail({ id }: { id: number }) {
         {until && <div className="price-li">{Icon.tick("var(--emerald)", 20)}<span><b>Until {until}.</b></span></div>}
       </div>
       <ActionBar>
-        <a className="btn stone" style={{ flex: 1 }} href={`https://maps.apple.com/?q=${mapQ}`} target="_blank" rel="noreferrer" onClick={used}>{Icon.pin("var(--ink)")} Directions</a>
+        <a className="btn stone" style={{ flex: 1 }} href={Capacitor.getPlatform() === "android" ? `https://www.google.com/maps/search/?api=1&query=${mapQ}` : `https://maps.apple.com/?q=${mapQ}`} target="_blank" rel="noreferrer" onClick={used}>{Icon.pin("var(--ink)")} Directions</a>
         <a className="btn primary" style={{ flex: 1 }} href={`tel:${o.phone.replace(/[^\d+]/g, "")}`} onClick={used}>Call them</a>
       </ActionBar>
     </div>

@@ -14,7 +14,7 @@ import { Work } from "./worker/Work";
 import { Admin } from "./admin/Admin";
 import { Settings } from "./ui/Settings";
 import { VerifyPage } from "./ui/Verify";
-import { Privacy, Support, Terms } from "./ui/Legal";
+import { PayoutsDone, Privacy, Support, Terms } from "./ui/Legal";
 import { Pricing } from "./ui/Pricing";
 import { lastSide } from "./ui/SideSwitch";
 import { GetAppPage, Landing } from "./ui/Landing";
@@ -47,6 +47,7 @@ function Routes() {
   if (path === "/privacy") return <Privacy />;
   if (path === "/terms") return <Terms />;
   if (path === "/support") return <Support />;
+  if (path === "/payouts-done") return <PayoutsDone />;
   if (path === "/pricing") return <Pricing />;
   if (path === "/partners") return <PartnerPage />;
   // Mahi Man is an app. The website is the landing page only; any app screen opened in a browser points to the app.

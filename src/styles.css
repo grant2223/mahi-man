@@ -16,8 +16,8 @@
   --shadow: 0 2px 4px rgba(20, 24, 28, 0.06), 0 18px 40px rgba(20, 24, 28, 0.16);
   --radius: 6px;
   --r-control: 4px;
-  --safe-top: env(safe-area-inset-top, 0px);
-  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --safe-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
   color-scheme: light;
 }
 

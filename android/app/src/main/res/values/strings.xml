@@ -1,0 +1,8 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Mahi Man</string>
+    <string name="title_activity_main">Mahi Man</string>
+    <string name="package_name">com.mahiman.app</string>
+    <string name="custom_url_scheme">com.mahiman.app</string>
+    <string name="capacitor_background_geolocation_notification_channel_name">Trip to a job</string>
+</resources>

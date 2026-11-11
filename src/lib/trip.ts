@@ -1,6 +1,6 @@
-import { Capacitor, registerPlugin } from "@capacitor/core";
+import { Capacitor, CapacitorHttp, registerPlugin } from "@capacitor/core";
 import type { BackgroundGeolocationPlugin } from "@capacitor-community/background-geolocation";
-import { rpc } from "./supabase";
+import { rpc, sb, SUPABASE_KEY, SUPABASE_URL } from "./supabase";
 
 /* The worker's trip to a job: their location is sent to the customer from "I'm on my way" until the start code.
    It keeps going while the worker drives with Maps open (iOS shows the blue location pill). */
@@ -14,12 +14,26 @@ let lastSent = 0;
 export const tripJob = (): string | null => { try { return localStorage.getItem(KEY); } catch { return null; } };
 const setTripJob = (id: string | null) => { try { id ? localStorage.setItem(KEY, id) : localStorage.removeItem(KEY); } catch { /* private mode */ } };
 
+/* Android slows the web view's own requests after a few minutes in the background, which would freeze the customer's
+   map while the worker drives with Maps in front. Sending through the native HTTP client keeps the updates going. */
+async function nativeRpc<T>(fn: string, args: Record<string, unknown>): Promise<T> {
+  const { data } = await sb.auth.getSession();
+  const r = await CapacitorHttp.post({
+    url: `${SUPABASE_URL}/rest/v1/rpc/${fn}`,
+    headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${data.session?.access_token ?? SUPABASE_KEY}`, "Content-Type": "application/json" },
+    data: args,
+  });
+  if (r.status >= 400) throw new Error(`${fn} failed (${r.status})`);
+  return r.data as T;
+}
+
 async function send(jobId: string, lat: number, lng: number, heading: number | null, accuracy: number | null) {
   // At most every 5 seconds: smooth on the map, light on the battery.
   if (Date.now() - lastSent < 5000) return;
   lastSent = Date.now();
   try {
-    const keep = await rpc<boolean>("share_location", { p_job: jobId, p_lat: lat, p_lng: lng, p_heading: heading, p_accuracy: accuracy });
+    const args = { p_job: jobId, p_lat: lat, p_lng: lng, p_heading: heading, p_accuracy: accuracy };
+    const keep = Capacitor.getPlatform() === "android" ? await nativeRpc<boolean>("share_location", args) : await rpc<boolean>("share_location", args);
     if (keep === false) await stopTrip(jobId); // arrived, cancelled or reassigned
   } catch { /* offline for a moment: the next update tries again */ }
 }

@@ -9,6 +9,10 @@ const config: CapacitorConfig = {
     contentInset: "never",
     limitsNavigationsToAppBoundDomains: false,
   },
+  android: {
+    // Keeps trip location updates flowing while the worker drives with Maps in front (background-geolocation plugin).
+    useLegacyBridge: true,
+  },
   plugins: {
     // The app shrinks above the keyboard instead of sliding under the status bar.
     Keyboard: { resize: "native", resizeOnFullScreen: true },

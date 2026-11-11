@@ -3,7 +3,7 @@ import { go } from "../lib/router";
 import { StepHero } from "./kit";
 
 export const SUPPORT_EMAIL = "hello@mahiman.app";
-const UPDATED = "7 November 2026";
+const UPDATED = "11 November 2026";
 
 function Page({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -26,6 +26,7 @@ export function Privacy() {
         <li>Messages you send through the app.</li>
         <li>Workers: PayID or bank account (shown to a customer only once their job is done), ABN if you give one, suburb and travel distance, the job types you do with your skills, experience and gear, and any licences or certificates you add (a photo, the number and the expiry date). These are checked by the Mahi Man team and only "verified" is shown to customers.</li>
         <li>Payments: if you add a card, it is collected and stored by our payment provider, Stripe. We never see or keep your full card number. We keep the card type, last 4 digits and expiry so you can see which card is saved, plus a record of fees charged and refunded.</li>
+        <li>Location when you open the app: your phone's location is used on your phone to open on your area and the jobs near you. It isn't sent to us.</li>
         <li>Location on the way to a job: when a worker taps "I'm on my way", their phone's location is shared with that job's customer until they enter the start code. It is never collected at any other time, and the trip is deleted when it ends. We keep where and when the trip started, and where the worker was when they tapped "I'm here", so we can settle a late arrival or a customer who wasn't home.</li>
         <li>Trade jobs: the budget a customer sets; each tradie's price, what it includes and when they can come; a tradie's business name if they give one; their plan, invoices, payments and how many jobs they have left.</li>
         <li>Local offers: which partner offers you see, open and use (call, get directions or copy the code), counted once a day. Partners only ever see totals, never who you are.</li>
@@ -48,7 +49,7 @@ export function Privacy() {
       <h2>Voice input</h2>
       <p>If you use "Just say it", your phone's speech service turns your voice into text, and the text may be tidied up by an AI service before you see it. You can always edit it, or type instead.</p>
       <h2>Where it is stored</h2>
-      <p>Your information is stored with our hosting provider, Supabase, in its Sydney, Australia region. Cards and payments are handled by Stripe. Maps are shown with Apple Maps. Some service providers we use may process information outside Australia.</p>
+      <p>Your information is stored with our hosting provider, Supabase, in its Sydney, Australia region. Cards and payments are handled by Stripe. Maps are shown with Apple Maps, and directions open in your phone's maps app. Some service providers we use may process information outside Australia.</p>
       <h2>Keeping and deleting</h2>
       <p>You can delete your account at any time in Settings. This deletes your profile, photos, ID check, messages and reviews straight away. Jobs you finished stay in the other person's history without your name.</p>
       <h2>Your rights</h2>
@@ -127,6 +128,16 @@ export function Terms() {
   );
 }
 
+// Where Stripe sends a worker after payout setup started in the app.
+export function PayoutsDone() {
+  return (
+    <Page title="Payouts set up">
+      <p>Thanks, your payout details are saved with Stripe.</p>
+      <p>Go back to the Mahi Man app to keep going. If anything still needs doing, it'll show there.</p>
+    </Page>
+  );
+}
+
 export function Support() {
   return (
     <Page title="Help">
@@ -137,8 +148,11 @@ export function Support() {
       <h2>Common questions</h2>
       <p><b className="w5">When do I pay?</b> When the job is finished, directly to your worker by bank transfer or cash. Never before.</p>
       <p><b className="w5">What if the job is bigger than booked?</b> Your worker asks for the extra in the app. Nothing extra is owed unless you approve it.</p>
-      <p><b className="w5">How do I delete my account?</b> Settings, then Delete account.</p>
       <p><b className="w5">How do I become a worker?</b> Go to <a href="/work" onClick={(e) => { e.preventDefault(); go("/work"); }}>Work with Mahi Man</a>. You'll need a photo, your passport or national ID, and your PayID or bank account.</p>
+      <h2 id="delete">Delete your account</h2>
+      <p>In the app: Settings, then Delete account. It's deleted straight away.</p>
+      <p>Can't get into the app? Email <a href={`mailto:${SUPPORT_EMAIL}?subject=Delete%20my%20Mahi%20Man%20account`}>{SUPPORT_EMAIL}</a> from the email address you signed up with and we'll delete it within 7 days.</p>
+      <p>Deleting removes your profile, photos, ID check, messages and reviews. Jobs you finished stay in the other person's history without your name, and records of fees and payments are kept as long as the law requires.</p>
     </Page>
   );
 }
