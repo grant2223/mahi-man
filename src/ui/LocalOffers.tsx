@@ -19,12 +19,6 @@ export const TagIcon = ({ c = "#fff", s = 26 }: { c?: string; s?: number }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" {...S} stroke={c} aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z" /><circle cx="7.5" cy="8.5" r="1.4" /></svg>
 );
 
-// The tag in the header. Workers see worker offers; everyone else, customer offers.
-export function OffersIcon({ side = "help" }: { side?: "help" | "work" }) {
-  const to = side === "work" ? "/offers?side=work" : "/offers";
-  return <a className="hero-icon" href={to} aria-label="Local offers" onClick={(e) => { e.preventDefault(); go(to); }}><TagIcon /></a>;
-}
-
 const where = (o: PartnerOffer) => [o.business, o.km != null ? `${o.km} km` : o.suburb].filter(Boolean).join(" · ");
 const Pic = ({ o, w, h }: { o: PartnerOffer; w: number | string; h: number }) => {
   const url = brandUrl(o.photo);
@@ -34,20 +28,27 @@ const Pic = ({ o, w, h }: { o: PartnerOffer; w: number | string; h: number }) =>
 
 // 1. The Offers page.
 export function OffersPage() {
-  const side = new URLSearchParams(location.search).get("side") === "work" ? "work" : "help";
+  // Opened from Settings: workers see offers for both sides, everyone else the customer offers.
+  const param = new URLSearchParams(location.search).get("side");
+  const side = param === "work" ? "work" : param === "all" ? "all" : "help";
   const { area } = useArea();
   const [list, setList] = useState<PartnerOffer[] | null>(null);
   const [q, setQ] = useState("");
-  useEffect(() => { rpc<PartnerOffer[]>("partner_offers", { p_side: side }).then((r) => setList(r ?? [])).catch(() => setList([])); }, [side]);
+  useEffect(() => {
+    const sides = side === "all" ? ["help", "work"] : [side];
+    Promise.all(sides.map((p) => rpc<PartnerOffer[]>("partner_offers", { p_side: p }).then((r) => r ?? [])))
+      .then((rs) => { const seen = new Set<number>(); setList(rs.flat().filter((o) => !seen.has(o.id) && seen.add(o.id)).sort((a, b) => Number(b.featured) - Number(a.featured))); })
+      .catch(() => setList([]));
+  }, [side]);
   const shown = (list ?? []).filter((o) => !q || `${o.title} ${o.business} ${o.type}`.toLowerCase().includes(q.toLowerCase()));
   const featured = shown.find((o) => o.featured);
   const rest = shown.filter((o) => o !== featured);
   return (
     <div className="app" style={{ background: "var(--card)" }}>
       <section className="hero" style={{ paddingBottom: 24 }}>
-        <div className="hero-top"><button className="back" onClick={() => (history.length > 1 ? history.back() : go(side === "work" ? "/work" : "/"))} aria-label="Back">{Icon.back("#fff")}</button></div>
+        <div className="hero-top"><button className="back" onClick={() => (history.length > 1 ? history.back() : go("/settings"))} aria-label="Back">{Icon.back("#fff")}</button></div>
         <h1 className="mid" style={{ margin: "22px 0 6px" }}>Local offers</h1>
-        <p className="lede" style={{ margin: 0 }}>From {area?.name ?? "local"} businesses, for Mahi Man {side === "work" ? "workers" : "customers"}.</p>
+        <p className="lede" style={{ margin: 0 }}>From {area?.name ?? "local"} businesses, for Mahi Man {side === "work" ? "workers" : side === "all" ? "customers and workers" : "customers"}.</p>
       </section>
       {!list ? <Loading /> : !list.length ? (
         <p className="t17 light" style={{ padding: "24px 16px", margin: 0, lineHeight: 1.45 }}>No offers near you yet. New ones show here.</p>

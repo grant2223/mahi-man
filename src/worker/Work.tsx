@@ -16,7 +16,7 @@ import { alertsState, askedFor } from "../lib/push";
 import { SideSwitch } from "../ui/SideSwitch";
 import { SettingsIcon } from "../ui/HeaderIcons";
 import { Feed } from "../customer/Feed";
-import { FeedOfferCard, OffersIcon, useFeedOffer } from "../ui/LocalOffers";
+import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
 import { TradeFeed, TradeJob, TradeJoin, TradePlan, TradePlans, TradeStrip, TradeWaiting, useTrade } from "./Trade";
 
 
@@ -195,7 +195,6 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
           <span className="row" style={{ gap: 18 }}>
-            <OffersIcon side="work" />
             <MessagesLink />
             <SettingsIcon />
           </span>

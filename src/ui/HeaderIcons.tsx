@@ -1,8 +1,7 @@
 import { go } from "../lib/router";
 import { MessagesLink } from "./Messages";
-import { OffersIcon } from "./LocalOffers";
 
-// Small white icons in the top bar instead of labelled buttons, so the header stays clear.
+// Small white icons in the top bar, left to right: My jobs, Messages, Settings.
 const S = { width: 26, height: 26, viewBox: "0 0 24 24", fill: "none", stroke: "#fff", strokeWidth: 1.8, strokeLinecap: "round" as const, strokeLinejoin: "round" as const, "aria-hidden": true };
 
 export function JobsIcon() {
@@ -18,5 +17,5 @@ export function SettingsIcon() {
 }
 
 export function HeaderIcons({ jobs = true }: { jobs?: boolean }) {
-  return <span className="row hero-icons"><OffersIcon /><MessagesLink />{jobs && <JobsIcon />}<SettingsIcon /></span>;
+  return <span className="row hero-icons">{jobs && <JobsIcon />}<MessagesLink /><SettingsIcon /></span>;
 }

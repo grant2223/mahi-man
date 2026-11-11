@@ -75,6 +75,7 @@ export function Settings() {
             {alerts === "prompt" && Icon.chevron("var(--faint)")}
           </button>
         )}
+        <button className="choice" onClick={() => go(profile.is_worker ? "/offers?side=all" : "/offers")}><span className="t"><b>Local offers</b><span>Deals from local businesses</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>Mahi Man Plus</b><span>No booking fees, priority on every job</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>How it works and what it costs</b></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={async () => { const r = await shareLink(inviteText, SITE); if (r === "copied") toast("Link copied. Paste it in a message."); }}><span className="t"><b>Invite a mate</b><span>Send a friend the link</span></span>{Icon.chevron("var(--faint)")}</button>
