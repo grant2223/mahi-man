@@ -179,28 +179,7 @@ export function Landing() {
         </div>
       </section>
 
-      <section className="ld-sec alt" id="how">
-        <div className="ld-wrap">
-          <h2>How it works.</h2>
-          <span className="ld-who">Customers simply post a job, select help, job done!</span>
-          <div className="ld-steps">
-            {[["Post a job", "Add a photo, say what needs doing and set your price."],
-              ["Select help", "People who are available say so. See their photo, reviews and skills, and choose."],
-              ["Job done", "Check the after photos and pay when you're happy."]].map(([b, t], i) => (
-              <div key={b} className="ld-step"><span className="ld-n">{i + 1}</span><b>{b}</b><span>{t}</span></div>
-            ))}
-          </div>
-          <span className="ld-who">Workers simply see the work available, accept the job, get paid!</span>
-          <div className="ld-steps">
-            {[["See the work", "Switch on when you're available and see the jobs near you."],
-              ["Accept the job", "Say you're keen on the ones you want. The customer picks who goes."],
-              ["Get paid", "Do the job, add the after photos, and get paid to your bank."]].map(([b, t], i) => (
-              <div key={b} className="ld-step"><span className="ld-n">{i + 1}</span><b>{b}</b><span>{t}</span></div>
-            ))}
-          </div>
-          <a className="btn primary" href="/post" onClick={link("/post")}>Post a job, free {Icon.arrow("#fff")}</a>
-        </div>
-      </section>
+      <HowItWorks link={link} />
 
       <section className="ld-earn" id="earn">
         <div className="ld-wrap ld-earn-in">
@@ -350,5 +329,44 @@ export function GetAppPage() {
       </div></header>
       <GetApp full />
     </div>
+  );
+}
+
+// How it works: the real app screens for each step, customers and workers on their own tab.
+const HOW = {
+  help: { tab: "Get help", line: "Post a job, select help, job done.", cta: ["Post a job, free", "/post"], steps: [
+    ["Post a job", "Add a photo, say what needs doing and set your price.", "/how/post.jpg"],
+    ["Select help", "People who are available say so. See their photo, reviews and skills, and choose.", "/how/choose.jpg"],
+    ["Job done", "Check the after photos and pay when you're happy.", "/how/done.jpg"]] },
+  work: { tab: "Do work", line: "See the work, accept the job, get paid.", cta: ["See jobs near you", "/find"], steps: [
+    ["See the work", "Switch on when you're available and see the jobs near you.", "/how/find.jpg"],
+    ["Accept the job", "Say you're keen on the ones you want. The customer picks who goes.", "/how/keen.jpg"],
+    ["Get paid", "Do the job, add the after photos, and get paid to your bank.", "/how/paid.jpg"]] },
+} as const;
+type Side = keyof typeof HOW;
+
+function HowItWorks({ link }: { link: (to: string) => (e: React.MouseEvent) => void }) {
+  const [side, setSide] = useState<Side>("help");
+  const d = HOW[side];
+  const tabs = (
+    <div className="hw-tabs" role="tablist">
+      {(Object.keys(HOW) as Side[]).map((k) => <button key={k} role="tab" aria-selected={side === k} className={side === k ? "on" : ""} onClick={() => setSide(k)}>{HOW[k].tab}</button>)}
+    </div>
+  );
+  const cta = <a className="btn primary" href={d.cta[1]} onClick={link(d.cta[1])}>{d.cta[0]} {Icon.arrow("#fff")}</a>;
+  return (
+    <section className="ld-sec alt" id="how"><div className="ld-wrap">
+      <div className="hw-head"><h2>How it works.</h2>{tabs}</div>
+      <p className="hw-line">{d.line}</p>
+      <div className="hw-a">
+        {d.steps.map(([t, x, img], i) => (
+          <div key={t} className="hw-a-step">
+            <div className="hw-phone"><img src={img} alt={t} /></div>
+            <div className="hw-a-t"><span className="ld-n">{i + 1}</span><span><b>{t}</b><span>{x}</span></span></div>
+          </div>
+        ))}
+      </div>
+      {cta}
+    </div></section>
   );
 }
