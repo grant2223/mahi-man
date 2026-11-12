@@ -12,6 +12,7 @@ import { Track } from "./customer/Track";
 import { MyJobs } from "./customer/MyJobs";
 import { Work } from "./worker/Work";
 import { Admin } from "./admin/Admin";
+import { MyCode } from "./ui/MyCode";
 import { Settings } from "./ui/Settings";
 import { VerifyPage } from "./ui/Verify";
 import { PayoutsDone, Privacy, Support, Terms } from "./ui/Legal";
@@ -27,8 +28,10 @@ void startPush();
 function GetRedirect() {
   useEffect(() => {
     const ios = /iPhone|iPad|iPod/.test(navigator.userAgent), android = /Android/.test(navigator.userAgent);
-    sb.from("settings").select("key,value").in("key", ["app_store_url", "play_store_url"]).then(({ data }) => {
-      const url = data?.find((r) => r.key === (ios ? "app_store_url" : android ? "play_store_url" : ""))?.value;
+    sb.from("settings").select("key,value").in("key", ["app_store_url", "play_store_url", "testflight_url"]).then(({ data }) => {
+      const v = (k: string) => data?.find((r) => r.key === k)?.value || "";
+      // Until Mahi Man is in the App Store, iPhones go to the TestFlight pilot.
+      const url = ios ? v("app_store_url") || v("testflight_url") : android ? v("play_store_url") : "";
       if (url) location.replace(url); else location.replace("/#app");
     });
   }, []);
@@ -52,6 +55,7 @@ function Routes() {
   if (path === "/partners") return <PartnerPage />;
   // Mahi Man is an app. The website is the landing page only; any app screen opened in a browser points to the app.
   if (!Capacitor.isNativePlatform()) return path === "/" ? <Landing /> : <GetAppPage />;
+  if (path === "/code") return <MyCode />;
   if (path === "/settings") {
     if (ready && !session) { go("/", true); return null; }
     return <Settings />;

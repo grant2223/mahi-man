@@ -286,36 +286,77 @@ function GetApp({ full }: { full?: boolean }) {
   );
 }
 
+const TESTFLIGHT_APP = "https://apps.apple.com/app/testflight/id899247664";
+
+// Join the launch: name and email, then the link to get the app straight away (the iPhone pilot runs on TestFlight).
 function JoinLaunch({ full }: { full?: boolean }) {
   const [f, setF] = useState({ first: "", last: "", email: "" });
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [done, setDone] = useState("");
+  const [done, setDone] = useState<{ first: string; link: string | null } | null>(null);
   async function submit(e: React.FormEvent) {
     e.preventDefault(); setErr(""); setBusy(true);
-    try { await rpc("join_launch", { p_first: f.first, p_last: f.last, p_email: f.email }); setDone(f.first.trim()); }
+    try { const link = await rpc<string | null>("join_launch", { p_first: f.first, p_last: f.last, p_email: f.email }); setDone({ first: f.first.trim(), link: link || null }); }
     catch (x) { setErr(x instanceof Error ? x.message : String(x)); } finally { setBusy(false); }
   }
   return (
     <section className={`ld-app${full ? " full" : ""}`} id="app">
       <div className="ld-wrap">
-        <div className="ld-app-text">
-          <h2>Join the launch.</h2>
-          <p>Mahi Man opens first to a pilot group on iPhone and Android. Leave your details and we'll email you the link to get the app.</p>
-        </div>
-        {done ? (
-          <div className="ld-joined">{Icon.shieldTick("var(--emerald)")}<span><b>You're on the list, {done}.</b><span>Watch your inbox for the link to get the app.</span></span></div>
-        ) : (
-          <form className="ld-join" onSubmit={submit}>
-            <input aria-label="First name" placeholder="First name" autoComplete="given-name" value={f.first} onChange={(e) => setF({ ...f, first: e.target.value })} required />
-            <input aria-label="Last name" placeholder="Last name" autoComplete="family-name" value={f.last} onChange={(e) => setF({ ...f, last: e.target.value })} required />
-            <input aria-label="Email" placeholder="Email" type="email" autoComplete="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required />
-            <button className="btn primary" disabled={busy}>{busy ? "Joining…" : "Join the launch"}</button>
-          </form>
+        {done?.link ? <JoinedGetApp first={done.first} link={done.link} /> : (
+          <>
+            <div className="ld-app-text">
+              <h2>Join the launch.</h2>
+              <p>Mahi Man opens first to a pilot group. Join and get the app straight away.</p>
+            </div>
+            {done ? (
+              <div className="ld-joined">{Icon.shieldTick("var(--emerald)")}<span><b>You're on the list, {done.first}.</b><span>The app link is on its way.</span></span></div>
+            ) : (
+              <form className="ld-join" onSubmit={submit}>
+                <input aria-label="First name" placeholder="First name" autoComplete="given-name" value={f.first} onChange={(e) => setF({ ...f, first: e.target.value })} required />
+                <input aria-label="Last name" placeholder="Last name" autoComplete="family-name" value={f.last} onChange={(e) => setF({ ...f, last: e.target.value })} required />
+                <input aria-label="Email" placeholder="Email" type="email" autoComplete="email" value={f.email} onChange={(e) => setF({ ...f, email: e.target.value })} required />
+                <button className="btn primary" disabled={busy}>{busy ? "Joining…" : "Join the launch"}</button>
+              </form>
+            )}
+            {err && <p className="ld-join-err">{err}</p>}
+          </>
         )}
-        {err && <p className="ld-join-err">{err}</p>}
       </div>
     </section>
+  );
+}
+
+// After joining: three steps to the app. On a computer, a code to scan with the iPhone.
+function JoinedGetApp({ first, link }: { first: string; link: string }) {
+  const [svg, setSvg] = useState("");
+  const onPc = desktop();
+  const android = /Android/.test(navigator.userAgent);
+  useEffect(() => { if (onPc) QRCode.toString(link, { type: "svg", margin: 0, color: { dark: "#14211c", light: "#00000000" } }).then(setSvg); }, [link, onPc]);
+  if (android) return (
+    <div className="ld-app-text"><h2>You're in, {first}.</h2><p>The pilot is on iPhone first. Mahi Man is coming to Android, and you're on the list for it.</p></div>
+  );
+  const steps: [string, string, string | null][] = [
+    ["Get TestFlight", "Apple's free app for trying apps before they're in the App Store.", onPc ? null : TESTFLIGHT_APP],
+    ["Get Mahi Man", "Opens in TestFlight. Tap Accept, then Install.", onPc ? null : link],
+    ["Open Mahi Man and sign up", "Add your photo and you're ready to post a job or find work.", null],
+  ];
+  return (
+    <div className="ld-got">
+      <div className="ld-got-text">
+        <h2>You're in, {first}.</h2>
+        <p>{onPc ? "Scan the code with your iPhone camera, then follow the steps." : "Three steps and you're on Mahi Man."}</p>
+        <ol className="ld-got-steps">
+          {steps.map(([t, x, href], i) => (
+            <li key={t}>
+              <span className="ld-n">{i + 1}</span>
+              <span className="ld-got-t"><b>{t}</b><span>{x}</span></span>
+              {href && <a className={`btn ${i === 1 ? "primary" : "stone"} small`} href={href}>{i === 0 ? "Get TestFlight" : "Get Mahi Man"}</a>}
+            </li>
+          ))}
+        </ol>
+      </div>
+      {onPc && <span className="ld-qr" aria-label="QR code to get Mahi Man on your iPhone" dangerouslySetInnerHTML={{ __html: svg }} />}
+    </div>
   );
 }
 

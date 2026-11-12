@@ -1154,6 +1154,11 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "partner_featured_cents", label: "Featured, per month", t: "num", unit: "$" },
     { k: "partner_grace_days", label: "Offer stays up unpaid for", hint: "After the paid month ends.", t: "num", unit: "days" },
   ] },
+  { title: "App links", text: "Where people get the app. Everyone who joins the launch gets the TestFlight link straight away.", fields: [
+    { k: "testflight_url", label: "TestFlight public link", hint: "App Store Connect, TestFlight, your external group, Public Link.", t: "text", ph: "https://testflight.apple.com/join/…" },
+    { k: "app_store_url", label: "App Store link", hint: "Once Mahi Man is in the App Store. The website then shows Get the app instead of Join the launch.", t: "text", ph: "https://apps.apple.com/…" },
+    { k: "play_store_url", label: "Google Play link", t: "text", ph: "https://play.google.com/…" },
+  ] },
   { title: "Customers", text: "Checks a customer needs before they can book.", fields: [
     { k: "customer_id_required", label: "ID check required to book", hint: "Off: customers are asked after their first booking.", t: "toggle", on: "true", off: "false" },
   ] },
@@ -1177,6 +1182,7 @@ function Settings() {
   async function save() {
     if (vals.stripe_publishable_key && !vals.stripe_publishable_key.startsWith("pk_")) return toast("The publishable key starts with pk_");
     if (vals.pilot_mode === "false" && !vals.stripe_publishable_key) return toast("Add the Stripe publishable key before turning pilot mode off");
+    if (vals.testflight_url && !/^https:\/\/testflight\.apple\.com\/join\/\w+$/.test(vals.testflight_url)) return toast("The TestFlight link looks like https://testflight.apple.com/join/…");
     if (vals.fee_mode === "on_choose" && !vals.stripe_publishable_key) return toast("Connect Stripe and add the publishable key before turning the booking fee on");
     for (const k of changed) {
       const { error } = await sb.from("settings").update({ value: vals[k] }).eq("key", k);

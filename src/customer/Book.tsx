@@ -84,9 +84,15 @@ export function Book() {
     });
     draftMedia.all().then((items) => setMedia(items.map((m) => ({ ...m, url: URL.createObjectURL(m.blob) }))));
   }, []);
+  // A scanned worker code (mahiman.app/w/ID): start a job sent to that worker. Once signed in, they're saved,
+  // so they show under "People you've used" and the job can go to them first.
+  const scanned = path.match(/^\/w\/([0-9a-f-]{36})$/)?.[1] ?? null;
+  useEffect(() => { if (scanned) { sessionStorage.setItem("mm-worker", scanned); startNew({ invited: [scanned] }); } }, [scanned]);
   useEffect(() => {
     if (!session) { setPast([]); return; }
-    rpc<PastWorker[]>("my_past_workers").then(setPast).catch(() => setPast([]));
+    const pending = sessionStorage.getItem("mm-worker");
+    (pending ? rpc("save_worker", { p_worker: pending }).catch(() => {}).finally(() => sessionStorage.removeItem("mm-worker")) : Promise.resolve())
+      .then(() => rpc<PastWorker[]>("my_past_workers")).then(setPast).catch(() => setPast([]));
   }, [session?.user.id]);
   useEffect(() => { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d)); }, [d]);
   useEffect(() => { if (d.reuse.length) mediaUrls(d.reuse.map((r) => r.path)).then(setReuseUrls); }, [d.reuse]);
@@ -920,7 +926,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
         onChange={(v) => { setD({ ...d, startAt: `${selDay}T${v[0]}` }); setErr(""); }} onClose={() => setPick(null)} />}
       {pick === "people" && (
         <SearchPicker title="People you've used" multi placeholder="Search by name" value={d.invited}
-          options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` }))}
+          options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: p.jobs_for_me ? `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` : "Saved from their code" }))}
           onClose={() => setPick(null)} onChange={(v) => setD({ ...d, invited: v.map(String) })} />
       )}
       {pick === "after" && (

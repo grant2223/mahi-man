@@ -854,3 +854,39 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
   .hw-a-step .hw-phone img { border-radius: 15px; }
   .hw-line { font-size: 19px; margin: 20px 0 24px; }
 }
+
+/* Your code */
+.mc { display: flex; flex-direction: column; min-height: 100%; padding: 0 0 calc(24px + env(safe-area-inset-bottom)); }
+.mc-top { padding: calc(14px + env(safe-area-inset-top)) 16px 0; }
+.mc-qr { position: relative; }
+.mc-qr > span, .mc-qr svg { display: block; width: 100%; height: 100%; }
+.mc-head { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: #fff; padding: 5px; border-radius: 6px; object-fit: contain; }
+.mc-btns { display: flex; gap: 10px; padding: 0 16px; }
+.mc-btns .btn { flex: 1; }
+.mc-sub { margin: 4px 0 0; font-size: 15px; font-weight: 300; opacity: 0.8; text-align: center; }
+.mc-c { background: var(--ground); }
+.mc-c-card { position: relative; overflow: hidden; background: linear-gradient(160deg, #17926b, #0a4a37); color: #fff; padding-bottom: 26px; }
+.mc-c-id { display: flex; gap: 14px; align-items: center; padding: 26px 20px 0; position: relative; z-index: 1; max-width: 70%; }
+.mc-c-id b { display: block; font-size: 22px; font-weight: 600; letter-spacing: -0.4px; }
+.mc-c-id span span { display: block; font-size: 14px; font-weight: 300; opacity: 0.85; }
+.mc-c-mascot { position: absolute; right: -28px; bottom: 0; height: 150px; }
+.mc-c-code { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; background: #fff; padding: 28px 20px; }
+.mc-c-code b { font-size: 22px; font-weight: 600; letter-spacing: -0.4px; margin-top: 14px; }
+.mc-c-code span { font-size: 15px; font-weight: 300; color: var(--muted); }
+.mc-c .mc-btns { padding-top: 16px; }
+
+/* After joining the launch: steps to get the app */
+.ld-got { display: flex; align-items: center; justify-content: space-between; gap: 48px; }
+.ld-got-text { flex: 1; max-width: 640px; }
+.ld-got-steps { list-style: none; margin: 28px 0 0; padding: 0; display: flex; flex-direction: column; gap: 22px; }
+.ld-got-steps li { display: flex; align-items: center; gap: 18px; }
+.ld-got-steps .ld-n { flex: none; width: 32px; }
+.ld-got-t { flex: 1; min-width: 0; }
+.ld-got-t b { display: block; font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+.ld-got-t span { font-size: 16px; font-weight: 300; line-height: 1.5; color: var(--muted); }
+.ld-got-steps .btn { flex: none; }
+@media (max-width: 760px) {
+  .ld-got-steps li { flex-wrap: wrap; }
+  .ld-got-steps .btn { margin-left: 50px; width: calc(100% - 50px); }
+}
+
