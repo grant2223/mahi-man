@@ -5,7 +5,7 @@ What's ready, and what's left. Ticked items are done.
 ## 1. Do now (no domain or Stripe needed)
 
 ### Google Play
-- [x] Play Console: Find Fit People Ltd organisation account. App "Mahi Man: Odd jobs, done" (com.mahiman.app).
+- [x] Play Console: Find Fit People Ltd organisation account. App "Mahi Man: Need a hand?" (com.mahiman.app).
 - [x] Store listing, graphics (mascot images labelled as AI-made), App content and Data safety all filled in.
 - [x] Reviewer sign-in: review@mahiman.app. Its code is in `~/Mahi Man Android Keys/store-review-sign-in.txt` (no email is sent for this address).
 - [x] Android notifications: Firebase project "mahi-man" (no Analytics), `android/app/google-services.json`, key in the Supabase secret `FCM_SERVICE_ACCOUNT`.

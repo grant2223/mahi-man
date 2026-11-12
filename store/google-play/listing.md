@@ -5,7 +5,7 @@ Copy each part into Play Console. Graphics are in this folder.
 ## Main store listing
 
 **App name** (30 max)
-Mahi Man: Odd jobs, done
+Mahi Man: Need a hand?
 
 **Short description** (80 max)
 Post an odd job, pick a verified local, watch them arrive. Or earn doing jobs.
