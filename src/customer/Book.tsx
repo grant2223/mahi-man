@@ -1,4 +1,5 @@
 import { FeePayScreen, OwedBanner, useOwed, type OwedFee } from "./Fees";
+import { InvoiceBanner, useDueInvoices, usePayments } from "../ui/Payments";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
@@ -110,6 +111,16 @@ export function Book() {
   }, [path, d.categoryId, d.suburbId]);
   const total = d.priceCents + (pilot ? 0 : Math.round((d.priceCents * fee) / 100));
   const isPlus = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
+  // Invoice mode: the connection fee is billed when the job goes ahead, at the rate their plan gives them.
+  const { p: payInfo } = usePayments(feeMode === "invoice" && !!session);
+  const invoiceFee = (() => {
+    if (feeMode !== "invoice" || isTrade) return null;
+    const r = payInfo?.rates ?? { payg: feePct, payg_max: feeMax, topup: 0, topup_max: 0, plus: 0, plus_max: 0 };
+    const amt = (pct: number, max: number) => Math.min(Math.round((d.priceCents * pct) / 100), max);
+    if (payInfo && payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) return { cents: amt(r.plus, r.plus_max), pct: r.plus, from: "balance" as const };
+    if (payInfo && r.topup && payInfo.balance >= amt(r.topup, r.topup_max)) return { cents: amt(r.topup, r.topup_max), pct: r.topup, from: "balance" as const };
+    return { cents: amt(r.payg, r.payg_max), pct: r.payg, from: (payInfo?.plan ?? "now") as "now" | "weekly" | "fortnightly" };
+  })();
   const bookingFee = feeMode === "on_choose" && !isPlus && !isTrade ? Math.min(Math.round((d.priceCents * feePct) / 100), feeMax) : 0;
   const budgetOk = !!d.budgetMin && !!d.budgetMax && d.budgetMin >= 5000 && d.budgetMax >= d.budgetMin;
   const photos = media.filter((m) => m.kind === "photo");
@@ -197,7 +208,7 @@ export function Book() {
         await draftMedia.clear();
         go(`/job/${id}`);
       };
-      if (pilot || isTrade) await finish(); else setPayJob(id);
+      if (pilot || isTrade || feeMode === "invoice") await finish(); else setPayJob(id);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally { setBusy(false); }
@@ -277,6 +288,17 @@ export function Book() {
             <div className="stack" style={{ padding: "16px 16px 18px", gap: 6 }}>
               <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
                 Up to 2 licensed tradies send you a fixed price. You choose, or say no to both. You pay the tradie directly when it's done. Nothing to pay Mahi Man.
+              </span>
+            </div>
+          ) : invoiceFee ? (
+            <div className="stack" style={{ padding: "16px 16px 18px", gap: 6 }}>
+              <span className="row between"><span className="t17 w5">Connection fee, {invoiceFee.pct}%</span><span className="t17 w5">{money2(invoiceFee.cents)}</span></span>
+              <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
+                Only if the job goes ahead. {invoiceFee.from === "balance" ? "It comes off your balance."
+                  : invoiceFee.from === "now" ? "You get an invoice to pay by bank transfer within 3 days."
+                  : `It goes on your ${invoiceFee.from === "weekly" ? "weekly invoice" : "invoice every 2 weeks"}, due on your payday.`}{" "}
+                You pay the {money(d.priceCents)} to your worker by bank transfer or cash when it's done.{" "}
+                <a href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How you pay</a>
               </span>
             </div>
           ) : bookingFee > 0 ? (
@@ -395,6 +417,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   useEffect(() => { if (recent?.length) mediaUrls(recent.map((r) => firstPhoto(r.job_media)).filter(Boolean) as string[]).then(setPics); }, [recent]);
 
   const { owed, reload: reloadOwed } = useOwed(!!uid);
+  const { invoices, paused } = useDueInvoices(!!uid);
   const [paying, setPaying] = useState<OwedFee | null>(null);
 
   const again = (r: Recent) => onStart({
@@ -420,10 +443,11 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
       </section>
 
       <OwedBanner owed={owed} onPay={setPaying} />
+      <InvoiceBanner invoices={invoices} />
       {paying && <FeePayScreen fee={paying} onBack={() => setPaying(null)} onPaid={() => { setPaying(null); reloadOwed(); }} />}
       {soon && <ComingSoon side="help" />}
       <div className="post-body" style={soon ? { display: "none" } : undefined}>
-        <button className="post-btn" onClick={() => (owed.length ? setPaying(owed[0]) : onStart())}>
+        <button className="post-btn" onClick={() => (owed.length ? setPaying(owed[0]) : paused ? go(`/invoice/${paused.id}`) : onStart())}>
           <span>Post a job</span>
           {Icon.arrow("var(--lime)")}
         </button>

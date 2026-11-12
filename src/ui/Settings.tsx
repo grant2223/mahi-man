@@ -78,8 +78,8 @@ export function Settings() {
         )}
         <button className="choice" onClick={() => go("/code")}><span className="t"><b>Your code</b><span>{profile.is_worker ? "Customers scan it to book you again" : "A mate scans it to get Mahi Man"}</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go(profile.is_worker ? "/offers?side=all" : "/offers")}><span className="t"><b>Local offers</b><span>Deals from local businesses</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>Mahi Man Plus</b><span>No booking fees, priority on every job</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>How it works and what it costs</b></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => go("/payments")}><span className="t"><b>Payments</b><span>Balance, invoices, top-up and Plus</span></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>How you pay</b><span>Pay as you go, top-up or Plus</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={async () => { const r = await shareLink(inviteText, SITE); if (r === "copied") toast("Link copied. Paste it in a message."); }}><span className="t"><b>Invite a mate</b><span>Send a friend the link</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/support")}><span className="t"><b>Help and support</b><span>Contact the Mahi Man team</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/privacy")}><span className="t"><b>Privacy policy</b></span>{Icon.chevron("var(--faint)")}</button>

@@ -14,6 +14,7 @@ import { LiveMap, useTrip } from "../ui/LiveMap";
 import { AlertsAsk } from "../ui/AlertsAsk";
 import { alertsState, askedFor } from "../lib/push";
 import { FeePayScreen, useOwed, type OwedFee } from "./Fees";
+import { JobFeeSection, useJobFee } from "../ui/Payments";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
 
 interface PayDetails { payid: string | null; bsb: string | null; account_number: string | null; account_name: string }
@@ -63,6 +64,8 @@ export function Track({ id }: { id: string }) {
   const owedHere = owed.find((f) => f.job_id === id) ?? null;
   const [paying, setPaying] = useState(false);
   const rules = useRules();
+  // The Mahi Man connection fee on this job, once it's been billed.
+  const jobFee = useJobFee(id, !!job && ["invoiced", "paid"].includes(job.fee_status ?? ""));
 
   const load = useCallback(async () => {
     const { data } = await sb.from("jobs").select("*").eq("id", id).single();
@@ -197,6 +200,7 @@ export function Track({ id }: { id: string }) {
             ? <button className="btn stone small" onClick={() => { const t = payid ?? `BSB ${bank!.bsb} Account ${bank!.account_number} ${bank!.account_name}`; navigator.clipboard?.writeText(t).then(() => toast("Copied"), () => toast(t)); }}>Copy</button>
             : <button className="btn stone small" onClick={() => setScreen("chat")}>Message</button>}
         </div>
+        {jobFee && <JobFeeSection fee={jobFee} />}
         <AfterJobOffer jobId={id} />
         <Note icon="clock">{paid
           ? `Once ${wName} confirms they got it, you can both leave a review. If they don't answer within 24 hours, the job closes as paid.`
@@ -325,7 +329,20 @@ export function Track({ id }: { id: string }) {
           </div>
         )}
 
-        {(job.fee_status === "paid" || job.fee_status === "refunded") && (
+        {jobFee && job.status !== "finished" && (
+          <>
+            <Perf />
+            <div className="stack" style={{ padding: "8px 16px 18px", gap: 4 }}>
+              <span className="row between"><span className="t17 w5">Connection fee</span><span className="t17 w5">{money2(jobFee.amount_cents)}</span></span>
+              <span className="small light muted" style={{ lineHeight: 1.45 }}>
+                {jobFee.amount_cents <= jobFee.from_balance_cents ? "Paid from your balance."
+                  : jobFee.customer_invoices ? `${jobFee.customer_invoices.status === "paid" ? "Paid" : "To pay"} on invoice ${jobFee.customer_invoices.number}. It's in Settings, Payments.`
+                  : "On your next invoice. It's in Settings, Payments."}
+              </span>
+            </div>
+          </>
+        )}
+        {(job.fee_status === "paid" || job.fee_status === "refunded") && !jobFee && (
           <>
             <Perf />
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 4 }}>

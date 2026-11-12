@@ -292,6 +292,37 @@ Deno.serve(async (req) => {
         await admin.from("profiles").update({ card_pm: null, card_brand: null, card_last4: null, card_exp: null, card_keep: true }).eq("id", user.id);
         return ok({ removed: true });
       }
+      // ---------- Top up the balance with the saved card ----------
+      case "topup_card": {
+        const amount = Number(body.amount);
+        if (![2500, 5000, 10000].includes(amount)) return fail("Pick $25, $50 or $100");
+        if (!me?.card_pm || !me.stripe_customer_id) return fail("Add a card first");
+        try {
+          const pi = await stripe().paymentIntents.create({
+            amount, currency: "aud", customer: me.stripe_customer_id, payment_method: me.card_pm, off_session: true, confirm: true,
+            receipt_email: user.email ?? undefined, description: "Mahi Man top-up", metadata: { user_id: user.id, kind: "topup" },
+            statement_descriptor_suffix: "MAHI MAN",
+          }, { idempotencyKey: `topup-${user.id}-${body.key ?? crypto.randomUUID()}` });
+          if (pi.status === "requires_action") return ok({ action: "authenticate", client_secret: pi.client_secret, publishable_key: await setting("stripe_publishable_key") });
+          if (pi.status !== "succeeded") return fail("The payment is still going through. Your balance updates once it does.");
+          await admin.rpc("topup_card_paid", { p_user: user.id, p_amount: amount, p_intent: pi.id });
+          return ok({ done: true });
+        } catch (e) {
+          const err = e as { code?: string; raw?: { payment_intent?: { client_secret: string } } };
+          if (err.code === "authentication_required" && err.raw?.payment_intent) {
+            return ok({ action: "authenticate", client_secret: err.raw.payment_intent.client_secret, publishable_key: await setting("stripe_publishable_key") });
+          }
+          return fail("Your card was declined. Add another card, or top up by bank transfer.");
+        }
+      }
+      // After the bank's own check (3D Secure) on a card top-up.
+      case "topup_card_done": {
+        const pi = await stripe().paymentIntents.retrieve(String(body.payment_intent_id));
+        if (pi.metadata?.user_id !== user.id || pi.metadata?.kind !== "topup") return fail("Top-up not found");
+        if (pi.status !== "succeeded") return fail("The payment didn't go through. Try again.");
+        await admin.rpc("topup_card_paid", { p_user: user.id, p_amount: pi.amount, p_intent: pi.id });
+        return ok({ done: true });
+      }
       // Charge the booking fee to the saved card, then book the worker. If booking fails, the fee goes straight back.
       case "choose_worker": {
         const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).eq("customer_id", user.id).single();

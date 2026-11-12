@@ -3,13 +3,13 @@ import { api, avatarUrl, brandUrl, rpc, sb, type Area, type Category, type JobTy
 import { loadMapKit } from "../ui/LiveMap";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
-import { money2, shrinkImage } from "../lib/format";
+import { money2, shrinkImage, validAbn } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
 import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit";
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -18,9 +18,9 @@ const STATUS_BADGE: Record<string, string> = {
 export function Admin() {
   const { session, profile, ready } = useSession();
   const [tab, setTab] = useState<Tab>("overview");
-  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0, invoices: 0, partners: 0 });
+  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0, invoices: 0, partners: 0, money: 0 });
   const recount = useCallback(async () => {
-    const [a, b, c, d, e, f, g, h] = await Promise.all([
+    const [a, b, c, d, e, f, g, h, m1, m2] = await Promise.all([
       sb.from("id_checks").select("id", { count: "exact", head: true }).eq("status", "pending"),
       sb.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
       sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
@@ -29,8 +29,10 @@ export function Admin() {
       sb.from("workers").select("id", { count: "exact", head: true }).eq("needs_review", true),
       sb.from("trade_orders").select("id", { count: "exact", head: true }).eq("status", "requested"),
       sb.from("partners").select("id", { count: "exact", head: true }).eq("status", "applied"),
+      sb.from("customer_invoices").select("id", { count: "exact", head: true }).eq("status", "claimed"),
+      sb.from("topups").select("id", { count: "exact", head: true }).eq("status", "claimed"),
     ]);
-    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0, invoices: g.count ?? 0, partners: h.count ?? 0 });
+    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0, invoices: g.count ?? 0, partners: h.count ?? 0, money: (m1.count ?? 0) + (m2.count ?? 0) });
   }, []);
   useEffect(() => { if (profile?.is_admin) recount(); }, [profile?.is_admin, recount, tab]);
   // Full-width admin: a fixed side menu grouped by what needs doing, and the page on the right.
@@ -39,6 +41,7 @@ export function Admin() {
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
     { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["launch", "Launch list"]] },
     { label: "Trust", items: [["cancels", "Cancellations", counts.fees], ["strikes", "Strikes", counts.strikes], ["reviews", "Reviews"]] },
+    { label: "Money", items: [["money", "Invoices", counts.money]] },
     { label: "Partners", items: [["partners", "Partners", counts.partners], ["tradies", "Tradies", counts.invoices]] },
     { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
   ];
@@ -89,6 +92,7 @@ export function Admin() {
         {tab === "reviews" && <Reviews />}
         {tab === "tradies" && <Tradies onChanged={recount} />}
         {tab === "partners" && <Partners onChanged={recount} />}
+        {tab === "money" && <MoneyInvoices onChanged={recount} />}
       </main>
     </div>
   );
@@ -174,8 +178,8 @@ function Jobs() {
                 <td>{j.customer?.full_name}</td>
                 <td>{j.worker?.profiles.full_name ?? "—"}</td>
                 <td>{money2(j.price_cents + j.extra_cents + (j.payment_intent_id ? j.fee_cents : 0))}
-                  {!j.payment_intent_id && j.fee_status !== "none" && <span className={`badge ${j.fee_status === "paid" ? "g" : ""}`} style={{ marginLeft: 6 }}>
-                    Fee {money2(j.fee_cents)} {j.fee_status === "paid" ? "paid" : j.fee_status === "refunded" ? "refunded" : "due"}</span>}</td>
+                  {!j.payment_intent_id && !["none", "void"].includes(j.fee_status) && <span className={`badge ${j.fee_status === "paid" ? "g" : ""}`} style={{ marginLeft: 6 }}>
+                    Fee {money2(j.fee_cents)} {FEE_LABEL[j.fee_status] ?? j.fee_status}</span>}</td>
                 <td><span className={`badge ${STATUS_BADGE[j.status]}`}>{j.status.replace("_", " ")}</span></td>
                 <td><span className="row" style={{ gap: 6 }}>
                   {["searching", "accepted", "awaiting_payment"].includes(j.status) && (
@@ -1104,20 +1108,40 @@ function Types() {
   );
 }
 
+// What each fee state means on the jobs list. Invoice mode: "when it goes ahead" until the job finishes, then invoiced or paid.
+const FEE_LABEL: Record<string, string> = { paid: "paid", refunded: "refunded", due: "due", invoice: "when it goes ahead", invoiced: "invoiced" };
+
 // Settings in groups, each with a plain explanation. Money is shown in dollars; nothing saves until Save.
 type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" | "jobs" | "tradies" } | { t: "text"; ph: string });
 const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
-  { title: "Payments", text: "How customers pay during the pilot, and when the booking fee is charged.", fields: [
+  { title: "Payments", text: "Customers pay workers directly. The connection fee is billed when a job goes ahead, and paid by bank transfer on an invoice or from their balance.", fields: [
     { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
-    { k: "fee_mode", label: "Charge the booking fee", hint: "Charged to the customer's saved card when they choose a worker.", t: "toggle", on: "on_choose", off: "off" },
-    { k: "stripe_publishable_key", label: "Stripe publishable key", hint: "Starts with pk_. Needed before any card payments.", t: "text", ph: "pk_live_…" },
+    { k: "fee_mode", label: "Charge the connection fee", hint: "Off: no fee on new jobs. Jobs posted while it's on keep their fee.", t: "toggle", on: "invoice", off: "off" },
+    { k: "stripe_publishable_key", label: "Stripe publishable key", hint: "Starts with pk_. Needed before card top-ups.", t: "text", ph: "pk_live_…" },
   ] },
-  { title: "Fees and prices", text: "What customers are charged, and what's shown to them during the pilot.", fields: [
-    { k: "booking_fee_percent", label: "Booking fee", hint: "A share of the job price.", t: "num", unit: "%" },
-    { k: "booking_fee_max_cents", label: "Booking fee cap", hint: "The most one booking fee can be.", t: "num", unit: "$" },
-    { k: "fee_percent", label: "Fee when the card is held", hint: "Only used with pilot mode off.", t: "num", unit: "%" },
+  { title: "Connection fee", text: "Three ways to pay, shown side by side on How you pay. Every invoice is a tax invoice that includes GST.", fields: [
+    { k: "booking_fee_percent", label: "Pay as you go", hint: "Invoiced after each job, weekly or every 2 weeks.", t: "num", unit: "%" },
+    { k: "booking_fee_max_cents", label: "Pay as you go cap", t: "num", unit: "$" },
+    { k: "topup_fee_percent", label: "Top-up", hint: "When their balance covers the fee.", t: "num", unit: "%" },
+    { k: "topup_fee_max_cents", label: "Top-up cap", t: "num", unit: "$" },
+    { k: "plus_fee_percent", label: "Plus", t: "num", unit: "%" },
+    { k: "plus_fee_max_cents", label: "Plus cap", t: "num", unit: "$" },
+    { k: "plus_cents", label: "Plus, per month", hint: "Taken from their balance.", t: "num", unit: "$" },
+    { k: "invoice_due_days", label: "Invoice after each job is due in", t: "num", unit: "days" },
+    { k: "invoice_pause_days", label: "Posting pauses once overdue by", t: "num", unit: "days" },
+    { k: "auto_topup_cents", label: "Automatic top-up adds", t: "num", unit: "$" },
+    { k: "auto_topup_below_cents", label: "When the balance drops under", t: "num", unit: "$" },
     { k: "boost_cents", label: "Urgent boost", t: "num", unit: "$" },
-    { k: "plus_cents", label: "Plus, per month", t: "num", unit: "$" },
+    { k: "fee_percent", label: "Fee when the card is held", hint: "Only used with pilot mode off.", t: "num", unit: "%" },
+  ] },
+  { title: "Payment details", text: "Shown on every invoice and top-up. Customers pay to this account with the invoice number as the reference.", fields: [
+    { k: "pay_trading_name", label: "Trading name", t: "text", ph: "Mahi Man" },
+    { k: "pay_legal_name", label: "Legal name", t: "text", ph: "Company Pty Ltd" },
+    { k: "pay_abn", label: "ABN", t: "text", ph: "11 digits" },
+    { k: "pay_payid", label: "PayID", hint: "Email, mobile or ABN.", t: "text", ph: "pay@…" },
+    { k: "pay_bsb", label: "BSB", t: "text", ph: "000-000" },
+    { k: "pay_account", label: "Account number", t: "text", ph: "" },
+    { k: "pay_account_name", label: "Account name", t: "text", ph: "Company Pty Ltd" },
   ] },
   { title: "Jobs", text: "Timing rules for every job.", fields: [
     { k: "widen_after_minutes", label: "Show to workers further away after", t: "num", unit: "minutes" },
@@ -1183,9 +1207,11 @@ function Settings() {
     if (vals.stripe_publishable_key && !vals.stripe_publishable_key.startsWith("pk_")) return toast("The publishable key starts with pk_");
     if (vals.pilot_mode === "false" && !vals.stripe_publishable_key) return toast("Add the Stripe publishable key before turning pilot mode off");
     if (vals.testflight_url && !/^https:\/\/testflight\.apple\.com\/join\/\w+$/.test(vals.testflight_url)) return toast("The TestFlight link looks like https://testflight.apple.com/join/…");
-    if (vals.fee_mode === "on_choose" && !vals.stripe_publishable_key) return toast("Connect Stripe and add the publishable key before turning the booking fee on");
+    if (vals.fee_mode === "invoice" && !vals.pay_payid?.trim() && !(vals.pay_bsb?.trim() && vals.pay_account?.trim())) return toast("Add a PayID or a BSB and account under Payment details before charging the fee");
+    if (vals.pay_abn?.trim() && !validAbn(vals.pay_abn)) return toast("That ABN doesn't look right. Check the 11 digits.");
+    if (vals.pay_bsb?.trim() && !/^\d{3}-?\d{3}$/.test(vals.pay_bsb.trim())) return toast("A BSB is 6 digits");
     for (const k of changed) {
-      const { error } = await sb.from("settings").update({ value: vals[k] }).eq("key", k);
+      const { error } = await sb.from("settings").update({ value: (vals[k] ?? "").trim() }).eq("key", k);
       if (error) return toast(error.message);
     }
     setOrig(vals); toast("Saved");
@@ -1212,7 +1238,7 @@ function Settings() {
                     {f.unit !== "$" && <span>{f.unit}</span>}
                   </label>
                 ) : (
-                  <input className="set-text" value={vals[f.k] ?? ""} placeholder={f.ph} onChange={(e) => setVals({ ...vals, [f.k]: e.target.value.trim() })} />
+                  <input className="set-text" value={vals[f.k] ?? ""} placeholder={f.ph} onChange={(e) => setVals({ ...vals, [f.k]: e.target.value })} />
                 )}
               </div>
             ))}
@@ -1817,5 +1843,63 @@ function PartnerDetail({ p, onBack, onChanged }: { p: PartnerRow; onBack: () => 
       {pick === "cats" && <SearchPicker title="Show after these jobs" multi placeholder="Search" value={f.category_ids} options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPick(null)} onChange={(v) => setF({ ...f, category_ids: v.map(Number) })} />}
       {pick === "suburb" && <SearchPicker title="Suburb" placeholder="Search suburbs" value={f.suburb_id ? [f.suburb_id] : []} options={subs.map((x) => ({ id: x.id, label: x.name, hint: x.area }))} onClose={() => setPick(null)} onChange={(v) => setF({ ...f, suburb_id: Number(v[0]) })} />}
     </div>
+  );
+}
+
+// Every invoice in one place: customer connection fees, customer bank top-ups, tradie plans and partner months.
+// Match the reference on the bank statement, then mark it paid. "They say paid" means the customer pressed I've paid.
+interface MoneyRow { kind: "invoice" | "topup" | "tradie" | "partner"; id: number; ref: string; who: string; what: string; item: string; amount: number; due: string; state: "due" | "late" | "claimed" | "paid"; paused: boolean; created: string; paid_at: string | null }
+interface MoneyData { rows: MoneyRow[]; due_week: number; due_week_n: number; late: number; late_n: number; paid_month: number; paid_month_n: number }
+const MONEY_VIEWS: [string, string][] = [["open", "To check and due"], ["late", "Overdue"], ["topups", "Top-ups"], ["paid", "Paid"], ["all", "Everything"]];
+function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
+  const toast = useToast();
+  const [view, setView] = useState("open");
+  const [d, setD] = useState<MoneyData | null>(null);
+  const [pick, setPick] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const load = useCallback(() => rpc<MoneyData>("admin_money", { p_view: view }).then(setD).catch((e) => toast(e.message)), [view, toast]);
+  useEffect(() => { load(); }, [load]);
+  const paid = async (r: MoneyRow) => {
+    setBusy(`${r.kind}${r.id}`);
+    try {
+      if (r.kind === "invoice") await rpc("admin_invoice_set", { p_id: r.id, p_status: "paid" });
+      else if (r.kind === "topup") await rpc("admin_topup_paid", { p_id: r.id });
+      else if (r.kind === "tradie") await rpc("admin_trade_order_paid", { p_id: r.id, p_note: `Bank transfer ${r.ref}` });
+      else await rpc("admin_partner_paid", { p_invoice: r.id });
+      toast(`${r.ref} marked paid`); load(); onChanged();
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
+  };
+  const day = (iso: string) => new Date(iso).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }).replace(",", "");
+  const month = new Date().toLocaleDateString("en-AU", { month: "long", timeZone: "Australia/Brisbane" });
+  const badge = (r: MoneyRow) => r.state === "paid" ? <span className="badge g">Paid</span> : r.state === "late" ? <span className="badge r">{r.paused ? "Overdue · booking paused" : "Overdue"}</span>
+    : r.state === "claimed" ? <span className="badge y">They say paid</span> : <span className="badge">Due</span>;
+  if (!d) return <Loading />;
+  const n = (k: number, w: string) => `${k} ${w}${k === 1 ? "" : "s"}`;
+  return (
+    <>
+      <div className="iv-stats">
+        <div><span className="t14 light muted">Due this week</span><b>{money2(d.due_week)}</b><span className="t14 light muted">{n(d.due_week_n, "invoice")}</span></div>
+        <div><span className="t14 light muted">Overdue</span><b style={d.late ? { color: "var(--danger)" } : undefined}>{money2(d.late)}</b><span className="t14 light muted">{n(d.late_n, "invoice")}</span></div>
+        <div><span className="t14 light muted">Paid in {month}</span><b>{money2(d.paid_month)}</b><span className="t14 light muted">{n(d.paid_month_n, "payment")}</span></div>
+      </div>
+      <button className="cp-select" style={{ height: 44, minWidth: 280, background: "var(--card)", marginBottom: 14 }} onClick={() => setPick(true)}>
+        <span>{MONEY_VIEWS.find(([k]) => k === view)?.[1]}</span>{Icon.chevron("var(--muted)")}</button>
+      {d.rows.length === 0 ? <p className="light muted">Nothing here.</p> : (
+        <div className="table-wrap"><table className="rows"><thead><tr><th>Invoice</th><th>Who</th><th>For</th><th>Amount</th><th>Due</th><th>Status</th><th /></tr></thead>
+          <tbody>{d.rows.map((r) => (
+            <tr key={`${r.kind}${r.id}`}>
+              <td className="w5">{r.ref}</td>
+              <td><span className="w5">{r.who}</span><br /><span className="light muted">{r.what}</span></td>
+              <td className="light">{r.item || "—"}</td>
+              <td className="w5">{money2(r.amount)}</td>
+              <td className="light">{r.state === "paid" && r.paid_at ? `Paid ${day(r.paid_at)}` : day(r.due)}</td>
+              <td>{badge(r)}</td>
+              <td style={{ textAlign: "right" }}>{r.state !== "paid" && <button className={`btn ${r.state === "claimed" ? "primary" : "stone"} small`} disabled={busy === `${r.kind}${r.id}`} onClick={() => paid(r)}>Mark paid</button>}</td>
+            </tr>
+          ))}</tbody></table></div>
+      )}
+      <p className="light muted" style={{ marginTop: 14 }}>Match the reference on your bank statement to the invoice, then mark it paid. "They say paid" means the customer pressed I've paid. Top-ups are added to the customer's balance when you mark them paid.</p>
+      {pick && <SearchPicker title="Show" placeholder="Search" options={MONEY_VIEWS.map(([id, label]) => ({ id, label }))} value={[view]} onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
+    </>
   );
 }

@@ -16,7 +16,7 @@ import { MyCode } from "./ui/MyCode";
 import { Settings } from "./ui/Settings";
 import { VerifyPage } from "./ui/Verify";
 import { PayoutsDone, Privacy, Support, Terms } from "./ui/Legal";
-import { Pricing } from "./ui/Pricing";
+import { HowYouPay, InvoicePage, PaymentsPage, PlusPage, TopUpPage } from "./ui/Payments";
 import { lastSide } from "./ui/SideSwitch";
 import { GetAppPage, Landing } from "./ui/Landing";
 import { useEffect } from "react";
@@ -51,7 +51,7 @@ function Routes() {
   if (path === "/terms") return <Terms />;
   if (path === "/support") return <Support />;
   if (path === "/payouts-done") return <PayoutsDone />;
-  if (path === "/pricing") return <Pricing />;
+  if (path === "/pricing") return <HowYouPay />;
   if (path === "/partners") return <PartnerPage />;
   // Mahi Man is an app. The website is the landing page only; any app screen opened in a browser points to the app.
   if (!Capacitor.isNativePlatform()) return path === "/" ? <Landing /> : <GetAppPage />;
@@ -59,6 +59,13 @@ function Routes() {
   if (path === "/settings") {
     if (ready && !session) { go("/", true); return null; }
     return <Settings />;
+  }
+  // Paying Mahi Man: balance, invoices, top-up and Plus. Invoice links come from alerts and emails.
+  const inv = path.match(/^\/invoice\/(\d+)$/);
+  if (path === "/payments" || path === "/topup" || path === "/plus" || inv) {
+    if (ready && !session) { go("/", true); return null; }
+    if (!session) return null;
+    return inv ? <InvoicePage id={Number(inv[1])} /> : path === "/payments" ? <PaymentsPage /> : path === "/topup" ? <TopUpPage /> : <PlusPage />;
   }
   if (path === "/verify") {
     if (ready && !session) { go("/", true); return null; }

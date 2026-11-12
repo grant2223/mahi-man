@@ -76,7 +76,7 @@ function CardForm({ onSaved }: { onSaved: () => void }) {
         <span className="stack" style={{ gap: 2 }}><span className="t17">Save this card for next time</span><span className="small light muted">Remove it any time in Settings.</span></span>
       </button>
       <p className="small light muted" style={{ lineHeight: 1.5, margin: "0 0 16px" }}>
-        By adding this card you allow Mahi Man to charge the booking fee shown on each job when you choose a worker. Cards are handled by Stripe. Mahi Man never sees your full card number.
+        By adding this card you allow Mahi Man to charge the top-ups you ask for, including automatic top-ups if you turn them on. Cards are handled by Stripe. Mahi Man never sees your full card number.
       </p>
       {err && <p className="err">{err}</p>}
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>
@@ -99,7 +99,7 @@ export function PaymentMethods({ onBack }: { onBack: () => void }) {
         {p?.card_last4 ? (
           <div className="opt">
             <span className="row" style={{ gap: 12 }}><CardMark brand={p.card_brand} />
-              <span className="stack" style={{ gap: 2 }}><b>{cardLabel(p)}</b><span className="small muted light">Expires {p.card_exp}. Used for booking fees</span></span></span>
+              <span className="stack" style={{ gap: 2 }}><b>{cardLabel(p)}</b><span className="small muted light">Expires {p.card_exp}. Used for top-ups</span></span></span>
             <button className="link quiet" disabled={busy} onClick={async () => {
               setBusy(true);
               try { await api("card_remove"); await reload(); toast("Card removed"); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }

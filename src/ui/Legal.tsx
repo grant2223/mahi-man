@@ -83,15 +83,16 @@ export function Terms() {
         <li>Storms, emergencies and safety problems are handled through Get help, with no cancellation fee for either side.</li>
         <li>The amounts and times above can change. The app always shows what applies before you cancel.</li>
       </ul>
-      <h2>Booking fee</h2>
+      <h2>Connection fee</h2>
       <ul>
-        <li>When a booking fee applies, it is shown before you post the job. You add a card when you post, and nothing is charged then.</li>
-        <li>The fee is charged to your card only when you choose a worker. If nobody is chosen, nothing is charged.</li>
-        <li>If the worker you chose cancels or doesn't turn up, your job is reopened and you choose someone else with no new fee.</li>
-        <li>If you cancel before your worker is on the way, or the job is never done, the fee is refunded to your card automatically. We can also refund it when we decide a dispute.</li>
-        <li>If you cancel once your worker is on the way, the booking fee is not refunded.</li>
-        <li>Plus members don't pay booking fees. You get a receipt by email for every fee and every refund.</li>
-        <li>By saving a card you allow us to charge the booking fee shown on each job when you choose a worker, and any cancellation fee that applies under Cancelling. You can remove a saved card at any time in Settings.</li>
+        <li>Customers pay Mahi Man a connection fee on each job that goes ahead. The fee and its rate are shown before you post the job. Trade jobs have no customer fee.</li>
+        <li>The fee is charged when the job is finished. If you cancel once your worker is on the way, the fee is charged as well. If the job is cancelled before then, or never goes ahead, there is no fee.</li>
+        <li>Pay as you go: the fee is invoiced and paid by bank transfer, using the invoice number as the reference. You choose to be invoiced after each job (due in 3 days), weekly or every 2 weeks (made the evening before your payday and due on your payday). No fee waits more than about 2 weeks to be invoiced.</li>
+        <li>If an invoice is not paid by its due date we send one reminder. If it is still unpaid 3 days after the due date, you can't post new jobs until it is paid.</li>
+        <li>Top-up: you can add $25, $50 or $100 to your balance by card or bank transfer. While your balance covers it, the fee is charged at the lower top-up rate and taken from your balance. Your balance only pays Mahi Man fees and Plus. Anything unused is refunded if you ask.</li>
+        <li>Plus: a monthly membership taken from your balance, with the lowest fee rate, priority on your jobs and the fix-it guarantee. It renews each month while your balance covers it, and ends if it doesn't. You can stop it at any time and it runs to the end of the month you've paid for.</li>
+        <li>Every invoice is a tax invoice and includes GST. Rates, caps and prices are shown on the How you pay page and can change; the rate shown when you post a job is the one that applies to it.</li>
+        <li>By saving a card you allow us to charge the top-ups you ask for, and automatic top-ups if you turn them on. You can remove a saved card at any time in Settings.</li>
       </ul>
       <h2>Trade jobs</h2>
       <ul>

@@ -32,7 +32,27 @@ const step = (n: number, title: string, text: string, action = "") => `
 <td valign="top"><div style="font-size:17px;font-weight:600;margin-bottom:3px">${title}</div><div style="font-size:15px;font-weight:300;line-height:1.5;color:#6b6960">${text}</div>${action ? `<div style="margin-top:10px">${action}</div>` : ""}</td>
 </tr></table>`;
 
-function render(kind: string, d: Record<string, string>) {
+const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+type Pay = { trading_name?: string; legal_name?: string; abn?: string; payid?: string; bsb?: string; account?: string; account_name?: string };
+// How to pay: PayID first, BSB and account second, always with the invoice number as the reference.
+function payBlock(pay: Pay, ref: string) {
+  const row = (k: string, v?: string) => v ? `<tr><td style="padding:7px 0;font-size:14px;color:#8a877e;width:130px">${k}</td><td style="padding:7px 0;font-size:16px;font-weight:500;color:#2a2d32">${esc(v)}</td></tr>` : "";
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:4px 0 22px;border-top:1px solid #efede7;border-bottom:1px solid #efede7">
+${row("PayID", pay.payid)}${row("BSB", pay.bsb)}${row("Account", pay.account)}${row("Account name", pay.account_name || pay.trading_name)}${row("Reference", ref)}</table>`;
+}
+type Line = { date: string; job: string; who: string; cents: number };
+function linesBlock(lines: Line[], total: number) {
+  const rows = lines.map((l) => `<tr><td style="padding:8px 0;font-size:15px;color:#4a4d52;font-weight:300">${esc(l.date)} · ${esc(l.job)}${l.who ? ` · ${esc(l.who)}` : ""}</td><td align="right" style="padding:8px 0;font-size:15px;color:#2a2d32">${money(l.cents)}</td></tr>`).join("");
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;margin:0 0 6px">${rows}
+<tr><td style="padding:12px 0 4px;font-size:16px;font-weight:600;border-top:1px solid #efede7">Total</td><td align="right" style="padding:12px 0 4px;font-size:16px;font-weight:600;border-top:1px solid #efede7">${money(total)}</td></tr>
+<tr><td colspan="2" style="padding:0 0 18px;font-size:13px;color:#8a877e">Includes GST of ${money(Math.round(total / 11))}</td></tr></table>`;
+}
+function taxFooter(pay: Pay, number: string) {
+  return `<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#8a877e">Tax invoice ${esc(number)} · ${esc(pay.legal_name ?? "")}${pay.trading_name ? ` trading as ${esc(pay.trading_name)}` : ""}${pay.abn ? ` · ABN ${esc(pay.abn)}` : ""}</p>`;
+}
+
+// deno-lint-ignore no-explicit-any
+function render(kind: string, d: Record<string, any>) {
   const first = esc(d.first ?? "there");
   if (kind === "launch_welcome") {
     const subject = `Welcome to Mahi Man, ${d.first ?? ""}`.trim();
@@ -43,6 +63,24 @@ function render(kind: string, d: Record<string, string>) {
       + p("Open this email on your iPhone so the buttons open straight into the app. On Android? The pilot is iPhone first, and you're on the list for Android.")
       + p("<b style=\"font-weight:600;color:#2a2d32\">Stuck or something not working?</b> Reply to this email and we'll sort it out.");
     return { subject, html: layout(`You're in, ${first}.`, body) };
+  }
+  if (kind === "invoice") {
+    const pay: Pay = d.pay ?? {}, total = Number(d.total_cents);
+    const body = p(`Hi ${first}, here are your Mahi Man connection fees.`)
+      + linesBlock(d.lines ?? [], total)
+      + `<div style="font-size:17px;font-weight:600;margin:0 0 4px">Pay by bank transfer</div>`
+      + payBlock(pay, d.number)
+      + `<div style="margin:0 0 22px">${btn(`${SITE}/payments`, "See it in the app", true)}</div>`
+      + taxFooter(pay, d.number);
+    return { subject: `Invoice ${d.number}: ${money(total)} due ${d.due}`, html: layout(`${money(total)} due ${esc(d.due)}`, body) };
+  }
+  if (kind === "invoice_reminder") {
+    const pay: Pay = d.pay ?? {}, total = Number(d.total_cents);
+    const body = p(`Hi ${first}, your ${money(total)} hasn't come through yet. If it's not paid by ${esc(d.pause)}, booking new jobs pauses until it is.`)
+      + payBlock(pay, d.number)
+      + p("Already paid? Tap I've paid on the invoice in the app and we'll match it up.")
+      + `<div style="margin:0 0 22px">${btn(`${SITE}/payments`, "Open the invoice", true)}</div>`;
+    return { subject: `Reminder: invoice ${d.number} is due`, html: layout(`Invoice ${esc(d.number)} is due`, body) };
   }
   throw new Error(`Unknown email: ${kind}`);
 }

@@ -890,3 +890,34 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
   .ld-got-steps .btn { margin-left: 50px; width: calc(100% - 50px); }
 }
 
+
+/* ---------- Payments: balance, invoices, top-up, How you pay ---------- */
+.iv-hero { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 22px 16px 20px; background: var(--card); }
+.iv-big { font-size: 46px; font-weight: 600; letter-spacing: -1.5px; line-height: 1.05; }
+.iv-band { border-top: 8px solid var(--ground) !important; }
+.iv-pay, .iv-fee { display: flex; flex-direction: column; gap: 10px; padding: 18px 16px; background: var(--card); }
+.iv-fee { border-top: 8px solid var(--ground); }
+.iv-fee-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.iv-amt { font-size: 20px; font-weight: 500; }
+.iv-pay-row { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; background: var(--ground); border-radius: var(--r-control); }
+.iv-pay-row .k { font-size: 14px; font-weight: 300; color: var(--muted); }
+.iv-pay-row .v { font-size: 18px; font-weight: 500; word-break: break-all; }
+.iv-next-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 6px 0 8px; }
+.iv-past { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: var(--ink); cursor: pointer; }
+.iv-past:last-child { border-bottom: 0; }
+.iv-wait { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 16px; border: 0; background: #fbf3e4; font: inherit; color: var(--ink); cursor: pointer; }
+.iv-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 14px; }
+.iv-stats > div { display: flex; flex-direction: column; gap: 2px; padding: 16px; background: var(--card); border-radius: var(--radius); }
+.iv-stats b { font-size: 28px; font-weight: 600; letter-spacing: -0.6px; }
+.pl-table { padding: 10px 12px 4px; background: var(--card); }
+.pl-row { display: grid; grid-template-columns: 1.3fr 1fr 1fr 1fr; align-items: center; padding: 12px 6px; border-bottom: 1px solid var(--line); font-size: 15px; }
+.pl-row > * { text-align: center; }
+.pl-row > :first-child { text-align: left; font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.3; }
+.pl-row b { font-weight: 500; }
+.pl-head { border-bottom: 1px solid var(--line); }
+.pl-head b { font-size: 14px; line-height: 1.25; }
+.pl-plus { color: var(--emerald); }
+.pl-badge { display: inline-block; padding: 4px 10px; border-radius: var(--r-control); background: var(--emerald); color: #fff; font-weight: 500; }
+.pl-row > span:not(:first-child) svg { display: inline-block; vertical-align: middle; }
+.pl-eg { margin-top: 8px; border: 0; border-radius: var(--r-control); background: var(--ground); }
+.pl-eg b { font-weight: 600; }

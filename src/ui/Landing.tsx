@@ -34,7 +34,7 @@ const USES: [string, string, string][] = [
 ];
 
 // Every answer here is how the platform actually works (the terms and privacy policy say the same). Fees and windows come from the live settings.
-type Fee = { pct: number; max: number; plus: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number; tpayg: number; tplan: number; tquiet: number };
+type Fee = { pct: number; max: number; plus: number; tu: number; pl: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number; tpayg: number; tplan: number; tquiet: number };
 const faq = (fee: Fee): [string, [string, string][]][] => [
   ["Getting help", [
     ["How fast can someone come?", "The moment you post, workers who are switched on near you get an alert. If nobody says they're keen within 10 minutes, workers further out can see your job too."],
@@ -47,7 +47,7 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["Who can work on Mahi Man?", "Anyone 18 or over with their real name and photo. You verify your ID before you take your first job."],
     ["Do I need an ABN?", "No. You can start without one."],
     ["Do you take a cut of my pay?", "No. Workers keep 100% of the job price, now and after launch. The connection fee is paid by the customer."],
-    ["How do I get paid?", "During the pilot, the customer pays you directly by bank transfer or cash when the job is finished. From launch, you're paid through the app once the customer confirms the job is done."],
+    ["How do I get paid?", "The customer pays you directly by bank transfer or cash when the job is finished. You keep 100% of the job price."],
     ["Can I choose when I work?", "Yes. Switch on when you're available, take only the jobs you want, and switch off when you're done."],
     ["What about jobs that need a licence?", "Electrical work, an RSA and similar jobs only go to workers whose licence we've checked and is in date."],
   ]],
@@ -78,10 +78,10 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["What's my Turns up score?", "How often you turn up on time for the jobs you take. Customers see it on every offer you send."],
   ]],
   ["Payments and fees", [
-    ["What does it cost?", `Nothing during the pilot: you pay your worker directly by bank transfer or cash. From launch, customers pay a ${fee.pct}% connection fee, up to ${money(fee.max)} a job.`],
-    ["How do payments work after the pilot?", `You pay in the app when you accept someone. We hold the money while the job is done. When you confirm it's done, the payment is released to your worker, and the ${fee.pct}% connection fee stays with Mahi Man.`],
+    ["What does it cost?", `You pay your worker directly by bank transfer or cash. When a job goes ahead, customers pay Mahi Man a connection fee of ${fee.pct}%, up to ${money(fee.max)} a job. Workers keep 100%.`],
+    ["How do I pay the fee?", `By bank transfer. Pick an invoice after each job, weekly, or every 2 weeks on your payday. Or top up your balance by card or bank, and the fee drops to ${fee.tu}% and comes off your balance.`],
     ["Is my card safe?", "Cards are stored by Stripe, our payment provider. We never see or keep your full card number."],
-    ["Is there a way to skip the fees?", `Mahi Man Plus, $${(fee.plus / 100).toFixed(2)} a month, has no booking fees and puts your jobs first. It opens with in-app payments.`],
+    ["Is there a way to pay less?", `Mahi Man Plus, $${(fee.plus / 100).toFixed(2)} a month from your balance, takes the fee to ${fee.pl}% and puts your jobs first. It suits people who book every week.`],
   ]],
   ["Local offers", [
     ["What are local offers?", "Deals from local businesses for Mahi Man customers and workers, like money off a skip bin or at the hardware store. Tap the tag at the top of the app to see them."],
@@ -103,13 +103,13 @@ export function Landing() {
   useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
   // The connection fee customers pay from launch, from the live settings.
-  const [fee, setFee] = useState<Fee>({ pct: 12, max: 3000, plus: 999, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, tpayg: 3500, tplan: 14900, tquiet: 48 });
+  const [fee, setFee] = useState<Fee>({ pct: 12, max: 3000, plus: 999, tu: 10, pl: 6, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, tpayg: 3500, tplan: 14900, tquiet: 48 });
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "plus_cents", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "plus_cents", "topup_fee_percent", "plus_fee_percent", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
       "noshow_wait_minutes", "worker_cancel_window_minutes", "strikes_offline_30", "offline_days", "strikes_review_90", "customer_late_cancels_30",
       "trade_payg_cents", "trade_plan_cents", "trade_quiet_hours"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
-      setFee((f) => ({ pct: m.booking_fee_percent || f.pct, max: m.booking_fee_max_cents || f.max, plus: m.plus_cents || f.plus,
+      setFee((f) => ({ pct: m.booking_fee_percent || f.pct, max: m.booking_fee_max_cents || f.max, plus: m.plus_cents || f.plus, tu: m.topup_fee_percent || f.tu, pl: m.plus_fee_percent || f.pl,
         cancel: m.cancel_fee_cents || f.cancel, soon: m.worker_late_cancel_cents || f.soon, late: m.late_minutes || f.late, wait: m.noshow_wait_minutes || f.wait,
         window: m.worker_cancel_window_minutes || f.window, s30: m.strikes_offline_30 || f.s30, off: m.offline_days || f.off, s90: m.strikes_review_90 || f.s90,
         lc30: m.customer_late_cancels_30 || f.lc30, tpayg: m.trade_payg_cents || f.tpayg, tplan: m.trade_plan_cents || f.tplan, tquiet: m.trade_quiet_hours || f.tquiet }));
