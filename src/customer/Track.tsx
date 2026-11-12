@@ -14,7 +14,7 @@ import { LiveMap, useTrip } from "../ui/LiveMap";
 import { AlertsAsk } from "../ui/AlertsAsk";
 import { alertsState, askedFor } from "../lib/push";
 import { FeePayScreen, useOwed, type OwedFee } from "./Fees";
-import { JobFeeSection, useJobFee } from "../ui/Payments";
+import { GiftPaidSection, JobFeeSection, useJobFee } from "../ui/Payments";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
 
 interface PayDetails { payid: string | null; bsb: string | null; account_number: string | null; account_name: string }
@@ -162,11 +162,16 @@ export function Track({ id }: { id: string }) {
     const before = photos.filter((p) => p.kind === "before");
     const after = photos.filter((p) => p.kind === "after");
     const owed = job.price_cents + approved.reduce((a, e) => a + e.amount_cents, 0);
+    // A Mahi Man gift card pays the worker first; the customer pays any rest directly.
+    const gift = Math.min(job.gift_cents ?? 0, owed);
+    const rest = owed - gift;
+    const giftAll = gift > 0 && rest === 0;
     return (
       <div className="app">
-        <DoneHero jobName={jobName} step={3} big={money(owed)}
+        <DoneHero jobName={jobName} step={3} big={money(giftAll ? owed : rest)}
           label={paid ? `Waiting for ${wName} to confirm` : `${wName} has finished`}
-          sub={paid ? `You told ${wName} you paid at ${new Date(job.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}` : `Check the photos, pay ${wName}, then tell us`} />
+          sub={paid ? `You told ${wName} you paid at ${new Date(job.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}`
+            : giftAll ? "Check the photos, then tell us it's done" : `Check the photos, pay ${wName}, then tell us`} />
         {(job.included?.length ?? 0) > 0 && (
           <div className="cp-sec" style={{ gap: 8 }}>
             <span className="cp-title" style={{ marginBottom: 0 }}>What {wName} did</span>
@@ -186,8 +191,9 @@ export function Track({ id }: { id: string }) {
             ))}
           </div>
         )}
-        <PriceRows jobName={jobName} priceCents={job.price_cents} extras={approved} totalLabel={`Pay ${wName}`} />
-        <div className="cp-payid">
+        <PriceRows jobName={jobName} priceCents={job.price_cents} extras={approved} totalLabel={gift > 0 ? "Job price" : `Pay ${wName}`} />
+        {gift > 0 && <GiftPaidSection worker={wName} gift={gift} rest={rest} fee={jobFee} />}
+        {!giftAll && <div className="cp-payid">
           {Icon.card("var(--emerald)")}
           <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>
             <span className="k">{bank ? `${wName}'s bank account` : `${wName}'s PayID`}</span>
@@ -199,15 +205,22 @@ export function Track({ id }: { id: string }) {
           {payid || bank
             ? <button className="btn stone small" onClick={() => { const t = payid ?? `BSB ${bank!.bsb} Account ${bank!.account_number} ${bank!.account_name}`; navigator.clipboard?.writeText(t).then(() => toast("Copied"), () => toast(t)); }}>Copy</button>
             : <button className="btn stone small" onClick={() => setScreen("chat")}>Message</button>}
-        </div>
-        {jobFee && <JobFeeSection fee={jobFee} />}
+        </div>}
+        {jobFee && !(gift > 0 && jobFee.from_balance_cents >= jobFee.amount_cents) && <JobFeeSection fee={jobFee} />}
         <AfterJobOffer jobId={id} />
-        <Note icon="clock">{paid
+        {giftAll ? <Note icon="lock">{`Nothing to pay. We pay ${wName} once you say it's done, or in 2 days if you don't. Not happy? Report it first.`}</Note>
+        : <Note icon="clock">{paid
           ? `Once ${wName} confirms they got it, you can both leave a review. If they don't answer within 24 hours, the job closes as paid.`
-          : "Cash is fine too. Not happy with the job? Report it before paying. If you do nothing for 48 hours, the job closes as done."}</Note>
+          : "Cash is fine too. Not happy with the job? Report it before paying. If you do nothing for 48 hours, the job closes as done."}</Note>}
         <ActionBar>
           <button className="btn stone" style={{ flex: 1 }} onClick={() => setScreen("report")}>Something's wrong</button>
-          {!paid && (
+          {giftAll ? (
+            <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={async () => {
+              setBusy(true);
+              try { await api("confirm_job", { job_id: id }); toast(`Thanks. We'll pay ${wName} on Friday`); await load(); }
+              catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+            }}>{busy ? "Saving…" : "It's done"}</button>
+          ) : !paid && (
             <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={async () => {
               setBusy(true);
               try { await rpc("customer_mark_paid", { p_job: id }); toast(`${wName} has been told`); await load(); }

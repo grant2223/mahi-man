@@ -94,6 +94,15 @@ export function Terms() {
         <li>Every invoice is a tax invoice and includes GST. Rates, caps and prices are shown on the How you pay page and can change; the rate shown when you post a job is the one that applies to it.</li>
         <li>By saving a card you allow us to charge the top-ups you ask for, and automatic top-ups if you turn them on. You can remove a saved card at any time in Settings.</li>
       </ul>
+      <h2>Gift cards</h2>
+      <ul>
+        <li>A Mahi Man gift card pays for jobs booked on Mahi Man: the price agreed with the worker, any approved extras, and the connection fee. It can't be swapped for cash.</li>
+        <li>Each gift card lasts 3 years from the day it's paid for. The expiry date is shown with the gift code. There are no fees once it's bought.</li>
+        <li>A gift card is added to one Mahi Man account, by opening its link, entering its code, or signing up with the email it was sent to. Keep the code private: anyone with it can add it to their account.</li>
+        <li>When a job paid by a gift card is finished, Mahi Man holds the money until the customer confirms the job is done, or 2 days pass without a report, and then pays the worker on the following Friday. If the job doesn't go ahead or is refunded, the money goes back onto the gift card.</li>
+        <li>If a gift card covers only part of a job, the customer pays the worker the rest directly.</li>
+        <li>A gift card paid by bank transfer is sent once the money arrives. You can cancel it until then. After that, refunds are as required by Australian Consumer Law.</li>
+      </ul>
       <h2>Trade jobs</h2>
       <ul>
         <li>A job that needs a trade licence, such as electrical, plumbing or gas work, is a trade job. Only tradies whose licence and public liability insurance we have checked can see it.</li>

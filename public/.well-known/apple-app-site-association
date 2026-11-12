@@ -4,7 +4,8 @@
       {
         "appIDs": ["3N7J224W53.com.mahiman.app"],
         "components": [
-          { "/": "/w/*", "comment": "A worker's code: book them again" }
+          { "/": "/w/*", "comment": "A worker's code: book them again" },
+          { "/": "/g/*", "comment": "A gift card link: add it to your wallet" }
         ]
       }
     ]

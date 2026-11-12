@@ -19,9 +19,10 @@ interface TopupRow { id: number; reference: string; amount: number; status: "req
 export interface MyPayments {
   mode: string; card_live: boolean;
   rates: { payg: number; payg_max: number; topup: number; topup_max: number; plus: number; plus_max: number; plus_cents: number; auto_topup: number; auto_below: number };
-  balance: number; plan: "now" | "weekly" | "fortnightly"; payday: number; anchor: string | null;
+  balance: number; gift_balance: number; gift_from: string | null; plan: "now" | "weekly" | "fortnightly"; payday: number; anchor: string | null;
   plus_until: string | null; plus_renew: boolean; auto_topup: boolean; card: string | null; pay: PayDetails;
   next: { total: number; lines: Line[] }; invoices: InvoiceRow[]; log: { delta: number; kind: string; note: string; at: string }[]; topups: TopupRow[];
+  gifts: { id: number; amount: number; to: string; status: string; send_by: string; send_on: string; sent_at: string | null; redeemed: boolean }[];
 }
 
 const TZ = "Australia/Brisbane";
@@ -50,9 +51,18 @@ export function nextPayday(p: Pick<MyPayments, "plan" | "payday" | "anchor">): D
   return null;
 }
 
+let claimed = false;
+// Gifts emailed to this account go into its wallet: checked once per app start.
+export function claimGifts() { if (claimed) return; claimed = true; rpc("gift_autoclaim").catch(() => {}); }
 export function usePayments(enabled = true) {
   const [p, setP] = useState<MyPayments | null>(null);
-  const load = useCallback(() => { if (enabled) rpc<MyPayments>("my_payments").then(setP).catch(() => {}); }, [enabled]);
+  const load = useCallback(() => {
+    if (!enabled) return;
+    // Gifts emailed to this account go into the wallet the first time payments load.
+    const first = claimed ? Promise.resolve(0) : rpc<number>("gift_autoclaim").catch(() => 0);
+    claimed = true;
+    first.then(() => rpc<MyPayments>("my_payments")).then(setP).catch(() => {});
+  }, [enabled]);
   useEffect(() => { load(); }, [load]);
   return { p, reload: load };
 }
@@ -169,12 +179,18 @@ export function PaymentsPage() {
       <div className="iv-hero">
         <span className="t15 light">Your balance</span>
         <span className="iv-big">{money2(p.balance)}</span>
-        <span className="t15 light">{line}</span>
-        <div className="row" style={{ gap: 10, marginTop: 10 }}>
+        {p.gift_balance > 0 ? (
+          <div className="gf-split">
+            <span><b className="w5">{money2(p.gift_balance)}</b> gift{p.gift_from ? ` from ${p.gift_from}` : ""}<br /><span className="light muted">Pays jobs and fees</span></span>
+            {p.balance - p.gift_balance > 0 && <span><b className="w5">{money2(p.balance - p.gift_balance)}</b> top-up<br /><span className="light muted">Pays fees</span></span>}
+          </div>
+        ) : <span className="t15 light">{line}</span>}
+        <div className="row" style={{ gap: 10, marginTop: 12, flexWrap: "wrap" }}>
           <button className="btn primary small" onClick={() => go("/topup")}>Top up</button>
-          {!plus ? <button className="btn stone small" onClick={() => go("/plus")}>Get Plus, {p.rates.plus}% fee</button>
-            : p.plus_renew ? <button className="btn stone small" onClick={stopPlus}>Stop Plus</button>
-            : <button className="btn stone small" onClick={() => go("/plus")}>Keep Plus</button>}
+          <button className="btn stone small" onClick={() => go("/gift")}>Give help</button>
+          <button className="btn stone small" onClick={() => go("/gift-code")}>Add a gift code</button>
+          {plus && (p.plus_renew ? <button className="btn stone small" onClick={stopPlus}>Stop Plus</button>
+            : <button className="btn stone small" onClick={() => go("/plus")}>Keep Plus</button>)}
         </div>
       </div>
 
@@ -186,12 +202,26 @@ export function PaymentsPage() {
         </button>
       ))}
 
+      {p.gifts.length > 0 && (
+        <div className="cp-sec iv-band" style={{ gap: 0 }}>
+          <span className="cp-title">Gifts you've given</span>
+          {p.gifts.map((g) => (
+            <button key={g.id} className="iv-past" onClick={() => go(`/gifts/${g.id}`)}>
+              <span className="stack" style={{ gap: 2, flex: 1, textAlign: "left" }}><span className="w5">{money(g.amount)} for {g.to}</span>
+                <span className="t14 light muted">{g.redeemed ? "In their wallet" : g.status === "requested" ? "Waiting for your transfer" : g.status === "claimed" ? "Checking your transfer"
+                  : g.sent_at ? (g.send_by === "email" ? "Emailed" : "Sent") : `Sends ${dayShort(`${g.send_on}T02:00:00Z`)}`}</span></span>
+              {Icon.chevron("var(--faint)")}
+            </button>
+          ))}
+        </div>
+      )}
+
       {p.log.length > 0 && (
         <div className="cp-sec iv-band" style={{ gap: 0 }}>
           <span className="cp-title">Recent</span>
           {p.log.slice(0, 5).map((l, i) => (
             <div key={i} className="iv-past" style={{ cursor: "default" }}>
-              <span className="stack" style={{ gap: 2, flex: 1, textAlign: "left" }}><span>{l.note}</span><span className="t14 light muted">{dayShort(l.at)}</span></span>
+              <span className="stack" style={{ gap: 2, flex: 1, textAlign: "left" }}><span>{l.kind === "gift_job" ? `${l.note}, paid to your worker` : l.kind === "fee" ? `${l.note}, fee` : l.note}</span><span className="t14 light muted">{dayShort(l.at)}</span></span>
               <span className={l.delta > 0 ? "w5 em" : "w5"}>{l.delta > 0 ? "+" : "−"}{money2(Math.abs(l.delta))}</span>
             </div>
           ))}
@@ -528,6 +558,21 @@ export function JobFeeSection({ fee }: { fee: JobFee }) {
     <div className="iv-fee">
       {title}
       <span className="t15 light">{p.plan === "fortnightly" ? "On your invoice every 2 weeks" : "On your weekly invoice"}{pd ? <>, ready {DAYS[(pd.getUTCDay() + 6) % 7]} and due on your payday, <b className="w5">{dayLong(noonIso(pd))}</b>.</> : "."}</span>
+    </div>
+  );
+}
+
+/* ---------- Track: a finished job paid (all or part) by a gift card ---------- */
+export function GiftPaidSection({ worker, gift, rest, fee }: { worker: string; gift: number; rest: number; fee: JobFee | null }) {
+  const { p } = usePayments();
+  const feeFromGift = fee && fee.from_balance_cents >= fee.amount_cents ? fee : null;
+  return (
+    <div className="iv-fee">
+      <div className="iv-fee-top"><span className="cp-title" style={{ margin: 0 }}>Paid from your gift</span><span className="iv-amt">{money2(gift + (feeFromGift?.amount_cents ?? 0))}</span></div>
+      <div className="cp-row"><span>{worker}, for the job</span><span>{money2(gift)}</span></div>
+      {feeFromGift && <div className="cp-row"><span>Mahi Man connection fee</span><span>{money2(feeFromGift.amount_cents)}</span></div>}
+      {rest > 0 && <div className="cp-row"><span className="w5">Pay {worker} the rest</span><span className="w5">{money2(rest)}</span></div>}
+      {p && p.gift_balance > 0 && <div className="cp-row"><span className="light muted">Left on your gift</span><span className="light muted">{money2(p.gift_balance)}</span></div>}
     </div>
   );
 }

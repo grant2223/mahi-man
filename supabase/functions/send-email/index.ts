@@ -82,6 +82,16 @@ function render(kind: string, d: Record<string, any>) {
       + `<div style="margin:0 0 22px">${btn(`${SITE}/payments`, "Open the invoice", true)}</div>`;
     return { subject: `Reminder: invoice ${d.number} is due`, html: layout(`Invoice ${esc(d.number)} is due`, body) };
   }
+  if (kind === "gift") {
+    const amt = `$${Math.round(Number(d.amount_cents) / 100)}`;
+    const body = (d.message ? `<p style="margin:0 0 18px;font-size:18px;line-height:1.5;font-weight:300;color:#2a2d32">"${esc(d.message)}"</p>` : "")
+      + p("It's for any job around the house on Mahi Man: gutters, lawns, moving, cleaning, anything. The gift pays your worker when the job's done.")
+      + step(1, "Get Mahi Man", "Free on iPhone and Android.", btn(`${SITE}/get`, "Get Mahi Man", false))
+      + step(2, "Sign up with this email address", "Your gift goes straight into your wallet.")
+      + step(3, "Post a job", "Your gift pays when it's done.", btn(d.link, "Open my gift", true))
+      + `<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#8a877e">Gift code ${esc(d.code)} · lasts until ${esc(d.expires)}. Enter the code in Settings, Payments if you sign up with a different email.</p>`;
+    return { subject: `${d.from} sent you ${amt} of help`, html: layout(`${esc(d.from)} sent you ${amt} of help`, body) };
+  }
   throw new Error(`Unknown email: ${kind}`);
 }
 

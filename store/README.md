@@ -12,7 +12,7 @@ What's ready, and what's left. Ticked items are done.
 - [x] Location foreground-service declaration with the demo video (`google-play/location-sharing-demo.mp4`, shared from Google Drive).
 - [x] **Production 1.0 (versionCode 3) sent for review on 12 Nov 2026**, Australia and New Zealand. Live on 12 Nov 2026.
 - [x] **Production 1.0 (versionCode 4, payments) sent for review on 12 Nov 2026**, with the new description, Data safety (Purchase history) and sign-in note. Rolls out to 100% once approved.
-- [ ] **Release versionCode 4 (payments: connection fee invoices, top-up, Plus).** Build the .aab, Production → Create new release → upload → Send for review. Before sending: paste the new full description, App access note and Financial features answer from `google-play/listing.md`, and add the Purchase history row in Data safety.
+- [ ] **Release versionCode 5 (gift cards).** Build the .aab, Production → Create new release → upload → Send for review. Nothing to change in the listing: gift cards pay for real-world jobs, so they're not digital purchases.
 - [ ] Optional: App content, Target audience, tick "Restrict users that Google has determined to be minors".
 - [ ] Internal testing release (draft): add tester emails if you want a private Android build before launch.
 
@@ -44,6 +44,7 @@ What's ready, and what's left. Ticked items are done.
 - [x] Worker payout setup works from the apps (Stripe returns to mahiman.app/payouts-done, and the app re-checks).
 
 Card payments for real-world services (odd jobs) are allowed outside Apple's and Google's in-app purchase systems, so Stripe is fine on both stores.
+Mahi Man gift cards are the same: they only pay for real-world jobs (the worker and the connection fee), so they're sold outside in-app purchase too. If a reviewer asks, say that.
 
 ## 4. Submit
 

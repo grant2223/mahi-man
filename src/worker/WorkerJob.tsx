@@ -107,12 +107,35 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
       about={`Tell other workers about ${cName}`} onDone={onChanged} />;
   }
 
+  if (j.status === "finished" && isDirectPay(j) && (j.gift_cents ?? 0) >= earn) {
+    // The customer's Mahi Man gift card covers the whole job: Mahi Man pays the worker.
+    return (
+      <>
+        <DoneHero jobName={jobName} step={3} big={money(earn)} lime label="Paid by a gift card"
+          sub={`Mahi Man pays you on the Friday after ${cName} says it's done`} />
+        <div className="cp-sec">
+          <span className="cp-title" style={{ marginBottom: 2 }}>Nothing to collect</span>
+          <span className="t16 light muted" style={{ lineHeight: 1.45 }}>{`${cName} paid with a Mahi Man gift card. We pay ${money(earn)} to your ${payid ? "PayID" : "bank account"} on the Friday after the job is confirmed. If ${cName} does nothing for 48 hours, it confirms itself.`}</span>
+        </div>
+        <button className="choice" onClick={() => setScreen("mycode")}><span className="t"><b>Show your code</b><span>{cName} scans it to book you again</span></span>{Icon.chevron("var(--faint)")}</button>
+        {leaveLink}
+        <ActionBar>
+          <button className="btn stone" style={{ flex: 1 }} onClick={() => setReport(true)}>Something's wrong</button>
+          <button className="btn primary" style={{ flex: 1 }} onClick={onChanged}>Back to jobs</button>
+        </ActionBar>
+        {problem}
+        {screen === "mycode" && <MyCode onBack={() => setScreen(null)} />}
+      </>
+    );
+  }
+
   if (j.status === "finished" && isDirectPay(j)) {
     const told = !!j.customer_paid_at;
+    const gift = j.gift_cents ?? 0;
     const at = told ? new Date(j.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : "";
     return (
       <>
-        <DoneHero jobName={jobName} step={3} big={money(earn)} lime
+        <DoneHero jobName={jobName} step={3} big={money(earn - gift)} lime
           label={told ? `${cName} says they've paid you` : "Get paid"}
           sub={told ? `Marked paid at ${at}` : `Collect it from ${cName} now, by bank transfer or cash`} />
         {told ? (
@@ -122,7 +145,14 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
           </div>
         ) : (
           <>
-            <PriceRows title={`What ${cName} pays you`} jobName={jobName} priceCents={j.price_cents} extras={approved} totalLabel="Total" />
+            <PriceRows title={`What ${cName} pays you`} jobName={jobName} priceCents={j.price_cents} extras={approved} totalLabel={gift > 0 ? "Job price" : "Total"} />
+            {gift > 0 && (
+              <div className="cp-sec" style={{ paddingTop: 0 }}>
+                <div className="cp-row"><span>Paid by {cName}'s gift card</span><span>{money(gift)}</span></div>
+                <div className="cp-total"><span>{cName} pays you</span><span>{money(earn - gift)}</span></div>
+                <span className="t14 light muted">{`Mahi Man pays you the ${money(gift)} on the Friday after the job is confirmed.`}</span>
+              </div>
+            )}
             <div className="cp-payid">
               {Icon.card("var(--emerald)")}
               <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>

@@ -1,5 +1,5 @@
 import { FeePayScreen, OwedBanner, useOwed, type OwedFee } from "./Fees";
-import { InvoiceBanner, useDueInvoices, usePayments } from "../ui/Payments";
+import { claimGifts, InvoiceBanner, useDueInvoices, usePayments } from "../ui/Payments";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
@@ -418,6 +418,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
 
   const { owed, reload: reloadOwed } = useOwed(!!uid);
   const { invoices, paused } = useDueInvoices(!!uid);
+  useEffect(() => { if (uid) claimGifts(); }, [uid]);
   const [paying, setPaying] = useState<OwedFee | null>(null);
 
   const again = (r: Recent) => onStart({

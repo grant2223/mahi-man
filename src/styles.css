@@ -921,3 +921,28 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .pl-row > span:not(:first-child) svg { display: inline-block; vertical-align: middle; }
 .pl-eg { margin-top: 8px; border: 0; border-radius: var(--r-control); background: var(--ground); }
 .pl-eg b { font-weight: 600; }
+
+/* ---------- Gift cards ---------- */
+.gf-card { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 18px 18px 18px; min-height: 190px; border-radius: var(--radius); background: var(--hero); color: #fff; }
+.gf-brand { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; margin-bottom: 10px; }
+.gf-brand img { width: 26px; height: 26px; }
+.gf-amt { font-size: 52px; font-weight: 600; letter-spacing: -2px; line-height: 1; color: var(--lime); }
+.gf-to { font-size: 18px; font-weight: 500; margin-top: 8px; }
+.gf-msg { font-size: 15px; font-weight: 300; max-width: 62%; line-height: 1.35; opacity: 0.92; }
+.gf-from { font-size: 14px; font-weight: 300; opacity: 0.8; margin-top: 6px; }
+.gf-mascot { position: absolute; right: -14px; bottom: -6px; height: 170px; }
+.gf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 16px; }
+.gf-f { min-height: 62px; cursor: default; }
+.gf-f .v { font-size: 17px; }
+.gf-hero { padding-bottom: 28px !important; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 300px; }
+.gf-hero-k { font-size: 18px; font-weight: 300; margin-top: 20px; }
+.gf-hero-t { font-size: 20px; font-weight: 500; max-width: 52%; line-height: 1.25; }
+.gf-quote { font-size: 15px; font-weight: 300; max-width: 46%; opacity: 0.9; margin-top: 8px; }
+.gf-hero-mascot { position: absolute; right: -34px; bottom: 0; height: 236px; }
+.gf-step { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.gf-step:last-child { border-bottom: 0; }
+.gf-n { font-size: 28px; font-weight: 600; color: var(--emerald); width: 22px; line-height: 1; }
+.gf-split { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; margin-top: 10px; font-size: 15px; line-height: 1.4; }
+.gf-v { align-items: center; gap: 8px; width: 100%; }
+button.gf-f { font: inherit; color: var(--ink); cursor: pointer; }
+.gf-f textarea { min-height: 44px; }

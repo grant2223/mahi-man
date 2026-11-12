@@ -323,6 +323,38 @@ Deno.serve(async (req) => {
         await admin.rpc("topup_card_paid", { p_user: user.id, p_amount: pi.amount, p_intent: pi.id });
         return ok({ done: true });
       }
+      // ---------- Pay for a gift card with the saved card ----------
+      case "gift_card": {
+        const { data: g } = await admin.from("gift_cards").select("*").eq("id", body.gift_id).eq("buyer_id", user.id).single();
+        if (!g) return fail("Gift card not found");
+        if (g.status === "paid") return ok({ done: true });
+        if (g.via !== "card" || g.status !== "requested") return fail("This gift card is paid by bank transfer");
+        if (!me?.card_pm || !me.stripe_customer_id) return fail("Add a card first");
+        try {
+          const pi = await stripe().paymentIntents.create({
+            amount: g.amount_cents, currency: "aud", customer: me.stripe_customer_id, payment_method: me.card_pm, off_session: true, confirm: true,
+            receipt_email: user.email ?? undefined, description: `Mahi Man gift card for ${g.to_name}`, metadata: { user_id: user.id, kind: "gift", gift_id: String(g.id) },
+            statement_descriptor_suffix: "MAHI MAN",
+          }, { idempotencyKey: `gift-${g.id}` });
+          if (pi.status === "requires_action") return ok({ action: "authenticate", client_secret: pi.client_secret, publishable_key: await setting("stripe_publishable_key") });
+          if (pi.status !== "succeeded") return fail("The payment is still going through. Your gift sends once it does.");
+          await admin.rpc("gift_mark_paid", { p_id: g.id, p_intent: pi.id });
+          return ok({ done: true });
+        } catch (e) {
+          const err = e as { code?: string; raw?: { payment_intent?: { client_secret: string } } };
+          if (err.code === "authentication_required" && err.raw?.payment_intent) {
+            return ok({ action: "authenticate", client_secret: err.raw.payment_intent.client_secret, publishable_key: await setting("stripe_publishable_key") });
+          }
+          return fail("Your card was declined. Add another card, or pay by bank transfer.");
+        }
+      }
+      case "gift_card_done": {
+        const pi = await stripe().paymentIntents.retrieve(String(body.payment_intent_id));
+        if (pi.metadata?.user_id !== user.id || pi.metadata?.kind !== "gift" || pi.metadata?.gift_id !== String(body.gift_id)) return fail("Gift card not found");
+        if (pi.status !== "succeeded") return fail("The payment didn't go through. Try again.");
+        await admin.rpc("gift_mark_paid", { p_id: Number(body.gift_id), p_intent: pi.id });
+        return ok({ done: true });
+      }
       // Charge the booking fee to the saved card, then book the worker. If booking fails, the fee goes straight back.
       case "choose_worker": {
         const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).eq("customer_id", user.id).single();

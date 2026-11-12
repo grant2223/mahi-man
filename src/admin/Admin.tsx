@@ -9,7 +9,7 @@ import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit"
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money" | "gifts";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -18,9 +18,9 @@ const STATUS_BADGE: Record<string, string> = {
 export function Admin() {
   const { session, profile, ready } = useSession();
   const [tab, setTab] = useState<Tab>("overview");
-  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0, invoices: 0, partners: 0, money: 0 });
+  const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0, invoices: 0, partners: 0, money: 0, gifts: 0 });
   const recount = useCallback(async () => {
-    const [a, b, c, d, e, f, g, h, m1, m2] = await Promise.all([
+    const [a, b, c, d, e, f, g, h, m1, m2, m3, m4] = await Promise.all([
       sb.from("id_checks").select("id", { count: "exact", head: true }).eq("status", "pending"),
       sb.from("reports").select("id", { count: "exact", head: true }).eq("status", "open"),
       sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
@@ -31,8 +31,10 @@ export function Admin() {
       sb.from("partners").select("id", { count: "exact", head: true }).eq("status", "applied"),
       sb.from("customer_invoices").select("id", { count: "exact", head: true }).eq("status", "claimed"),
       sb.from("topups").select("id", { count: "exact", head: true }).eq("status", "claimed"),
+      sb.from("gift_cards").select("id", { count: "exact", head: true }).eq("status", "claimed"),
+      sb.from("worker_payouts").select("id", { count: "exact", head: true }).eq("status", "due"),
     ]);
-    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0, invoices: g.count ?? 0, partners: h.count ?? 0, money: (m1.count ?? 0) + (m2.count ?? 0) });
+    setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0, invoices: g.count ?? 0, partners: h.count ?? 0, money: (m1.count ?? 0) + (m2.count ?? 0) + (m3.count ?? 0), gifts: m4.count ?? 0 });
   }, []);
   useEffect(() => { if (profile?.is_admin) recount(); }, [profile?.is_admin, recount, tab]);
   // Full-width admin: a fixed side menu grouped by what needs doing, and the page on the right.
@@ -41,7 +43,7 @@ export function Admin() {
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
     { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["launch", "Launch list"]] },
     { label: "Trust", items: [["cancels", "Cancellations", counts.fees], ["strikes", "Strikes", counts.strikes], ["reviews", "Reviews"]] },
-    { label: "Money", items: [["money", "Invoices", counts.money]] },
+    { label: "Money", items: [["money", "Invoices", counts.money], ["gifts", "Gift cards", counts.gifts]] },
     { label: "Partners", items: [["partners", "Partners", counts.partners], ["tradies", "Tradies", counts.invoices]] },
     { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
   ];
@@ -93,6 +95,7 @@ export function Admin() {
         {tab === "tradies" && <Tradies onChanged={recount} />}
         {tab === "partners" && <Partners onChanged={recount} />}
         {tab === "money" && <MoneyInvoices onChanged={recount} />}
+        {tab === "gifts" && <GiftCardsAdmin onChanged={recount} />}
       </main>
     </div>
   );
@@ -1848,9 +1851,9 @@ function PartnerDetail({ p, onBack, onChanged }: { p: PartnerRow; onBack: () => 
 
 // Every invoice in one place: customer connection fees, customer bank top-ups, tradie plans and partner months.
 // Match the reference on the bank statement, then mark it paid. "They say paid" means the customer pressed I've paid.
-interface MoneyRow { kind: "invoice" | "topup" | "tradie" | "partner"; id: number; ref: string; who: string; what: string; item: string; amount: number; due: string; state: "due" | "late" | "claimed" | "paid"; paused: boolean; created: string; paid_at: string | null }
+interface MoneyRow { kind: "invoice" | "topup" | "gift" | "tradie" | "partner"; id: number; ref: string; who: string; what: string; item: string; amount: number; due: string; state: "due" | "late" | "claimed" | "paid"; paused: boolean; created: string; paid_at: string | null }
 interface MoneyData { rows: MoneyRow[]; due_week: number; due_week_n: number; late: number; late_n: number; paid_month: number; paid_month_n: number }
-const MONEY_VIEWS: [string, string][] = [["open", "To check and due"], ["late", "Overdue"], ["topups", "Top-ups"], ["paid", "Paid"], ["all", "Everything"]];
+const MONEY_VIEWS: [string, string][] = [["open", "To check and due"], ["late", "Overdue"], ["topups", "Top-ups and gift cards"], ["paid", "Paid"], ["all", "Everything"]];
 function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
   const toast = useToast();
   const [view, setView] = useState("open");
@@ -1864,6 +1867,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
     try {
       if (r.kind === "invoice") await rpc("admin_invoice_set", { p_id: r.id, p_status: "paid" });
       else if (r.kind === "topup") await rpc("admin_topup_paid", { p_id: r.id });
+      else if (r.kind === "gift") await rpc("admin_gift_paid", { p_id: r.id });
       else if (r.kind === "tradie") await rpc("admin_trade_order_paid", { p_id: r.id, p_note: `Bank transfer ${r.ref}` });
       else await rpc("admin_partner_paid", { p_invoice: r.id });
       toast(`${r.ref} marked paid`); load(); onChanged();
@@ -1898,8 +1902,47 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
             </tr>
           ))}</tbody></table></div>
       )}
-      <p className="light muted" style={{ marginTop: 14 }}>Match the reference on your bank statement to the invoice, then mark it paid. "They say paid" means the customer pressed I've paid. Top-ups are added to the customer's balance when you mark them paid.</p>
+      <p className="light muted" style={{ marginTop: 14 }}>Match the reference on your bank statement to the invoice, then mark it paid. "They say paid" means the customer pressed I've paid. Top-ups are added to the customer's balance when you mark them paid. A gift card sends once it's marked paid.</p>
       {pick && <SearchPicker title="Show" placeholder="Search" options={MONEY_VIEWS.map(([id, label]) => ({ id, label }))} value={[view]} onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
+    </>
+  );
+}
+
+// Gift cards: what's sold, what's waiting to be used, and the workers Mahi Man pays for gift-card jobs every Friday.
+interface PayoutRow { id: number; worker: string; pay_to: string; job: string; amount: number; status: "held" | "due" | "paid"; due_on: string | null; paid_at: string | null }
+interface GiftsData { sold_month: number; sold_month_n: number; unused: number; unused_n: number; due: number; due_n: number; payouts: PayoutRow[] }
+function GiftCardsAdmin({ onChanged }: { onChanged: () => void }) {
+  const toast = useToast();
+  const [d, setD] = useState<GiftsData | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+  const load = useCallback(() => rpc<GiftsData>("admin_gifts").then(setD).catch((e) => toast(e.message)), [toast]);
+  useEffect(() => { load(); }, [load]);
+  if (!d) return <Loading />;
+  const month = new Date().toLocaleDateString("en-AU", { month: "long", timeZone: "Australia/Brisbane" });
+  const day = (iso: string) => new Date(iso.length === 10 ? `${iso}T02:00:00Z` : iso).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }).replace(",", "");
+  const n = (k: number, w: string) => `${k} ${w}${k === 1 ? "" : "s"}`;
+  const paid = async (r: PayoutRow) => {
+    setBusy(r.id);
+    try { await rpc("admin_payout_paid", { p_id: r.id }); toast(`${r.worker} marked paid`); load(); onChanged(); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
+  };
+  return (
+    <>
+      <div className="iv-stats">
+        <div><span className="t14 light muted">Sold in {month}</span><b>{money2(d.sold_month)}</b><span className="t14 light muted">{n(d.sold_month_n, "gift card")}</span></div>
+        <div><span className="t14 light muted">Waiting to be used</span><b>{money2(d.unused)}</b><span className="t14 light muted">{n(d.unused_n, "gift card")}</span></div>
+        <div><span className="t14 light muted">Pay workers this week</span><b>{money2(d.due)}</b><span className="t14 light muted">{n(d.due_n, "worker")}</span></div>
+      </div>
+      <h2 className="adm-sub" style={{ margin: "8px 0 12px" }}>Pay workers</h2>
+      {d.payouts.length === 0 ? <AdmEmpty text="No gift-card jobs to pay." /> : (
+        <div className="table-wrap"><table className="rows"><thead><tr><th>Worker</th><th>Pay to</th><th>Job</th><th>Amount</th><th>Status</th><th /></tr></thead>
+          <tbody>{d.payouts.map((r) => (
+            <tr key={r.id}><td className="w5">{r.worker}</td><td className="light">{r.pay_to}</td><td className="light">{r.job}</td><td className="w5">{money2(r.amount)}</td>
+              <td>{r.status === "paid" ? <span className="badge g">Paid</span> : r.status === "due" ? <span className="badge y">Due {r.due_on ? day(r.due_on).split(" ")[0] : ""}</span> : <span className="badge">Waiting for the customer</span>}</td>
+              <td style={{ textAlign: "right" }}>{r.status === "due" && <button className="btn primary small" disabled={busy === r.id} onClick={() => paid(r)}>Mark paid</button>}</td></tr>
+          ))}</tbody></table></div>
+      )}
+      <p className="light muted" style={{ marginTop: 14 }}>Gift-card jobs are paid to the worker every Friday, once the customer says it's done (or 2 days after). Pay each one by bank transfer, then mark it paid and the worker is told.</p>
     </>
   );
 }

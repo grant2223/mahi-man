@@ -108,6 +108,6 @@ Launch location: the location used to pick the nearest area stays on the phone. 
 
 ## Release
 
-- Upload `android/app/build/outputs/bundle/release/app-release.aab`. Each release needs a higher versionCode in `android/app/build.gradle`: 3 was the first production release (12 Nov 2026), 4 adds payments.
+- Upload `android/app/build/outputs/bundle/release/app-release.aab`. Each release needs a higher versionCode in `android/app/build.gradle`: 3 was the first production release (12 Nov 2026), 4 adds payments, 5 adds gift cards.
 - Accept **Play App Signing** when asked. Google keeps the app signing key; ours (in `~/Mahi Man Android Keys`) is only the upload key.
 - Countries: Australia.

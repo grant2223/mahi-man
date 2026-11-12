@@ -16,6 +16,7 @@ import { MyCode } from "./ui/MyCode";
 import { Settings } from "./ui/Settings";
 import { VerifyPage } from "./ui/Verify";
 import { PayoutsDone, Privacy, Support, Terms } from "./ui/Legal";
+import { AddCodePage, ClaimPage, GiftPage, GiveHelpPage } from "./ui/Gifts";
 import { HowYouPay, InvoicePage, PaymentsPage, PlusPage, TopUpPage } from "./ui/Payments";
 import { lastSide } from "./ui/SideSwitch";
 import { GetAppPage, Landing } from "./ui/Landing";
@@ -51,6 +52,16 @@ function Routes() {
   if (path === "/terms") return <Terms />;
   if (path === "/support") return <Support />;
   if (path === "/payouts-done") return <PayoutsDone />;
+  // Gift cards work on the website too: buy one, or open the link it came in.
+  if (path === "/gift") return <GiveHelpPage />;
+  const gc = path.match(/^\/g\/([A-Za-z0-9-]{6,20})$/);
+  if (gc) return <ClaimPage code={gc[1]} />;
+  const gm = path.match(/^\/gifts\/(\d+)$/);
+  if (gm || path === "/gift-code") {
+    if (ready && !session) { go(gm ? "/gift" : "/", true); return null; }
+    if (!session) return null;
+    return gm ? <GiftPage id={Number(gm[1])} /> : <AddCodePage />;
+  }
   if (path === "/pricing") return <HowYouPay />;
   if (path === "/partners") return <PartnerPage />;
   // Mahi Man is an app. The website is the landing page only; any app screen opened in a browser points to the app.
