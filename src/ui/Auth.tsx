@@ -6,6 +6,11 @@ import { Icon, NameFields, Screen, emptyName, nameError, nameRow, type NameParts
 // Full-bleed sign in. Shown only when an action needs an account (so nobody signs up
 // before they've seen prices), and the action carries on as soon as they're in.
 // Apple on iPhone, or a 6-digit code by email. No passwords to make up.
+
+/* App Store and Google Play reviewers can't read our email, so this one review account skips the email and its
+   6-digit code is a fixed password (kept in ~/Mahi Man Android Keys, given to the stores only). */
+const REVIEW = "review@mahiman.app";
+const isReview = (e: string) => e.trim().toLowerCase() === REVIEW;
 const appleReady = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
 
 async function sha256(t: string) {
@@ -60,6 +65,7 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
   const sendCode = () => run(async () => {
     const e = email.trim();
     if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error("Check your email address");
+    if (isReview(e)) { setCode(""); setStep("code"); window.setTimeout(() => codeRef.current?.focus(), 200); return; }
     const { error } = await sb.auth.signInWithOtp({ email: e, options: { shouldCreateUser: true } });
     if (error) throw new Error(/rate|seconds/i.test(error.message) ? "Wait a minute, then send it again" : error.message);
     setCode(""); setStep("code");
@@ -67,7 +73,9 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
   });
 
   const verify = (c: string) => run(async () => {
-    const { error } = await sb.auth.verifyOtp({ email: email.trim(), token: c, type: "email" });
+    const { error } = isReview(email)
+      ? await sb.auth.signInWithPassword({ email: REVIEW, password: c })
+      : await sb.auth.verifyOtp({ email: email.trim(), token: c, type: "email" });
     if (error) { setCode(""); throw new Error("That code didn't work. Check it, or send a new one."); }
     await finish();
   });
