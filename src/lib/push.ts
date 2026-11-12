@@ -2,29 +2,37 @@ import { Capacitor } from "@capacitor/core";
 import { rpc, sb } from "./supabase";
 import { go } from "./router";
 
-// Phone alerts. Only the iPhone app can receive them; the website never asks.
+// Phone alerts in the iPhone and Android apps (Apple's push service and Firebase). The website never asks.
 const KEY = "mm-push-token";
-export const pushSupported = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === "ios";
+const platform = () => Capacitor.getPlatform() as "ios" | "android" | "web";
+export const pushSupported = () => Capacitor.isNativePlatform() && platform() !== "web";
+
+// Android shows alerts in a named channel people can see in Settings. "jobs" matches the send-push function.
+async function androidChannel() {
+  if (platform() !== "android") return;
+  await (await plugin()).P.createChannel({ id: "jobs", name: "Jobs, offers and messages", importance: 5, visibility: 1, vibration: true }).catch(() => {});
+}
 
 type State = "granted" | "prompt" | "denied" | "unsupported";
 
+// Wrapped in an object: returning the plugin itself from an async function makes Android look for a "then" method on it.
 async function plugin() {
-  return (await import("@capacitor/push-notifications")).PushNotifications;
+  return { P: (await import("@capacitor/push-notifications")).PushNotifications };
 }
 
 export async function alertsState(): Promise<State> {
   if (!pushSupported()) return "unsupported";
-  const p = await (await plugin()).checkPermissions();
+  const p = await (await plugin()).P.checkPermissions();
   return p.receive === "granted" ? "granted" : p.receive === "denied" ? "denied" : "prompt";
 }
 
-// Shows Apple's own permission box, then registers this phone.
+// Shows the phone's own permission box, then registers this phone.
 export async function turnOnAlerts(): Promise<State> {
   if (!pushSupported()) return "unsupported";
-  const P = await plugin();
+  const { P } = await plugin();
   let p = await P.checkPermissions();
   if (p.receive !== "granted") p = await P.requestPermissions();
-  if (p.receive === "granted") { await P.register(); return "granted"; }
+  if (p.receive === "granted") { await androidChannel(); await P.register(); return "granted"; }
   return "denied";
 }
 
@@ -37,11 +45,11 @@ let started = false;
 export async function startPush() {
   if (started || !pushSupported()) return;
   started = true;
-  const P = await plugin();
+  const { P } = await plugin();
   await P.addListener("registration", async ({ value }) => {
     try { localStorage.setItem(KEY, value); } catch { /* ignore */ }
     const { data } = await sb.auth.getUser();
-    if (data.user) await sb.from("push_tokens").upsert({ token: value, user_id: data.user.id, platform: "ios", updated_at: new Date().toISOString() });
+    if (data.user) await sb.from("push_tokens").upsert({ token: value, user_id: data.user.id, platform: platform(), updated_at: new Date().toISOString() });
   });
   await P.addListener("pushNotificationActionPerformed", async ({ actionId, notification }) => {
     const d = (notification.data ?? {}) as { url?: string; job?: string; worker?: string };
@@ -57,7 +65,7 @@ export async function startPush() {
     if (d.url && d.url.startsWith("/")) go(d.url);
   });
   // Already allowed: make sure this phone is registered to whoever is signed in.
-  if ((await P.checkPermissions()).receive === "granted") await P.register();
+  if ((await P.checkPermissions()).receive === "granted") { await androidChannel(); await P.register(); }
   sb.auth.onAuthStateChange(async (e) => {
     if (e === "SIGNED_IN" && (await P.checkPermissions()).receive === "granted") await P.register();
   });

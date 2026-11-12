@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1070416765838",
+    "project_id": "mahi-man",
+    "storage_bucket": "mahi-man.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1070416765838:android:5aa35a5c3d68afd6c33adf",
+        "android_client_info": {
+          "package_name": "com.mahiman.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBphffoWqk9SFRxyYu_qGMxyM_W8U8XFK8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -67,7 +67,7 @@ async function sendAndroid(token: string, m: Msg) {
   const r = await fetch(`https://fcm.googleapis.com/v1/projects/${a.project}/messages:send`, {
     method: "POST",
     headers: { authorization: `Bearer ${a.token}`, "content-type": "application/json" },
-    body: JSON.stringify({ message: { token, notification: { title: m.title, body: m.body }, data: { url: m.url, ...Object.fromEntries(Object.entries(m.data ?? {}).map(([k, v]) => [k, String(v)])) }, android: { priority: "high" } } }),
+    body: JSON.stringify({ message: { token, notification: { title: m.title, body: m.body }, data: { url: m.url, ...Object.fromEntries(Object.entries(m.data ?? {}).map(([k, v]) => [k, String(v)])) }, android: { priority: "high", notification: { channel_id: "jobs", icon: "ic_stat_mahi", color: "#0B6B4F" } } } }),
   });
   if (r.ok) return "ok";
   const j = await r.json().catch(() => ({}));

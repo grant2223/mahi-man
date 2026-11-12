@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useState } from "react";
 import { isDirectPay, mediaUrls, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
@@ -533,7 +534,7 @@ function ProblemScreen({ jobId, onBack }: { jobId: string; onBack: () => void })
   );
 }
 
-// Before the first trip: what sharing your location means, then the iPhone's own permission prompt.
+// Before the first trip: what sharing your location means, then the phone's own permission prompt.
 function TripAsk({ name, onBack, onGo }: { name: string; onBack: () => void; onGo: () => void }) {
   return (
     <div className="screen" role="dialog" aria-label="Share your location">
@@ -549,7 +550,9 @@ function TripAsk({ name, onBack, onGo }: { name: string; onBack: () => void; onG
             ["Gone after the job", "Your trip is deleted once you arrive."]].map(([b, t]) => (
             <div key={b} className="row" style={{ gap: 12, alignItems: "flex-start" }}><span style={{ flexShrink: 0, display: "flex" }}>{Icon.tick("var(--emerald)", 22)}</span><span className="stack" style={{ gap: 2 }}><span className="t17 w5">{b}</span><span className="t15 light muted">{t}</span></span></div>
           ))}
-          <p className="small light muted" style={{ margin: 0, lineHeight: 1.5 }}>Your iPhone will ask to allow location. Pick "Allow While Using App". It keeps working while you drive with Maps.</p>
+          <p className="small light muted" style={{ margin: 0, lineHeight: 1.5 }}>{Capacitor.getPlatform() === "android"
+            ? <>Your phone will ask to allow location. Pick "While using the app". It keeps working while you drive with Maps, and a notification shows while it's on.</>
+            : <>Your iPhone will ask to allow location. Pick "Allow While Using App". It keeps working while you drive with Maps.</>}</p>
         </div>
         <div style={{ flex: 1 }} />
         <div className="actionbar"><button className="btn stone" style={{ flex: 1 }} onClick={onBack}>Not now</button><button className="btn primary" style={{ flex: 2 }} onClick={onGo}>Allow and go</button></div>

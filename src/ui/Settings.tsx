@@ -1,3 +1,4 @@
+import { Capacitor } from "@capacitor/core";
 import { Reliability } from "../worker/Reliability";
 import { useEffect, useState } from "react";
 import { api, rpc, sb } from "../lib/supabase";
@@ -71,7 +72,7 @@ export function Settings() {
         )}
         {pushSupported() && (
           <button className="choice" onClick={async () => { if (alerts === "prompt") setAlerts(await turnOnAlerts()); }}>
-            <span className="t"><b>Alerts</b><span>{alerts === "granted" ? "On. New jobs, offers, messages and payments" : alerts === "denied" ? "Off. Turn them on in iPhone Settings, Mahi Man, Notifications" : "Off. Tap to turn on"}</span></span>
+            <span className="t"><b>Alerts</b><span>{alerts === "granted" ? "On. New jobs, offers, messages and payments" : alerts === "denied" ? `Off. Turn them on in ${Capacitor.getPlatform() === "android" ? "your phone's Settings, Apps" : "iPhone Settings"}, Mahi Man, Notifications` : "Off. Tap to turn on"}</span></span>
             {alerts === "prompt" && Icon.chevron("var(--faint)")}
           </button>
         )}
