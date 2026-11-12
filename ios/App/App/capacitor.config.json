@@ -27,6 +27,7 @@
 		"SignInWithApple",
 		"BackgroundGeolocation",
 		"AppPlugin",
+		"FilesystemPlugin",
 		"KeyboardPlugin",
 		"PushNotificationsPlugin",
 		"SharePlugin"

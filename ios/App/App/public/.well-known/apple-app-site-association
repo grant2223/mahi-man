@@ -1,0 +1,12 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["3N7J224W53.com.mahiman.app"],
+        "components": [
+          { "/": "/w/*", "comment": "A worker's code: book them again" }
+        ]
+      }
+    ]
+  }
+}
