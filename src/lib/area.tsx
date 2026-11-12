@@ -6,7 +6,9 @@ import { currentPosition } from "./trip";
 import { Icon, SearchPicker } from "../ui/kit";
 
 /* The area someone is using Mahi Man in. Their saved choice wins; otherwise the one they picked on this device;
-   otherwise, while only one area is open, that one. Every screen that lists suburbs or jobs uses it. */
+   otherwise, while only one area is open, that one. Every screen that lists suburbs or jobs uses it.
+   Coming-soon areas (New Zealand for now) are listed too, so people there see their own area, but they show
+   a coming-soon panel instead of jobs. */
 
 const KEY = "mm-area";
 let cache: Area[] | null = null;
@@ -17,12 +19,15 @@ export function useAreas() {
   const [areas, setAreas] = useState<Area[] | null>(cache);
   useEffect(() => {
     if (cache) return;
-    sb.from("areas").select("*").eq("active", true).order("sort").then(({ data }) => { cache = (data ?? []) as Area[]; setAreas(cache); });
+    sb.from("areas").select("*").or("active.eq.true,coming_soon.eq.true").order("sort").then(({ data }) => { cache = (data ?? []) as Area[]; setAreas(cache); });
   }, []);
   return areas;
 }
 
-// Nearest open area to a point, by straight-line distance to each area's centre.
+export const isSoon = (a: Area | null | undefined) => !!a && !a.active && a.coming_soon;
+const hint = (a: Area) => (isSoon(a) ? `${a.state}, coming soon` : a.state);
+
+// Nearest area to a point, by straight-line distance to each area's centre.
 const nearest = (areas: Area[], lat: number, lng: number) =>
   [...areas].sort((a, b) => ((a.lat - lat) ** 2 + (a.lng - lng) ** 2) - ((b.lat - lat) ** 2 + (b.lng - lng) ** 2))[0];
 
@@ -75,7 +80,7 @@ export function AreaPin() {
       </button>
       {/* Full screen, outside the header, so the header's styles don't reach it. */}
       {open && createPortal(<SearchPicker title="Where are you?" placeholder="Search areas" value={[area.id]}
-        options={(areas ?? []).map((a) => ({ id: a.id, label: a.name, hint: a.state }))}
+        options={(areas ?? []).map((a) => ({ id: a.id, label: a.name, hint: hint(a) }))}
         onClose={() => setOpen(false)} onChange={(v) => choose(Number(v[0]))} />, document.body)}
     </>
   );
@@ -88,9 +93,9 @@ export function AreaRow() {
   if (!area || (areas?.length ?? 0) < 2) return null;
   return (
     <>
-      <button className="choice" onClick={() => setOpen(true)}><span className="t"><b>Your area</b><span>{area.name}, {area.state}</span></span>{Icon.chevron("var(--faint)")}</button>
+      <button className="choice" onClick={() => setOpen(true)}><span className="t"><b>Your area</b><span>{area.name}, {isSoon(area) ? "coming soon" : area.state}</span></span>{Icon.chevron("var(--faint)")}</button>
       {open && createPortal(<SearchPicker title="Where are you?" placeholder="Search areas" value={[area.id]}
-        options={(areas ?? []).map((a) => ({ id: a.id, label: a.name, hint: a.state }))}
+        options={(areas ?? []).map((a) => ({ id: a.id, label: a.name, hint: hint(a) }))}
         onClose={() => setOpen(false)} onChange={(v) => choose(Number(v[0]))} />, document.body)}
     </>
   );
@@ -102,7 +107,22 @@ export function useChangeArea() {
   const [open, setOpen] = useState(false);
   const option = area && (areas?.length ?? 0) > 1 ? { id: "__area", label: `Not in ${area.name}?`, hint: "Change your area", action: () => setOpen(true) } : null;
   const picker = open && area ? createPortal(<SearchPicker title="Where are you?" placeholder="Search areas" value={[area.id]}
-    options={(areas ?? []).map((a) => ({ id: a.id, label: a.name, hint: a.state }))}
+    options={(areas ?? []).map((a) => ({ id: a.id, label: a.name, hint: hint(a) }))}
     onClose={() => setOpen(false)} onChange={(v) => choose(Number(v[0]))} />, document.body) : null;
   return { option, picker };
+}
+
+// Shown instead of jobs and "Post a job" while someone's area isn't open yet.
+export function ComingSoon({ side }: { side: "help" | "work" }) {
+  const { area } = useArea();
+  const { option, picker } = useChangeArea();
+  if (!area) return null;
+  return (
+    <div className="feed-empty" style={{ margin: "20px 16px" }}>
+      <b>Coming soon to {area.name}</b>
+      <span>Mahi Man is open in Australia now and coming to {area.name} soon. {side === "help" ? "Check back to post your first odd job." : "Check back to start earning."}</span>
+      {option && <div className="row" style={{ gap: 10, marginTop: 6 }}><button className="btn stone" onClick={option.action}>Change area</button></div>}
+      {picker}
+    </div>
+  );
 }

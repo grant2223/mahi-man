@@ -6,7 +6,7 @@ import { money } from "../lib/format";
 import { CatIcon, Icon, Loading, Logo, SearchPicker } from "../ui/kit";
 import { SideSwitch } from "../ui/SideSwitch";
 import { HeaderIcons } from "../ui/HeaderIcons";
-import { AreaPin, useArea, useHere } from "../lib/area";
+import { AreaPin, ComingSoon, isSoon, useArea, useHere } from "../lib/area";
 
 interface FeedJob {
   id: string; job_name: string; category_id: number | null; category: string | null; icon: string; suburb: string;
@@ -30,6 +30,7 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
   const [urls, setUrls] = useState<Record<string, string>>({});
 
   const { area } = useArea();
+  const soon = isSoon(area);
   const here = useHere();
   // Jobs near where they are now, nearest first. Without their location, the jobs in their area.
   useEffect(() => {
@@ -73,7 +74,7 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 168, right: -32 }} />
         <h1 className="mid" style={{ position: "relative", margin: "22px 0 10px" }}>Want more<br />mahi?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Which job could you help with?</p>
-        {setup ? (
+        {soon ? null : setup ? (
           <div className="start-row stack" style={{ gap: 12, alignItems: "flex-start" }}>
             <span className="stack" style={{ gap: 2, position: "relative" }}>
               <span style={{ fontSize: 32, fontWeight: 600, letterSpacing: -1, color: "var(--lime)", whiteSpace: "nowrap" }}>{setup.done} of {setup.total} done</span>
@@ -88,7 +89,8 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
         )}
       </section>
 
-      <div className="feed-filter">
+      {soon && <ComingSoon side="work" />}
+      <div className="feed-filter" style={soon ? { display: "none" } : undefined}>
         <button className="feed-field" onClick={() => setPick(true)}>
           <span className="stack" style={{ gap: 1 }}>
             <span className="k">Category</span>
@@ -102,7 +104,7 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
         </span>
       </div>
 
-      <div className="feed-list">
+      <div className="feed-list" style={soon ? { display: "none" } : undefined}>
         {!jobs && <Loading label="Loading jobs" />}
         {shown.map((j) => (
           <button key={j.id} className="job-row" onClick={() => (setup ? setup.onFinish() : go("/work"))}>

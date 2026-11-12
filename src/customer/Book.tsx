@@ -15,7 +15,7 @@ import { SideSwitch } from "../ui/SideSwitch";
 import { HeaderIcons } from "../ui/HeaderIcons";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
 import { PhotoStep } from "../worker/Signup";
-import { AreaPin, useArea, useChangeArea, useHere } from "../lib/area";
+import { AreaPin, ComingSoon, isSoon, useArea, useChangeArea, useHere } from "../lib/area";
 
 /* Post a job: price, show the job, who can take it, where, when, check. */
 
@@ -375,6 +375,7 @@ function Available() {
 }
 
 function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn: boolean; uid: string | null; onStart: (p?: Partial<Draft>) => void }) {
+  const soon = isSoon(useArea().area);
   const [recent, setRecent] = useState<Recent[] | null>(null);
   const feedOffer = useFeedOffer(true, "help");
   useEffect(() => {
@@ -409,12 +410,13 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 160, right: -30 }} />
         <h1 className="mid" style={{ position: "relative", margin: "26px 0 10px" }}>Need a hand?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Get help now with your odd job.</p>
-        <Available />
+        {!soon && <Available />}
       </section>
 
       <OwedBanner owed={owed} onPay={setPaying} />
       {paying && <FeePayScreen fee={paying} onBack={() => setPaying(null)} onPaid={() => { setPaying(null); reloadOwed(); }} />}
-      <div className="post-body">
+      {soon && <ComingSoon side="help" />}
+      <div className="post-body" style={soon ? { display: "none" } : undefined}>
         <button className="post-btn" onClick={() => (owed.length ? setPaying(owed[0]) : onStart())}>
           <span>Post a job</span>
           {Icon.arrow("var(--lime)")}

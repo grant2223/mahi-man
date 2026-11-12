@@ -57,7 +57,7 @@ export interface JobType {
 }
 export interface Category { id: number; name: string; icon: string; photo_path: string | null; sort: number; active: boolean }
 export interface Suburb { id: number; name: string; area_id?: number; lat?: number; lng?: number }
-export interface Area { id: number; name: string; state: string; country: "AU" | "NZ"; currency: string; lat: number; lng: number; active: boolean; sort: number }
+export interface Area { id: number; name: string; state: string; country: "AU" | "NZ"; currency: string; lat: number; lng: number; active: boolean; coming_soon: boolean; sort: number }
 export type IdStatus = "none" | "pending" | "verified" | "retake" | "rejected";
 export interface Profile {
   id: string; full_name: string; phone: string | null; photo_path: string | null; is_worker: boolean; is_admin: boolean;

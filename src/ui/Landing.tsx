@@ -301,7 +301,7 @@ function JoinLaunch({ full }: { full?: boolean }) {
       <div className="ld-wrap">
         <div className="ld-app-text">
           <h2>Join the launch.</h2>
-          <p>Mahi Man opens first to a pilot group on iPhone. Leave your details and we'll email you the link to get the app.</p>
+          <p>Mahi Man opens first to a pilot group on iPhone and Android. Leave your details and we'll email you the link to get the app.</p>
         </div>
         {done ? (
           <div className="ld-joined">{Icon.shieldTick("var(--emerald)")}<span><b>You're on the list, {done}.</b><span>Watch your inbox for the link to get the app.</span></span></div>
