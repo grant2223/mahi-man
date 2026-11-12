@@ -10,7 +10,8 @@ What's ready, and what's left. Ticked items are done.
 - [x] Reviewer sign-in: review@mahiman.app. Its code is in `~/Mahi Man Android Keys/store-review-sign-in.txt` (no email is sent for this address).
 - [x] Android notifications: Firebase project "mahi-man" (no Analytics), `android/app/google-services.json`, key in the Supabase secret `FCM_SERVICE_ACCOUNT`.
 - [x] Location foreground-service declaration with the demo video (`google-play/location-sharing-demo.mp4`, shared from Google Drive).
-- [x] **Production 1.0 (versionCode 3) sent for review on 12 Nov 2026**, Australia and New Zealand. Publishes automatically once approved.
+- [x] **Production 1.0 (versionCode 3) sent for review on 12 Nov 2026**, Australia and New Zealand. Live on 12 Nov 2026.
+- [x] **Production 1.0 (versionCode 4, payments) sent for review on 12 Nov 2026**, with the new description, Data safety (Purchase history) and sign-in note. Rolls out to 100% once approved.
 - [ ] **Release versionCode 4 (payments: connection fee invoices, top-up, Plus).** Build the .aab, Production → Create new release → upload → Send for review. Before sending: paste the new full description, App access note and Financial features answer from `google-play/listing.md`, and add the Purchase history row in Data safety.
 - [ ] Optional: App content, Target audience, tick "Restrict users that Google has determined to be minors".
 - [ ] Internal testing release (draft): add tester emails if you want a private Android build before launch.
@@ -62,4 +63,4 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 ## Building new versions
 
 - **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION`, then archive and upload (Claude does this with the API key).
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 3), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 4), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.

@@ -53,7 +53,7 @@ One account does both. Switch between Get help and Do work whenever you like.
 **Privacy policy**: as above.
 
 **App access**: "All or some functionality is restricted." Instructions for the reviewer:
-> No demo account needed. Tap Get help → Post a job (or Do work → Start earning), enter any email address you can read, and type the 6-digit code we email you. Browsing jobs works without signing in. There are no in-app card payments in this version. Customers pay workers directly, and Mahi Man's connection fee for the service is invoiced and paid by bank transfer (Settings → Payments). Digital purchases: none.
+> Sign in details ("Store review account"): username review@mahiman.app, password = the code in `~/Mahi Man Android Keys/store-review-sign-in.txt`. Instructions: No email is needed for this account. Open the app, tap Get help > Post a job (or Do work > Start earning), enter review@mahiman.app and tap Email me a code. On the next screen type the 6-digit code given as the password above. Browsing jobs works without signing in. There are no in-app card payments in this version. Customers pay workers directly, and Mahi Man's connection fee for the service is invoiced and paid by bank transfer (Settings > Payments). Digital purchases: none.
 
 **Ads**: No, the app has no ads.
 
