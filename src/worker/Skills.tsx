@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { rpc, sb, type Category, type JobType } from "../lib/supabase";
+import { rpc, sb, type Category, type JobType, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { shrinkImage } from "../lib/format";
 import { CatIcon, DateField, Icon, Screen, SearchPicker, useToast } from "../ui/kit";
@@ -43,11 +43,11 @@ function useCatalog() {
 function useMine() {
   const [mine, setMine] = useState<{ types: { job_type_id: number; years: number | null }[]; skills: number[]; creds: MyCred[] } | null>(null);
   const load = useCallback(() => {
-    Promise.all([
-      sb.from("worker_job_types").select("job_type_id,years"),
-      sb.from("worker_skills").select("skill_id"),
-      sb.from("worker_credentials").select("id,credential_type_id,number,expiry,status,reason,created_at"),
-    ]).then(([t, k, c]) => setMine({
+    myId().then((uid) => Promise.all([
+      sb.from("worker_job_types").select("job_type_id,years").eq("worker_id", uid),
+      sb.from("worker_skills").select("skill_id").eq("worker_id", uid),
+      sb.from("worker_credentials").select("id,credential_type_id,number,expiry,status,reason,created_at").eq("worker_id", uid),
+    ])).then(([t, k, c]) => setMine({
       types: (t.data ?? []) as { job_type_id: number; years: number | null }[],
       skills: (k.data ?? []).map((r) => r.skill_id as number), creds: (c.data ?? []) as MyCred[],
     }));

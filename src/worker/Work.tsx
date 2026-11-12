@@ -1,6 +1,6 @@
 import { recLine, ScoreStrip, type Scores } from "../ui/Ratings";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { api, firstPhoto, mediaUrls, rpc, sb, type IdStatus, type Job } from "../lib/supabase";
+import { api, firstPhoto, mediaUrls, rpc, sb, type IdStatus, type Job, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { hours, money, money2, whenLabel } from "../lib/format";
@@ -155,7 +155,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const jobs = offers.filter((o) => !o.trade);
 
   useEffect(() => {
-    sb.from("workers").select("online").single().then(({ data }) => setOnline(!!data?.online));
+    myId().then((uid) => sb.from("workers").select("online").eq("id", uid).maybeSingle()).then(({ data }) => setOnline(!!data?.online));
     const since = new Date(Date.now() - 7 * 864e5).toISOString();
     sb.auth.getUser().then(({ data: u }) => sb.from("jobs").select("price_cents,extra_cents").eq("worker_id", u.user?.id ?? "").eq("status", "confirmed").gte("confirmed_at", since)
       .then(({ data }) => setWeek((data ?? []).reduce((s, j) => s + j.price_cents + j.extra_cents, 0))));

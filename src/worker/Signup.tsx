@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { SITE } from "../lib/share";
-import { api, rpc, sb, type IdStatus, type Suburb } from "../lib/supabase";
+import { api, rpc, sb, type IdStatus, type Suburb, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { shrinkImage, validAbn } from "../lib/format";
 import { Icon, Logo, NameFields, Screen, SearchPicker, Tile, nameError, nameRow, type NameParts } from "../ui/kit";
@@ -185,7 +185,7 @@ export function AbnStep({ onBack, onSaved }: { onBack: () => void; onSaved: () =
   const [acct, setAcct] = useState("");
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
-  useEffect(() => { sb.from("workers").select("abn,payid,bsb,account_number").single().then(({ data }) => {
+  useEffect(() => { myId().then((uid) => sb.from("workers").select("abn,payid,bsb,account_number").eq("id", uid).maybeSingle()).then(({ data }) => {
     if (data?.abn) setAbn(data.abn); if (data?.payid) setPayid(data.payid); if (data?.bsb) setBsb(data.bsb); if (data?.account_number) setAcct(data.account_number);
   }); }, []);
   const digits = (v: string) => v.replace(/\D/g, "");
@@ -232,7 +232,7 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
     if (area) sb.from("suburbs").select("id,name,area_id").eq("area_id", area.id).order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
   }, [area?.id]);
   useEffect(() => {
-    sb.from("workers").select("base_suburb_id,radius_km,has_vehicle").single().then(({ data }) => {
+    myId().then((uid) => sb.from("workers").select("base_suburb_id,radius_km,has_vehicle").eq("id", uid).maybeSingle()).then(({ data }) => {
       if (data) { setBase(data.base_suburb_id); setRadius(data.radius_km); setVehicle(data.has_vehicle); }
     });
   }, []);

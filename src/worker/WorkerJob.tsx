@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useState } from "react";
-import { isDirectPay, mediaUrls, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
+import { isDirectPay, mediaUrls, rpc, sb, type Job, type JobType, type PersonCard, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { elapsed, firstName, money, shrinkImage } from "../lib/format";
 import { Icon, Loading, Perf, Screen, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
@@ -64,7 +64,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     sb.from("job_types").select("*").eq("id", job.job_type_id).single().then(({ data }) => setJt(data as JobType));
     sb.from("suburbs").select("name").eq("id", job.suburb_id).single().then(({ data }) => setSuburb(data?.name ?? ""));
     rpc<PersonCard[]>("person_card", { p_person: job.customer_id }).then((c) => setCust(c[0] ?? null));
-    sb.from("workers").select("payid,bsb,account_number").single().then(({ data }) => {
+    myId().then((uid) => sb.from("workers").select("payid,bsb,account_number").eq("id", uid).maybeSingle()).then(({ data }) => {
       setPayid(data?.payid ?? null);
       setBank(data?.bsb && data?.account_number ? `BSB ${data.bsb.slice(0, 3)}-${data.bsb.slice(3)}, Acc ${data.account_number}` : null);
     });

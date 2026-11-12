@@ -82,6 +82,12 @@ export async function api<T = Record<string, unknown>>(action: string, body: Rec
   return data as T;
 }
 
+// The signed-in user's id. Tables let admins read everyone's rows, so every "my rows" query filters by this explicitly.
+export async function myId(): Promise<string> {
+  const { data } = await sb.auth.getSession();
+  return data.session?.user.id ?? "00000000-0000-0000-0000-000000000000";
+}
+
 export async function rpc<T = unknown>(fn: string, args: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await sb.rpc(fn, args);
   if (error) throw new Error(error.message);

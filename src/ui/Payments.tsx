@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
-import { api, rpc, sb } from "../lib/supabase";
+import { api, rpc, sb, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money, money2 } from "../lib/format";
@@ -498,7 +498,7 @@ export function useDueInvoices(enabled = true) {
   const [list, setList] = useState<DueInvoice[]>([]);
   useEffect(() => {
     if (!enabled) return;
-    sb.from("customer_invoices").select("id,number,total_cents,due_at,status").eq("status", "due").order("due_at").then(({ data }) => setList((data ?? []) as DueInvoice[]));
+    myId().then((uid) => sb.from("customer_invoices").select("id,number,total_cents,due_at,status").eq("customer_id", uid).eq("status", "due").order("due_at")).then(({ data }) => setList((data ?? []) as DueInvoice[]));
   }, [enabled]);
   // Posting pauses a few days after the due date; the home screen sends them to the invoice instead.
   const paused = list.find((i) => new Date(i.due_at).getTime() < Date.now() - 3 * 86400_000) ?? null;
