@@ -245,7 +245,7 @@ function LdLinks() {
   return (
     <>
       <nav className="ld-links"><a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a></nav>
-      <a className="btn small ld-nav-cta" href="#app" onClick={(e) => { e.preventDefault(); if (document.getElementById("app")) toApp(); }}>{urls && Object.keys(urls).length ? "Get the app" : "Join the launch"}</a>
+      <a className="btn small ld-nav-cta" href="#app" onClick={(e) => { e.preventDefault(); if (document.getElementById("app")) toApp(); }}>{urls && STORES.some(([, k]) => urls[k]) ? "Get the app" : "Join the launch"}</a>
     </>
   );
 }
@@ -258,7 +258,7 @@ function useStores() {
   const [urls, setUrls] = useState(storeCache);
   useEffect(() => {
     if (storeCache) return;
-    sb.from("settings").select("key,value").in("key", STORES.map(([, k]) => k))
+    sb.from("settings").select("key,value").in("key", [...STORES.map(([, k]) => k), "testflight_url"])
       .then(({ data }) => { storeCache = Object.fromEntries((data ?? []).filter((r) => r.value).map((r) => [r.key, r.value])); setUrls(storeCache); });
   }, []);
   return urls;
@@ -266,7 +266,12 @@ function useStores() {
 
 function GetApp({ full }: { full?: boolean }) {
   const urls = useStores();
-  const listed = !!urls && Object.keys(urls).length > 0;
+  // Listed once either store has Mahi Man. Until the App Store does, iPhones get the TestFlight beta.
+  const listed = !!urls && STORES.some(([, k]) => urls[k]);
+  const links: [string, string][] = urls ? [
+    ...(urls.app_store_url ? [["Get it on the App Store", urls.app_store_url]] : urls.testflight_url ? [["Get the iPhone beta", urls.testflight_url]] : []),
+    ...(urls.play_store_url ? [["Get it on Google Play", urls.play_store_url]] : []),
+  ] as [string, string][] : [];
   const [svg, setSvg] = useState("");
   useEffect(() => { if (listed) QRCode.toString(`${location.origin}/get`, { type: "svg", margin: 0, color: { dark: "#14211c", light: "#00000000" } }).then(setSvg); }, [listed]);
   if (!urls) return <section className={`ld-app${full ? " full" : ""}`} id="app" />;
@@ -279,7 +284,7 @@ function GetApp({ full }: { full?: boolean }) {
           <p>Post a job, pick your person and hear the moment someone's keen. Or find work near you. It all happens in the app.</p>
           {desktop()
             ? <span className="ld-app-how">{Icon.arrow("var(--emerald)")} Point your phone's camera at the code</span>
-            : <div className="ld-stores">{STORES.filter(([, k]) => urls[k]).map(([name, k]) => <a key={k} className="btn primary" href={urls[k]}>Get it on {name}</a>)}</div>}
+            : <div className="ld-stores">{links.map(([label, href]) => <a key={href} className="btn primary" href={href}>{label}</a>)}</div>}
         </div>
         {desktop() && <span className="ld-qr" aria-label="QR code to open Mahi Man on your phone" dangerouslySetInnerHTML={{ __html: svg }} />}
       </div>
