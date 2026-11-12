@@ -18,7 +18,7 @@ What's ready, and what's left. Ticked items are done.
 
 ### App Store
 - [x] Version 1.0 has build 26 attached (has the reviewer sign-in), plus the listing, screenshots, age rating, review notes and contact details.
-- [x] TestFlight: build 25 approved for the Cairns pilot group; build 26 in beta review.
+- [x] TestFlight: build 25 approved for the Cairns pilot group; build 26 in beta review; build 27 (payments, jspdf) in the Cairns pilot group, beta review sent 12 Nov.
 - [ ] App Review Information: tick sign-in required and enter review@mahiman.app with the code from `store-review-sign-in.txt` as the password. Note: "Enter the email, tap Email me a code, then type the code. No email is sent for this address."
 - [ ] In App Store Connect → **App Privacy**: answer the questionnaire (same data as the Play Data safety table in `google-play/listing.md`; none used for tracking).
 - [ ] **App Information → Content Rights**: tick that you have the rights to the content.
