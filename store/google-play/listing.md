@@ -21,7 +21,7 @@ Pick who comes. Before you choose, see each worker's photo, skills, verified lic
 
 Watch them on the way. When your worker taps I'm on my way, you see them on a map until they arrive.
 
-Pay when it's done. During the pilot you pay your worker directly by bank transfer or cash once the job is finished, never before.
+Pay when it's done. You pay your worker directly by bank transfer or cash once the job is finished, never before. Mahi Man's connection fee is shown before you post: pay as you go, top up your balance for a lower fee, or join Plus if you book every week. Workers keep 100%.
 
 DO WORK
 Pick the jobs you're good at, switch on when you're free and take only the jobs you want. Workers keep 100% of the job price. Jobs that need a licence, like electrical work or an RSA, only go to workers whose licence we've checked.
@@ -53,7 +53,7 @@ One account does both. Switch between Get help and Do work whenever you like.
 **Privacy policy**: as above.
 
 **App access**: "All or some functionality is restricted." Instructions for the reviewer:
-> No demo account needed. Tap Get help → Post a job (or Do work → Start earning), enter any email address you can read, and type the 6-digit code we email you. Browsing jobs works without signing in. Pilot mode: there are no in-app payments; customers pay workers directly.
+> No demo account needed. Tap Get help → Post a job (or Do work → Start earning), enter any email address you can read, and type the 6-digit code we email you. Browsing jobs works without signing in. There are no in-app card payments in this version. Customers pay workers directly, and Mahi Man's connection fee for the service is invoiced and paid by bank transfer (Settings → Payments). Digital purchases: none.
 
 **Ads**: No, the app has no ads.
 
@@ -66,7 +66,7 @@ One account does both. Switch between Get help and Do work whenever you like.
 
 **Target audience**: 18 and over only. Not designed for children.
 
-**News app**: No. **COVID-19 app**: No. **Government app**: No. **Financial features**: None (pilot). When Stripe card payments go on, update this to "Payments: service fees processed by a third party".
+**News app**: No. **COVID-19 app**: No. **Government app**: No. **Financial features**: None. The connection fee is a fee for a real-world service, invoiced and paid by bank transfer; the app holds no money and offers no financial products. When Stripe card top-ups go on, update this to "Payments: service fees processed by a third party".
 
 **Health apps**: No.
 
@@ -93,6 +93,7 @@ Data is encrypted in transit: **Yes**. Users can request deletion: **Yes**. No d
 | Personal info: Other info (ID type, ABN, licences) | Yes | Required for workers | App functionality, Fraud prevention, security and compliance |
 | Financial info: Payment info (card brand, last 4, via Stripe) | Yes | Optional | App functionality |
 | Financial info: Other financial info (worker PayID or bank account) | Yes | Required for workers | App functionality |
+| Financial info: Purchase history (connection fee invoices, top-ups, balance) | Yes | Required for customers who book | App functionality |
 | Location: Approximate location | Yes | Optional | App functionality |
 | Location: Precise location | Yes | Optional | App functionality |
 | Messages: Other in-app messages | Yes | Optional | App functionality |
@@ -107,6 +108,6 @@ Launch location: the location used to pick the nearest area stays on the phone. 
 
 ## Release
 
-- Upload `android/app/build/outputs/bundle/release/app-release.aab` (versionCode 1, version 1.0).
+- Upload `android/app/build/outputs/bundle/release/app-release.aab`. Each release needs a higher versionCode in `android/app/build.gradle`: 3 was the first production release (12 Nov 2026), 4 adds payments.
 - Accept **Play App Signing** when asked. Google keeps the app signing key; ours (in `~/Mahi Man Android Keys`) is only the upload key.
 - Countries: Australia.

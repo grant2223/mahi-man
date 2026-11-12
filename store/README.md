@@ -11,6 +11,7 @@ What's ready, and what's left. Ticked items are done.
 - [x] Android notifications: Firebase project "mahi-man" (no Analytics), `android/app/google-services.json`, key in the Supabase secret `FCM_SERVICE_ACCOUNT`.
 - [x] Location foreground-service declaration with the demo video (`google-play/location-sharing-demo.mp4`, shared from Google Drive).
 - [x] **Production 1.0 (versionCode 3) sent for review on 12 Nov 2026**, Australia and New Zealand. Publishes automatically once approved.
+- [ ] **Release versionCode 4 (payments: connection fee invoices, top-up, Plus).** Build the .aab, Production → Create new release → upload → Send for review. Before sending: paste the new full description, App access note and Financial features answer from `google-play/listing.md`, and add the Purchase history row in Data safety.
 - [ ] Optional: App content, Target audience, tick "Restrict users that Google has determined to be minors".
 - [ ] Internal testing release (draft): add tester emails if you want a private Android build before launch.
 
