@@ -3,9 +3,7 @@ import { firstPhoto, mediaUrls, sb, type Job } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money2, whenLabel } from "../lib/format";
-import { Icon, Loading, Logo } from "../ui/kit";
-import { SideSwitch } from "../ui/SideSwitch";
-import { HeaderIcons } from "../ui/HeaderIcons";
+import { Icon, Loading } from "../ui/kit";
 
 const STATUS: Record<string, string> = {
   awaiting_payment: "Not booked", searching: "Finding someone", accepted: "On the way", in_progress: "Working",
@@ -13,7 +11,7 @@ const STATUS: Record<string, string> = {
 };
 
 export function MyJobs() {
-  const { session, profile } = useSession();
+  const { session } = useSession();
   const [jobs, setJobs] = useState<(Job & { job_types: { name: string }; job_media: { path: string; kind: string; sort: number }[] })[] | null>(null);
   const [pics, setPics] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -27,12 +25,10 @@ export function MyJobs() {
     <div className="app">
       <section className="hero short">
         <div className="hero-top">
-          <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
-          <HeaderIcons jobs={false} />
+          <button className="back" onClick={() => (history.length > 1 ? history.back() : go("/post"))} aria-label="Back">{Icon.back("#fff")}</button>
         </div>
-        <SideSwitch side="help" />
         <h1 className="mid">My jobs</h1>
-        <p className="lede">{profile?.full_name}</p>
+        <p className="lede">Every job you've posted</p>
       </section>
       <div className="ticket">
         {!jobs && <Loading />}

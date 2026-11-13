@@ -4,6 +4,7 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { ChatScreen } from "./Chat";
 import { Loading, StepHero } from "./kit";
+import { TabBar } from "./TabBar";
 
 export interface Thread {
   job_id: string; title: string; status: string; start_at: string; other_id: string; other_name: string; other_photo: string | null;
@@ -55,7 +56,7 @@ export function MessagesPage({ jobId }: { jobId?: string }) {
 
   return (
     <div className="app" style={{ background: "var(--card)" }}>
-      <StepHero title="Messages" sub="Every job you've posted or taken, in one place." onBack={() => (history.length > 1 ? history.back() : go("/"))} />
+      <StepHero title="Messages" sub="Every job you've posted or taken, in one place." />
       <div className="threads">
         {!threads && <Loading />}
         {threads?.map((t) => (
@@ -78,6 +79,7 @@ export function MessagesPage({ jobId }: { jobId?: string }) {
           </div>
         )}
       </div>
+      <TabBar on="messages" />
       {open && (
         <ChatScreen jobId={open.job_id} me={session.user.id} otherName={open.other_name} otherPhoto={open.other_photo}
           sub={`${open.title}, ${STATUS[open.status] ?? open.status}`}

@@ -65,7 +65,7 @@ export function GiveHelpPage() {
   const [err, setErr] = useState("");
   useEffect(() => { if (profile?.full_name && !from) setFrom(profile.full_name.split(" ")[0]); }, [profile?.full_name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (!session) return <div className="app"><AuthScreen title="Give help" reason="Sign in to buy a Mahi Man gift card." onBack={back("/")} onDone={() => {}} /></div>;
+  if (!session) return <div className="app"><AuthScreen title="Buy a gift card" reason="Sign in to buy a Mahi Man gift card." onBack={back("/")} onDone={() => {}} /></div>;
 
   const canCard = !!p?.card_live && !!p?.card;
   const how = via ?? (canCard ? "card" : "bank");
@@ -95,7 +95,7 @@ export function GiveHelpPage() {
   };
 
   return (
-    <Page title="Give help" onBack={back("/settings")}>
+    <Page title="Buy a gift card" onBack={back("/settings")}>
       <div style={{ padding: "16px 16px 4px" }}><GiftCard amount={amount} to={to} msg={msg} from={from} /></div>
       <div className="gf-grid">
         <button className="field gf-f" onClick={() => setPick("amount")}><span className="k">Amount</span><span className="row between gf-v"><span className="v">{money(amount)}</span>{Icon.chevron("var(--muted)")}</span></button>
@@ -206,7 +206,7 @@ export function ClaimPage({ code }: { code: string }) {
   if (g === undefined) return <div className="app"><Loading /></div>;
   if (g === null) return (
     <Page title="Gift card" onBack={() => go("/", true)}>
-      <div className="cp-sec"><span className="cp-title">We can't find that gift card</span><span className="t15 light">Check the link, or add the code in Settings, Payments.</span></div>
+      <div className="cp-sec"><span className="cp-title">We can't find that gift card</span><span className="t15 light">Check the link, or add the code in You, Payments.</span></div>
       <div style={{ flex: 1 }} /><ActionBar><button className="btn primary" style={{ flex: 1 }} onClick={() => go("/gift-code", true)}>Enter a gift code</button></ActionBar>
     </Page>
   );
@@ -231,7 +231,7 @@ export function ClaimPage({ code }: { code: string }) {
         </div>
       ) : (
         <div className="cp-sec"><span className="cp-title">{g.state === "added" ? "This gift is in a Mahi Man wallet" : g.state === "expired" ? "This gift card has expired" : "This gift card isn't paid for yet"}</span>
-          <span className="t15 light">{g.state === "added" ? "If that's you, it's in Settings, Payments." : g.state === "expired" ? "Gift cards last 3 years." : `Once ${g.from} has paid, this link will work.`}</span></div>
+          <span className="t15 light">{g.state === "added" ? "If that's you, it's in You, Payments." : g.state === "expired" ? "Gift cards last 3 years." : `Once ${g.from} has paid, this link will work.`}</span></div>
       )}
       <div className="cp-sec"><span className="t14 light muted">{`Gift code ${code.toUpperCase()}${g.expires_at ? ` · lasts until ${new Date(g.expires_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ })}` : ""}`}</span></div>
       <div style={{ flex: 1 }} />
@@ -259,7 +259,7 @@ export function AddCodePage() {
     catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
   };
   return (
-    <Page title="Add a gift code" onBack={back("/payments")}>
+    <Page title="Redeem a gift card" onBack={back("/payments")}>
       <div className="cp-sec" style={{ gap: 10 }}>
         <label className="field"><span className="k">Gift code</span>
           <input value={code} autoCapitalize="characters" autoComplete="off" placeholder="MAHI-XXXX-XXXX" onChange={(e) => setCode(e.target.value.toUpperCase())} /></label>

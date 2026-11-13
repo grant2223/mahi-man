@@ -10,8 +10,8 @@ import { AbnStep } from "../worker/Signup";
 import { Credentials, JobsAndSkills } from "../worker/Skills";
 import { PaymentMethods, cardLabel } from "../customer/Cards";
 import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
-import { inviteText, shareLink, SITE } from "../lib/share";
 import { AreaRow } from "../lib/area";
+import { TabBar } from "./TabBar";
 
 // Account settings: ID check, blocked people, legal pages and in-app account deletion (Apple 5.1.1(v)).
 export function Settings() {
@@ -20,7 +20,7 @@ export function Settings() {
   const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
   const [alerts, setAlerts] = useState<"granted" | "prompt" | "denied" | "unsupported">("unsupported");
   useEffect(() => { alertsState().then(setAlerts).catch(() => {}); }, []);
-  const [screen, setScreen] = useState<null | "verify" | "delete" | "payid" | "skills" | "creds" | "cards" | "reliability">(null);
+  const [screen, setScreen] = useState<null | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability">(null);
 
   useEffect(() => {
     if (!session) return;
@@ -28,12 +28,12 @@ export function Settings() {
   }, [session]);
 
   if (ready && !session) { go("/", true); return null; }
-  if (!session || !profile) return <div className="app"><StepHero title="Settings" onBack={() => (history.length > 1 ? history.back() : go("/"))} /></div>;
+  if (!session || !profile) return <div className="app"><StepHero title="You" /></div>;
   const idLabel = { none: "Not verified", pending: "Being checked", verified: "ID verified", retake: "Retake needed", rejected: "Not approved" }[profile.id_status];
 
   return (
     <div className="app">
-      <StepHero title="Settings" sub={session.user.email ?? ""} onBack={() => (history.length > 1 ? history.back() : go("/"))} />
+      <StepHero title="You" sub={session.user.email ?? ""} />
       <div className="step-body" style={{ padding: 0, gap: 0 }}>
         <div className="poster">
           <Tile name={profile.full_name || "?"} photo={profile.photo_path} />
@@ -51,7 +51,6 @@ export function Settings() {
         <AreaRow />
         <button className="choice" onClick={() => go("/jobs")}><span className="t"><b>My jobs</b><span>Jobs you've posted</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => setScreen("cards")}><span className="t"><b>Payment methods</b><span>{profile.card_last4 ? `${cardLabel(profile)}, for booking fees` : "Card for booking fees"}</span></span>{Icon.chevron("var(--faint)")}</button>
-        {profile.is_worker && <button className="choice" onClick={() => go("/work")}><span className="t"><b>Work</b><span>Your worker account</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("skills")}><span className="t"><b>My skills</b><span>What customers see on your offers</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("creds")}><span className="t"><b>Licences and certificates</b><span>Insurance, RSA, Blue Card, trade licences</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("reliability")}><span className="t"><b>Reliability</b><span>Turns up score and strikes</span></span>{Icon.chevron("var(--faint)")}</button>}
@@ -77,29 +76,26 @@ export function Settings() {
           </button>
         )}
         <button className="choice" onClick={() => go("/code")}><span className="t"><b>Your code</b><span>{profile.is_worker ? "Customers scan it to book you again" : "A mate scans it to get Mahi Man"}</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go(profile.is_worker ? "/offers?side=all" : "/offers")}><span className="t"><b>Local offers</b><span>Deals from local businesses</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/payments")}><span className="t"><b>Payments</b><span>Balance, invoices, top-up and Plus</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/gift")}><span className="t"><b>Give help</b><span>A Mahi Man gift card for someone else</span></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => go("/gift")}><span className="t"><b>Buy a gift card</b><span>Mahi Man help for someone else</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>How you pay</b><span>Pay as you go, top-up or Plus</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={async () => { const r = await shareLink(inviteText, SITE); if (r === "copied") toast("Link copied. Paste it in a message."); }}><span className="t"><b>Invite a mate</b><span>Send a friend the link</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/support")}><span className="t"><b>Help and support</b><span>Contact the Mahi Man team</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/privacy")}><span className="t"><b>Privacy policy</b></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => go("/privacy")}><span className="t"><b>Privacy policy</b><span>Your data, and deleting your account</span></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => go("/terms")}><span className="t"><b>Terms of use</b></span>{Icon.chevron("var(--faint)")}</button>
         <button className="choice" onClick={() => signOut().then(() => go("/"))}><span className="t"><b>Sign out</b></span></button>
-        <button className="choice" onClick={() => setScreen("delete")}><span className="t"><b style={{ color: "var(--danger)" }}>Delete account</b><span>Removes your account, photos and messages for good</span></span></button>
       </div>
+      <TabBar on="you" />
       {screen === "payid" && <AbnStep onBack={() => setScreen(null)} onSaved={() => { setScreen(null); toast("Saved"); }} />}
       {screen === "cards" && <PaymentMethods onBack={() => setScreen(null)} />}
       {screen === "reliability" && <Reliability onBack={() => setScreen(null)} />}
       {screen === "skills" && <JobsAndSkills onBack={() => setScreen(null)} />}
       {screen === "creds" && <Credentials onBack={() => setScreen(null)} />}
       {screen === "verify" && <VerifyFlow onClose={() => { setScreen(null); reload(); }} />}
-      {screen === "delete" && <DeleteAccount onBack={() => setScreen(null)} />}
     </div>
   );
 }
 
-function DeleteAccount({ onBack }: { onBack: () => void }) {
+export function DeleteAccount({ onBack }: { onBack: () => void }) {
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");

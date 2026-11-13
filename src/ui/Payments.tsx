@@ -187,8 +187,8 @@ export function PaymentsPage() {
         ) : <span className="t15 light">{line}</span>}
         <div className="row" style={{ gap: 10, marginTop: 12, flexWrap: "wrap" }}>
           <button className="btn primary small" onClick={() => go("/topup")}>Top up</button>
-          <button className="btn stone small" onClick={() => go("/gift")}>Give help</button>
-          <button className="btn stone small" onClick={() => go("/gift-code")}>Add a gift code</button>
+          <button className="btn stone small" onClick={() => go("/gift")}>Buy a gift card</button>
+          <button className="btn stone small" onClick={() => go("/gift-code")}>Redeem a gift card</button>
           {plus && (p.plus_renew ? <button className="btn stone small" onClick={stopPlus}>Stop Plus</button>
             : <button className="btn stone small" onClick={() => go("/plus")}>Keep Plus</button>)}
         </div>
@@ -476,7 +476,7 @@ export function PlusPage() {
         <Li b="Priority on every job" s="Your jobs go to the top, and every worker in your category is told." />
         <Li b="Top-rated first" s="Your jobs reach the best-rated workers before anyone else." />
         <Li b="Fix-it guarantee" s="Not done as listed? We send someone to finish it." />
-        <Li b="Stop any time" s="In Settings, Payments. Plus runs to the end of the month you've paid for." />
+        <Li b="Stop any time" s="In You, Payments. Plus runs to the end of the month you've paid for." />
       </div>
       <div style={{ flex: 1 }} />
       <ActionBar>
@@ -549,7 +549,7 @@ export function JobFeeSection({ fee }: { fee: JobFee }) {
       {title}
       {fee.from_balance_cents > 0 && <span className="t15 light">{money2(fee.from_balance_cents)} came off your balance. {money2(owed)} to pay.</span>}
       {p && <BankDetails pay={p.pay} reference={inv.number} />}
-      <span className="t14 light muted">Due {dayLong(inv.due_at)}. Your tax invoice is in Settings, Payments.</span>
+      <span className="t14 light muted">Due {dayLong(inv.due_at)}. Your tax invoice is in You, Payments.</span>
     </div>
   );
   if (!p) return null;

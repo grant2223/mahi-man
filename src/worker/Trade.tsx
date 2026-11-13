@@ -83,7 +83,7 @@ export function TradeJoin({ trade, onBack, onPlans }: { trade: TradeStatus; onBa
         <div className="cp-sec" style={{ paddingBottom: 110 }}>
           <span className="cp-title">What you need</span>
           <Li b="Your trade licence and ABN." s={trade.licences.length ? `${trade.licences.join(", ")} checked.` : "We check both before your first job."} />
-          <Li b="Public liability insurance." s={trade.insured ? "On file." : "Add the certificate in Settings."} />
+          <Li b="Public liability insurance." s={trade.insured ? "On file." : "Add the certificate in You, Licences and certificates."} />
         </div>
       </div>
       <div className="bottombar">

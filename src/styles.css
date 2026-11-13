@@ -946,3 +946,16 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .gf-v { align-items: center; gap: 8px; width: 100%; }
 button.gf-f { font: inherit; color: var(--ink); cursor: pointer; }
 .gf-f textarea { min-height: 44px; }
+
+/* ---------- Tab bar: the app's main menu along the bottom ---------- */
+.tb-space { height: calc(var(--safe-bottom) + 66px); flex-shrink: 0; }
+.tb { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; display: grid; grid-template-columns: repeat(5, 1fr); max-width: 480px; margin: 0 auto; padding: 6px 4px calc(var(--safe-bottom) + 6px); background: var(--card); box-shadow: 0 -1px 0 rgba(20,24,28,0.08); }
+.tb button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; height: 54px; border: 0; background: none; padding: 0; color: var(--faint); font-size: 12px; font-weight: 400; cursor: pointer; }
+.tb button.on { color: var(--emerald); font-weight: 500; }
+.tb-i { position: relative; display: flex; }
+.tb-i b { position: absolute; top: -4px; right: -10px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 3px; background: var(--lime); color: var(--ink); font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+.invite-band { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px; border-bottom: 8px solid var(--ground); }
+.invite-band .t { display: flex; flex-direction: column; gap: 2px; }
+.invite-band b { font-size: 17px; font-weight: 500; }
+.invite-band .t span { font-size: 14px; font-weight: 300; color: var(--muted); }
+.legal .btn.stone { margin: 4px 0 24px; }

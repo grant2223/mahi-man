@@ -48,7 +48,7 @@ async function autoTopups() {
       n++;
     } catch {
       await admin.from("profiles").update({ auto_topup: false }).eq("id", p.id);
-      await admin.rpc("notify", { p_user: p.id, p_title: "Automatic top-up is off", p_body: "Your card didn't go through, so we turned it off. Top up in Settings, Payments.", p_url: "/payments", p_category: null, p_data: {} });
+      await admin.rpc("notify", { p_user: p.id, p_title: "Automatic top-up is off", p_body: "Your card didn't go through, so we turned it off. Top up in You, Payments.", p_url: "/payments", p_category: null, p_data: {} });
     }
   }
   return n;

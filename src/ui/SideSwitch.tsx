@@ -9,6 +9,12 @@ const KEY = "mm-side";
 export const lastSide = (): "help" | "work" => { try { return localStorage.getItem(KEY) === "work" ? "work" : "help"; } catch { return "help"; } };
 export const setSide = (side: "help" | "work") => { try { localStorage.setItem(KEY, side); } catch { /* private mode */ } };
 
+// Remembers which side is open when the tab bar is showing instead of the switch.
+export function SetSide({ side }: { side: "help" | "work" }) {
+  useEffect(() => setSide(side), [side]);
+  return null;
+}
+
 export function SideSwitch({ side }: { side: "help" | "work" }) {
   const { profile } = useSession();
   useEffect(() => setSide(side), [side]);

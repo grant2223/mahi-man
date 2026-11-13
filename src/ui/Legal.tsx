@@ -1,4 +1,7 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
+import { Capacitor } from "@capacitor/core";
+import { useSession } from "../lib/session";
+import { DeleteAccount } from "./Settings";
 import { go } from "../lib/router";
 import { StepHero } from "./kit";
 
@@ -11,6 +14,21 @@ function Page({ title, children }: { title: string; children: ReactNode }) {
       <StepHero title={title} sub={`Last updated ${UPDATED}`} onBack={() => (history.length > 1 ? history.back() : go("/"))} />
       <div className="legal">{children}</div>
     </div>
+  );
+}
+
+// Account deletion lives at the end of the privacy policy, away from Sign out (Apple 5.1.1(v) only asks that it's in the app).
+function DeleteHere() {
+  const { session } = useSession();
+  const [open, setOpen] = useState(false);
+  if (!session || !Capacitor.isNativePlatform()) return null;
+  return (
+    <>
+      <h2>Delete your account</h2>
+      <p>This removes your account, photos and messages for good.</p>
+      <button className="btn stone" onClick={() => setOpen(true)}>Delete my account</button>
+      {open && <DeleteAccount onBack={() => setOpen(false)} />}
+    </>
   );
 }
 
@@ -51,9 +69,10 @@ export function Privacy() {
       <h2>Where it is stored</h2>
       <p>Your information is stored with our hosting provider, Supabase, in its Sydney, Australia region. Cards and payments are handled by Stripe. Maps are shown with Apple Maps, and directions open in your phone's maps app. Some service providers we use may process information outside Australia.</p>
       <h2>Keeping and deleting</h2>
-      <p>You can delete your account at any time in Settings. This deletes your profile, photos, ID check, messages and reviews straight away. Jobs you finished stay in the other person's history without your name.</p>
+      <p>You can delete your account at any time, here at the bottom of this page in the app. This deletes your profile, photos, ID check, messages and reviews straight away. Jobs you finished stay in the other person's history without your name.</p>
       <h2>Your rights</h2>
       <p>You can ask to see or correct the information we hold about you, or complain about how we have handled it, by emailing <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>. If you're not happy with our answer you can contact the Office of the Australian Information Commissioner at oaic.gov.au.</p>
+      <DeleteHere />
     </Page>
   );
 }
@@ -92,7 +111,7 @@ export function Terms() {
         <li>Top-up: you can add $25, $50 or $100 to your balance by card or bank transfer. While your balance covers it, the fee is charged at the lower top-up rate and taken from your balance. Your balance only pays Mahi Man fees and Plus. Anything unused is refunded if you ask.</li>
         <li>Plus: a monthly membership taken from your balance, with the lowest fee rate, priority on your jobs and the fix-it guarantee. It renews each month while your balance covers it, and ends if it doesn't. You can stop it at any time and it runs to the end of the month you've paid for.</li>
         <li>Every invoice is a tax invoice and includes GST. Rates, caps and prices are shown on the How you pay page and can change; the rate shown when you post a job is the one that applies to it.</li>
-        <li>By saving a card you allow us to charge the top-ups you ask for, and automatic top-ups if you turn them on. You can remove a saved card at any time in Settings.</li>
+        <li>By saving a card you allow us to charge the top-ups you ask for, and automatic top-ups if you turn them on. You can remove a saved card at any time in the app, under You, Payment methods.</li>
       </ul>
       <h2>Gift cards</h2>
       <ul>
@@ -160,7 +179,7 @@ export function Support() {
       <p><b className="w5">What if the job is bigger than booked?</b> Your worker asks for the extra in the app. Nothing extra is owed unless you approve it.</p>
       <p><b className="w5">How do I become a worker?</b> Go to <a href="/work" onClick={(e) => { e.preventDefault(); go("/work"); }}>Work with Mahi Man</a>. You'll need a photo, your passport or national ID, and your PayID or bank account.</p>
       <h2 id="delete">Delete your account</h2>
-      <p>In the app: Settings, then Delete account. It's deleted straight away.</p>
+      <p>In the app: You, then Privacy policy, then Delete my account at the bottom. It's deleted straight away.</p>
       <p>Can't get into the app? Email <a href={`mailto:${SUPPORT_EMAIL}?subject=Delete%20my%20Mahi%20Man%20account`}>{SUPPORT_EMAIL}</a> from the email address you signed up with and we'll delete it within 7 days.</p>
       <p>Deleting removes your profile, photos, ID check, messages and reviews. Jobs you finished stay in the other person's history without your name, and records of fees and payments are kept as long as the law requires.</p>
     </Page>

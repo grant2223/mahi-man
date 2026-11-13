@@ -67,11 +67,11 @@ export function Logo({ w = 40 }: { w?: number; light?: boolean }) {
 }
 
 /* ---------- Step header used by every booking and ID step ---------- */
-export function StepHero({ step, of, title, sub, onBack }: { step?: number; of?: number; title: string; sub?: string; onBack: () => void }) {
+export function StepHero({ step, of, title, sub, onBack }: { step?: number; of?: number; title: string; sub?: string; onBack?: () => void }) {
   return (
     <section className="step-hero">
       <div className="top">
-        <button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button>
+        {onBack ? <button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button> : <span />}
         {step && of ? <span className="count">Step {step} of {of}</span> : null}
       </div>
       {step && of ? (

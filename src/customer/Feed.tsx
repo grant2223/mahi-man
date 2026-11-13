@@ -4,8 +4,8 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money } from "../lib/format";
 import { CatIcon, Icon, Loading, Logo, SearchPicker } from "../ui/kit";
-import { SideSwitch } from "../ui/SideSwitch";
-import { HeaderIcons } from "../ui/HeaderIcons";
+import { SetSide, SideSwitch } from "../ui/SideSwitch";
+import { TabBar } from "../ui/TabBar";
 import { AreaPin, ComingSoon, isSoon, useArea, useHere } from "../lib/area";
 
 interface FeedJob {
@@ -66,11 +66,9 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
       <section className="hero" style={{ paddingBottom: 24 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
-          {session
-            ? <HeaderIcons />
-            : <AreaPin />}
+          {!session && <AreaPin />}
         </div>
-        <SideSwitch side="work" />
+        {session ? <SetSide side="work" /> : <SideSwitch side="work" />}
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 168, right: -32 }} />
         <h1 className="mid" style={{ position: "relative", margin: "22px 0 10px" }}>Want more<br />mahi?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Which job could you help with?</p>
@@ -129,12 +127,13 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
             </div>
           </div>
         )}
-        <p className="small light muted" style={{ margin: "18px 20px calc(var(--safe-bottom) + 24px)", lineHeight: 1.5 }}>
+        {!session && <p className="small light muted" style={{ margin: "18px 20px calc(var(--safe-bottom) + 24px)", lineHeight: 1.5 }}>
           <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
           <span className="sep" /><a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
           <span className="sep" /><a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
-        </p>
+        </p>}
       </div>
+      <TabBar on="work" />
 
       {pick && (
         <SearchPicker title="Show jobs in" placeholder="Search categories" value={[cat]}

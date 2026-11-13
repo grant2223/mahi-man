@@ -89,7 +89,7 @@ function render(kind: string, d: Record<string, any>) {
       + step(1, "Get Mahi Man", "Free on iPhone and Android.", btn(`${SITE}/get`, "Get Mahi Man", false))
       + step(2, "Sign up with this email address", "Your gift goes straight into your wallet.")
       + step(3, "Post a job", "Your gift pays when it's done.", btn(d.link, "Open my gift", true))
-      + `<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#8a877e">Gift code ${esc(d.code)} · lasts until ${esc(d.expires)}. Enter the code in Settings, Payments if you sign up with a different email.</p>`;
+      + `<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#8a877e">Gift code ${esc(d.code)} · lasts until ${esc(d.expires)}. Enter the code in You, Payments if you sign up with a different email.</p>`;
     return { subject: `${d.from} sent you ${amt} of help`, html: layout(`${esc(d.from)} sent you ${amt} of help`, body) };
   }
   throw new Error(`Unknown email: ${kind}`);

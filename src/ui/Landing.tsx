@@ -82,7 +82,7 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["How do I pay the fee?", `By bank transfer. Pick an invoice after each job, weekly, or every 2 weeks on your payday. Or top up your balance by card or bank, and the fee drops to ${fee.tu}% and comes off your balance.`],
     ["Is my card safe?", "Cards are stored by Stripe, our payment provider. We never see or keep your full card number."],
     ["Is there a way to pay less?", `Mahi Man Plus, $${(fee.plus / 100).toFixed(2)} a month from your balance, takes the fee to ${fee.pl}% and puts your jobs first. It suits people who book every week.`],
-    ["Can I give Mahi Man as a gift?", "Yes. A Mahi Man gift card of $50, $100 or $200 pays for any job, the worker and the fee. Text it from your phone or we email it on the day you pick, like Christmas morning. Buy one in the app under Settings, Give help, or at mahiman.vercel.app/gift. It lasts 3 years."],
+    ["Can I give Mahi Man as a gift?", "Yes. A Mahi Man gift card of $50, $100 or $200 pays for any job, the worker and the fee. Text it from your phone or we email it on the day you pick, like Christmas morning. Buy one in the app under You, Buy a gift card, or at mahiman.vercel.app/gift. It lasts 3 years."],
   ]],
   ["Local offers", [
     ["What are local offers?", "Deals from local businesses for Mahi Man customers and workers, like money off a skip bin or at the hardware store. Tap the tag at the top of the app to see them."],

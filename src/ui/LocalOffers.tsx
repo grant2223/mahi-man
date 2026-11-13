@@ -4,6 +4,9 @@ import { brandUrl, rpc } from "../lib/supabase";
 import { go } from "../lib/router";
 import { useArea } from "../lib/area";
 import { Icon, Loading, useToast } from "./kit";
+import { useSession } from "../lib/session";
+import { inviteText, shareLink, SITE } from "../lib/share";
+import { TabBar } from "./TabBar";
 import { ActionBar } from "./Completion";
 
 /* Offers from local partner businesses. Customers and workers each see the offers meant for them.
@@ -30,8 +33,10 @@ const Pic = ({ o, w, h }: { o: PartnerOffer; w: number | string; h: number }) =>
 // 1. The Offers page.
 export function OffersPage() {
   // Opened from Settings: workers see offers for both sides, everyone else the customer offers.
-  const param = new URLSearchParams(location.search).get("side");
+  const { profile } = useSession();
+  const param = new URLSearchParams(location.search).get("side") ?? (profile?.is_worker ? "all" : "help");
   const side = param === "work" ? "work" : param === "all" ? "all" : "help";
+  const toast = useToast();
   const { area } = useArea();
   const [list, setList] = useState<PartnerOffer[] | null>(null);
   const [q, setQ] = useState("");
@@ -47,10 +52,14 @@ export function OffersPage() {
   return (
     <div className="app" style={{ background: "var(--card)" }}>
       <section className="hero" style={{ paddingBottom: 24 }}>
-        <div className="hero-top"><button className="back" onClick={() => (history.length > 1 ? history.back() : go("/settings"))} aria-label="Back">{Icon.back("#fff")}</button></div>
+        <div className="hero-top" />
         <h1 className="mid" style={{ margin: "22px 0 6px" }}>Local offers</h1>
         <p className="lede" style={{ margin: 0 }}>From {area?.name ?? "local"} businesses, for Mahi Man {side === "work" ? "workers" : side === "all" ? "customers and workers" : "customers"}.</p>
       </section>
+      <div className="invite-band">
+        <span className="t"><b>Invite a mate</b><span>Send a friend the link to Mahi Man</span></span>
+        <button className="btn primary small" onClick={async () => { const r = await shareLink(inviteText, SITE); if (r === "copied") toast("Link copied. Paste it in a message."); }}>Invite</button>
+      </div>
       {!list ? <Loading /> : !list.length ? (
         <p className="t17 light" style={{ padding: "24px 16px", margin: 0, lineHeight: 1.45 }}>No offers near you yet. New ones show here.</p>
       ) : (
@@ -81,6 +90,7 @@ export function OffersPage() {
           {!shown.length && <p className="t15 light muted" style={{ padding: "8px 16px" }}>No offers match that.</p>}
         </>
       )}
+      <TabBar on="offers" />
     </div>
   );
 }

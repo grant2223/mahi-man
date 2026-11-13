@@ -10,11 +10,10 @@ import { ReportScreen } from "../ui/Report";
 import { Signup, type Steps } from "./Signup";
 import { WorkerJob } from "./WorkerJob";
 import { ActionBar, reviewSkipped } from "../ui/Completion";
-import { MessagesLink } from "../ui/Messages";
 import { AlertsAsk } from "../ui/AlertsAsk";
 import { alertsState, askedFor } from "../lib/push";
-import { SideSwitch } from "../ui/SideSwitch";
-import { SettingsIcon } from "../ui/HeaderIcons";
+import { SetSide } from "../ui/SideSwitch";
+import { TabBar } from "../ui/TabBar";
 import { Feed } from "../customer/Feed";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
 import { TradeFeed, TradeJob, TradeJoin, TradePlan, TradePlans, TradeStrip, TradeWaiting, useTrade } from "./Trade";
@@ -203,12 +202,8 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       <section className="hero" style={{ paddingBottom: 40 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
-          <span className="row" style={{ gap: 18 }}>
-            <MessagesLink />
-            <SettingsIcon />
-          </span>
         </div>
-        <SideSwitch side="work" />
+        <SetSide side="work" />
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 122, right: -24 }} />
         {/* Title, and beside it the switch that says whether they're available for jobs. */}
         <div className="title-row">
@@ -273,6 +268,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         </div>
       )}
       <History />
+      <TabBar on="work" />
       {open && <OfferScreen o={open} pilot={pilot} onBack={() => setOpen(null)}
         onPass={async () => { await rpc("pass_job", { p_job: open.id }); setOpen(null); poll(); }}
         onOffered={() => { const id = open.id; setOpen(null); setWaiting(id); poll(); }} onGone={() => { setOpen(null); poll(); }} />}

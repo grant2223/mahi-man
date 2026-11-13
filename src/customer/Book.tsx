@@ -12,8 +12,8 @@ import { VoiceScreen, voiceSupported } from "../ui/Voice";
 import { PayScreen } from "./Pay";
 import { AddCardScreen, CardMark, cardLabel } from "./Cards";
 import { lc } from "../worker/Skills";
-import { SideSwitch } from "../ui/SideSwitch";
-import { HeaderIcons } from "../ui/HeaderIcons";
+import { SetSide, SideSwitch } from "../ui/SideSwitch";
+import { TabBar } from "../ui/TabBar";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
 import { PhotoStep } from "../worker/Signup";
 import { AreaPin, ComingSoon, isSoon, useArea, useChangeArea, useHere } from "../lib/area";
@@ -432,11 +432,9 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
       <section className="hero" style={{ paddingBottom: 28 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
-          {signedIn
-            ? <HeaderIcons />
-            : <AreaPin />}
+          {!signedIn && <AreaPin />}
         </div>
-        <SideSwitch side="help" />
+        {signedIn ? <SetSide side="help" /> : <SideSwitch side="help" />}
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 160, right: -30 }} />
         <h1 className="mid" style={{ position: "relative", margin: "26px 0 10px" }}>Need a hand?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Get help now with your odd job.</p>
@@ -455,7 +453,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
 
         {recent && recent.length > 0 ? (
           <div className="stack" style={{ gap: 0 }}>
-            <span className="post-h">Your recent jobs</span>
+            <span className="row between" style={{ alignItems: "baseline" }}><span className="post-h">Your recent jobs</span><button className="link" onClick={() => go("/jobs")}>All your jobs</button></span>
             {recent.map((r) => {
               const c = cats.find((x) => x.id === r.job_types?.category_id);
               return (
@@ -481,12 +479,13 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         ) : null}
 
         {feedOffer && <FeedOfferCard o={feedOffer} side="help" style={{ margin: "0 -16px", width: "calc(100% + 32px)", borderTop: "1px solid var(--line)" }} />}
-        <p className="small light muted" style={{ margin: "18px 0 calc(var(--safe-bottom) + 18px)", lineHeight: 1.5 }}>
+        {!signedIn && <p className="small light muted" style={{ margin: "18px 0 calc(var(--safe-bottom) + 18px)", lineHeight: 1.5 }}>
           <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
           <span className="sep" /><a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
           <span className="sep" /><a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
-        </p>
+        </p>}
       </div>
+      <TabBar on="help" />
     </div>
   );
 }

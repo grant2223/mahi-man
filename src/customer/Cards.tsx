@@ -73,7 +73,7 @@ function CardForm({ onSaved }: { onSaved: () => void }) {
       <button className="row" onClick={() => setKeep(!keep)} aria-pressed={keep}
         style={{ gap: 12, width: "100%", padding: "18px 2px", border: 0, background: "none", textAlign: "left", alignItems: "flex-start", cursor: "pointer" }}>
         <span style={{ width: 24, height: 24, borderRadius: 4, background: keep ? "var(--emerald)" : "var(--stone-2)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{keep && Icon.tick("#fff", 18)}</span>
-        <span className="stack" style={{ gap: 2 }}><span className="t17">Save this card for next time</span><span className="small light muted">Remove it any time in Settings.</span></span>
+        <span className="stack" style={{ gap: 2 }}><span className="t17">Save this card for next time</span><span className="small light muted">Remove it any time in You, Payment methods.</span></span>
       </button>
       <p className="small light muted" style={{ lineHeight: 1.5, margin: "0 0 16px" }}>
         By adding this card you allow Mahi Man to charge the top-ups you ask for, including automatic top-ups if you turn them on. Cards are handled by Stripe. Mahi Man never sees your full card number.
