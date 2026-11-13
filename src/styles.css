@@ -959,3 +959,35 @@ button.gf-f { font: inherit; color: var(--ink); cursor: pointer; }
 .invite-band b { font-size: 17px; font-weight: 500; }
 .invite-band .t span { font-size: 14px; font-weight: 300; color: var(--muted); }
 .legal .btn.stone { margin: 4px 0 24px; }
+
+/* ---------- Store buttons (header and footer) ---------- */
+.ld-badges { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.ld-badges.stack { flex-direction: column; align-items: flex-start; }
+.ld-badge { display: inline-flex; align-items: center; gap: 10px; height: 52px; min-width: 168px; padding: 0 16px 0 12px; border-radius: 6px; background: #000; color: #fff; box-shadow: inset 0 0 0 1px #a6a6a6; text-decoration: none; }
+.ld-badge span { display: flex; flex-direction: column; line-height: 1.05; }
+.ld-badge small { font-size: 10px; letter-spacing: 0.6px; text-transform: uppercase; font-weight: 400; color: #fff; }
+.ld-badge b { font-size: 20px; font-weight: 500; letter-spacing: -0.3px; }
+.ld-badges.small .ld-badge { height: 42px; min-width: 0; padding: 0 12px 0 10px; gap: 8px; }
+.ld-badges.small .ld-badge svg { width: 18px; height: 20px; }
+.ld-badges.small small { font-size: 8px; }
+.ld-badges.small b { font-size: 16px; }
+.ld-nav-in .ld-badges { margin-left: 4px; }
+.ld-foot { padding: 48px 0 calc(var(--safe-bottom) + 28px); }
+.ld-foot-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) repeat(2, minmax(0, 1fr)); gap: 40px; }
+.ld-foot-brand { display: flex; flex-direction: column; gap: 14px; }
+.ld-foot-brand .brand { color: #fff; font-size: 22px; }
+.ld-foot-brand p { margin: 0 0 6px; max-width: 340px; font-size: 15px; font-weight: 300; line-height: 1.5; color: rgba(255,255,255,0.8); }
+.ld-foot-col { display: flex; flex-direction: column; gap: 12px; }
+.ld-foot-col b { font-size: 15px; font-weight: 600; color: #fff; margin-bottom: 2px; }
+.ld-foot-col a { font-size: 15px; font-weight: 300; color: rgba(255,255,255,0.8); }
+.ld-foot-col a:hover { color: #fff; }
+.ld-foot-end { margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.12); font-size: 13px; font-weight: 300; color: rgba(255,255,255,0.6); }
+@media (max-width: 860px) {
+  .ld-foot-grid { grid-template-columns: 1fr 1fr; gap: 32px 20px; }
+  .ld-foot-brand { grid-column: 1 / -1; }
+}
+.ld-badges.stack .ld-badge { min-width: 176px; }
+@media (max-width: 860px) {
+  .ld-nav .ld-badges.small { flex-wrap: nowrap; }
+  .ld-nav .ld-badges.small .ld-badge + .ld-badge { display: none; }
+}

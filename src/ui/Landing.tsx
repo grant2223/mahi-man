@@ -225,17 +225,7 @@ export function Landing() {
 
       <GetApp />
 
-      <footer className="ld-foot">
-        <div className="ld-wrap ld-foot-in">
-          <span className="brand"><Logo /> Mahi Man</span>
-          <span className="row" style={{ gap: 20 }}>
-            <a href="/partners" onClick={(e) => { e.preventDefault(); go("/partners"); }}>Partner with us</a>
-            <a href="/privacy" onClick={link("/privacy")}>Privacy</a>
-            <a href="/terms" onClick={link("/terms")}>Terms</a>
-            <a href="/support" onClick={link("/support")}>Help</a>
-          </span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }
@@ -245,7 +235,9 @@ function LdLinks() {
   return (
     <>
       <nav className="ld-links"><a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a></nav>
-      <a className="btn small ld-nav-cta" href="#app" onClick={(e) => { e.preventDefault(); if (document.getElementById("app")) toApp(); }}>{urls && STORES.some(([, k]) => urls[k]) ? "Get the app" : "Join the launch"}</a>
+      {urls && STORES.some(([, k]) => urls[k])
+        ? <StoreBadges small />
+        : <a className="btn small ld-nav-cta" href="#app" onClick={(e) => { e.preventDefault(); if (document.getElementById("app")) toApp(); }}>Join the launch</a>}
     </>
   );
 }
@@ -293,6 +285,71 @@ function GetApp({ full }: { full?: boolean }) {
 }
 
 const TESTFLIGHT_APP = "https://apps.apple.com/app/testflight/id899247664";
+
+// The store buttons, in the header and the footer. Google Play, plus the App Store once listed (the TestFlight beta until then).
+// In the header on a phone, only the button for that phone shows, so it fits beside the logo.
+const PLAY_ICON = (
+  <svg width="22" height="24" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M3.6 2.2 13.4 12 3.6 21.8c-.4-.2-.6-.6-.6-1.1V3.3c0-.5.2-.9.6-1.1z" fill="#00d3ff" />
+    <path d="M16.8 8.6 13.4 12 3.6 2.2c.3-.2.8-.2 1.2 0l12 6.4z" fill="#00f076" />
+    <path d="M16.8 15.4 4.8 21.8c-.4.2-.9.2-1.2 0l9.8-9.8 3.4 3.4z" fill="#ff3a44" />
+    <path d="M20.4 13.1 16.8 15.4 13.4 12l3.4-3.4 3.6 2.3c.8.5.8 1.7 0 2.2z" fill="#ffd500" />
+  </svg>
+);
+const APPLE_ICON = (
+  <svg width="22" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="#fff">
+    <path d="M16.37 12.6c-.02-2.3 1.88-3.4 1.97-3.46-1.07-1.57-2.74-1.78-3.33-1.8-1.42-.14-2.77.83-3.49.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.8-.41 6.94 1.16 9.21.77 1.11 1.68 2.36 2.88 2.31 1.16-.05 1.59-.75 2.99-.75 1.4 0 1.79.75 3.01.72 1.24-.02 2.03-1.13 2.79-2.25.88-1.29 1.24-2.53 1.26-2.6-.03-.01-2.42-.93-2.45-3.71zM14.08 5.85c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.77-.97 2.82 1.03.08 2.07-.52 2.71-1.28z" />
+  </svg>
+);
+const isIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
+const isAndroid = () => /Android/.test(navigator.userAgent);
+
+export function StoreBadges({ small, stack }: { small?: boolean; stack?: boolean }) {
+  const urls = useStores();
+  if (!urls) return null;
+  const apple = urls.app_store_url ? { href: urls.app_store_url, top: "Download on the", name: "App Store" }
+    : urls.testflight_url ? { href: urls.testflight_url, top: "iPhone beta on", name: "TestFlight" } : null;
+  const play = urls.play_store_url ? { href: urls.play_store_url, top: "Get it on", name: "Google Play" } : null;
+  // Phones see their own store first; in the small header version, only that one.
+  const showPlay = play && !(small && isIos());
+  const showApple = apple && !(small && isAndroid());
+  return (
+    <span className={`ld-badges${small ? " small" : ""}${stack ? " stack" : ""}`}>
+      {showPlay && <a className="ld-badge" href={play.href} target="_blank" rel="noopener">{PLAY_ICON}<span><small>{play.top}</small><b>{play.name}</b></span></a>}
+      {showApple && <a className="ld-badge" href={apple.href} target="_blank" rel="noopener">{APPLE_ICON}<span><small>{apple.top}</small><b>{apple.name}</b></span></a>}
+    </span>
+  );
+}
+
+// The footer on every web page: who we are and the store buttons on the left, the links on the right.
+export function SiteFooter() {
+  const nav = (to: string) => (e: React.MouseEvent) => { e.preventDefault(); go(to); };
+  return (
+    <footer className="ld-foot">
+      <div className="ld-wrap ld-foot-grid">
+        <div className="ld-foot-brand">
+          <a className="brand" href="/" onClick={nav("/")}><Logo /> Mahi Man</a>
+          <p>Get the help you need within minutes. Post, accept, job done!</p>
+          <StoreBadges stack />
+        </div>
+        <nav className="ld-foot-col">
+          <b>Mahi Man</b>
+          <a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a>
+          <a href="/partners" onClick={nav("/partners")}>Partner with us</a>
+          <a href="/gift" onClick={nav("/gift")}>Buy a gift card</a>
+          <a href="/support" onClick={nav("/support")}>Help</a>
+        </nav>
+        <nav className="ld-foot-col">
+          <b>Legal</b>
+          <a href="/terms" onClick={nav("/terms")}>Terms of use</a>
+          <a href="/privacy" onClick={nav("/privacy")}>Privacy policy</a>
+          <a href="/support#delete">Delete your account</a>
+        </nav>
+      </div>
+      <div className="ld-wrap ld-foot-end">© {new Date().getFullYear()} Mahi Man, made in Australia</div>
+    </footer>
+  );
+}
 
 // Join the launch: name and email, then the link to get the app straight away (the iPhone pilot runs on TestFlight).
 function JoinLaunch({ full }: { full?: boolean }) {

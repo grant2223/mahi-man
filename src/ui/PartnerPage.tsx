@@ -4,6 +4,7 @@ import { go } from "../lib/router";
 import { money } from "../lib/format";
 import { Icon, Logo, SearchPicker } from "./kit";
 import { TagIcon } from "./LocalOffers";
+import { SiteFooter, StoreBadges } from "./Landing";
 
 /* mahiman.app/partners: how a local business becomes a partner. What they get, the plans, and the form.
    Applications go to admin; nothing is paid until they're approved. */
@@ -74,6 +75,7 @@ export function PartnerPage() {
       <header className="ld-nav"><div className="ld-wrap ld-nav-in">
         <a className="brand" href="/" onClick={(e) => { e.preventDefault(); go("/"); }}><Logo /> Mahi Man</a>
         <nav className="ld-links"><a href="#how" onClick={scrollTo("how")}>How it works</a><a href="#plans" onClick={scrollTo("plans")}>Plans</a><a href="#apply" onClick={scrollTo("apply")}>Apply</a></nav>
+        <StoreBadges small />
       </div></header>
 
       <section className="ld-hero">
@@ -155,12 +157,7 @@ export function PartnerPage() {
         </div>
       </section>
 
-      <footer className="ld-foot"><div className="ld-wrap ld-foot-in"><span className="brand"><Logo /> Mahi Man</span>
-        <span className="row" style={{ gap: 20 }}>
-          <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
-          <a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
-          <a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
-        </span></div></footer>
+      <SiteFooter />
 
       {pick === "type" && <SearchPicker title="Type of business" placeholder="Search" value={f.type ? [f.type] : []} options={TYPES.map((t) => ({ id: t, label: t }))}
         onClose={() => setPick(null)} onChange={(v) => setF({ ...f, type: String(v[0]) })} />}
