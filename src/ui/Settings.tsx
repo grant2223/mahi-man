@@ -1,96 +1,361 @@
 import { Capacitor } from "@capacitor/core";
+import QRCode from "qrcode";
+import { createPortal } from "react-dom";
 import { Reliability } from "../worker/Reliability";
-import { useEffect, useState } from "react";
-import { api, rpc, sb } from "../lib/supabase";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { api, mediaUrls, rpc, sb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
-import { Icon, Screen, StepHero, Tile, useToast } from "./kit";
+import { money, shrinkImage } from "../lib/format";
+import { Icon, Screen, SearchPicker, StepHero, Tile, useToast } from "./kit";
 import { VerifyFlow } from "./Verify";
 import { AbnStep } from "../worker/Signup";
 import { Credentials, JobsAndSkills } from "../worker/Skills";
 import { PaymentMethods, cardLabel } from "../customer/Cards";
 import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
-import { AreaRow } from "../lib/area";
+import { isSoon, useArea } from "../lib/area";
 import { TabBar } from "./TabBar";
 
-// Account settings: ID check, blocked people, legal pages and in-app account deletion (Apple 5.1.1(v)).
+/* The You page. Each band shows how things stand right now (money, jobs, work), and tapping it opens the detail.
+   Account details, area, alerts, card and blocked people live on their own Account page. */
+
+type Prefs = { jobs: boolean; messages: boolean; updates: boolean };
+interface HubJob { id: string; title: string; status: string; worker: string | null; keen: number; cover: string | null; on_way: boolean; arrived: boolean; total: number }
+interface Hub {
+  balance: number; gift_balance: number; jobs_total: number; jobs: HubJob[]; prefs: Prefs | null;
+  worker: null | {
+    turns_up: number | null; done: number; total: number; last: ("ok" | "late" | "miss")[];
+    payday: { on: string | null; cents: number | null } | null;
+    skills: { n: number; names: string | null } | null;
+    licences: { n: number; pending: number; next: { name: string; expiry: string } | null } | null;
+  };
+}
+type Sub = null | "account" | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability";
+
+const CODE_HOST = "https://mahiman.app";
+const S = { fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, strokeWidth: 1.9 };
+const ic = (d: ReactNode, c = "var(--emerald)", z = 22) => <svg width={z} height={z} viewBox="0 0 24 24" {...S} stroke={c}>{d}</svg>;
+const I = {
+  card: () => ic(<><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></>),
+  tool: () => ic(<path d="M14.5 5.5a4 4 0 0 0 4.9 5L20 11l-9 9-3-3 9-9 .5.6a4 4 0 0 0-3-5.1z" />),
+  cert: () => ic(<><rect x="4" y="3" width="16" height="13" rx="1" /><path d="M8 8h8M8 11h5M10 16l-1 5 3-2 3 2-1-5" /></>),
+};
+
+const dayShort = (d: string) => new Date(`${d}T00:00`).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
+const monthYear = (d: string) => new Date(`${d}T00:00`).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
+
+function jobLine(j: HubJob): string {
+  const w = j.worker ?? "Your worker";
+  switch (j.status) {
+    case "searching": return j.keen ? `${j.keen} keen, pick one` : "Finding someone";
+    case "accepted": return j.on_way ? `${w} is on the way` : `${w} is booked`;
+    case "in_progress": return `${w} is there now`;
+    case "finished": return "Done, check and confirm";
+    case "confirmed": return `Done · ${money(j.total)}`;
+    case "disputed": return "Being sorted";
+    case "refunded": return "Refunded";
+    default: return "";
+  }
+}
+
+function Qr({ url, size }: { url: string; size: number }) {
+  const [svg, setSvg] = useState("");
+  useEffect(() => { QRCode.toString(url, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#2a2d32", light: "#ffffff" } }).then(setSvg); }, [url]);
+  return <span style={{ width: size, height: size, display: "block" }} dangerouslySetInnerHTML={{ __html: svg }} />;
+}
+
 export function Settings() {
   const { session, profile, reload, ready } = useSession();
   const toast = useToast();
-  const [blocked, setBlocked] = useState<{ id: string; name: string }[]>([]);
-  const [alerts, setAlerts] = useState<"granted" | "prompt" | "denied" | "unsupported">("unsupported");
-  useEffect(() => { alertsState().then(setAlerts).catch(() => {}); }, []);
-  const [screen, setScreen] = useState<null | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability">(null);
+  const [hub, setHub] = useState<Hub | null>(null);
+  const [covers, setCovers] = useState<Record<string, string>>({});
+  const [sub, setSub] = useState<Sub>(null);
+  const [q, setQ] = useState("");
 
-  useEffect(() => {
-    if (!session) return;
-    rpc<{ id: string; name: string }[]>("my_blocks").then((r) => setBlocked(r ?? [])).catch(() => {});
-  }, [session]);
+  const load = () => rpc<Hub>("my_hub").then((h) => {
+    setHub(h);
+    mediaUrls(h.jobs.map((j) => j.cover).filter(Boolean) as string[]).then(setCovers).catch(() => {});
+  }).catch(() => {});
+  useEffect(() => { if (session) load(); }, [session]);
 
   if (ready && !session) { go("/", true); return null; }
   if (!session || !profile) return <div className="app"><StepHero title="You" /></div>;
-  const idLabel = { none: "Not verified", pending: "Being checked", verified: "ID verified", retake: "Retake needed", rejected: "Not approved" }[profile.id_status];
+  const worker = !!profile.is_worker;
+  const idLabel = { none: "Not verified", pending: "ID being checked", verified: "ID verified", retake: "ID retake needed", rejected: "ID not approved" }[profile.id_status];
+
+  // Everything on this page and the Account page, so search finds it.
+  const items: { label: string; hint: string; act: () => void; worker?: boolean }[] = [
+    { label: "Account", hint: "Name, mobile, email, photo", act: () => setSub("account") },
+    { label: "Verify your ID", hint: idLabel, act: () => setSub(profile.id_status === "verified" ? "account" : "verify") },
+    { label: "Your area", hint: "Where you use Mahi Man", act: () => setSub("account") },
+    { label: "Alerts", hint: "New jobs, messages and job updates", act: () => setSub("account") },
+    { label: "Payment card", hint: "Card for top-ups and fees", act: () => setSub("cards") },
+    { label: "Blocked people", hint: "People you've blocked", act: () => setSub("account") },
+    { label: "Sign out", hint: "On the Account page", act: () => setSub("account") },
+    { label: "Balance and history", hint: "Payments, invoices and receipts", act: () => go("/payments") },
+    { label: "Top up", hint: "Add to your balance", act: () => go("/topup") },
+    { label: "Mahi Man Plus", hint: "Lower fees, urgent jobs free", act: () => go("/plus") },
+    { label: "Buy a gift card", hint: "Mahi Man help for someone else", act: () => go("/gift") },
+    { label: "Redeem a gift card", hint: "Add a gift code", act: () => go("/gift-code") },
+    { label: "How payment works", hint: "Who you pay and when", act: () => go("/pricing") },
+    { label: "Your jobs", hint: "Jobs you've posted", act: () => go("/jobs") },
+    { label: "Your code", hint: worker ? "Customers scan it to book you again" : "A mate scans it to get Mahi Man", act: () => go("/code") },
+    { label: "Turns up score", hint: "Reliability and strikes", act: () => setSub("reliability"), worker: true },
+    { label: "Skills", hint: "What customers see on your offers", act: () => setSub("skills"), worker: true },
+    { label: "Licences and certificates", hint: "Insurance, RSA, Blue Card, trade licences", act: () => setSub("creds"), worker: true },
+    { label: "Getting paid", hint: "Where customers pay you", act: () => setSub("payid"), worker: true },
+    { label: "Help and support", hint: "Contact the Mahi Man team", act: () => go("/support") },
+    { label: "Privacy policy", hint: "Your data, and deleting your account", act: () => go("/privacy") },
+    { label: "Delete account", hint: "On the Privacy page", act: () => go("/privacy") },
+    { label: "Terms of use", hint: "The rules for using Mahi Man", act: () => go("/terms") },
+  ].filter((x) => !x.worker || worker);
+  const t = q.trim().toLowerCase();
+  const found = t ? items.filter((x) => `${x.label} ${x.hint}`.toLowerCase().includes(t)) : [];
+
+  const bal = hub?.balance ?? 0, gift = Math.min(hub?.gift_balance ?? 0, bal), topup = Math.max(bal - gift, 0);
+  const w = hub?.worker;
+  const codeUrl = worker ? `${CODE_HOST}/w/${profile.id}` : `${CODE_HOST}/get`;
 
   return (
-    <div className="app">
-      <StepHero title="You" sub={session.user.email ?? ""} />
-      <div className="step-body" style={{ padding: 0, gap: 0 }}>
-        <div className="poster">
-          <Tile name={profile.full_name || "?"} photo={profile.photo_path} />
-          <span className="t">
-            <span className="t17 w5">{profile.full_name || "Your account"}</span>
-            {profile.id_status === "verified" ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">{idLabel}</span>}
-          </span>
-        </div>
-        {profile.id_status !== "verified" && (
-          <button className="choice" onClick={() => setScreen("verify")}>
-            <span className="t"><b>Verify your ID</b><span>{profile.id_status === "pending" ? "We're checking it now" : "Passport or national ID, plus a selfie"}</span></span>
-            {Icon.chevron("var(--faint)")}
-          </button>
-        )}
-        <AreaRow />
-        <button className="choice" onClick={() => go("/jobs")}><span className="t"><b>My jobs</b><span>Jobs you've posted</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => setScreen("cards")}><span className="t"><b>Payment methods</b><span>{profile.card_last4 ? `${cardLabel(profile)}, for connection fees` : "Card for connection fees"}</span></span>{Icon.chevron("var(--faint)")}</button>
-        {profile.is_worker && <button className="choice" onClick={() => setScreen("skills")}><span className="t"><b>My skills</b><span>What customers see on your offers</span></span>{Icon.chevron("var(--faint)")}</button>}
-        {profile.is_worker && <button className="choice" onClick={() => setScreen("creds")}><span className="t"><b>Licences and certificates</b><span>Insurance, RSA, Blue Card, trade licences</span></span>{Icon.chevron("var(--faint)")}</button>}
-        {profile.is_worker && <button className="choice" onClick={() => setScreen("reliability")}><span className="t"><b>Reliability</b><span>Turns up score and strikes</span></span>{Icon.chevron("var(--faint)")}</button>}
-        {profile.is_worker && <button className="choice" onClick={() => setScreen("payid")}><span className="t"><b>Getting paid</b><span>Where customers pay you</span></span>{Icon.chevron("var(--faint)")}</button>}
-        {blocked.length > 0 && (
-          <div style={{ padding: "18px 20px 8px" }}>
-            <h2 style={{ margin: "0 0 8px", fontSize: 18, fontWeight: 600 }}>Blocked</h2>
-            {blocked.map((b) => (
-              <div key={b.id} className="row between" style={{ padding: "8px 0" }}>
-                <span className="t15">{b.name}</span>
-                <button className="link" onClick={async () => {
-                  await sb.from("blocks").delete().eq("blocker_id", session.user.id).eq("blocked_id", b.id);
-                  setBlocked((x) => x.filter((y) => y.id !== b.id)); toast("Unblocked");
-                }}>Unblock</button>
-              </div>
-            ))}
+    <div className="app hb">
+      <section className="hb-hero">
+        <div className="hb-top"><span style={{ width: 44 }} /><span>You</span><span style={{ width: 44 }} /></div>
+        <div className="hb-me">
+          <Tile name={profile.full_name || "?"} photo={profile.photo_path} size={64} />
+          <div className="hb-who">
+            <b>{profile.full_name || "Your account"}</b>
+            <span>{profile.id_status === "verified" && Icon.shieldTick("var(--lime)")}{idLabel}<HeroArea /></span>
           </div>
+          <button className="hb-edit" onClick={() => setSub("account")}>Account</button>
+        </div>
+      </section>
+
+      <label className="search hb-search">{Icon.search("var(--muted)")}<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search settings" /></label>
+
+      {t ? (
+        <section className="hb-found">
+          {found.map((x) => (
+            <button key={x.label} onClick={() => { setQ(""); x.act(); }}><span><b>{x.label}</b><small>{x.hint}</small></span>{Icon.chevron("var(--faint)")}</button>
+          ))}
+          {found.length === 0 && <p className="ac-none">Nothing matches "{q}".</p>}
+        </section>
+      ) : (<>
+        {profile.id_status !== "verified" && (
+          <section className="hb-band hb-verify">
+            <button onClick={() => setSub("verify")}><span><b>Verify your ID</b><small>{profile.id_status === "pending" ? "We're checking it now" : "Passport or national ID, plus a selfie"}</small></span>{Icon.chevron("var(--faint)")}</button>
+          </section>
         )}
-        {pushSupported() && (
-          <button className="choice" onClick={async () => { if (alerts === "prompt") setAlerts(await turnOnAlerts()); }}>
-            <span className="t"><b>Alerts</b><span>{alerts === "granted" ? "On. New jobs, offers, messages and payments" : alerts === "denied" ? `Off. Turn them on in ${Capacitor.getPlatform() === "android" ? "your phone's Settings, Apps" : "iPhone Settings"}, Mahi Man, Notifications` : "Off. Tap to turn on"}</span></span>
-            {alerts === "prompt" && Icon.chevron("var(--faint)")}
-          </button>
+
+        <section className="hb-band">
+          <div className="hb-h"><h2>Your money</h2><button onClick={() => go("/payments")}>History</button></div>
+          <div className="hb-card">
+            <small>Balance</small><div className="hb-bal">{money(bal)}</div>
+            {bal > 0 && <div className="hb-split">{gift > 0 && <i style={{ flex: gift }} />}{topup > 0 && <i className={gift > 0 ? "" : "t"} style={{ flex: topup }} />}</div>}
+            <span>{bal > 0 ? [gift > 0 && `Gift card ${money(gift)}`, topup > 0 && `Top-up ${money(topup)}`].filter(Boolean).join(" · ") : "Top up or redeem a gift card to pay fees from your balance"}</span>
+          </div>
+          <div className="hb-acts">
+            <button className="btn" onClick={() => go("/topup")}>Top up</button>
+            <button className="btn stone" onClick={() => go("/gift")}>Buy a gift card</button>
+            <button className="btn stone" onClick={() => go("/gift-code")}>Redeem a gift card</button>
+          </div>
+        </section>
+
+        <section className="hb-band">
+          <div className="hb-h"><h2>Your jobs</h2>{(hub?.jobs_total ?? 0) > 0 && <button onClick={() => go("/jobs")}>All {hub!.jobs_total}</button>}</div>
+          {hub && hub.jobs.length > 0 ? (
+            <div className="hb-jobs">
+              {hub.jobs.map((j) => (
+                <button key={j.id} onClick={() => go(`/job/${j.id}`)}>
+                  {j.cover && covers[j.cover] ? <img src={covers[j.cover]} alt="" /> : <i className="hb-nocover" />}
+                  <b>{j.title}</b><span>{jobLine(j)}</span>
+                </button>
+              ))}
+            </div>
+          ) : <p className="ac-none">{hub ? "Jobs you post show here." : "Loading"}</p>}
+        </section>
+
+        {worker && (
+          <section className="hb-band">
+            <div className="hb-h"><h2>Your work</h2><button onClick={() => setSub("payid")}>Getting paid</button></div>
+            <div className="hb-work">
+              <button className="hb-rel" onClick={() => setSub("reliability")}>
+                {w && w.total > 0 ? (<>
+                  <div className="hb-big">{w.turns_up ?? Math.round((w.done / w.total) * 100)}<small>%</small></div>
+                  <span>Turned up to {w.done} of {w.total} job{w.total === 1 ? "" : "s"}</span>
+                  <div className="hb-dots">{w.last.map((d, i) => <i key={i} className={d === "ok" ? "" : "n"} />)}</div>
+                </>) : (<>
+                  <div className="hb-big">New</div>
+                  <span>Your turns up score starts with your first job</span>
+                </>)}
+                {w?.payday?.on && w.payday.cents ? <span className="hb-pay">Next payday {dayShort(w.payday.on)} · <b>{money(w.payday.cents)}</b></span> : null}
+              </button>
+              <button className="hb-qr" onClick={() => go("/code")}><Qr url={codeUrl} size={104} /><span>Your code</span></button>
+            </div>
+            <div className="hb-more">
+              <button onClick={() => setSub("skills")}>{I.tool()}<span><b>Skills</b><small>{w?.skills?.n ? `${w.skills.names}${w.skills.n > 3 ? ` +${w.skills.n - 3}` : ""}` : "Add what you can do"}</small></span>{Icon.chevron("var(--faint)")}</button>
+              <button onClick={() => setSub("creds")}>{I.cert()}<span><b>Licences</b><small>{
+                w?.licences?.next ? `${w.licences.next.name} ends ${monthYear(w.licences.next.expiry)}`
+                  : w?.licences?.n ? `${w.licences.n} approved`
+                  : w?.licences?.pending ? `${w.licences.pending} being checked` : "Insurance, RSA, Blue Card, trade licences"
+              }</small></span>{Icon.chevron("var(--faint)")}</button>
+            </div>
+          </section>
         )}
-        <button className="choice" onClick={() => go("/code")}><span className="t"><b>Your code</b><span>{profile.is_worker ? "Customers scan it to book you again" : "A mate scans it to get Mahi Man"}</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/payments")}><span className="t"><b>Payments</b><span>Balance, invoices, top-up and Plus</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/gift")}><span className="t"><b>Buy a gift card</b><span>Mahi Man help for someone else</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/pricing")}><span className="t"><b>How you pay</b><span>Pay as you go, top-up or Plus</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/support")}><span className="t"><b>Help and support</b><span>Contact the Mahi Man team</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/privacy")}><span className="t"><b>Privacy policy</b><span>Your data, and deleting your account</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => go("/terms")}><span className="t"><b>Terms of use</b></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => signOut().then(() => go("/"))}><span className="t"><b>Sign out</b></span></button>
-      </div>
+
+        <section className="hb-links">
+          <div>
+            {!worker && <button onClick={() => go("/code")}>Your code</button>}
+            <button onClick={() => go("/support")}>Help and support</button>
+            <button onClick={() => go("/privacy")}>Privacy and terms</button>
+          </div>
+        </section>
+      </>)}
+
       <TabBar on="you" />
-      {screen === "payid" && <AbnStep onBack={() => setScreen(null)} onSaved={() => { setScreen(null); toast("Saved"); }} />}
-      {screen === "cards" && <PaymentMethods onBack={() => setScreen(null)} />}
-      {screen === "reliability" && <Reliability onBack={() => setScreen(null)} />}
-      {screen === "skills" && <JobsAndSkills onBack={() => setScreen(null)} />}
-      {screen === "creds" && <Credentials onBack={() => setScreen(null)} />}
-      {screen === "verify" && <VerifyFlow onClose={() => { setScreen(null); reload(); }} />}
+      {sub === "account" && <Account prefs={hub?.prefs ?? null} onPrefs={(p) => setHub((h) => (h ? { ...h, prefs: p } : h))}
+        onBack={() => setSub(null)} onOpen={(s) => setSub(s)} />}
+      {sub === "payid" && <AbnStep onBack={() => setSub(null)} onSaved={() => { setSub(null); toast("Saved"); }} />}
+      {sub === "cards" && <PaymentMethods onBack={() => setSub(null)} />}
+      {sub === "reliability" && <Reliability onBack={() => setSub(null)} />}
+      {sub === "skills" && <JobsAndSkills onBack={() => { setSub(null); load(); }} />}
+      {sub === "creds" && <Credentials onBack={() => { setSub(null); load(); }} />}
+      {sub === "verify" && <VerifyFlow onClose={() => { setSub(null); reload(); }} />}
+    </div>
+  );
+}
+
+function HeroArea() {
+  const { area } = useArea();
+  return area ? <> · {area.name}</> : null;
+}
+
+/* Account: details, photo, area, alerts, card, blocked people and sign out. Delete account is on the Privacy page. */
+function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPrefs: (p: Prefs) => void; onBack: () => void; onOpen: (s: Sub) => void }) {
+  const { session, profile, reload } = useSession();
+  const toast = useToast();
+  const { area, areas, choose } = useArea();
+  const [picking, setPicking] = useState(false);
+  const [radius, setRadius] = useState<number | null>(null);
+  const [blocked, setBlocked] = useState<{ id: string; name: string }[] | null>(null);
+  const [on, setOn] = useState<Prefs>(prefs ?? { jobs: true, messages: true, updates: true });
+  const saved = useMemo(() => prefs ?? { jobs: true, messages: true, updates: true }, [prefs]);
+  const [busy, setBusy] = useState(false);
+  const [phone, setPhone] = useState<"granted" | "prompt" | "denied" | "unsupported">("unsupported");
+  const file = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow; document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, []);
+  useEffect(() => {
+    if (!session) return;
+    rpc<{ id: string; name: string }[]>("my_blocks").then((r) => setBlocked(r ?? [])).catch(() => setBlocked([]));
+    if (profile?.is_worker) sb.from("workers").select("radius_km").eq("id", session.user.id).maybeSingle().then(({ data }) => setRadius(data?.radius_km ?? null));
+    alertsState().then(setPhone).catch(() => {});
+  }, [session?.user.id]);
+  if (!session || !profile) return null;
+  const worker = !!profile.is_worker;
+  const changed = on.jobs !== saved.jobs || on.messages !== saved.messages || on.updates !== saved.updates;
+
+  const photo = async (f: File) => {
+    try {
+      const blob = await shrinkImage(f, 800);
+      const path = `${session.user.id}/face-${Date.now()}.jpg`;
+      const up = await sb.storage.from("avatars").upload(path, blob, { contentType: "image/jpeg" });
+      if (up.error) throw up.error;
+      const { error } = await sb.from("profiles").update({ photo_path: path }).eq("id", session.user.id);
+      if (error) throw error;
+      await reload(); toast("Photo saved");
+    } catch (e) { toast(e instanceof Error ? e.message : "Couldn't save the photo"); }
+  };
+  const save = async () => {
+    setBusy(true);
+    try { await rpc("set_alert_prefs", { p: on }); onPrefs(on); toast("Saved"); }
+    catch (e) { toast(e instanceof Error ? e.message : "Couldn't save"); }
+    setBusy(false);
+  };
+  const rows: [keyof Prefs, string][] = [
+    ...(worker ? [["jobs", "New jobs near you"] as [keyof Prefs, string]] : []),
+    ["messages", "Messages"], ["updates", "Job updates"],
+  ];
+  const settingsName = Capacitor.getPlatform() === "android" ? "your phone's Settings, Apps" : "iPhone Settings";
+
+  return (
+    <div className="screen hb hb-acct" role="dialog" aria-label="Your account">
+      <div className="screen-body">
+        <section className="hb-hero">
+          <div className="hb-top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button><span>Your account</span><span style={{ width: 44 }} /></div>
+          <div className="ac-me">
+            <Tile name={profile.full_name || "?"} photo={profile.photo_path} size={88} />
+            <button className="hb-edit" onClick={() => file.current?.click()}>Change photo</button>
+            <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) photo(f); }} />
+          </div>
+        </section>
+
+        <section className="hb-band">
+          <div className="hb-h"><h2>Your details</h2></div>
+          <div className="hb-grid">
+            <div><small>Name</small><b>{profile.full_name || "Not added"}</b></div>
+            {profile.id_status === "verified"
+              ? <div><small>ID</small><b className="ac-ok">{Icon.shieldTick("var(--emerald)")}Verified</b></div>
+              : <button onClick={() => onOpen("verify")}><small>ID</small><b className="ac-todo">{profile.id_status === "pending" ? "Being checked" : "Verify now"}</b></button>}
+            <div><small>Mobile</small><b>{profile.phone || "Not added"}</b></div>
+            <div><small>Email</small><b className="ac-mail">{session.user.email ?? ""}</b></div>
+          </div>
+        </section>
+
+        {area && (
+          <section className="hb-band">
+            <div className="hb-h"><h2>Your area</h2>{(areas?.length ?? 0) > 1 && <button onClick={() => setPicking(true)}>Change</button>}</div>
+            <div className="ac-area"><div className="ac-ring"><i /><i /><b /></div>
+              <div><div className="db-num">{area.name}</div><span>{isSoon(area) ? "Coming soon" : worker && radius ? `Jobs within ${radius} km` : area.state}</span></div></div>
+          </section>
+        )}
+
+        {pushSupported() && (
+          <section className="hb-band">
+            <div className="hb-h"><h2>Alerts</h2></div>
+            {phone !== "granted" && (
+              <div className="ac-phone">
+                <span>{phone === "denied" ? `Alerts are off on this phone. Turn them on in ${settingsName}, Mahi Man, Notifications.` : "Alerts are off on this phone."}</span>
+                {phone === "prompt" && <button className="btn stone" onClick={async () => setPhone(await turnOnAlerts())}>Turn on</button>}
+              </div>
+            )}
+            <div className="ac-sw">
+              {rows.map(([k, label]) => (
+                <label key={k}><span>{label}</span>
+                  <button className={on[k] ? "on" : ""} role="switch" aria-checked={on[k]} aria-label={label} onClick={() => setOn((p) => ({ ...p, [k]: !p[k] }))}><i /></button>
+                </label>
+              ))}
+            </div>
+            <button className="btn ac-save" disabled={!changed || busy} onClick={save}>{busy ? "Saving" : "Save"}</button>
+          </section>
+        )}
+
+        <section className="hb-band">
+          <div className="hb-h"><h2>Payment card</h2><button onClick={() => onOpen("cards")}>{profile.card_last4 ? "Change" : "Add"}</button></div>
+          {profile.card_last4
+            ? <div className="ac-card">{I.card()}<b>{cardLabel(profile)}</b><span>Used for top-ups</span></div>
+            : <span className="ac-none">No card yet. Add one for top-ups and fees.</span>}
+        </section>
+
+        <section className="hb-band">
+          <div className="hb-h"><h2>Blocked people</h2></div>
+          {blocked && blocked.length > 0 ? blocked.map((b) => (
+            <div key={b.id} className="ac-blk"><span>{b.name}</span>
+              <button className="link" onClick={async () => {
+                const { error } = await sb.from("blocks").delete().eq("blocker_id", session.user.id).eq("blocked_id", b.id);
+                if (error) { toast(error.message); return; }
+                setBlocked((x) => (x ?? []).filter((y) => y.id !== b.id)); toast("Unblocked");
+              }}>Unblock</button></div>
+          )) : <span className="ac-none">{blocked ? "You haven't blocked anyone." : "Loading"}</span>}
+        </section>
+
+        <section className="ac-end"><div className="hb-out"><button className="btn stone" onClick={() => signOut().then(() => go("/"))}>Sign out</button></div></section>
+      </div>
+      {picking && area && createPortal(<SearchPicker title="Where are you?" placeholder="Search areas" value={[area.id]}
+        options={(areas ?? []).map((a) => ({ id: a.id, label: a.name, hint: isSoon(a) ? `${a.state}, coming soon` : a.state }))}
+        onClose={() => setPicking(false)} onChange={(v) => choose(Number(v[0]))} />, document.body)}
     </div>
   );
 }

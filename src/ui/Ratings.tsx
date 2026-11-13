@@ -37,7 +37,7 @@ export function Face({ i, on, size = 36 }: { i: number; on: boolean; size?: numb
   ][i];
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" aria-hidden="true">
-      <circle cx="12" cy="12" r="11" fill={on ? TONE[i] : "#e7e5dc"} />{brows}{eyes}{mouth}
+      <circle cx="12" cy="12" r="11" fill={on ? TONE[i] : "#e3eae6"} />{brows}{eyes}{mouth}
     </svg>
   );
 }

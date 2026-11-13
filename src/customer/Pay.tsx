@@ -40,7 +40,7 @@ export function PayScreen(props: { jobId?: string; requestId?: string; amountLab
             clientSecret: secret,
             appearance: {
               theme: "flat",
-              variables: { colorPrimary: "#0b6b4f", colorBackground: "#efede6", colorText: "#2a2d32", borderRadius: "4px", fontFamily: "Bricolage Grotesque, system-ui, sans-serif", fontSizeBase: "16px" },
+              variables: { colorPrimary: "#0b6b4f", colorBackground: "#edf1ef", colorText: "#2a2d32", borderRadius: "4px", fontFamily: "Bricolage Grotesque, system-ui, sans-serif", fontSizeBase: "16px" },
             },
             fonts: [{ cssSrc: "https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500&display=swap" }],
           }}>
