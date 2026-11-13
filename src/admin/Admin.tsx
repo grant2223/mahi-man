@@ -9,7 +9,7 @@ import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit"
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money" | "gifts";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money" | "gifts" | "staff";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -19,6 +19,9 @@ export function Admin() {
   const { session, profile, ready } = useSession();
   const [tab, setTab] = useState<Tab>("overview");
   const [jobsDay, setJobsDay] = useState<string | null>(null);
+  const [role, setRole] = useState<StaffRole | null>(null);
+  useEffect(() => { if (profile?.is_admin) rpc<{ role: StaffRole } | null>("staff_me").then((r) => setRole(r?.role ?? null)).catch(() => {}); }, [profile?.is_admin]);
+  const allowed = (t: Tab) => !!role && roleCan(role, TAB_AREA[t]);
   const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0, invoices: 0, partners: 0, money: 0, gifts: 0 });
   const recount = useCallback(async () => {
     const [a, b, c, d, e, f, g, h, m1, m2, m3, m4] = await Promise.all([
@@ -39,15 +42,16 @@ export function Admin() {
   }, []);
   useEffect(() => { if (profile?.is_admin) recount(); }, [profile?.is_admin, recount, tab]);
   // Full-width admin: a fixed side menu grouped by what needs doing, and the page on the right.
-  const GROUPS: { label: string; items: [Tab, string, number?][] }[] = [
+  type Group = { label: string; items: [Tab, string, number?][] };
+  const GROUPS: Group[] = ([
     { label: "", items: [["overview", "Overview"]] },
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
     { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["launch", "Launch list"]] },
     { label: "Trust", items: [["cancels", "Cancellations", counts.fees], ["strikes", "Strikes", counts.strikes], ["reviews", "Reviews"]] },
     { label: "Money", items: [["money", "Invoices", counts.money], ["gifts", "Gift cards", counts.gifts]] },
     { label: "Partners", items: [["partners", "Partners", counts.partners], ["tradies", "Tradies", counts.invoices]] },
-    { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"]] },
-  ];
+    { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"], ["staff", "Staff"]] },
+  ] as Group[]).map((g) => ({ ...g, items: g.items.filter(([k]) => allowed(k)) })).filter((g) => g.items.length);
   const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
   if (!ready) return null;
   if (!session) return <div className="admin"><AuthScreen title="Admin sign in" reason="Sign in with your admin account." onBack={() => go("/")} onDone={() => {}} /></div>;
@@ -55,6 +59,8 @@ export function Admin() {
     <div className="admin solo"><div className="admin-head"><span className="brand"><Logo /> Mahi Man Admin</span><h1 style={{ margin: "16px 0 0", fontWeight: 600 }}>Admins only</h1>
       <p className="light">This account isn't an admin. <button className="hero-link" onClick={() => sb.auth.signOut()}>Sign out</button></p></div></div>
   );
+  if (!role) return <div className="admin solo"><Loading /></div>;
+  const show = allowed(tab) ? tab : "overview";
   return (
     <div className="admin">
       <aside className="adm-side">
@@ -64,7 +70,7 @@ export function Admin() {
             <div key={g.label || "top"} className="adm-group">
               {g.label && <span className="adm-label">{g.label}</span>}
               {g.items.map(([k, l, n]) => (
-                <button key={k} className={tab === k ? "adm-link on" : "adm-link"} onClick={() => { setJobsDay(null); setTab(k); }}>
+                <button key={k} className={show === k ? "adm-link on" : "adm-link"} onClick={() => { setJobsDay(null); setTab(k); }}>
                   <span>{l}</span>{!!n && <span className="adm-count">{n}</span>}
                 </button>
               ))}
@@ -77,26 +83,27 @@ export function Admin() {
         </div>
       </aside>
       <main className="adm-main">
-        <h1 className="adm-title">{TITLE[tab]}</h1>
-        {tab === "overview" && <Overview open={(t, day) => { setJobsDay(day ?? null); setTab(t); window.scrollTo(0, 0); }} />}
-        {tab === "jobs" && <Jobs day={jobsDay} onAll={() => setJobsDay(null)} />}
-        {tab === "ids" && <IdChecks onChanged={recount} />}
-        {tab === "licences" && <LicenceChecks onChanged={recount} />}
-        {tab === "skills" && <Skills />}
-        {tab === "reports" && <Reports onChanged={recount} />}
-        {tab === "problems" && <Problems />}
-        {tab === "people" && <People />}
-        {tab === "launch" && <LaunchList />}
-        {tab === "areas" && <Areas />}
-        {tab === "types" && <Types />}
-        {tab === "settings" && <Settings />}
-        {tab === "cancels" && <Cancellations onChanged={recount} />}
-        {tab === "strikes" && <Strikes onChanged={recount} />}
-        {tab === "reviews" && <Reviews />}
-        {tab === "tradies" && <Tradies onChanged={recount} />}
-        {tab === "partners" && <Partners onChanged={recount} />}
-        {tab === "money" && <MoneyInvoices onChanged={recount} />}
-        {tab === "gifts" && <GiftCardsAdmin onChanged={recount} />}
+        <h1 className="adm-title">{TITLE[show]}</h1>
+        {show === "overview" && <Overview allowed={allowed} open={(t, day) => { setJobsDay(day ?? null); setTab(t); window.scrollTo(0, 0); }} />}
+        {show === "jobs" && <Jobs day={jobsDay} onAll={() => setJobsDay(null)} />}
+        {show === "ids" && <IdChecks onChanged={recount} />}
+        {show === "licences" && <LicenceChecks onChanged={recount} />}
+        {show === "skills" && <Skills />}
+        {show === "reports" && <Reports onChanged={recount} />}
+        {show === "problems" && <Problems />}
+        {show === "people" && <People isOwner={role === "owner"} openStaff={() => setTab("staff")} />}
+        {show === "launch" && <LaunchList />}
+        {show === "areas" && <Areas />}
+        {show === "types" && <Types />}
+        {show === "settings" && <Settings payDetails={role === "owner"} />}
+        {show === "cancels" && <Cancellations onChanged={recount} />}
+        {show === "strikes" && <Strikes onChanged={recount} />}
+        {show === "reviews" && <Reviews />}
+        {show === "tradies" && <Tradies onChanged={recount} />}
+        {show === "partners" && <Partners onChanged={recount} />}
+        {show === "money" && <MoneyInvoices onChanged={recount} />}
+        {show === "gifts" && <GiftCardsAdmin onChanged={recount} />}
+        {show === "staff" && <Staff />}
       </main>
     </div>
   );
@@ -129,7 +136,7 @@ function Spark({ a, good }: { a: (number | null)[]; good: "up" | "down" }) {
   return <svg className="ov-spark" viewBox={`0 0 100 ${h}`} preserveAspectRatio="none"><polyline points={line} fill="none" stroke={(up === (good === "up")) ? "#0b6b4f" : "#c0392b"} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" /></svg>;
 }
 
-function Overview({ open }: { open: (t: Tab, day?: string) => void }) {
+function Overview({ open, allowed }: { open: (t: Tab, day?: string) => void; allowed: (t: Tab) => boolean }) {
   const [days, setDays] = useState(7);
   const [d, setD] = useState<Ov | null>(null);
   const [tr, setTr] = useState<TradeSummary | null>(null);
@@ -157,7 +164,7 @@ function Overview({ open }: { open: (t: Tab, day?: string) => void }) {
     ["tradies", t.tradies, "Tradie orders", "Waiting for payment"],
     ["partners", t.partners, "Partner applications", "Waiting for approval"],
     ["jobs", tr?.no_quote_jobs ?? 0, "Trade jobs with no price", "After 2 hours"],
-  ] as [Tab, number, string, string][]).filter((r) => r[1] > 0);
+  ] as [Tab, number, string, string][]).filter((r) => r[1] > 0 && allowed(r[0]));
   const series = (k: keyof Period) => d.days.map((x) => x[k] as number | null);
   const K: [string, string, number | null, number | null, string, keyof Period, "up" | "down", number, boolean][] = [
     ["Fill rate", "Jobs that found a worker", c.fill, p.fill, "%", "fill", "up", d.targets.fill, (c.fill ?? 0) >= d.targets.fill],
@@ -203,14 +210,14 @@ function Overview({ open }: { open: (t: Tab, day?: string) => void }) {
           <div><b>{dollars(c.gmv)}</b><span>Through Mahi Man</span><Delta n={change(c.gmv, p.gmv)} /></div>
           <div><b>{dollars(c.revenue)}</b><span>Your revenue</span><Delta n={change(c.revenue, p.revenue)} /></div>
         </div>
-        <DailyChart days={d.days} open={(day) => open("jobs", day)} />
+        <DailyChart days={d.days} open={allowed("jobs") ? (day) => open("jobs", day) : undefined} />
       </section>
     </div>
   );
 }
 
 // Jobs or money each day for 30 days. Green is done, lime is cancelled. Tap a day for its numbers and its jobs.
-function DailyChart({ days, open }: { days: (Period & { day: string })[]; open: (day: string) => void }) {
+function DailyChart({ days, open }: { days: (Period & { day: string })[]; open?: (day: string) => void }) {
   const [mode, setMode] = useState<"jobs" | "money">("jobs");
   const [pick, setPick] = useState(days.length - 1);
   const h = 200, w = 100 / days.length;
@@ -229,7 +236,7 @@ function DailyChart({ days, open }: { days: (Period & { day: string })[]; open: 
         <span className="t">{dayName(sel.day, true)}{pick === days.length - 1 ? " · today" : ""}</span>
         <span className="n">{sel.done} done{sel.cancelled ? ` · ${sel.cancelled} cancelled` : ""}</span>
         <span className="n">{money2(sel.gmv)} through Mahi Man · {money2(sel.revenue)} your revenue</span>
-        {(sel.done > 0 || sel.cancelled > 0) && <button className="link" onClick={() => open(sel.day)}>See these jobs ›</button>}
+        {open && (sel.done > 0 || sel.cancelled > 0) && <button className="link" onClick={() => open(sel.day)}>See these jobs ›</button>}
       </div>
       <div className="dc-plot" style={{ height: h }}>
         <div className="dc-y">{[top, top / 2, 0].map((v) => <span key={v}>{fmt(v)}</span>)}</div>
@@ -820,7 +827,7 @@ interface Person { id: string; email: string; full_name: string; photo_path: str
   created_at: string; abn: string | null; approved: boolean; jobs_posted: number; jobs_worked: number }
 const ID_BADGE: Record<string, [string, string]> = { none: ["", "Not verified"], pending: ["y", "Checking"], verified: ["g", "Verified"], retake: ["y", "Retake asked"], rejected: ["r", "Rejected"] };
 
-function People() {
+function People({ isOwner, openStaff }: { isOwner: boolean; openStaff: () => void }) {
   const toast = useToast();
   const [rows, setRows] = useState<Person[]>([]);
   const [q, setQ] = useState("");
@@ -834,7 +841,7 @@ function People() {
   }, [toast]);
   useEffect(() => { load(); }, [load]);
   const person = rows.find((r) => r.id === open);
-  if (person) return <UserDetail p={person} isAdmin={admins.has(person.email.toLowerCase())} review={review.has(person.id)} onBack={() => setOpen(null)} onChanged={load} />;
+  if (person) return <UserDetail p={person} isOwner={isOwner} openStaff={openStaff} isAdmin={admins.has(person.email.toLowerCase())} review={review.has(person.id)} onBack={() => setOpen(null)} onChanged={load} />;
   const shown = rows.filter((r) => `${r.full_name} ${r.email}`.toLowerCase().includes(q.trim().toLowerCase()));
   return (
     <>
@@ -878,7 +885,7 @@ function roleBadges(p: Person, admin: boolean, review: boolean) {
 
 interface UJob { id: string; title: string | null; status: string; price_cents: number; created_at: string; customer_id: string; worker_id: string | null; job_types: { name: string } | null }
 // One user: everything about them on one page, with the actions at the top.
-function UserDetail({ p, isAdmin, review, onBack, onChanged }: { p: Person; isAdmin: boolean; review: boolean; onBack: () => void; onChanged: () => void }) {
+function UserDetail({ p, isAdmin, isOwner, openStaff, review, onBack, onChanged }: { p: Person; isAdmin: boolean; isOwner: boolean; openStaff: () => void; review: boolean; onBack: () => void; onChanged: () => void }) {
   const toast = useToast();
   const { session } = useSession();
   const [w, setW] = useState<Record<string, unknown> | null>(null);
@@ -912,7 +919,7 @@ function UserDetail({ p, isAdmin, review, onBack, onChanged }: { p: Person; isAd
         </div>
         <div className="row" style={{ gap: 8, alignSelf: "flex-start", flexWrap: "wrap" }}>
           {review && <button className="btn stone" onClick={() => act(() => rpc("admin_clear_review", { p_worker: p.id }), "Cleared. They can go online again.")}>Clear review</button>}
-          {p.id !== session?.user.id && <button className="btn stone" onClick={() => act(() => rpc("admin_set_role", { p_email: p.email, p_admin: !isAdmin }), isAdmin ? "Admin role removed" : "Now an admin")}>{isAdmin ? "Remove admin" : "Make admin"}</button>}
+          {isOwner && p.id !== session?.user.id && <button className="btn stone" onClick={openStaff}>{isAdmin ? "Change staff role" : "Add as staff"}</button>}
           <button className={p.suspended ? "btn primary" : "btn stone"} onClick={() => act(() => rpc("admin_set_suspended", { p_user: p.id, p_suspended: !p.suspended }), p.suspended ? "Unpaused" : "Paused")}>{p.suspended ? "Unpause" : "Pause account"}</button>
         </div>
       </div>
@@ -1306,8 +1313,10 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
 ];
 const isCents = (k: string) => k.endsWith("_cents");
 
-function Settings() {
+// Payment details (bank, PayID, ABN) are the owner's only; the database refuses anyone else.
+function Settings({ payDetails }: { payDetails: boolean }) {
   const toast = useToast();
+  const GROUPS = SETTING_GROUPS.filter((g) => payDetails || !g.fields.some((f) => f.k.startsWith("pay_")));
   const [vals, setVals] = useState<Record<string, string>>({});
   const [orig, setOrig] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -1316,7 +1325,7 @@ function Settings() {
       setVals(m); setOrig(m);
     });
   }, []);
-  const keys = SETTING_GROUPS.flatMap((g) => g.fields.map((f) => f.k));
+  const keys = GROUPS.flatMap((g) => g.fields.map((f) => f.k));
   const changed = keys.filter((k) => vals[k] !== orig[k]);
   const shown = (k: string) => { const v = vals[k] ?? ""; return isCents(k) && v !== "" ? String(Number(v) / 100) : v; };
   const set = (k: string, v: string) => setVals({ ...vals, [k]: isCents(k) ? (v === "" ? "" : String(Math.round(Number(v) * 100))) : v });
@@ -1335,7 +1344,7 @@ function Settings() {
   }
   return (
     <div className="set-page">
-      {SETTING_GROUPS.map((g) => (
+      {GROUPS.map((g) => (
         <section key={g.title} className="set-group">
           <div className="set-about"><h3>{g.title}</h3><p>{g.text}</p></div>
           <div className="set-card">
@@ -2058,5 +2067,127 @@ function GiftCardsAdmin({ onChanged }: { onChanged: () => void }) {
       )}
       <p className="light muted" style={{ marginTop: 14 }}>Gift-card jobs are paid to the worker every Friday, once the customer says it's done (or 2 days after). Pay each one by bank transfer, then mark it paid and the worker is told.</p>
     </>
+  );
+}
+
+// ---------- Staff ----------
+// Who can sign in to this admin and what each one can do. Owner only.
+type StaffRole = "owner" | "admin" | "support" | "finance";
+type StaffArea = "all" | "people" | "checks" | "money" | "setup" | "settings" | "staff";
+const TAB_AREA: Record<Tab, StaffArea> = {
+  overview: "all", ids: "checks", licences: "checks", reports: "people", problems: "people", jobs: "people", people: "people", launch: "people",
+  cancels: "people", strikes: "people", reviews: "people", money: "money", gifts: "money", partners: "money", tradies: "money",
+  areas: "setup", types: "setup", skills: "setup", settings: "settings", staff: "staff",
+};
+function roleCan(r: StaffRole, a: StaffArea | "paydetails") {
+  if (a === "all" || r === "owner") return true;
+  if (r === "admin") return a !== "staff" && a !== "paydetails";
+  if (r === "support") return a === "people" || a === "checks";
+  return a === "money";
+}
+const ROLE_INFO: Record<StaffRole, { name: string; text: string }> = {
+  owner: { name: "Owner", text: "Everything, including staff, settings and payment details" },
+  admin: { name: "Admin", text: "Runs the platform day to day. Everything except staff and payment details" },
+  support: { name: "Support", text: "Checks people and sorts out problems. No money or settings" },
+  finance: { name: "Finance", text: "Invoices, payouts and plans. No ID photos" },
+};
+const ROLES = Object.keys(ROLE_INFO) as StaffRole[];
+const ROLE_PAGES: [string, StaffArea | "paydetails"][] = [
+  ["Overview", "all"], ["ID and licence checks", "checks"], ["Reports and disputes", "people"], ["Users and jobs", "people"],
+  ["Cancellations, strikes, reviews", "people"], ["Invoices and gift cards", "money"], ["Workers to pay", "money"], ["Tradies and partners", "money"],
+  ["Areas, job types, skills", "setup"], ["Settings", "settings"], ["Payment details", "paydetails"], ["Staff", "staff"],
+];
+type StaffRow = { email: string; role: StaffRole; added_at: string; last_seen_at: string | null; name: string | null; photo_path: string | null; me: boolean };
+const RoleTick = ({ on }: { on: boolean }) => (on ? Icon.tick("var(--emerald)", 20) : <span className="sf-no">—</span>);
+function seenText(r: StaffRow) {
+  if (!r.last_seen_at) return "Invited, not signed in yet";
+  const m = (Date.now() - new Date(r.last_seen_at).getTime()) / 60000;
+  if (r.me || m < 10) return "Active now";
+  if (m < 60) return `Active ${Math.round(m)} min ago`;
+  if (m < 24 * 60) return `Active ${Math.round(m / 60)} h ago`;
+  const d = Math.round(m / 1440);
+  return d === 1 ? "Active yesterday" : `Active ${d} days ago`;
+}
+function roleOptions(onRemove?: () => void) {
+  const o: { id: string; label: string; hint?: string; action?: () => void }[] = ROLES.map((r) => ({ id: r, label: ROLE_INFO[r].name, hint: ROLE_INFO[r].text }));
+  if (onRemove) o.push({ id: "remove", label: "Remove from staff", hint: "They can't sign in to the admin any more", action: onRemove });
+  return o;
+}
+
+function Staff() {
+  const toast = useToast();
+  const [rows, setRows] = useState<StaffRow[] | null>(null);
+  const [pick, setPick] = useState<StaffRow | null>(null);
+  const [adding, setAdding] = useState(false);
+  const load = useCallback(() => { rpc<StaffRow[]>("admin_staff").then(setRows).catch((e) => toast((e as Error).message)); }, [toast]);
+  useEffect(() => { load(); }, [load]);
+  const setRole = async (email: string, role: string, msg: string) => {
+    try { await rpc("admin_staff_set", { p_email: email, p_role: role }); toast(msg); load(); } catch (e) { toast((e as Error).message); }
+  };
+  if (!rows) return <Loading />;
+  if (adding) return <AddStaff onBack={() => setAdding(false)} onDone={(e) => { setAdding(false); load(); toast(`Invite sent to ${e}`); }} />;
+  return (
+    <div className="sf">
+      <div className="sf-top"><div><h1>Staff</h1><p>People who can sign in to this admin, and what each one can do.</p></div>
+        <button className="btn primary" onClick={() => setAdding(true)}>Add staff</button></div>
+      <section className="sf-sec">
+        {rows.map((r) => (
+          <div key={r.email} className="sf-row">
+            {r.photo_path ? <img className="sf-ph" src={avatarUrl(r.photo_path)!} alt="" /> : <span className="sf-ph none">{(r.name || r.email).slice(0, 1).toUpperCase()}</span>}
+            <span className="sf-who"><b>{r.name || r.email.split("@")[0]}</b><small>{r.email}</small></span>
+            <span className={`sf-seen${r.last_seen_at ? "" : " inv"}`}>{seenText(r)}</span>
+            {r.me ? <span className="sf-owner">{ROLE_INFO[r.role].name}</span>
+              : <button className="sf-role" onClick={() => setPick(r)}>{ROLE_INFO[r.role].name}<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2"><path d="M6 9l6 6 6-6" /></svg></button>}
+          </div>
+        ))}
+      </section>
+      <section className="sf-sec">
+        <h2>What each role can do</h2>
+        <div className="sf-matrix">
+          <div className="sf-mh"><span />{ROLES.map((r) => <b key={r}>{ROLE_INFO[r].name}</b>)}</div>
+          {ROLE_PAGES.map(([p, a]) => <div key={p} className="sf-mr"><span>{p}</span>{ROLES.map((r) => <i key={r}><RoleTick on={roleCan(r, a)} /></i>)}</div>)}
+        </div>
+      </section>
+      {pick && <SearchPicker title={`${pick.name || pick.email}'s role`} options={roleOptions(async () => {
+          const who = pick; setPick(null);
+          if (!confirm(`Remove ${who.name || who.email} from staff? They won't be able to sign in to the admin.`)) return;
+          try { await rpc("admin_staff_remove", { p_email: who.email }); toast("Removed from staff"); load(); } catch (e) { toast((e as Error).message); }
+        })} value={[pick.role]} onClose={() => setPick(null)}
+        onChange={(v) => { const r = String(v[0]); if (r !== pick.role) setRole(pick.email, r, `${pick.name || pick.email} is now ${ROLE_INFO[r as StaffRole].name}`); }} />}
+    </div>
+  );
+}
+
+function AddStaff({ onBack, onDone }: { onBack: () => void; onDone: (email: string) => void }) {
+  const toast = useToast();
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<StaffRole>("support");
+  const [picking, setPicking] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const send = async () => {
+    const e = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return toast("Check the email address");
+    setBusy(true);
+    try { await rpc("admin_staff_set", { p_email: e, p_role: role }); onDone(e); } catch (err) { toast((err as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <div className="sf">
+      <div className="sf-add-top"><button className="sf-x" aria-label="Back" onClick={onBack}>{Icon.back("var(--ink)")}</button><h1>Add staff</h1></div>
+      <div className="sf-grid">
+        <div className="sf-form">
+          <label className="field"><span>Their email</span><input type="email" inputMode="email" autoCapitalize="off" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" /></label>
+          <p className="sf-hint">They sign in to admin.mahiman.app with this email. They don't need the app or an account yet.</p>
+          <div className="field"><span>Role</span>
+            <button className="sf-pick" onClick={() => setPicking(true)}><span><b>{ROLE_INFO[role].name}</b><small>{ROLE_INFO[role].text}</small></span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M6 9l6 6 6-6" /></svg></button>
+          </div>
+          <button className="btn primary sf-send" disabled={busy} onClick={send}>{busy ? "Sending…" : "Send invite"}</button>
+        </div>
+        <div className="sf-can">
+          <h2>{ROLE_INFO[role].name} can</h2>
+          {ROLE_PAGES.map(([p, a]) => <div key={p} className={roleCan(role, a) ? "on" : "off"}><RoleTick on={roleCan(role, a)} /><span>{p}</span></div>)}
+        </div>
+      </div>
+      {picking && <SearchPicker title="Role" options={roleOptions()} value={[role]} onClose={() => setPicking(false)} onChange={(v) => setRole(String(v[0]) as StaffRole)} />}
+    </div>
   );
 }

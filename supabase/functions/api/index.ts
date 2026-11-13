@@ -31,6 +31,11 @@ Deno.serve(async (req) => {
     if (!user) return fail("Please sign in again", 401);
     const body = await req.json();
     const { data: me } = await admin.from("profiles").select("*").eq("id", user.id).single();
+    // Staff roles: which parts of the admin this person may act on (owner, admin, support, finance).
+    const can = async (...areas: string[]) => {
+      for (const a of areas) { const { data } = await admin.rpc("staff_can_user", { p_user: user.id, p_area: a }); if (data === true) return true; }
+      return false;
+    };
 
     switch (body.action) {
       // ---------- Customer ----------
@@ -196,7 +201,7 @@ Deno.serve(async (req) => {
 
       // ---------- Admin ----------
       case "admin_resolve": {
-        if (!me?.is_admin) return fail("Admins only", 403);
+        if (!(await can("people"))) return fail("Your staff role can't do this", 403);
         const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
         if (!job) return fail("Job not found");
         if (job.status !== "disputed") return fail("This job is not in dispute");
@@ -242,12 +247,12 @@ Deno.serve(async (req) => {
         return ok({});
       }
       case "admin_approve_worker": {
-        if (!me?.is_admin) return fail("Admins only", 403);
+        if (!(await can("checks"))) return fail("Your staff role can't do this", 403);
         await admin.from("workers").update({ admin_approved: !!body.approved }).eq("id", body.worker_id);
         return ok(await refreshWorker(body.worker_id));
       }
       case "admin_id_decide": {
-        if (!me?.is_admin) return fail("Admins only", 403);
+        if (!(await can("checks"))) return fail("Your staff role can't do this", 403);
         const { data: chk } = await admin.from("id_checks").select("*").eq("id", body.check_id).single();
         if (!chk) return fail("Check not found");
         if (chk.status !== "pending") return fail("This check has already been decided");
@@ -405,7 +410,7 @@ Deno.serve(async (req) => {
         return ok({ booked: true, fee_cents: charged ? job.fee_cents : 0 });
       }
       case "admin_fee_refund": {
-        if (!me?.is_admin) return fail("Admins only", 403);
+        if (!(await can("people", "money"))) return fail("Your staff role can't do this", 403);
         const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
         if (!job || job.fee_status !== "paid") return fail("No booking fee to refund on this job");
         await refundFee(job);
