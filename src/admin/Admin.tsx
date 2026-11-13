@@ -18,6 +18,7 @@ const STATUS_BADGE: Record<string, string> = {
 export function Admin() {
   const { session, profile, ready } = useSession();
   const [tab, setTab] = useState<Tab>("overview");
+  const [jobsDay, setJobsDay] = useState<string | null>(null);
   const [counts, setCounts] = useState({ ids: 0, reports: 0, problems: 0, licences: 0, fees: 0, strikes: 0, invoices: 0, partners: 0, money: 0, gifts: 0 });
   const recount = useCallback(async () => {
     const [a, b, c, d, e, f, g, h, m1, m2, m3, m4] = await Promise.all([
@@ -63,7 +64,7 @@ export function Admin() {
             <div key={g.label || "top"} className="adm-group">
               {g.label && <span className="adm-label">{g.label}</span>}
               {g.items.map(([k, l, n]) => (
-                <button key={k} className={tab === k ? "adm-link on" : "adm-link"} onClick={() => setTab(k)}>
+                <button key={k} className={tab === k ? "adm-link on" : "adm-link"} onClick={() => { setJobsDay(null); setTab(k); }}>
                   <span>{l}</span>{!!n && <span className="adm-count">{n}</span>}
                 </button>
               ))}
@@ -77,8 +78,8 @@ export function Admin() {
       </aside>
       <main className="adm-main">
         <h1 className="adm-title">{TITLE[tab]}</h1>
-        {tab === "overview" && <Overview />}
-        {tab === "jobs" && <Jobs />}
+        {tab === "overview" && <Overview open={(t, day) => { setJobsDay(day ?? null); setTab(t); window.scrollTo(0, 0); }} />}
+        {tab === "jobs" && <Jobs day={jobsDay} onAll={() => setJobsDay(null)} />}
         {tab === "ids" && <IdChecks onChanged={recount} />}
         {tab === "licences" && <LicenceChecks onChanged={recount} />}
         {tab === "skills" && <Skills />}
@@ -101,52 +102,153 @@ export function Admin() {
   );
 }
 
-function Overview() {
-  const [s, setS] = useState({ live: 0, searching: 0, weekJobs: 0, weekFees: 0, workers: 0, online: 0, problems: 0, accept: "—", repeat: 0, cancelled: 0, owed: 0 });
+// Overview: what's happening right now, what needs you, how healthy the marketplace is against its targets,
+// and jobs and money each day. Every number comes from admin_overview; tap a day on the chart for that day's details.
+type Period = { done: number; cancelled: number; gmv: number; revenue: number; fill: number | null; wait: number | null; repeat: number | null; cancel: number | null };
+type Ov = {
+  now: { waiting: number; longest_min: number | null; underway: number; on_way: number; online: number; approved: number; today_gmv: number; today_jobs: number };
+  todo: { ids: number; ids_oldest_h: number | null; licences: number; reports: number; disputes: number; fees: number; strikes: number; tradies: number; partners: number; claimed: number; payouts: number; payouts_cents: number; late: number; late_cents: number };
+  cur: Period; prev: Period; days: (Period & { day: string })[];
+  targets: { fill: number; wait: number; repeat: number; cancel: number };
+};
+const dollars = (c: number) => "$" + Math.round(c / 100).toLocaleString("en-AU");
+const dayName = (d: string, long = false) => new Date(d + "T00:00:00").toLocaleDateString("en-AU", long ? { weekday: "short", day: "numeric", month: "short" } : { day: "numeric", month: "short" });
+const change = (a: number | null, b: number | null) => (a == null || b == null || b === 0 ? null : Math.round(((a - b) / b) * 100));
+
+function Delta({ n, good = "up" }: { n: number | null; good?: "up" | "down" }) {
+  if (n == null) return <span className="ov-delta none">No earlier figure</span>;
+  const ok = n === 0 || (n > 0) === (good === "up");
+  return <span className={`ov-delta ${ok ? "ok" : "bad"}`}>{n >= 0 ? "▲" : "▼"} {Math.abs(n)}%</span>;
+}
+function Spark({ a, good }: { a: (number | null)[]; good: "up" | "down" }) {
+  const pts = a.map((v, i) => [i, v] as const).filter((p): p is readonly [number, number] => p[1] != null);
+  if (pts.length < 2) return <span className="ov-spark-none">Trend shows after a few days of jobs</span>;
+  const vs = pts.map((p) => p[1]), min = Math.min(...vs), max = Math.max(...vs), h = 36;
+  const line = pts.map(([i, v]) => `${(i / (a.length - 1)) * 100},${h - ((v - min) / (max - min || 1)) * (h - 4) - 2}`).join(" ");
+  const up = vs[vs.length - 1] >= vs[0];
+  return <svg className="ov-spark" viewBox={`0 0 100 ${h}`} preserveAspectRatio="none"><polyline points={line} fill="none" stroke={(up === (good === "up")) ? "#0b6b4f" : "#c0392b"} strokeWidth="2" vectorEffect="non-scaling-stroke" strokeLinejoin="round" /></svg>;
+}
+
+function Overview({ open }: { open: (t: Tab, day?: string) => void }) {
+  const [days, setDays] = useState(7);
+  const [d, setD] = useState<Ov | null>(null);
   const [tr, setTr] = useState<TradeSummary | null>(null);
   useEffect(() => { rpc<TradeSummary>("admin_trade_summary").then(setTr).catch(() => {}); }, []);
   useEffect(() => {
-    (async () => {
-      const since = new Date(Date.now() - 7 * 864e5).toISOString();
-      const [live, searching, week, workers, online, problems, recent, owed] = await Promise.all([
-        sb.from("jobs").select("id", { count: "exact", head: true }).in("status", ["accepted", "in_progress", "finished"]),
-        sb.from("jobs").select("id", { count: "exact", head: true }).eq("status", "searching"),
-        sb.from("jobs").select("fee_cents").or(`and(fee_status.eq.paid,fee_paid_at.gte.${since}),and(status.eq.confirmed,confirmed_at.gte.${since},payment_intent_id.not.is.null)`),
-        sb.from("workers").select("id", { count: "exact", head: true }).eq("approved", true),
-        sb.from("workers").select("id", { count: "exact", head: true }).eq("online", true),
-        sb.from("incidents").select("id", { count: "exact", head: true }).eq("resolved", false),
-        sb.from("jobs").select("customer_id,status,searching_at,accepted_at").gte("created_at", since),
-        sb.from("fees_owed").select("amount_cents").eq("status", "open"),
-      ]);
-      const r = recent.data ?? [];
-      const waits = r.filter((j) => j.searching_at && j.accepted_at).map((j) => (new Date(j.accepted_at!).getTime() - new Date(j.searching_at!).getTime()) / 60000);
-      const per: Record<string, number> = {};
-      r.forEach((j) => { per[j.customer_id] = (per[j.customer_id] ?? 0) + 1; });
-      setS({
-        live: live.count ?? 0, searching: searching.count ?? 0, weekJobs: week.data?.length ?? 0,
-        weekFees: (week.data ?? []).reduce((a, j) => a + j.fee_cents, 0), workers: workers.count ?? 0, online: online.count ?? 0, problems: problems.count ?? 0,
-        accept: waits.length ? `${Math.round(waits.reduce((a, b) => a + b, 0) / waits.length)} min` : "—",
-        repeat: Object.values(per).filter((n) => n > 1).length,
-        cancelled: r.filter((j) => j.status === "cancelled").length,
-        owed: (owed.data ?? []).reduce((a, f) => a + f.amount_cents, 0),
-      });
-    })();
-  }, []);
+    let live = true;
+    const load = () => rpc<Ov>("admin_overview", { p_days: days }).then((r) => { if (live) setD(r); }).catch(() => {});
+    load();
+    const t = setInterval(load, 60_000);
+    return () => { live = false; clearInterval(t); };
+  }, [days]);
+  if (!d) return <Loading />;
+  const span = days === 1 ? "Today vs yesterday" : `${days} days vs the ${days} before`;
+  const t = d.todo, n = d.now, c = d.cur, p = d.prev;
+  const todo: [Tab, number, string, string][] = ([
+    ["ids", t.ids, "ID checks", t.ids_oldest_h != null ? `Oldest waiting ${t.ids_oldest_h < 1 ? "under an hour" : `${t.ids_oldest_h} h`}` : ""],
+    ["licences", t.licences, "Licence checks", "Licences and certificates to approve"],
+    ["reports", t.reports, "Reports", "People reported by others"],
+    ["problems", t.disputes, "Disputes", "Problems on jobs to decide"],
+    ["gifts", t.payouts, "Workers to pay", `${money2(t.payouts_cents)} from gift cards, due Friday`],
+    ["money", t.late, "Invoices overdue", money2(t.late_cents)],
+    ["money", t.claimed, "Payments to confirm", "Customers say they've paid"],
+    ["cancels", t.fees, "Cancellation fees", "Owed and not yet paid"],
+    ["strikes", t.strikes, "Workers to review", "Too many strikes"],
+    ["tradies", t.tradies, "Tradie orders", "Waiting for payment"],
+    ["partners", t.partners, "Partner applications", "Waiting for approval"],
+    ["jobs", tr?.no_quote_jobs ?? 0, "Trade jobs with no price", "After 2 hours"],
+  ] as [Tab, number, string, string][]).filter((r) => r[1] > 0);
+  const series = (k: keyof Period) => d.days.map((x) => x[k] as number | null);
+  const K: [string, string, number | null, number | null, string, keyof Period, "up" | "down", number, boolean][] = [
+    ["Fill rate", "Jobs that found a worker", c.fill, p.fill, "%", "fill", "up", d.targets.fill, (c.fill ?? 0) >= d.targets.fill],
+    ["Time to a worker", "Posted to accepted, average", c.wait, p.wait, " min", "wait", "down", d.targets.wait, c.wait != null && c.wait <= d.targets.wait],
+    ["Booked again", "Customers who'd booked before", c.repeat, p.repeat, "%", "repeat", "up", d.targets.repeat, (c.repeat ?? 0) >= d.targets.repeat],
+    ["Cancelled", "After a worker said yes", c.cancel, p.cancel, "%", "cancel", "down", d.targets.cancel, c.cancel != null && c.cancel <= d.targets.cancel],
+  ];
   return (
-    <div className="stats">
-      <Stat n={s.searching} l="Waiting for a worker" />
-      <Stat n={s.live} l="Jobs underway" />
-      <Stat n={s.weekJobs} l="Jobs done, last 7 days" />
-      <Stat n={s.accept} l="Average wait for a worker, 7 days" />
-      <Stat n={s.repeat} l="Customers who booked again, 7 days" />
-      <Stat n={s.cancelled} l="Cancelled, 7 days" />
-      <Stat n={money2(s.owed)} l="Cancellation fees owed" />
-      <Stat n={money2(s.weekFees)} l="Your fees, last 7 days" />
-      {tr && <Stat n={money2(tr.paid_30_cents)} l="Tradie plans paid, 30 days" />}
-      {tr && <Stat n={tr.no_quote_jobs} l="Trade jobs with no price after 2 hours" />}
-      <Stat n={s.workers} l="Approved workers" />
-      <Stat n={s.online} l="Workers online now" />
-      <Stat n={s.problems} l="Open problems" />
+    <div className="ov">
+      <div className="ov-top"><h1>Overview</h1>
+        <div className="ov-period">{([[1, "Today"], [7, "7 days"], [30, "30 days"]] as [number, string][]).map(([k, l]) => <button key={k} className={days === k ? "on" : ""} onClick={() => setDays(k)}>{l}</button>)}</div>
+      </div>
+      <section className="ov-now dark">
+        <div className="ov-h"><h2><i className="ov-live" />Right now</h2><span>Live</span></div>
+        <div className="ov-now-grid">
+          <div><b>{n.waiting}</b><span>Waiting for a worker</span><small>{n.longest_min != null ? `Longest ${n.longest_min} min` : "No one waiting"}</small></div>
+          <div><b>{n.underway}</b><span>Underway</span><small>{n.on_way} on the way</small></div>
+          <div><b>{n.online}</b><span>Workers online</span><small>of {n.approved} approved</small></div>
+          <div><b>{dollars(n.today_gmv)}</b><span>Today through Mahi Man</span><small>{n.today_jobs} {n.today_jobs === 1 ? "job" : "jobs"} done</small></div>
+        </div>
+      </section>
+      <section className="ov-sec ov-first">
+        <div className="ov-h"><h2>Needs you</h2><span>{todo.length ? `${todo.reduce((a, r) => a + r[1], 0)} things` : ""}</span></div>
+        {todo.length ? <div className="ov-todo">
+          {todo.map(([k, num, l, s]) => <button key={l} onClick={() => open(k)}><b>{num}</b><span><span className="t">{l}</span>{s && <small>{s}</small>}</span><i>›</i></button>)}
+        </div> : <AdmEmpty text="Nothing is waiting on you." />}
+      </section>
+      <section className="ov-sec">
+        <div className="ov-h"><h2>Health</h2><span>{span}</span></div>
+        <div className="ov-kpis">
+          {K.map(([title, sub, v, pv, unit, key, good, target, met]) => (
+            <div key={title} className="ov-kpi">
+              <span className="t">{title}</span><small>{sub}</small>
+              <div className="row between" style={{ alignItems: "flex-end" }}><b>{v == null ? "—" : `${v}${unit}`}</b><Spark a={series(key)} good={good} /></div>
+              <span className="row between"><small className={`tg ${v == null ? "" : met ? "met" : "miss"}`}>{good === "up" ? `Target ${target}${unit}` : `Target under ${target}${unit}`}</small>{v != null && <Delta n={change(v, pv)} good={good} />}</span>
+            </div>))}
+        </div>
+      </section>
+      <section className="ov-sec">
+        <div className="ov-h"><h2>Jobs and money</h2><span>{span}</span></div>
+        <div className="ov-row4 three">
+          <div><b>{c.done}</b><span>Jobs done</span><Delta n={change(c.done, p.done)} /></div>
+          <div><b>{dollars(c.gmv)}</b><span>Through Mahi Man</span><Delta n={change(c.gmv, p.gmv)} /></div>
+          <div><b>{dollars(c.revenue)}</b><span>Your revenue</span><Delta n={change(c.revenue, p.revenue)} /></div>
+        </div>
+        <DailyChart days={d.days} open={(day) => open("jobs", day)} />
+      </section>
+    </div>
+  );
+}
+
+// Jobs or money each day for 30 days. Green is done, lime is cancelled. Tap a day for its numbers and its jobs.
+function DailyChart({ days, open }: { days: (Period & { day: string })[]; open: (day: string) => void }) {
+  const [mode, setMode] = useState<"jobs" | "money">("jobs");
+  const [pick, setPick] = useState(days.length - 1);
+  const h = 200, w = 100 / days.length;
+  const val = (x: Period) => (mode === "jobs" ? x.done : x.gmv / 100);
+  const extra = (x: Period) => (mode === "jobs" ? x.cancelled : 0);
+  const peak = Math.max(...days.map((x) => val(x) + extra(x)), 0);
+  const step = peak <= 10 ? 5 : peak <= 40 ? 10 : Math.pow(10, Math.floor(Math.log10(peak))) * (peak / Math.pow(10, Math.floor(Math.log10(peak))) > 5 ? 2 : 1);
+  const top = Math.max(10, Math.ceil(peak / step) * step);
+  const fmt = (v: number) => (mode === "jobs" ? String(Math.round(v)) : "$" + Math.round(v).toLocaleString("en-AU"));
+  const sel = days[pick];
+  return (
+    <div className="dc">
+      <div className="dc-head"><div><b>{mode === "jobs" ? "Jobs each day" : "Money through Mahi Man each day"}</b><small>Last 30 days. Tap a day for details.</small></div>
+        <div className="ov-period"><button className={mode === "jobs" ? "on" : ""} onClick={() => setMode("jobs")}>Jobs</button><button className={mode === "money" ? "on" : ""} onClick={() => setMode("money")}>Money</button></div></div>
+      <div className="dc-day">
+        <span className="t">{dayName(sel.day, true)}{pick === days.length - 1 ? " · today" : ""}</span>
+        <span className="n">{sel.done} done{sel.cancelled ? ` · ${sel.cancelled} cancelled` : ""}</span>
+        <span className="n">{money2(sel.gmv)} through Mahi Man · {money2(sel.revenue)} your revenue</span>
+        {(sel.done > 0 || sel.cancelled > 0) && <button className="link" onClick={() => open(sel.day)}>See these jobs ›</button>}
+      </div>
+      <div className="dc-plot" style={{ height: h }}>
+        <div className="dc-y">{[top, top / 2, 0].map((v) => <span key={v}>{fmt(v)}</span>)}</div>
+        <div className="dc-area">
+          <svg viewBox={`0 0 100 ${h}`} preserveAspectRatio="none">
+            {[0, 0.5, 1].map((g) => <line key={g} x1="0" x2="100" y1={g * (h - 1) + 0.5} y2={g * (h - 1) + 0.5} stroke="#e1e7e4" strokeWidth="1" vectorEffect="non-scaling-stroke" />)}
+            {days.map((x, i) => {
+              const hv = (val(x) / top) * h, he = (extra(x) / top) * h, on = i === pick;
+              return <g key={x.day} onClick={() => setPick(i)} style={{ cursor: "pointer" }}>
+                <rect x={i * w} width={w} y="0" height={h} fill={on ? "rgba(11,107,79,0.07)" : "transparent"} />
+                <rect x={i * w + w * 0.15} width={w * 0.7} y={h - hv} height={hv} fill={on ? "#0b6b4f" : "#5fa98a"} />
+                {he > 0 && <rect x={i * w + w * 0.15} width={w * 0.7} y={h - hv - he} height={he} fill="#d9e04f" />}
+              </g>;
+            })}
+          </svg>
+        </div>
+      </div>
+      <div className="dc-x"><span>{dayName(days[0].day)}</span><span>{dayName(days[15].day)}</span><span>Today</span></div>
+      <div className="ov-key"><span><i style={{ background: "#5fa98a" }} />{mode === "jobs" ? "Jobs done" : "Money through Mahi Man"}</span>{mode === "jobs" && <span><i style={{ background: "#d9e04f" }} />Jobs cancelled</span>}</div>
     </div>
   );
 }
@@ -154,8 +256,11 @@ function Overview() {
 const AdmEmpty = ({ text }: { text: string }) => <div className="adm-empty">{Icon.tick("var(--emerald)", 28)}<span className="stack" style={{ gap: 4 }}><b>All clear</b><span>{text}</span></span></div>;
 const Stat = ({ n, l }: { n: number | string; l: string }) => <div className="stat"><b>{n}</b><span>{l}</span></div>;
 
-function Jobs() {
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
+// Every job, newest first. From the Overview chart it opens on one day: jobs finished or cancelled that day.
+function Jobs({ day, onAll }: { day: string | null; onAll: () => void }) {
+  const [all, setRows] = useState<Record<string, unknown>[]>([]);
+  const onDay = (v: unknown) => typeof v === "string" && new Date(v).toLocaleDateString("en-CA", { timeZone: "Australia/Brisbane" }) === day;
+  const rows = day ? all.filter((r) => onDay(r.finished_at) || onDay(r.cancelled_at)) : all;
   const load = useCallback(() => {
     sb.from("jobs").select("*, job_types(name), suburbs(name), customer:profiles!jobs_customer_id_fkey(full_name), worker:workers(profiles(full_name))")
       .order("created_at", { ascending: false }).limit(200).then(({ data }) => setRows((data ?? []) as Record<string, unknown>[]));
@@ -166,6 +271,8 @@ function Jobs() {
     return () => { sb.removeChannel(ch); };
   }, [load]);
   return (
+    <>
+    {day && <div className="adm-dayfilter"><span>Jobs done or cancelled on <b>{dayName(day, true)}</b> · {rows.length}</span><button className="btn stone small" onClick={onAll}>Show all jobs</button></div>}
     <div className="table-wrap">
       <table>
         <thead><tr><th>Booked</th><th>Job</th><th>Where</th><th>Customer</th><th>Worker</th><th>Total</th><th>Status</th><th></th></tr></thead>
@@ -203,10 +310,11 @@ function Jobs() {
               </tr>
             );
           })}
-          {rows.length === 0 && <tr><td colSpan={8} className="muted">No jobs yet.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={8} className="muted">{day ? "No jobs that day." : "No jobs yet."}</td></tr>}
         </tbody>
       </table>
     </div>
+    </>
   );
 }
 
@@ -1188,6 +1296,12 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   ] },
   { title: "Customers", text: "Checks a customer needs before they can book.", fields: [
     { k: "customer_id_required", label: "ID check required to book", hint: "Off: customers are asked after their first booking.", t: "toggle", on: "true", off: "false" },
+  ] },
+  { title: "Overview targets", text: "What good looks like on the Overview. Each health score turns green when it meets its target, red when it doesn't.", fields: [
+    { k: "target_fill_pct", label: "Fill rate", hint: "Share of posted jobs that find a worker.", t: "num", unit: "%" },
+    { k: "target_wait_minutes", label: "Time to a worker, under", hint: "From posting to a worker accepted.", t: "num", unit: "minutes" },
+    { k: "target_repeat_pct", label: "Booked again", hint: "Share of customers who'd booked before.", t: "num", unit: "%" },
+    { k: "target_cancel_pct", label: "Cancelled, under", hint: "Jobs cancelled after a worker said yes.", t: "num", unit: "%" },
   ] },
 ];
 const isCents = (k: string) => k.endsWith("_cents");
