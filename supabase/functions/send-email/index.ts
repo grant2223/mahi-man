@@ -92,6 +92,13 @@ function render(kind: string, d: Record<string, any>) {
       + `<p style="margin:0 0 16px;font-size:13px;line-height:1.5;color:#8a877e">Gift code ${esc(d.code)} · lasts until ${esc(d.expires)}. Enter the code in You, Payments if you sign up with a different email.</p>`;
     return { subject: `${d.from} sent you ${amt} of help`, html: layout(`${esc(d.from)} sent you ${amt} of help`, body) };
   }
+  if (kind === "staff_invite") {
+    const body = p(`${esc(d.from ?? "Mahi Man")} has added you to the Mahi Man admin as <b style="font-weight:600;color:#2a2d32">${esc(d.role ?? "staff")}</b>.`)
+      + step(1, "Open the admin", "On your computer or phone.", btn(d.link ?? `${SITE.replace("://", "://admin.")}`, "Open the admin", true))
+      + step(2, "Sign in with this email address", "We email you a code. No password needed.")
+      + p("Not expecting this? You can ignore this email.");
+    return { subject: `You've been added to the Mahi Man admin`, html: layout("You're on the team", body) };
+  }
   throw new Error(`Unknown email: ${kind}`);
 }
 
