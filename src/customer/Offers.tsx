@@ -194,7 +194,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
         <div className="row" style={{ gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--line)", alignItems: "center", background: "var(--card)" }}>
           {me?.card_last4 && <CardMark brand={me.card_brand} />}
           <span className="t15 light" style={{ flex: 1 }}>
-            {me?.card_last4 ? <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> booking fee to {cardLabel(me)}.</> : <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> booking fee. You'll add a card first.</>}
+            {me?.card_last4 ? <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> connection fee to {cardLabel(me)}.</> : <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> connection fee. You'll add a card first.</>}
           </span>
         </div>
       )}

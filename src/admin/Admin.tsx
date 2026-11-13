@@ -301,7 +301,7 @@ function Jobs({ day, onAll }: { day: string | null; onAll: () => void }) {
                 <td><span className="row" style={{ gap: 6 }}>
                   {["searching", "accepted", "awaiting_payment"].includes(j.status) && (
                   <button className="btn stone small" onClick={async () => {
-                    if (!confirm(j.fee_status === "paid" ? "Remove this job? It will be cancelled for both sides and the booking fee refunded." : "Remove this job? It will be cancelled for both sides.")) return;
+                    if (!confirm(j.fee_status === "paid" ? "Remove this job? It will be cancelled for both sides and the connection fee refunded." : "Remove this job? It will be cancelled for both sides.")) return;
                     try {
                       await rpc("admin_cancel_job", { p_job: j.id });
                       if (j.fee_status === "paid") await api("admin_fee_refund", { job_id: j.id });
@@ -310,7 +310,7 @@ function Jobs({ day, onAll }: { day: string | null; onAll: () => void }) {
                   }}>Remove</button>)}
                   {j.fee_status === "paid" && !["searching", "accepted", "awaiting_payment"].includes(j.status) && (
                   <button className="btn stone small" onClick={async () => {
-                    if (!confirm(`Refund the ${money2(j.fee_cents)} booking fee to the customer?`)) return;
+                    if (!confirm(`Refund the ${money2(j.fee_cents)} connection fee to the customer?`)) return;
                     try { await api("admin_fee_refund", { job_id: j.id }); load(); } catch (e) { alert((e as Error).message); }
                   }}>Refund fee</button>)}
                 </span></td>

@@ -1,6 +1,6 @@
 import { AfterJobOffer } from "../ui/LocalOffers";
 import { useCallback, useEffect, useState } from "react";
-import { api, isDirectPay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
+import { api, isDirectPay, payWay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { useRules } from "../lib/rules";
 import { go } from "../lib/router";
@@ -193,7 +193,7 @@ export function Track({ id }: { id: string }) {
         )}
         <PriceRows jobName={jobName} priceCents={job.price_cents} extras={approved} totalLabel={gift > 0 ? "Job price" : `Pay ${wName}`} />
         {gift > 0 && <GiftPaidSection worker={wName} gift={gift} rest={rest} fee={jobFee} />}
-        {!giftAll && <div className="cp-payid">
+        {!giftAll && job.pay_method !== "cash" && <div className="cp-payid">
           {Icon.card("var(--emerald)")}
           <span className="stack" style={{ flex: 1, gap: 2, minWidth: 0 }}>
             <span className="k">{bank ? `${wName}'s bank account` : `${wName}'s PayID`}</span>
@@ -211,7 +211,7 @@ export function Track({ id }: { id: string }) {
         {giftAll ? <Note icon="lock">{`Nothing to pay. We pay ${wName} once you say it's done, or in 2 days if you don't. Not happy? Report it first.`}</Note>
         : <Note icon="clock">{paid
           ? `Once ${wName} confirms they got it, you can both leave a review. If they don't answer within 24 hours, the job closes as paid.`
-          : "Cash is fine too. Not happy with the job? Report it before paying. If you do nothing for 48 hours, the job closes as done."}</Note>}
+          : `${job.pay_method ? "" : "Cash is fine too. "}Not happy with the job? Report it before paying. If you do nothing for 48 hours, the job closes as done.`}</Note>}
         <ActionBar>
           <button className="btn stone" style={{ flex: 1 }} onClick={() => setScreen("report")}>Something's wrong</button>
           {giftAll ? (
@@ -359,7 +359,7 @@ export function Track({ id }: { id: string }) {
           <>
             <Perf />
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 4 }}>
-              <span className="row between"><span className="t17 w5">Booking fee</span><span className="t17 w5">{money2(job.fee_cents)}</span></span>
+              <span className="row between"><span className="t17 w5">Connection fee</span><span className="t17 w5">{money2(job.fee_cents)}</span></span>
               <span className="small light muted" style={{ lineHeight: 1.45 }}>
                 {job.fee_status === "refunded"
                   ? "Refunded to your card. It can take 5 to 10 days to show."
@@ -418,7 +418,7 @@ export function Track({ id }: { id: string }) {
           <>
             <Perf />
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 12 }}>
-              <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${wName} ${money2(total)} directly (bank transfer or cash), then confirm. If you don't confirm or report a problem, the job closes after 48 hours.` : "If you don't confirm or report a problem, payment releases automatically 48 hours after the job was finished."}</span>
+              <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${wName} ${money2(total)} ${payWay(job)}, then confirm. If you don't confirm or report a problem, the job closes after 48 hours.` : "If you don't confirm or report a problem, payment releases automatically 48 hours after the job was finished."}</span>
               <div className="row between">
                 <button className="link quiet" onClick={() => setScreen("report")}>Report a problem</button>
                 <button className="btn primary" disabled={busy} onClick={confirm}>{busy ? "Saving…" : direct ? "Confirm it's done" : "Confirm and pay"}</button>
@@ -443,7 +443,7 @@ export function Track({ id }: { id: string }) {
           {Icon.lock("var(--ink)")}
           <span className="stack" style={{ gap: 3 }}>
             <span className="t17 w5">{direct ? `Pay ${money2(total)} when it's done` : `${money2(total)} held, not paid`}</span>
-            <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${worker ? wName : "your worker"} by bank transfer or cash once the job is finished.` : `${worker ? wName : "Your worker"} is paid only after you confirm the job is done.`}</span>
+            <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${worker ? wName : "your worker"} ${payWay(job)} once the job is finished.` : `${worker ? wName : "Your worker"} is paid only after you confirm the job is done.`}</span>
           </span>
         </section>
       )}

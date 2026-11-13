@@ -115,7 +115,21 @@ export function HowYouPay() {
   const open = (to: string) => (session ? go(to) : setAuth(to));
   return (
     <div className="app" style={{ background: "var(--card)" }}>
-      <StepHero title="How you pay" sub="Pick what suits how often you book." onBack={back("/")} />
+      <StepHero title="How payment works" sub="Two payments: one to your worker, one to us." onBack={back("/")} />
+      {/* Who gets paid, how and when. The plans below only change the Mahi Man part. */}
+      <div className="hp-who">
+        <section>
+          <h2>Your worker</h2><p className="amt">The job price</p>
+          <div className="hp-row"><i>How</i><span>Cash or bank transfer, whichever you picked when you posted</span></div>
+          <div className="hp-row"><i>When</i><span>When the job's done, straight to them. It never goes through us.</span></div>
+        </section>
+        <section>
+          <h2>Mahi Man</h2><p className="amt">The connection fee, plus urgent if you chose it</p>
+          <div className="hp-row"><i>How</i><span>Pay as you go: an invoice, paid by bank transfer. Top-up or Plus: it comes off your balance.</span></div>
+          <div className="hp-row"><i>When</i><span>Only if the job goes ahead. Within 3 days, or weekly or every 2 weeks on your payday. Set it in You, Payments.</span></div>
+        </section>
+      </div>
+      <h2 className="hp-plans">Pay less with a plan</h2>
       <div className="pl-table">
         <div className="pl-row pl-head"><span /><b>Pay as you go</b><b>Top-up</b><b><span className="pl-badge">Plus</span></b></div>
         <div className="pl-row"><span>Connection fee</span><b>{r.payg}%</b><b>{r.topup}%</b><b className="pl-plus">{r.plus}%</b></div>

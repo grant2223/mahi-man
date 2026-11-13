@@ -370,12 +370,12 @@ Deno.serve(async (req) => {
           const s = stripe();
           let pi = job.fee_payment_intent ? await s.paymentIntents.retrieve(job.fee_payment_intent) : null;
           if (!pi || !["succeeded", "requires_action", "processing"].includes(pi.status)) {
-            if (!me?.card_pm) return fail("Add a card for the booking fee");
+            if (!me?.card_pm) return fail("Add a card for the connection fee");
             try {
               pi = await s.paymentIntents.create({
                 amount: job.fee_cents, currency: "aud", customer: me.stripe_customer_id, payment_method: me.card_pm,
                 off_session: true, confirm: true, receipt_email: user.email ?? undefined,
-                description: `Mahi Man booking fee: ${job.title ?? "odd job"}`, metadata: { job_id: job.id, kind: "booking_fee" },
+                description: `Mahi Man connection fee: ${job.title ?? "odd job"}`, metadata: { job_id: job.id, kind: "booking_fee" },
                 statement_descriptor_suffix: "MAHI MAN",
               });
             } catch (e) {
@@ -412,7 +412,7 @@ Deno.serve(async (req) => {
       case "admin_fee_refund": {
         if (!(await can("people", "money"))) return fail("Your staff role can't do this", 403);
         const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
-        if (!job || job.fee_status !== "paid") return fail("No booking fee to refund on this job");
+        if (!job || job.fee_status !== "paid") return fail("No connection fee to refund on this job");
         await refundFee(job);
         return ok({ refunded_cents: job.fee_cents });
       }
@@ -547,7 +547,7 @@ async function refundFee(job: { id: string; customer_id: string; fee_payment_int
   if (job.fee_payment_intent) await stripe().refunds.create({ payment_intent: job.fee_payment_intent }, { idempotencyKey: `fee-refund-${job.id}` });
   await admin.from("jobs").update({ fee_status: "refunded", fee_refunded_at: new Date().toISOString() }).eq("id", job.id);
   await admin.rpc("notify", {
-    p_user: job.customer_id, p_title: "Booking fee refunded",
+    p_user: job.customer_id, p_title: "Connection fee refunded",
     p_body: `$${(job.fee_cents / 100).toFixed(2)} is on its way back to your card. It can take 5 to 10 days to show.`, p_url: `/job/${job.id}`,
     p_category: null, p_data: { job: job.id },
   });

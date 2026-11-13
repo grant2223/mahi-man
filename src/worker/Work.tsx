@@ -127,6 +127,7 @@ export interface Offer {
   video_path: string | null; customer_id: string; customer_name: string; customer_photo: string | null; customer_verified: boolean;
   customer_rating: number | null; customer_jobs: number; customer_since: string; others_keen: number; invited_me: boolean; customer_scores?: Scores | null;
   trade?: boolean; budget_min_cents?: number | null; budget_max_cents?: number | null; spots_left?: number | null;
+  urgent?: boolean; pay_method?: "cash" | "bank" | null;
 }
 
 export interface MyOffer {
@@ -246,7 +247,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
             {o.video_path && <span className="vid"><svg width="10" height="10" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M7 4l13 8-13 8z" /></svg>Video</span>}
           </span>
           <span className="t">
-            {o.invited_me && <span className="ver" style={{ fontWeight: 500 }}>Sent to you</span>}
+            {o.invited_me ? <span className="ver" style={{ fontWeight: 500 }}>Sent to you</span> : o.urgent ? <span className="urg">Urgent</span> : null}
             <b>{o.job_name}</b>
             <span>{o.suburb}, {o.distance_km} km</span>
             <span>{startLabel(o)}{o.others_keen > 0 ? `, ${o.others_keen} other${o.others_keen === 1 ? "" : "s"} keen` : ""}</span>
@@ -340,7 +341,11 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
         )}
         <div style={{ background: "var(--card)", padding: "20px 20px 0" }}>
           <span className="em" style={{ display: "block", fontSize: 64, fontWeight: 600, letterSpacing: -3, lineHeight: 0.9 }}>{money(o.earn_cents)}</span>
-          <span className="t15 light muted" style={{ display: "block", marginTop: 6 }}>{pilot ? "Customer pays you directly when it's done. You keep all of it." : "Paid to your bank once the customer confirms. You keep all of it."}</span>
+          <span className="t15 light muted" style={{ display: "block", marginTop: 6 }}>
+            {o.pay_method === "cash" ? "Paid to you in cash when it's done. You keep all of it."
+              : o.pay_method === "bank" ? "Paid to you by bank transfer when it's done. You keep all of it."
+              : pilot ? "Customer pays you directly when it's done. You keep all of it." : "Paid to your bank once the customer confirms. You keep all of it."}</span>
+          {o.urgent && <span className="urg" style={{ marginTop: 10 }}>Urgent: the customer wants someone now</span>}
         </div>
         <div className="stat3">
           <span><b>{o.distance_km} km</b><span>{o.suburb}</span></span>

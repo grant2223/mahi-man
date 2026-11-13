@@ -1,6 +1,6 @@
 import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useState } from "react";
-import { isDirectPay, mediaUrls, rpc, sb, type Job, type JobType, type PersonCard, myId } from "../lib/supabase";
+import { isDirectPay, mediaUrls, payWay, rpc, sb, type Job, type JobType, type PersonCard, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { elapsed, firstName, money, shrinkImage } from "../lib/format";
 import { Icon, Loading, Perf, Screen, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
@@ -137,7 +137,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
       <>
         <DoneHero jobName={jobName} step={3} big={money(earn - gift)} lime
           label={told ? `${cName} says they've paid you` : "Get paid"}
-          sub={told ? `Marked paid at ${at}` : `Collect it from ${cName} now, by bank transfer or cash`} />
+          sub={told ? `Marked paid at ${at}` : `Collect it from ${cName} now, ${payWay(j)}`} />
         {told ? (
           <div className="cp-sec">
             <span className="cp-title" style={{ marginBottom: 2 }}>Check your bank, then confirm</span>
@@ -196,7 +196,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         </div>
         <span className="sub">
           {j.status === "in_progress" ? <>You earn <span style={{ color: "var(--lime)", fontWeight: 500 }}>{money(earn)}</span> when the customer confirms</>
-            : j.status === "finished" ? (isDirectPay(j) ? `Collect ${money(earn)} from the customer now: bank transfer or cash` : "They have 48 hours to confirm, then you're paid automatically")
+            : j.status === "finished" ? (isDirectPay(j) ? `Collect ${money(earn)} from the customer now, ${payWay(j)}` : "They have 48 hours to confirm, then you're paid automatically")
               : "Ask for their 4-digit start code when you arrive"}
         </span>
         {j.status === "accepted" && !onWay && !j.arrived_at && canLeave && (

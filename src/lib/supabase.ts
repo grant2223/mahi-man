@@ -24,6 +24,7 @@ export interface Job {
   asap: boolean;
   price_cents: number;
   trade?: boolean; budget_min_cents?: number | null; budget_max_cents?: number | null;
+  pay_method?: "cash" | "bank" | null;
   fee_cents: number; gift_cents?: number; fee_status?: "none" | "due" | "paid" | "refunded" | "invoice" | "invoiced" | "void"; fee_paid_at?: string | null; fee_refunded_at?: string | null;
   extra_cents: number;
   status: JobStatus;
@@ -97,6 +98,8 @@ export async function rpc<T = unknown>(fn: string, args: Record<string, unknown>
 // Pilot jobs: no card hold, the customer pays the worker directly.
 // Direct pay: the job price goes from customer to worker (bank transfer or cash), never through a card hold. A booking fee charged
 // when the worker was chosen doesn't change that.
+// How the customer said they'd pay the worker when they posted the job.
+export const payWay = (j: { pay_method?: "cash" | "bank" | null }) => (j.pay_method === "cash" ? "in cash" : j.pay_method === "bank" ? "by bank transfer" : "by bank transfer or cash");
 export const isDirectPay = (j: { fee_cents: number; payment_intent_id: string | null }) => !j.payment_intent_id;
 
 export function avatarUrl(path: string | null | undefined): string | null {

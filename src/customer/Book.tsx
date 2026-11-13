@@ -6,11 +6,12 @@ import { useSession } from "../lib/session";
 import { go, usePath } from "../lib/router";
 import { money, money2, shrinkImage } from "../lib/format";
 import { draftMedia, type DraftItem } from "../lib/draftMedia";
-import { CatIcon, Icon, Logo, SearchPicker, StepHero, useToast } from "../ui/kit";
+import { CatIcon, Icon, Logo, Screen, SearchPicker, StepHero, useToast } from "../ui/kit";
 import { AuthScreen } from "../ui/Auth";
 import { VoiceScreen, voiceSupported } from "../ui/Voice";
 import { PayScreen } from "./Pay";
-import { AddCardScreen, CardMark, cardLabel } from "./Cards";
+import { AddCardScreen, cardLabel } from "./Cards";
+import { PlaceMap } from "../ui/PlaceMap";
 import { lc } from "../worker/Skills";
 import { SetSide, SideSwitch } from "../ui/SideSwitch";
 import { TabBar } from "../ui/TabBar";
@@ -24,7 +25,7 @@ interface Reused { path: string; kind: "photo" | "video" }
 interface Draft {
   categoryId: number | null; priceCents: number; suburbId: number | null; address: string; notes: string; details: string;
   asap: boolean; startAt: string; invited: string[]; openAfter: number | null; reuse: Reused[];
-  included: string[]; excluded: string[]; priceSet?: boolean; boost?: boolean; skills?: number[];
+  included: string[]; excluded: string[]; priceSet?: boolean; boost?: boolean; skills?: number[]; payMethod?: "cash" | "bank";
   budgetMin?: number | null; budgetMax?: number | null;
 }
 const DRAFT_KEY = "mm-draft-2";
@@ -67,6 +68,10 @@ export function Book() {
   const [auth, setAuth] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [discard, setDiscard] = useState(false);
+  const [widen, setWiden] = useState(30);
+  const [urgentInfo, setUrgentInfo] = useState(false);
+  const [pickMethod, setPickMethod] = useState(false);
 
   const { area } = useArea();
   // Only the suburbs of the area they're in.
@@ -76,11 +81,11 @@ export function Book() {
   useEffect(() => {
     sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
-    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_max_cents", "boost_cents", "fee_mode"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_max_cents", "boost_cents", "fee_mode", "widen_after_minutes"]).then(({ data }) => {
       for (const r of data ?? []) {
         if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true"); if (r.key === "fee_mode") setFeeMode(r.value);
         if (r.key === "booking_fee_percent") setFeePct(Number(r.value)); if (r.key === "booking_fee_max_cents") setFeeMax(Number(r.value));
-        if (r.key === "boost_cents") setBoostCents(Number(r.value));
+        if (r.key === "boost_cents") setBoostCents(Number(r.value)); if (r.key === "widen_after_minutes") setWiden(Number(r.value));
       }
     });
     draftMedia.all().then((items) => setMedia(items.map((m) => ({ ...m, url: URL.createObjectURL(m.blob) }))));
@@ -111,6 +116,8 @@ export function Book() {
   }, [path, d.categoryId, d.suburbId]);
   const total = d.priceCents + (pilot ? 0 : Math.round((d.priceCents * fee) / 100));
   const isPlus = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
+  // Plus members' jobs are always urgent, at no charge.
+  const plusNow = isPlus;
   // Invoice mode: the connection fee is billed when the job goes ahead, at the rate their plan gives them.
   const { p: payInfo } = usePayments(feeMode === "invoice" && !!session);
   const invoiceFee = (() => {
@@ -168,6 +175,7 @@ export function Book() {
   const removeReused = (p: string) => setD({ ...d, reuse: d.reuse.filter((r) => r.path !== p) });
 
   async function book() {
+    if (!isTrade && !d.payMethod) { setPickMethod(true); return; }
     setErr("");
     if (!jt) return go("/book/details");
     if (d.details.trim().length < 15 || !(d.included ?? []).length) return go("/book/details");
@@ -201,8 +209,8 @@ export function Book() {
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
         p_included: d.included ?? [], p_excluded: d.excluded ?? [], p_skills: (d.skills ?? []).filter((id) => skillList.some((k) => k.id === id && k.category_id === d.categoryId)),
         p_budget_min_cents: isTrade ? d.budgetMin : null, p_budget_max_cents: isTrade ? d.budgetMax : null,
+        p_pay_method: isTrade ? null : d.payMethod ?? null, p_urgent: !isTrade && !!d.boost,
       });
-      if (d.boost && pilot) await rpc("boost_job", { p_job: id }).catch(() => {});
       const finish = async () => {
         sessionStorage.removeItem(DRAFT_KEY);
         await draftMedia.clear();
@@ -250,108 +258,136 @@ export function Book() {
       : "Anyone nearby";
     return (
       <div className="app">
-        <section className="step-hero" style={{ paddingBottom: 74 }}>
-          <div className="top">
-            <button className="back" onClick={() => history.back()} aria-label="Back">{Icon.back("#fff")}</button>
-          </div>
-          <h1 style={{ marginBottom: 0 }}>Check and post</h1>
-        </section>
-        <div className="ticket" style={{ marginTop: -52 }}>
-          <div className="review-row">
-            <span className="t">
-              <span className="k">{cat?.name ?? "The job"}</span>
-              <span className="row" style={{ gap: 10, alignItems: "flex-start", marginTop: 4 }}>
-                <span className="small light muted" style={{ lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
-                  {d.details}
-                </span>
-              </span>
-            </span>
-            <button className="link" onClick={() => go("/book/details")}>Change</button>
-          </div>
-          <ReviewRow k="What's included" v={`${(d.included ?? []).length} thing${(d.included ?? []).length === 1 ? "" : "s"}${(d.excluded ?? []).length ? `, ${d.excluded.length} not included` : ""}`} onChange={() => go("/book/details")} />
-          {(() => { const sk = skillList.filter((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId); return sk.length ? <ReviewRow k="Skills needed" v={sk.map((k) => k.name).join(", ")} onChange={() => go("/book/details")} /> : null; })()}
-          <ReviewRow k="Photos and video" v={`${photoCount} photo${photoCount === 1 ? "" : "s"}${video || reusedVideo ? " and a video" : ", no video"}`} onChange={() => go("/book/photos")} />
-          {isTrade ? <ReviewRow k="Who can take it" v={`Licensed tradies, ${lc(tradeSkill!.needs ?? "licence")} checked`} onChange={() => go("/book/details")} /> : <ReviewRow k="Who can take it" v={whoLabel} onChange={() => go("/book/where")} />}
-          <ReviewRow k="Where" v={`${d.address}, ${suburb?.name ?? ""}`} onChange={() => go("/book/where")} />
-          <ReviewRow k="When" v={d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })} onChange={() => go("/book/where")} />
-          {isTrade
-            ? <ReviewRow k="Your budget" v={budgetOk ? `${money(d.budgetMin!)}–${money(d.budgetMax!)}` : "Set your budget"} onChange={() => go("/book/price")} last />
-            : <ReviewRow k="Your price" v={money(d.priceCents)} onChange={() => go("/book/price")} last={!(bookingFee > 0 && session)} />}
-          {bookingFee > 0 && session && (
-            <div className="review-row" style={{ borderBottom: "1px solid var(--line)", cursor: "pointer" }} onClick={() => setCardScreen(true)}>
-              {profile?.card_last4 ? <span className="row" style={{ gap: 12, flex: 1 }}><CardMark brand={profile.card_brand} /><span className="t"><span className="k">Card for the booking fee</span><span className="v">{cardLabel(profile)}</span></span></span>
-                : <span className="t"><span className="k">Card for the booking fee</span><span className="v em">Add a card</span></span>}
-              {profile?.card_last4 ? <button className="link">Change</button> : Icon.chevron("var(--emerald)")}
+        {(() => {
+          const sk = skillList.filter((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId);
+          const jobName = sk.map((k) => k.name).join(", ") || cat?.name || "The job";
+          const when = d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+          // The connection fee Mahi Man charges: free in the pilot, but shown so nobody is surprised at launch.
+          const connPct = invoiceFee ? invoiceFee.pct : feePct;
+          const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : Math.min(Math.round((d.priceCents * feePct) / 100), feeMax);
+          const connCharged = !pilot && !isTrade && (invoiceFee ? true : bookingFee > 0);
+          const totalCents = d.priceCents + (connCharged ? connCents : 0) + (d.boost && !pilot && !plusNow ? boostCents : 0);
+          return (<>
+            {/* Where it is, on a map, the way Uber, DoorDash and TaskRabbit start their confirm screens. */}
+            <div className="ck-map">
+              <PlaceMap lat={suburb?.lat ?? null} lng={suburb?.lng ?? null} />
+              <button className="ck-mback" onClick={() => history.back()} aria-label="Back">{Icon.back("#14181c")}</button>
+              <button className="ck-addr" onClick={() => go("/book/where")}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
+                {d.address}, {suburb?.name}</button>
             </div>
-          )}
-          {isTrade ? (
-            <div className="stack" style={{ padding: "16px 16px 18px", gap: 6 }}>
-              <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
-                Up to 2 licensed tradies send you a fixed price. You choose, or say no to both. You pay the tradie directly when it's done. Nothing to pay Mahi Man.
-              </span>
-            </div>
-          ) : invoiceFee ? (
-            <div className="stack" style={{ padding: "16px 16px 18px", gap: 6 }}>
-              <span className="row between"><span className="t17 w5">Connection fee, {invoiceFee.pct}%</span><span className="t17 w5">{money2(invoiceFee.cents)}</span></span>
-              <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
-                Only if the job goes ahead. {invoiceFee.from === "balance" ? "It comes off your balance."
-                  : invoiceFee.from === "now" ? "You get an invoice to pay by bank transfer within 3 days."
-                  : `It goes on your ${invoiceFee.from === "weekly" ? "weekly invoice" : "invoice every 2 weeks"}, due on your payday.`}{" "}
-                You pay the {money(d.priceCents)} to your worker by bank transfer or cash when it's done.{" "}
-                <a href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How you pay</a>
-              </span>
-            </div>
-          ) : bookingFee > 0 ? (
-            <div className="stack" style={{ padding: "16px 16px 18px", gap: 6 }}>
-              <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
-                The booking fee is only charged when you choose a worker. Nobody chosen, nothing charged. You pay the {money(d.priceCents)} to your worker by bank transfer or cash when it's done.{" "}
-                <a href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How it works</a>
-              </span>
-            </div>
-          ) : (
-          <div className="stack" style={{ padding: "18px 16px 20px", gap: 6 }}>
-            {!pilot && <><span className="small w5 em">Total, fixed</span>
-            <span className="price">{money2(total)}</span></>}
-            {!pilot && <span className="small light muted">Job {money2(d.priceCents)} + booking fee {money2(total - d.priceCents)}</span>}
-            <span className="t15 light muted" style={{ marginTop: pilot ? 0 : 8, lineHeight: 1.45 }}>
-              {pilot ? "Pay your worker by bank transfer or cash once it's done." : "Your card is held, not charged, until you confirm the job is done."}
-            </span>
-            {pilot && (
-              <span className="t15 light muted" style={{ lineHeight: 1.45 }}>
-                No booking fee during the pilot. From launch it's {feePct}%, up to {money(feeMax)}, and Plus members never pay it.{" "}
-                <a href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How it works</a>
-              </span>
-            )}
-          </div>
-          )}
-        </div>
+
+            {/* The job and when. */}
+            <button className="ck-head" onClick={() => go("/book/details")}>
+              <span className="k">{cat?.name} · Check and post</span>
+              <b>{jobName}</b>
+              <span className="w">{when}</span>
+            </button>
+
+            {/* Pay less: the cheaper plans, priced on this job, the way Uber One and DashPass show what you'd save at checkout. */}
+            {connCharged && invoiceFee && payInfo && !(payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) && (() => {
+              const r = payInfo.rates;
+              const plusCents = Math.min(Math.round((d.priceCents * r.plus) / 100), r.plus_max);
+              const save = connCents - plusCents;
+              return save > 0 ? (
+                <div className="ck-save">
+                  <div className="t"><b>Save {money2(save)} with Plus</b><span>{r.plus}% fees, {money(r.plus_cents)} a month</span></div>
+                  <div className="a"><button className="btn primary" onClick={() => go("/plus")}>Get Plus</button></div>
+                </div>
+              ) : null;
+            })()}
+
+            {/* The money: big, plain, and nothing hidden. TaskRabbit and DoorDash both list each line, then a bold total. */}
+            <section className="ck-money">
+              {isTrade ? (<>
+                <div className="ck-m"><span>Your budget</span><b>{budgetOk ? `${money(d.budgetMin!)}–${money(d.budgetMax!)}` : "Not set"}</b></div>
+                <div className="ck-m"><span>Connection fee</span><b>$0</b></div>
+                <p>Up to 2 licensed tradies send you a fixed price. You pay the tradie directly.</p>
+              </>) : (<>
+                {/* Two people get paid, so two groups: your worker, then Mahi Man. */}
+                <div className="ck-grp">
+                  <button className="ck-m ck-gh" onClick={() => go("/book/price")}><span>Pay your worker</span><b>{money(d.priceCents)}</b></button>
+                  {/* The customer says how they'll pay, so the worker knows before they offer. */}
+                  <button className="ck-method" onClick={() => setPickMethod(true)}>
+                    <span className="k">How will you pay?</span><span className="v">{PAY_METHODS.find((m) => m.id === d.payMethod)?.label ?? ""}</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg></button>
+                  <p className="ck-due">Paid straight to your worker when the job is done</p>
+                </div>
+                <div className="ck-grp">
+                  <div className="ck-m ck-gh"><span>Owed to Mahi Man</span><b>{money(totalCents - d.priceCents)}</b></div>
+                  <div className="ck-m ck-sub"><span>Connection fee, {connPct}%</span>
+                    {connCharged ? <b>{money2(connCents)}</b> : <b><s>{money2(connCents)}</s> <em>Free</em></b>}</div>
+                  {/* Standard is the default; urgent is one switch, with the detail behind the info icon. */}
+                  <div className="ck-m ck-sub ck-urgent">
+                    <span className="l">Make it urgent
+                      <button className="ck-info" onClick={() => setUrgentInfo(true)} aria-label="What urgent does">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg></button></span>
+                    {plusNow ? <span className="r"><b><em>Included with Plus</em></b></span> : (
+                    <span className="r">{pilot ? <b><s>{money(boostCents)}</s> <em>Free</em></b> : <b>+{money(boostCents)}</b>}
+                      <button className={d.boost ? "switch on" : "switch"} onClick={() => setD({ ...d, boost: !d.boost })} aria-pressed={!!d.boost} aria-label="Make it urgent" /></span>)}
+                  </div>
+                </div>
+                <div className="ck-m ck-total"><span>Total</span><b>{money(totalCents)}</b></div>
+                <a className="ck-hiw" href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How payment works</a>
+                {bookingFee > 0 && session && <button className="ck-m ck-card" onClick={() => setCardScreen(true)}><span>Card</span><b>{profile?.card_last4 ? cardLabel(profile) : "Add a card"}</b></button>}
+              </>)}
+            </section>
+
+            {/* Everything workers read, in full. */}
+            <section className="ck-job">
+              <div className="ck-jh"><h2>The job</h2><button className="link" onClick={() => go("/book/details")}>Edit</button></div>
+              <p className="ck-desc">{d.details}</p>
+              <div className="ck-pics">
+                {[...photos.map((m) => m.url), ...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean)].map((u, n) => (
+                  <button key={n} className="ck-pic" style={{ backgroundImage: `url("${u}")` }} onClick={() => go("/book/photos")} aria-label="Change photos" />
+                ))}
+                {(video || reusedVideo) && <button className="ck-pic ck-vid" onClick={() => go("/book/photos")}>Video</button>}
+                {photoCount === 0 && !(video || reusedVideo) && <button className="ck-pic ph-0" onClick={() => go("/book/photos")} aria-label="Add photos" />}
+              </div>
+              {(d.included ?? []).length > 0 && <div className="ck-list"><h3>Included</h3>
+                {d.included.map((t) => <span key={t} className="yes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-10" /></svg>{t}</span>)}</div>}
+              {(d.excluded ?? []).length > 0 && <div className="ck-list"><h3>Not included</h3>
+                {d.excluded.map((t) => <span key={t} className="no"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>{t}</span>)}</div>}
+              {(() => { const sk = skillList.filter((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId); return sk.length ? <div className="ck-list"><h3>Skills needed</h3><span className="plain">{sk.map((k) => k.name).join(", ")}</span></div> : null; })()}
+              {d.notes ? <div className="ck-list"><h3>Notes for your worker</h3><span className="plain">{d.notes}</span></div> : null}
+              <div className="ck-list"><h3>Who can take it</h3>
+                <button className="ck-who" onClick={() => go(isTrade ? "/book/details" : "/book/where")}>{isTrade ? `Licensed tradies, ${lc(tradeSkill!.needs ?? "licence")} checked` : whoLabel}</button></div>
+            </section>
+          </>);
+        })()}
+
         {!isTrade && supply && supply.online_now > 0 && !skillList.some((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId && k.needs) && (
-          <p className="t15 light" style={{ margin: "16px 20px 0", lineHeight: 1.45 }}>
-            <span className="w5 em">{supply.online_now} {cat?.name.toLowerCase() ?? ""} worker{supply.online_now === 1 ? "" : "s"} online near {suburb?.name} now.</span>
-            {supply.typical_minutes != null && ` Usually someone's free in about ${supply.typical_minutes} min.`}
-          </p>
+          <p className="ck-live"><i />{supply.online_now} {cat?.name.toLowerCase() ?? ""} worker{supply.online_now === 1 ? "" : "s"} online near {suburb?.name} now{supply.typical_minutes != null ? `. Usually someone's free in about ${supply.typical_minutes} min` : ""}.</p>
         )}
-        {pilot && !isTrade && (
-          <button className={`boost-pick${d.boost ? " on" : ""}`} onClick={() => setD({ ...d, boost: !d.boost })} aria-pressed={!!d.boost}>
-            <span className="stack" style={{ gap: 2, flex: 1 }}>
-              <b>Urgent boost</b>
-              <span>Every worker in your category gets an alert and your job goes to the top. Free during the pilot, {money(boostCents)} from launch.</span>
-            </span>
-            <span className="box">{d.boost && Icon.tick("#fff", 16)}</span>
-          </button>
-        )}
+        <div className="ck-cancel">
+          {discard
+            ? <><span>Throw this job away?</span><button onClick={async () => { sessionStorage.removeItem(DRAFT_KEY); await draftMedia.clear(); go("/post", true); }}>Yes, cancel it</button><button onClick={() => setDiscard(false)}>Keep it</button></>
+            : <button onClick={() => setDiscard(true)}>Cancel, don't post this job</button>}
+        </div>
         {err && <p className="err" style={{ padding: "0 20px" }}>{err}</p>}
         <div style={{ flex: 1 }} />
         <div className="bottombar">
-          {bookingFee > 0
-            ? <span className="stack"><span className="k">Booking fee</span><span className="v">{money2(bookingFee)}</span></span>
-            : <span className="small light muted" style={{ maxWidth: 170, lineHeight: 1.4 }}>
-                {!session ? "Next, a quick account so workers can reach you." : isTrade ? "Licensed tradies send their price, and you choose." : "People who are free tell you, and you choose."}
-              </span>}
+          <span className="ck-terms">By pressing Post my job, you agree to the <a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>terms and conditions</a>.</span>
           <button className="btn primary" disabled={busy} onClick={book}>
-            {busy ? "Posting…" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : "Post it"} {Icon.arrow("#fff")}
+            {busy ? "Posting…" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : "Post my job"} {Icon.arrow("#fff")}
           </button>
         </div>
+        {pickMethod && <SearchPicker title="How will you pay?" value={d.payMethod ? [d.payMethod] : []} options={PAY_METHODS.map((m) => ({ id: m.id, label: m.label, hint: m.hint }))}
+          onChange={(v) => setD({ ...d, payMethod: String(v[0]) as Draft["payMethod"] })} onClose={() => setPickMethod(false)} />}
+        {urgentInfo && (
+          <Screen title="Standard or urgent" onBack={() => setUrgentInfo(false)}>
+            <div className="ui-info">
+              <section><h2>Standard</h2><p className="tag">Included with every job</p>
+                <p>{cat?.name ?? "Workers"} workers who are online, and whose travel area covers {suburb?.name ?? "your suburb"}, get an alert straight away.</p>
+                <p>If no one's free after {widen} minutes, your job goes out to workers further away.</p></section>
+              <section><h2>Urgent</h2><p className="tag">{pilot ? `Free during the pilot, ${money(boostCents)} from launch` : `${money(boostCents)}, added to your total`}</p>
+                <p>Every {cat?.name.toLowerCase() ?? ""} worker online across {area?.name ?? "your area"} gets an alert straight away. No {widen} minute wait.</p>
+                <p>Your job shows first in their list of jobs.</p>
+                <p>Best when it can't wait: a tip run before the bins go out, a clean before an inspection.</p></section>
+              <button className="btn primary" onClick={() => { setD({ ...d, boost: true }); setUrgentInfo(false); }}>{d.boost ? "Keep it urgent" : "Make it urgent"}</button>
+            </div>
+          </Screen>
+        )}
         {photoScreen && <PhotoStep note="Workers see it before they offer, so they know who they're meeting." saveLabel="Save and post" photoOnly
           onBack={() => setPhotoScreen(false)} onSaved={() => { photoAdded.current = true; setPhotoScreen(false); window.setTimeout(book, 300); }} />}
         {cardScreen && <AddCardScreen onBack={() => setCardScreen(false)} onSaved={() => { cardAdded.current = true; setCardScreen(false); window.setTimeout(book, 300); }} />}
@@ -592,14 +628,6 @@ function BudgetStep({ title, licence, catName, min, max, onChange }: { title: st
   );
 }
 
-function ReviewRow({ k, v, onChange, last }: { k: string; v: string; onChange: () => void; last?: boolean }) {
-  return (
-    <div className="review-row" style={last ? { borderBottom: "1px solid var(--line)" } : undefined}>
-      <span className="t"><span className="k">{k}</span><span className="v">{v}</span></span>
-      <button className="link" onClick={onChange}>Change</button>
-    </div>
-  );
-}
 
 // ---------- Step 1: What's the job ----------
 // Without the AI: pick the category whose name and skills share the most words, and turn each sentence into a task.
@@ -972,3 +1000,8 @@ function videoSeconds(f: File): Promise<number> {
     v.src = URL.createObjectURL(f);
   });
 }
+
+const PAY_METHODS = [
+  { id: "cash", label: "Pay by cash", hint: "Have it ready when they finish" },
+  { id: "bank", label: "Pay via bank transfer", hint: "Their PayID or account shows when the job's done" },
+] as const;

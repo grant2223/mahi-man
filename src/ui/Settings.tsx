@@ -50,7 +50,7 @@ export function Settings() {
         )}
         <AreaRow />
         <button className="choice" onClick={() => go("/jobs")}><span className="t"><b>My jobs</b><span>Jobs you've posted</span></span>{Icon.chevron("var(--faint)")}</button>
-        <button className="choice" onClick={() => setScreen("cards")}><span className="t"><b>Payment methods</b><span>{profile.card_last4 ? `${cardLabel(profile)}, for booking fees` : "Card for booking fees"}</span></span>{Icon.chevron("var(--faint)")}</button>
+        <button className="choice" onClick={() => setScreen("cards")}><span className="t"><b>Payment methods</b><span>{profile.card_last4 ? `${cardLabel(profile)}, for connection fees` : "Card for connection fees"}</span></span>{Icon.chevron("var(--faint)")}</button>
         {profile.is_worker && <button className="choice" onClick={() => setScreen("skills")}><span className="t"><b>My skills</b><span>What customers see on your offers</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("creds")}><span className="t"><b>Licences and certificates</b><span>Insurance, RSA, Blue Card, trade licences</span></span>{Icon.chevron("var(--faint)")}</button>}
         {profile.is_worker && <button className="choice" onClick={() => setScreen("reliability")}><span className="t"><b>Reliability</b><span>Turns up score and strikes</span></span>{Icon.chevron("var(--faint)")}</button>}

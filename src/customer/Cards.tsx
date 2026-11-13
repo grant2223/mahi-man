@@ -5,7 +5,7 @@ import { api } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { Icon, Screen, useToast } from "../ui/kit";
 
-/* Saved card for the booking fee. Card details go straight to Stripe; Mahi Man only keeps the brand and last 4 digits. */
+/* Saved card for the connection fee. Card details go straight to Stripe; Mahi Man only keeps the brand and last 4 digits. */
 
 const stripeCache: Record<string, Promise<Stripe | null>> = {};
 export const stripeFor = (pk: string) => (stripeCache[pk] ??= loadStripe(pk));
