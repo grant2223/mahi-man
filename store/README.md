@@ -36,7 +36,7 @@ What's ready, and what's left. Ticked items are done.
 - [ ] In Vercel, add `mahiman.app`, `www.mahiman.app` and `mahiman.com.au` to the project, and set the DNS records Vercel shows.
 - [ ] Set up email for hello@mahiman.app (e.g. Google Workspace or forwarding with ImprovMX). It's the contact email on both stores, and Apple and Google email it.
 - [ ] Switch the App Store and TestFlight links: `node store/apple-go-live.mjs`. It checks the pages load first.
-- [ ] In Play Console, change the website, privacy policy and account-deletion URLs from mahiman.vercel.app to mahiman.app.
+- [x] In Play Console, website, privacy policy and account-deletion URLs moved to mahiman.app (13 Nov 2026; privacy and data safety sent for review).
 
 ## 3. When Stripe is ready
 
