@@ -791,7 +791,7 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 
 /* Available for jobs: the switch beside the title, labelled, above the mascot */
 .title-row { position: relative; z-index: 1; display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.avail-sw { margin-top: 24px; display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; cursor: pointer; color: #fff; }
+.avail-sw { display: flex; align-items: center; gap: 10px; background: none; border: 0; padding: 0; cursor: pointer; color: #fff; }
 .avail-sw > span:first-child { font-size: 15px; font-weight: 500; }
 
 /* Get help: how many workers are on right now */
@@ -1152,3 +1152,24 @@ button.gf-f { font: inherit; color: var(--ink); cursor: pointer; }
 .vf-tip { margin: 0; font-size: 14px; font-weight: 300; line-height: 1.45; color: var(--ink); }
 .vf-note { margin: 0; font-size: 14px; font-weight: 300; color: var(--muted); }
 .cam-warn { display: block; padding: 12px 14px; border-radius: 4px; background: #f6d95b; color: var(--ink); font-size: 15px; font-weight: 500; line-height: 1.4; }
+
+/* Standby: online with no jobs yet */
+.sb-a { padding: 34px 20px 24px; text-align: center; }
+.sb-radar { position: relative; width: 260px; height: 260px; margin: 0 auto 22px; border-radius: 50%; background: radial-gradient(circle, rgba(11,107,79,0.10) 0, rgba(11,107,79,0.04) 55%, transparent 70%); overflow: hidden; }
+.sb-radar::before, .sb-radar::after { content: ""; position: absolute; inset: 0; margin: auto; border-radius: 50%; border: 1.5px solid rgba(11,107,79,0.14); }
+.sb-radar::before { width: 62%; height: 62%; }
+.sb-radar::after { width: 96%; height: 96%; }
+.sb-radar .ring { position: absolute; left: 50%; top: 50%; width: 64px; height: 64px; margin: -32px 0 0 -32px; border-radius: 50%; background: rgba(11,107,79,0.22); animation: sbRing 3s ease-out infinite; }
+.sb-radar .ring:nth-child(2) { animation-delay: 1s; }
+.sb-radar .ring:nth-child(3) { animation-delay: 2s; }
+.sb-radar .sweep { position: absolute; inset: 0; border-radius: 50%; background: conic-gradient(from 0deg, rgba(11,107,79,0.28), rgba(11,107,79,0) 70deg, transparent 360deg); animation: spin 4s linear infinite; }
+.sb-radar .dot { position: absolute; width: 12px; height: 12px; border-radius: 50%; background: var(--gold, #d9a520); opacity: 0; animation: sbDot 4.4s ease-in-out infinite; }
+.sb-radar .pin { position: absolute; left: 50%; top: 50%; width: 60px; height: 60px; margin: -30px 0 0 -30px; border-radius: 50%; display: grid; place-items: center; background: linear-gradient(180deg, var(--emerald-hi), var(--emerald)); box-shadow: 0 6px 16px rgba(11,107,79,0.35); }
+.sb-h { margin: 0 0 6px; font-size: 21px; font-weight: 600; letter-spacing: -0.3px; color: var(--ink); }
+.sb-s { margin: 0 auto; max-width: 280px; font-size: 16px; color: var(--muted); line-height: 1.4; }
+.sb-dots i { font-style: normal; animation: avail 1.4s infinite; }
+.sb-dots i:nth-child(2) { animation-delay: 0.2s; }
+.sb-dots i:nth-child(3) { animation-delay: 0.4s; }
+@keyframes sbRing { 0% { transform: scale(0.9); opacity: 0.9; } 100% { transform: scale(4.2); opacity: 0; } }
+@keyframes sbDot { 0%, 100% { opacity: 0; transform: scale(0.4); } 20%, 45% { opacity: 1; transform: scale(1); } 60% { opacity: 0; transform: scale(0.4); } }
+@media (prefers-reduced-motion: reduce) { .sb-radar *, .sb-dots i { animation: none !important; } .sb-radar .dot { opacity: 1; } }

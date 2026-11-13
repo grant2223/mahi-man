@@ -14,6 +14,7 @@ import { AlertsAsk } from "../ui/AlertsAsk";
 import { alertsState, askedFor } from "../lib/push";
 import { SetSide } from "../ui/SideSwitch";
 import { TabBar } from "../ui/TabBar";
+import { Standby } from "./Standby";
 import { Feed } from "../customer/Feed";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
 import { TradeFeed, TradeJob, TradeJoin, TradePlan, TradePlans, TradeStrip, TradeWaiting, useTrade } from "./Trade";
@@ -200,22 +201,22 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   return (
     <>
       <section className="hero" style={{ paddingBottom: 40 }}>
+        {/* The brand, and across from it the switch that says whether they're available for jobs (top corner, clear of the mascot). */}
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
-        </div>
-        <SetSide side="work" />
-        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 122, right: -24 }} />
-        {/* Title, and beside it the switch that says whether they're available for jobs. */}
-        <div className="title-row">
-          <h1 className="mid" style={{ margin: "18px 0 8px" }}>{online ? <>Jobs<br />near you</> : <>You're<br />offline</>}</h1>
           <button className="avail-sw" onClick={toggle} aria-label={online ? "Go offline" : "Go online"} aria-pressed={online}>
             <span>{online ? "Online" : "Offline"}</span>
             <span className={online ? "switch on" : "switch"} />
           </button>
         </div>
-        <p className="lede" style={{ position: "relative", maxWidth: 210 }}>
-          {online ? (jobs.length ? "Which job could you help with?" : "No jobs open right now. New ones show here.") : "Switch on when you are available for work."}
-        </p>
+        <SetSide side="work" />
+        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 122, right: -24 }} />
+        <div className="title-row">
+          <h1 className="mid" style={{ margin: "18px 0 8px" }}>{online ? <>Jobs<br />near you</> : <>You're<br />offline</>}</h1>
+        </div>
+        {!(online && !jobs.length) && <p className="lede" style={{ position: "relative", maxWidth: 210 }}>
+          {online ? "Which job could you help with?" : "Switch on when you are available for work."}
+        </p>}
       </section>
 
       <TradeStrip trade={trade} open={tradeJobs.length} onJoin={() => setTradeScreen("join")} onFeed={() => setTradeScreen("feed")} onPlan={() => setTradeScreen("plan")} />
@@ -258,6 +259,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
           <span className="p">{money(o.earn_cents)}</span>
         </button>
       </Fragment>))}
+      {online && !jobs.length && <Standby />}
       {online && jobs.length < 3 && feedOffer && <FeedOfferCard o={feedOffer} />}
 
       {!online && (
