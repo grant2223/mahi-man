@@ -6,9 +6,8 @@ import { useSession } from "../lib/session";
 import { rpc, type PersonCard } from "../lib/supabase";
 import { shareLink } from "../lib/share";
 
-// Codes point at the address that works today and keeps working after mahiman.app is connected,
-// so a saved or printed code never goes dead.
-const CODE_HOST = "https://mahiman.vercel.app";
+// Codes point at mahiman.app. Older codes made with mahiman.vercel.app keep working: that address still serves the same site.
+const CODE_HOST = "https://mahiman.app";
 import { Icon, Tile, useToast } from "./kit";
 
 /* Your Mahi Man code. A worker shows it at the end of a job: the customer scans it with their phone camera

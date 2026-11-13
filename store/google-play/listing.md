@@ -45,8 +45,8 @@ One account does both. Switch between Get help and Do work whenever you like.
 - Phone screenshots: `screenshots/01-home.png` to `04-earn.png` (1320 × 2640)
 
 **Category**: Lifestyle (or House & Home). **Tags**: Home services, Local services, Jobs.
-**Contact email**: hello@mahiman.app. **Website**: https://mahiman.app (use https://mahiman.vercel.app until it's live).
-**Privacy policy**: https://mahiman.app/privacy (https://mahiman.vercel.app/privacy until then).
+**Contact email**: hello@mahiman.app. **Website**: https://mahiman.app.
+**Privacy policy**: https://mahiman.app/privacy.
 
 ## App content (Policy → App content)
 
@@ -77,7 +77,7 @@ One account does both. Switch between Get help and Do work whenever you like.
 
 **Location permissions**: the app only asks for "while using the app" location. No background-location permission, so no background location declaration is needed.
 
-**Data deletion**: account deletion URL: https://mahiman.app/support#delete (https://mahiman.vercel.app/support#delete until then).
+**Data deletion**: account deletion URL: https://mahiman.app/support#delete.
 
 ## Data safety
 

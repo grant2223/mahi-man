@@ -7,7 +7,7 @@ const db = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SE
 const KEY = Deno.env.get("RESEND_API_KEY");
 const FROM = Deno.env.get("EMAIL_FROM") ?? "Mahi Man <hello@mahiman.app>";
 const REPLY_TO = Deno.env.get("EMAIL_REPLY_TO") ?? "help@mahiman.app";
-const SITE = Deno.env.get("SITE_URL") ?? "https://mahiman.vercel.app";
+const SITE = Deno.env.get("SITE_URL") ?? "https://mahiman.app";
 const TESTFLIGHT_APP = "https://apps.apple.com/app/testflight/id899247664";
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));

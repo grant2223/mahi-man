@@ -27,6 +27,6 @@ if ("serviceWorker" in navigator && location.hostname !== "localhost") {
 // A mahiman.app link opened on a phone with the app installed (a scanned worker code, a shared link) opens that screen in the app.
 if (Capacitor.isNativePlatform()) {
   import("@capacitor/app").then(({ App: Native }) => Native.addListener("appUrlOpen", ({ url }) => {
-    try { const u = new URL(url); if (u.hostname === "mahiman.app" || u.hostname === "mahiman.vercel.app") go(u.pathname + u.search); } catch { /* not a link we know */ }
+    try { const u = new URL(url); if (["mahiman.app", "www.mahiman.app", "mahiman.vercel.app"].includes(u.hostname)) go(u.pathname + u.search); } catch { /* not a link we know */ }
   }));
 }

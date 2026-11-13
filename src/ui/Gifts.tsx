@@ -187,7 +187,7 @@ export function GiftPage({ id }: { id: number }) {
   );
 }
 
-/* ---------- The gift link: mahiman.vercel.app/g/MAHI-XXXX-XXXX ---------- */
+/* ---------- The gift link: mahiman.app/g/MAHI-XXXX-XXXX ---------- */
 interface GiftPublic { to: string; from: string; amount: number; message: string; occasion: string; expires_at: string | null; state: "ready" | "added" | "expired" | "unpaid" }
 
 export function ClaimPage({ code }: { code: string }) {
