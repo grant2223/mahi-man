@@ -13,7 +13,8 @@ What's ready, and what's left. Ticked items are done.
 - [x] **Production 1.0 (versionCode 3) sent for review on 12 Nov 2026**, Australia and New Zealand. Live on 12 Nov 2026.
 - [x] **Production 1.0 (versionCode 4, payments) sent for review on 12 Nov 2026**, with the new description, Data safety (Purchase history) and sign-in note. Rolls out to 100% once approved.
 - [x] **Release versionCode 5 (gift cards).** Sent for review 12 Nov 2026. Build the .aab, Production → Create new release → upload → Send for review. Nothing to change in the listing: gift cards pay for real-world jobs, so they're not digital purchases.
-- [ ] **Release versionCode 6 (menu along the bottom).** Build the .aab, Production → Create new release → upload → Send for review. Screenshots still match closely enough; refresh them when the store listing is next updated.
+- [x] **Release versionCode 6 (menu along the bottom).** Live 13 Nov 2026.
+- [x] **Release versionCode 7 (mahiman.app links, gift cards renamed).** Sent for review 13 Nov 2026 with the mahiman.app/privacy policy link and Data safety. Screenshots still match closely enough; refresh them when the store listing is next updated.
 - [ ] Optional: App content, Target audience, tick "Restrict users that Google has determined to be minors".
 - [ ] Internal testing release (draft): add tester emails if you want a private Android build before launch.
 
@@ -23,7 +24,8 @@ What's ready, and what's left. Ticked items are done.
 - [x] Version 1.0 had build 26 attached (has the reviewer sign-in), plus the listing, screenshots, age rating, review notes and contact details.
 - [x] TestFlight: build 25 approved for the Cairns pilot group; build 26 in beta review; build 27 (payments, jspdf) in the Cairns pilot group, beta review sent 12 Nov.
 - [x] **Build 28 (gift cards)**: in the Cairns pilot group with beta review sent, and attached to version 1.0 in place of 26. Review notes say gift cards are sold outside in-app purchase. 1.0 resubmitted for App Store review 12 Nov 2026.
-- [ ] **Build 29 (menu along the bottom)**: archive, upload, add to the Cairns pilot group. If 1.0 is still in review with 28, leave it; 29 goes with the next version.
+- [x] **Build 29 (menu along the bottom)**: in the Cairns pilot group, beta review sent.
+- [x] **Build 30 (mahiman.app links, gift cards renamed)**: in the Cairns pilot group, beta review sent 13 Nov 2026. 1.0 stays in review with 28; 30 goes with the next version.
 - [x] App Review Information: tick sign-in required and enter review@mahiman.app with the code from `store-review-sign-in.txt` as the password. Note: "Enter the email, tap Email me a code, then type the code. No email is sent for this address."
 - [x] In App Store Connect → **App Privacy**: answer the questionnaire (same data as the Play Data safety table in `google-play/listing.md`; none used for tracking).
 - [x] **App Information → Content Rights**: tick that you have the rights to the content.
@@ -67,4 +69,4 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 ## Building new versions
 
 - **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION`, then archive and upload (Claude does this with the API key).
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 6), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 7), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
