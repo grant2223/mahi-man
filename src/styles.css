@@ -1320,3 +1320,12 @@ button.ck-m { cursor: pointer; }
 .ck-terms { flex: 1; max-width: 190px; font-size: 13px; font-weight: 300; line-height: 1.4; color: var(--muted); }
 .ck-terms a { color: var(--emerald); }
 .urg { display: inline-block; align-self: flex-start; font-size: 13px; font-weight: 600; color: var(--ink); background: var(--lime); padding: 2px 8px; border-radius: 3px; }
+.of-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.of-title h1 { margin: 4px 0 0; font-size: 30px; font-weight: 600; letter-spacing: -0.9px; line-height: 1.1; }
+.of-title .em { flex: none; font-size: 48px; font-weight: 600; letter-spacing: -2px; line-height: 1; }
+.wj-safety { display: flex; align-items: center; gap: 6px; border: 0; background: none; color: #fff; font: inherit; font-size: 14px; padding: 6px 0; cursor: pointer; }
+.wj-safety svg { width: 20px; height: 20px; }
+.wj-got { display: block; margin-top: 6px; font-size: 40px; font-weight: 600; letter-spacing: -1.4px; line-height: 1.02; color: var(--lime); }
+.btn.wj-code { background: rgba(255,255,255,0.16); color: #fff; }
+.wj-go { position: relative; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 20px; }
+.wj-go .btn { padding: 0 12px; font-size: 17px; }

@@ -179,16 +179,25 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     );
   }
 
-  const heroLabel = j.status === "accepted" ? (onWay ? `On the way to ${cName}` : "Head to the job") : j.status === "in_progress" ? "Working for" : isDirectPay(j) ? "Get paid" : "Waiting for the customer";
-  const heroBig = j.status === "in_progress" ? elapsed(j.started_at!, now) : money(earn);
+  const heroLabel = j.status === "accepted" ? (j.arrived_at ? `You're at ${cName}'s` : onWay ? `On the way to ${cName}, be there by` : "Be there by") : j.status === "in_progress" ? "Working for" : isDirectPay(j) ? "Get paid" : "Waiting for the customer";
+  // On the way: the time they're expected matters, not the money.
+  const heroBig = j.status === "in_progress" ? elapsed(j.started_at!, now) : j.status === "accepted" && j.eta_at ? hm(j.eta_at) : money(earn);
+  // Just chosen, not left yet: celebrate the job, not the money.
+  const gotIt = j.status === "accepted" && !onWay && !j.arrived_at;
 
   return (
     <>
       <section className="hero" style={{ paddingBottom: j.status === "accepted" && (onWay || j.arrived_at) ? 24 : 96 }}>
         <div className="hero-top">
           <span className="t17 w5">{jobName}</span>
-          <button className="btn danger small" style={{ height: 36 }} onClick={() => setScreen("emergency")}>Emergency</button>
+          {/* Safety, the way Uber does it: a quiet shield, not a red button. It opens Call 000. */}
+          <button className="wj-safety" onClick={() => setScreen("emergency")} aria-label="Safety">{Icon.shield("#fff")}<span>Safety</span></button>
         </div>
+        {gotIt ? (<>
+          <span className="label">{cName} chose you</span>
+          <span className="wj-got">You've got the job!</span>
+          <span className="sub">{j.asap && j.eta_at ? `Be there by ${hm(j.eta_at)}` : `See you ${new Date(j.start_at).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })}`}. You earn {money(earn)}, paid {payWay(j)}.</span>
+        </>) : (<>
         <span className="label">{heroLabel}</span>
         <div className="row" style={{ alignItems: "baseline", gap: 10, marginTop: 4 }}>
           <span className={j.status === "in_progress" ? "big" : "big lime"}>{heroBig}</span>
@@ -199,10 +208,13 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
             : j.status === "finished" ? (isDirectPay(j) ? `Collect ${money(earn)} from the customer now, ${payWay(j)}` : "They have 48 hours to confirm, then you're paid automatically")
               : "Ask for their 4-digit start code when you arrive"}
         </span>
+        {j.status === "accepted" && (onWay || j.arrived_at) && <div className="wj-go"><button className="btn" style={{ background: "var(--lime)", color: "var(--ink)" }} onClick={() => setScreen("code")}>Enter start code {Icon.arrow("var(--ink)")}</button></div>}
+        </>)}
         {j.status === "accepted" && !onWay && !j.arrived_at && canLeave && (
           <>
-            <div className="row" style={{ gap: 10, marginTop: 20, position: "relative" }}>
+            <div className="wj-go">
               <button className="btn" style={{ background: "var(--lime)", color: "var(--ink)" }} onClick={() => (tripAsked ? goNow() : setAskTrip(true))}>I'm on my way {Icon.arrow("var(--ink)")}</button>
+              <button className="btn wj-code" onClick={() => setScreen("code")}>Enter start code</button>
             </div>
             <span className="sub" style={{ marginTop: 10, fontSize: 13 }}>{cName} sees you on a map until you arrive. Then it stops.</span>
           </>
@@ -327,7 +339,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
       </div>
 
       <div className="footer">
-        {j.status === "accepted" && <button className="btn primary" onClick={() => setScreen("code")}>Enter start code {Icon.arrow("var(--lime)")}</button>}
+        {j.status === "accepted" && gotIt && !canLeave && <button className="btn primary" onClick={() => setScreen("code")}>Enter start code {Icon.arrow("var(--lime)")}</button>}
         {j.status === "in_progress" && photos.before === 0 && <button className="btn primary" onClick={() => setScreen("before")}>{Icon.camera("var(--lime)")} Add before photos</button>}
         {j.status === "in_progress" && photos.before > 0 && photos.after === 0 && <button className="btn primary" onClick={() => setScreen("after")}>{Icon.camera("var(--lime)")} Add after photos</button>}
         {j.status === "in_progress" && photos.after > 0 && (

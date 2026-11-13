@@ -340,7 +340,8 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
           </div>
         )}
         <div style={{ background: "var(--card)", padding: "20px 20px 0" }}>
-          <span className="em" style={{ display: "block", fontSize: 64, fontWeight: 600, letterSpacing: -3, lineHeight: 0.9 }}>{money(o.earn_cents)}</span>
+          {/* The job and what it pays, side by side, straight under the photos. */}
+          <div className="of-title"><h1>{o.job_name}</h1><span className="em">{money(o.earn_cents)}</span></div>
           <span className="t15 light muted" style={{ display: "block", marginTop: 6 }}>
             {o.pay_method === "cash" ? "Paid to you in cash when it's done. You keep all of it."
               : o.pay_method === "bank" ? "Paid to you by bank transfer when it's done. You keep all of it."
@@ -366,8 +367,7 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
         {o.customer_scores?.reviewed ? <div style={{ background: "var(--card)", padding: "0 20px 4px" }}><ScoreStrip scores={o.customer_scores} worker={false} /></div> : null}
         <div className="stack" style={{ background: "var(--card)", padding: "20px 20px 24px", gap: 22 }}>
           <div className="stack" style={{ gap: 8 }}>
-            <h1 style={{ margin: 0, fontSize: 26, fontWeight: 600, letterSpacing: -0.7 }}>{o.job_name}</h1>
-            <h2 style={{ margin: "8px 0 0", fontSize: 17, fontWeight: 600 }}>What they want done</h2>
+            <h2 style={{ margin: 0, fontSize: 17, fontWeight: 600 }}>What they want done</h2>
             <p className="light" style={{ margin: 0, fontSize: 16, lineHeight: 1.5 }}>{o.details}</p>
           </div>
           {skills.length > 0 && (
