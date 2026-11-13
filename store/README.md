@@ -67,4 +67,4 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 ## Building new versions
 
 - **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION`, then archive and upload (Claude does this with the API key).
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 5), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 6), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
