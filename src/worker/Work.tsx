@@ -3,7 +3,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { api, firstPhoto, mediaUrls, rpc, sb, type IdStatus, type Job, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
-import { hours, money, money2, whenLabel } from "../lib/format";
+import { hours, money, whenLabel } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
 import { Icon, Loading, Logo, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen } from "../ui/Report";
@@ -15,6 +15,7 @@ import { alertsState, askedFor } from "../lib/push";
 import { SetSide } from "../ui/SideSwitch";
 import { TabBar } from "../ui/TabBar";
 import { Standby } from "./Standby";
+import { Offline } from "./Offline";
 import { Feed } from "../customer/Feed";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
 import { TradeFeed, TradeJob, TradeJoin, TradePlan, TradePlans, TradeStrip, TradeWaiting, useTrade } from "./Trade";
@@ -140,7 +141,6 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const [online, setOnline] = useState(false);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [covers, setCovers] = useState<Record<string, string>>({});
-  const [week, setWeek] = useState(0);
   const [open, setOpen] = useState<Offer | null>(null);
   const [mine, setMine] = useState<MyOffer[]>([]);
   const [waiting, setWaiting] = useState<string | null>(null);
@@ -156,9 +156,6 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
 
   useEffect(() => {
     myId().then((uid) => sb.from("workers").select("online").eq("id", uid).maybeSingle()).then(({ data }) => setOnline(!!data?.online));
-    const since = new Date(Date.now() - 7 * 864e5).toISOString();
-    sb.auth.getUser().then(({ data: u }) => sb.from("jobs").select("price_cents,extra_cents").eq("worker_id", u.user?.id ?? "").eq("status", "confirmed").gte("confirmed_at", since)
-      .then(({ data }) => setWeek((data ?? []).reduce((s, j) => s + j.price_cents + j.extra_cents, 0))));
   }, []);
 
   const poll = useCallback(async () => {
@@ -214,9 +211,8 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <div className="title-row">
           <h1 className="mid" style={{ margin: "18px 0 8px" }}>{online ? <>Jobs<br />near you</> : <>You're<br />offline</>}</h1>
         </div>
-        {!(online && !jobs.length) && <p className="lede" style={{ position: "relative", maxWidth: 210 }}>
-          {online ? "Which job could you help with?" : "Switch on when you are available for work."}
-        </p>}
+        {online && jobs.length > 0 && <p className="lede" style={{ position: "relative", maxWidth: 210 }}>Which job could you help with?</p>}
+        {!online && <button className="btn of-hero-go" onClick={toggle}>Go online</button>}
       </section>
 
       <TradeStrip trade={trade} open={tradeJobs.length} onJoin={() => setTradeScreen("join")} onFeed={() => setTradeScreen("feed")} onPlan={() => setTradeScreen("plan")} />
@@ -262,13 +258,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       {online && !jobs.length && <Standby />}
       {online && jobs.length < 3 && feedOffer && <FeedOfferCard o={feedOffer} />}
 
-      {!online && (
-        <div className="ticket" style={{ marginTop: 16 }}>
-          <div className="pad row between">
-            <span className="stack" style={{ gap: 2 }}><span className="small muted">Earned this week</span><span className="price" style={{ fontSize: 44 }}>{money2(week)}</span></span>
-          </div>
-        </div>
-      )}
+      {!online && <Offline />}
       <History />
       <TabBar on="work" />
       {open && <OfferScreen o={open} pilot={pilot} onBack={() => setOpen(null)}

@@ -1173,3 +1173,34 @@ button.gf-f { font: inherit; color: var(--ink); cursor: pointer; }
 @keyframes sbRing { 0% { transform: scale(0.9); opacity: 0.9; } 100% { transform: scale(4.2); opacity: 0; } }
 @keyframes sbDot { 0%, 100% { opacity: 0; transform: scale(0.4); } 20%, 45% { opacity: 1; transform: scale(1); } 60% { opacity: 0; transform: scale(0.4); } }
 @media (prefers-reduced-motion: reduce) { .sb-radar *, .sb-dots i { animation: none !important; } .sb-radar .dot { opacity: 1; } }
+
+/* Offline: what they missed, when it's busy, and an alarm to come back */
+.of-hero-go { position: relative; z-index: 1; margin-top: 10px; height: 52px; padding: 0 30px; background: var(--lime); color: var(--ink); font-weight: 600; box-shadow: 0 6px 14px rgba(0,0,0,0.18); }
+.of-sec { padding: 24px 20px 4px; }
+.of-sec h2 { margin: 0 0 6px; font-size: 22px; font-weight: 600; letter-spacing: -0.5px; }
+.of-stats { display: flex; gap: 32px; margin-bottom: 14px; }
+.of-stats div { display: flex; flex-direction: column; }
+.of-stats .k { font-size: 16px; color: var(--muted); }
+.of-stats b { font-size: 44px; font-weight: 600; letter-spacing: -1.2px; line-height: 1.1; color: var(--ink); }
+.of-stats b.em { color: var(--emerald); }
+.of-stats span:last-child:not(.k) { font-size: 15px; color: var(--muted); }
+.of-strip { display: flex; gap: 10px; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 0 20px 6px; }
+.of-strip::-webkit-scrollbar { display: none; }
+.of-job { flex: none; width: 132px; display: flex; flex-direction: column; gap: 2px; }
+.of-job .pic { position: relative; height: 96px; border-radius: 6px; background-color: var(--stone); background-position: center; background-size: cover; margin-bottom: 6px; }
+.of-job .pic i { position: absolute; left: 6px; bottom: 6px; font-style: normal; font-size: 14px; font-weight: 600; background: var(--lime); color: var(--ink); padding: 2px 7px; border-radius: 3px; }
+.of-job b { font-size: 15px; font-weight: 500; line-height: 1.2; }
+.of-job span:last-child { font-size: 13px; color: var(--muted); }
+.of-note { margin: 0 0 14px; font-size: 16px; color: var(--muted); }
+.of-bars { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; height: 110px; align-items: end; }
+.of-bars div { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 6px; }
+.of-bars span { display: block; background: var(--stone-2); border-radius: 3px 3px 0 0; min-height: 6px; }
+.of-bars div.on span { background: #d9a520; }
+.of-bars em { font-style: normal; font-size: 13px; text-align: center; color: var(--muted); }
+.of-bars div.on em { color: var(--ink); font-weight: 600; }
+.of-remind { display: flex; gap: 10px; margin-top: 10px; }
+.of-when { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; height: 56px; padding: 0 18px 0 14px; border: 0; border-radius: var(--r-control); background: var(--card); text-align: left; cursor: pointer; color: var(--ink); }
+.of-when .k { font-size: 13px; color: var(--muted); }
+.of-when .v { flex: 1; font-size: 17px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.of-when svg { flex: none; color: var(--muted); }
+.btn.of-alarm { padding: 0 18px; gap: 8px; }
