@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { rpc, sb, type IdStatus } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { shrinkImage } from "../lib/format";
@@ -8,8 +8,73 @@ const DOC_TYPES = ["Passport", "National ID card", "Australian driver licence"];
 const REGIONS = "AF AL DZ AD AO AR AM AU AT AZ BS BH BD BB BY BE BZ BJ BT BO BA BW BR BN BG BF BI KH CM CA CV CF TD CL CN CO KM CG CD CR CI HR CU CY CZ DK DJ DM DO EC EG SV GQ ER EE SZ ET FJ FI FR GA GM GE DE GH GR GD GT GN GW GY HT HN HK HU IS IN ID IR IQ IE IL IT JM JP JO KZ KE KI KR KW KG LA LV LB LS LR LY LI LT LU MO MG MW MY MV ML MT MH MR MU MX FM MD MC MN ME MA MZ MM NA NR NP NL NZ NI NE NG MK NO OM PK PW PS PA PG PY PE PH PL PT QA RO RU RW KN LC VC WS SM ST SA SN RS SC SL SG SK SI SB SO ZA SS ES LK SD SR SE CH SY TW TJ TZ TH TL TG TO TT TN TR TM TV UG UA AE GB US UY UZ VU VA VE VN YE ZM ZW".split(" ");
 
 type Stage = "intro" | "doc" | "selfie" | "sending" | "sent";
+type Shot = { blob: Blob; url: string };
 
-// Full-bleed ID check. Photos go to a private store that only the Mahi Man team can see.
+// Example pictures: what a good photo looks like, filling the frame.
+const Corners = () => (
+  <g stroke="#c9d23a" strokeWidth="5" fill="none" strokeLinecap="square"><path d="M4 18V4h14M158 4h14v14M172 122v14h-14M18 136H4v-14" /></g>
+);
+const IdArt = () => (
+  <svg viewBox="0 0 176 140" className="vf-art" aria-hidden="true">
+    <Corners />
+    <rect x="14" y="16" width="148" height="108" rx="6" fill="#f1f3f2" />
+    <rect x="14" y="16" width="148" height="20" rx="6" fill="#0b6b4f" /><rect x="14" y="28" width="148" height="8" fill="#0b6b4f" />
+    <rect x="26" y="48" width="42" height="56" rx="3" fill="#dfe5e2" />
+    <circle cx="47" cy="66" r="9" fill="#2a2d32" /><path d="M31 102c1-14 8-20 16-20s15 6 16 20z" fill="#2a2d32" />
+    <rect x="78" y="50" width="70" height="8" rx="4" fill="#2a2d32" /><rect x="78" y="66" width="58" height="6" rx="3" fill="#b9c2be" />
+    <rect x="78" y="80" width="64" height="6" rx="3" fill="#b9c2be" /><rect x="78" y="94" width="44" height="6" rx="3" fill="#b9c2be" />
+  </svg>
+);
+const SelfieArt = () => (
+  <svg viewBox="0 0 176 140" className="vf-art" aria-hidden="true">
+    <Corners />
+    <path d="M14 140c3-34 22-48 46-48s43 14 46 48z" fill="#0b6b4f" />
+    <rect x="48" y="72" width="24" height="22" fill="#c9a27e" />
+    <ellipse cx="60" cy="52" rx="24" ry="28" fill="#d8b38f" />
+    <path d="M36 48c0-20 11-29 24-29s24 9 24 29c-6-10-14-13-24-13s-18 3-24 13z" fill="#2a2d32" />
+    <rect x="90" y="50" width="76" height="52" rx="5" fill="#f1f3f2" />
+    <rect x="90" y="50" width="76" height="11" rx="5" fill="#0b6b4f" /><rect x="90" y="56" width="76" height="5" fill="#0b6b4f" />
+    <rect x="98" y="68" width="19" height="24" rx="2" fill="#dfe5e2" /><circle cx="107.5" cy="76" r="4" fill="#2a2d32" />
+    <rect x="123" y="70" width="36" height="5" rx="2.5" fill="#2a2d32" /><rect x="123" y="80" width="28" height="4" rx="2" fill="#b9c2be" />
+    <path d="M98 106c-3-10 0-18 8-18h8c5 0 8 4 8 8v44H94z" fill="#d8b38f" />
+  </svg>
+);
+
+// A quick check on the phone before a photo is used: too dark, glare on the card, or blurry.
+// It can be wrong, so there's always "Use it anyway"; a person checks every ID after this.
+export async function photoProblem(b: Blob, kind: "doc" | "face"): Promise<string | null> {
+  try {
+    const bmp = await createImageBitmap(b);
+    const w = 400, h = Math.max(1, Math.round((bmp.height * w) / bmp.width));
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const x = c.getContext("2d", { willReadFrequently: true })!;
+    x.drawImage(bmp, 0, 0, w, h);
+    const d = x.getImageData(0, 0, w, h).data;
+    const g = new Float32Array(w * h);
+    let sum = 0;
+    for (let i = 0; i < w * h; i++) { const v = 0.299 * d[i * 4] + 0.587 * d[i * 4 + 1] + 0.114 * d[i * 4 + 2]; g[i] = v; sum += v; }
+    const mean = sum / (w * h);
+    // Glare: blown-out patches in the middle of the shot, where the card sits.
+    let hot = 0, mid = 0;
+    for (let y = Math.floor(h * 0.2); y < h * 0.8; y++) for (let xx = Math.floor(w * 0.15); xx < w * 0.85; xx++) { mid++; if (g[y * w + xx] > 248) hot++; }
+    // Sharpness: how much the edges change (variance of the Laplacian). Blurry photos have soft edges.
+    let n = 0, s1 = 0, s2 = 0;
+    for (let y = 1; y < h - 1; y++) for (let xx = 1; xx < w - 1; xx++) {
+      const k = y * w + xx;
+      const l = 4 * g[k] - g[k - 1] - g[k + 1] - g[k - w] - g[k + w];
+      n++; s1 += l; s2 += l * l;
+    }
+    const sharp = s2 / n - (s1 / n) ** 2;
+    if (mean < 55) return "It's too dark to read. Find more light and take it again.";
+    if (mean > 235) return "It's too bright to read. Move out of direct light and take it again.";
+    if (hot / mid > 0.04) return "There's glare on it. Tilt it away from the light and take it again.";
+    // An ID is all hard-edged text, so it needs to be sharper than a photo of a face.
+    if (sharp < (kind === "doc" ? 150 : 50)) return "It looks blurry. Hold still, let it focus, and take it again.";
+    return null;
+  } catch { return null; }
+}
+
+// One screen: which ID, then the two photos side by side with an example of each. Photos go to a private store.
 export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSubmitted?: () => void }) {
   const { session, profile, reload } = useSession();
   const names = useMemo(() => {
@@ -17,10 +82,11 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
     return REGIONS.map((c) => ({ id: dn.of(c) ?? c, label: dn.of(c) ?? c })).sort((a, b) => a.label.localeCompare(b.label));
   }, []);
   const [country, setCountry] = useState("");
-  const [docType, setDocType] = useState("Passport");
+  const [docType, setDocType] = useState("");
   const [pick, setPick] = useState<null | "country" | "type">(null);
   const [stage, setStage] = useState<Stage>("intro");
-  const [doc, setDoc] = useState<Blob | null>(null);
+  const [doc, setDoc] = useState<Shot | null>(null);
+  const [selfie, setSelfie] = useState<Shot | null>(null);
   const [err, setErr] = useState("");
 
   useEffect(() => {
@@ -31,37 +97,41 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
 
   const status: IdStatus = profile?.id_status ?? "none";
 
-  async function send(selfie: Blob) {
-    if (!session || !doc) return;
+  async function send() {
+    if (!session) return;
+    if (!docType) return setErr("Pick which ID you're using");
+    if (!country) return setErr("Pick the country that issued it");
+    if (!doc || !selfie) return setErr("Add both photos");
     setStage("sending"); setErr("");
     try {
       const uid = session.user.id;
       const stamp = Date.now();
       const docPath = `${uid}/doc-${stamp}.jpg`;
       const selfiePath = `${uid}/selfie-${stamp}.jpg`;
-      const a = await sb.storage.from("ids").upload(docPath, doc, { contentType: "image/jpeg" });
+      const a = await sb.storage.from("ids").upload(docPath, doc.blob, { contentType: "image/jpeg" });
       if (a.error) throw new Error("The ID photo didn't upload. Check your signal and try again.");
-      const b = await sb.storage.from("ids").upload(selfiePath, selfie, { contentType: "image/jpeg" });
-      if (b.error) throw new Error("The selfie didn't upload. Check your signal and try again.");
+      const b = await sb.storage.from("ids").upload(selfiePath, selfie.blob, { contentType: "image/jpeg" });
+      if (b.error) throw new Error("The photo of you didn't upload. Check your signal and try again.");
       await rpc("submit_id_check", { p_doc_type: docType, p_country: country, p_doc_path: docPath, p_selfie_path: selfiePath });
       await reload();
       setStage("sent");
       onSubmitted?.();
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
-      setStage("selfie");
+      setStage("intro");
     }
   }
 
+  const keep = (set: (s: Shot) => void) => (b: Blob) => { set({ blob: b, url: URL.createObjectURL(b) }); setStage("intro"); };
   if (stage === "doc") {
-    return <Camera key="doc" step={1} facing="environment" title={docType === "Passport" ? "Photo page of your passport" : `Front of your ${docType.toLowerCase()}`}
-      sub="Fit it inside the frame and tap the button." tip="No glare, all four corners showing" next="Next: a selfie holding your ID next to your face."
-      onBack={() => setStage("intro")} onShot={(b) => { setDoc(b); setStage("selfie"); }} />;
+    return <Camera key="doc" step={1} facing="environment" title={docType === "Passport" ? "Photo page of your passport" : (docType ? `Front of your ${docType.toLowerCase().replace("id card", "ID card")}` : "Front of your ID")}
+      sub="Fill the frame with it and tap the button." tip="All four corners showing, no glare" next="Next: you, holding it."
+      onBack={() => setStage("intro")} onShot={keep(setDoc)} />;
   }
-  if (stage === "selfie" || stage === "sending") {
-    return <Camera key="selfie" step={2} facing="user" face title="Selfie holding your ID"
-      sub="Hold your ID next to your face so both are clear." tip="Face the light, no hat or sunglasses" next={err || "We check it by hand, usually within a few hours."}
-      busy={stage === "sending"} onBack={() => setStage("doc")} onShot={send} />;
+  if (stage === "selfie") {
+    return <Camera key="selfie" step={2} facing="user" face title="You, holding your ID"
+      sub="Hold it beside your face so both are clear." tip="Face the light, no hat or sunglasses" next="A person checks it, usually within a few hours."
+      onBack={() => setStage("intro")} onShot={keep(setSelfie)} />;
   }
   if (stage === "sent") {
     return (
@@ -79,44 +149,49 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
     );
   }
 
+  const PhotoCard = ({ title, art, shot, open, tip }: { title: string; art: ReactNode; shot: Shot | null; open: () => void; tip: string }) => (
+    <div className="vf-col">
+      <span className="vf-k">{title}</span>
+      <div className="vf-card">
+        {shot ? <span className="vf-shot"><img src={shot.url} alt="" /><span className="vf-ok">{Icon.tick("#fff", 16)} Added</span></span>
+          : <span className="vf-ex-wrap"><span className="vf-ex">Example</span>{art}</span>}
+        <button className={`btn ${shot ? "stone" : "primary"} vf-take`} onClick={open}>{Icon.camera(shot ? "var(--ink)" : "#fff")}{shot ? "Retake" : "Take photo"}</button>
+      </div>
+      <p className="vf-tip">{tip}</p>
+    </div>
+  );
+  const ready = !!doc && !!selfie;
   return (
-    <div className="screen" role="dialog" aria-label="Verify your ID">
+    <div className="screen vf" role="dialog" aria-label="Verify your ID">
       <div className="screen-body" style={{ paddingBottom: 0 }}>
         <StepHero title="Verify your ID" onBack={onClose}
           sub={status === "retake" ? `Please retake: ${profile?.id_note ?? "the photo wasn't clear"}.`
             : status === "rejected" ? `Not approved: ${profile?.id_note ?? "try a different ID"}. You can try again.`
             : status === "pending" ? "We're checking your last one. Sending again replaces it."
-            : "About 2 minutes. You get an ID verified badge."} />
-        <div className="step-body" style={{ gap: 22 }}>
-          <div className="sec" style={{ gap: 14 }}>
-            <h2>You'll need</h2>
-            <span className="row" style={{ gap: 14 }}>{Icon.idcard("var(--emerald)")}
-              <span className="stack" style={{ gap: 2 }}><span className="t17 w5">Your passport or national ID card</span><span className="t15 light muted">From any country. Not expired.</span></span></span>
-            <span className="row" style={{ gap: 14 }}>{Icon.face("var(--emerald)")}
-              <span className="stack" style={{ gap: 2 }}><span className="t17 w5">A selfie holding it</span><span className="t15 light muted">So we can match your face to the ID.</span></span></span>
-          </div>
-          <div className="stack">
-            <button className="field" onClick={() => setPick("country")}>
-              <span className="row between" style={{ width: "100%" }}>
-                <span className="stack" style={{ gap: 2 }}><span className="k">Country that issued it</span><span className={country ? "v" : "v ph"}>{country || "Pick the country"}</span></span>
-                {Icon.search()}
-              </span>
-            </button>
+            : "People see an ID verified tick on your profile, so they know you're real. It's free."} />
+        <div className="vf-body">
+          <div className="vf-pickers">
             <button className="field" onClick={() => setPick("type")}>
-              <span className="row between" style={{ width: "100%" }}>
-                <span className="stack" style={{ gap: 2 }}><span className="k">ID type</span><span className="v">{docType}</span></span>
-                {Icon.search()}
-              </span>
+              <span className="stack" style={{ gap: 2 }}><span className="k">Which ID</span><span className={docType ? "v" : "v ph"}>{docType || "Choose one"}</span></span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+            </button>
+            <button className="field" onClick={() => setPick("country")}>
+              <span className="stack" style={{ gap: 2 }}><span className="k">Country that issued it</span><span className={country ? "v" : "v ph"}>{country || "Choose the country"}</span></span>
+              {Icon.search()}
             </button>
           </div>
-          {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
+          <div className="vf-pair">
+            <PhotoCard title="Your ID" art={<IdArt />} shot={doc} open={() => setStage("doc")} tip="The whole card filling the frame, all four corners. No glare on the name or photo." />
+            <PhotoCard title="You, holding it" art={<SelfieArt />} shot={selfie} open={() => setStage("selfie")} tip="The ID beside your face, both clear. Nothing covered." />
+          </div>
+          {err ? <p className="err" style={{ margin: 0 }}>{err}</p> : <p className="vf-note">We check it by hand, usually within a few hours.</p>}
         </div>
       </div>
       <div className="bottombar" style={{ justifyContent: "flex-end" }}>
-        <button className="btn primary" onClick={() => { if (!country) return setErr("Pick the country that issued your ID"); setErr(""); setStage("doc"); }}>Start {Icon.arrow("#fff")}</button>
+        <button className="btn primary" disabled={stage === "sending"} style={ready ? undefined : { opacity: 0.45 }} onClick={send}>{stage === "sending" ? "Sending…" : "Send for checking"} {Icon.arrow("#fff")}</button>
       </div>
       {pick === "country" && <SearchPicker title="Country that issued it" placeholder="Search countries" value={country ? [country] : []} options={names} onChange={(v) => setCountry(String(v[0]))} onClose={() => setPick(null)} />}
-      {pick === "type" && <SearchPicker title="ID type" value={[docType]} options={DOC_TYPES.map((d) => ({ id: d, label: d }))} onChange={(v) => setDocType(String(v[0]))} onClose={() => setPick(null)} />}
+      {pick === "type" && <SearchPicker title="Which ID" value={docType ? [docType] : []} options={DOC_TYPES.map((d) => ({ id: d, label: d }))} onChange={(v) => setDocType(String(v[0]))} onClose={() => setPick(null)} />}
     </div>
   );
 }
@@ -130,6 +205,8 @@ function Camera({ step, facing, face, title, sub, tip, next, busy, onBack, onSho
   const file = useRef<HTMLInputElement>(null);
   const [live, setLive] = useState(false);
   const [shot, setShot] = useState<{ blob: Blob; url: string } | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const took = (blob: Blob) => { setShot({ blob, url: URL.createObjectURL(blob) }); setProblem(null); photoProblem(blob, face ? "face" : "doc").then(setProblem); };
 
   useEffect(() => {
     let stream: MediaStream | null = null;
@@ -146,7 +223,7 @@ function Camera({ step, facing, face, title, sub, tip, next, busy, onBack, onSho
       c.width = v.videoWidth; c.height = v.videoHeight;
       c.getContext("2d")!.drawImage(v, 0, 0);
       const blob: Blob = await new Promise((r) => c.toBlob((b) => r(b!), "image/jpeg", 0.9));
-      setShot({ blob, url: URL.createObjectURL(blob) });
+      took(blob);
     } else file.current?.click();
   }
 
@@ -179,12 +256,18 @@ function Camera({ step, facing, face, title, sub, tip, next, busy, onBack, onSho
         </div>
       </div>
       <div className="stack" style={{ padding: "0 20px calc(var(--safe-bottom) + 30px)", gap: 14 }}>
-        <span className="row t15 light" style={{ gap: 10, color: "rgba(255,255,255,0.85)" }}>{Icon.tick("var(--lime)", 20)}{tip}</span>
-        <span className="small light" style={{ color: "rgba(255,255,255,0.65)" }}>{next}</span>
+        {shot && problem ? <span className="cam-warn">{problem}</span> : <>
+          <span className="row t15 light" style={{ gap: 10, color: "rgba(255,255,255,0.85)" }}>{Icon.tick("var(--lime)", 20)}{tip}</span>
+          <span className="small light" style={{ color: "rgba(255,255,255,0.65)" }}>{next}</span></>}
         {shot ? (
           <div className="row" style={{ justifyContent: "flex-end", gap: 10 }}>
-            <button className="btn light" disabled={busy} onClick={() => setShot(null)}>Retake</button>
-            <button className="btn primary" disabled={busy} onClick={() => onShot(shot.blob)}>{busy ? "Sending…" : "Use this photo"} {Icon.arrow("#fff")}</button>
+            {problem ? <>
+              <button className="btn light" disabled={busy} onClick={() => onShot(shot.blob)}>Use it anyway</button>
+              <button className="btn primary" disabled={busy} onClick={() => { setShot(null); setProblem(null); }}>Take it again</button>
+            </> : <>
+              <button className="btn light" disabled={busy} onClick={() => setShot(null)}>Retake</button>
+              <button className="btn primary" disabled={busy} onClick={() => onShot(shot.blob)}>{busy ? "Sending…" : "Use this photo"} {Icon.arrow("#fff")}</button>
+            </>}
           </div>
         ) : (
           <button className="shutter" onClick={capture} aria-label="Take photo" />
@@ -193,7 +276,7 @@ function Camera({ step, facing, face, title, sub, tip, next, busy, onBack, onSho
       <input ref={file} type="file" accept="image/*" capture={facing} hidden onChange={async (e) => {
         const f = e.target.files?.[0]; if (!f) return;
         const blob = await shrinkImage(f, 2000).catch(() => f);
-        setShot({ blob, url: URL.createObjectURL(blob) });
+        took(blob);
         e.target.value = "";
       }} />
     </div>

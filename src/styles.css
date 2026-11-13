@@ -1129,3 +1129,26 @@ button.gf-f { font: inherit; color: var(--ink); cursor: pointer; }
 .sf-ph { width: 48px; height: 48px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
 .sf-ph.none { display: flex; align-items: center; justify-content: center; background: var(--ink); color: #fff; font-size: 18px; font-weight: 600; }
 .adm-main:has(.sf) .adm-title { display: none; }
+
+/* ---------- ID check ---------- */
+.vf { --ground: #edf1ef; --stone: #e3eae6; --stone-2: #dde5e1; }
+.vf .vf-body { padding: 18px 16px 24px; display: flex; flex-direction: column; gap: 18px; }
+.vf-pickers { display: flex; flex-direction: column; gap: 10px; }
+.vf-pickers .field { display: flex; flex-direction: row; align-items: center; justify-content: space-between; text-align: left; background: var(--ground); min-height: 64px; padding: 10px 14px; }
+.vf-pickers .field .stack { align-items: flex-start; }
+.vf-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.vf-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.vf-k { font-size: 13px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase; color: var(--muted); }
+.vf-card { display: flex; flex-direction: column; gap: 10px; padding: 10px; border-radius: 6px; background: var(--card); box-shadow: 0 1px 3px rgba(20,24,28,0.08); }
+.vf-ex-wrap, .vf-shot { position: relative; display: block; width: 100%; aspect-ratio: 176 / 140; border-radius: 4px; overflow: hidden; }
+.vf-ex-wrap { background: #f7f9f8; }
+.vf-art { display: block; width: 100%; height: 100%; }
+.vf-ex { position: absolute; top: 6px; left: 6px; z-index: 1; padding: 3px 7px; border-radius: 3px; background: var(--lime); color: var(--ink); font-size: 10px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; }
+.vf-shot { background: #2a2d32; }
+.vf-shot img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.vf-ok { position: absolute; top: 6px; left: 6px; display: flex; align-items: center; gap: 4px; padding: 3px 8px; border-radius: 3px; background: var(--emerald); color: #fff; font-size: 12px; font-weight: 600; }
+.vf-take { width: 100%; height: 44px; padding: 0 10px; font-size: 15px; gap: 8px; }
+.vf-take.stone { background: var(--stone); color: var(--ink); }
+.vf-tip { margin: 0; font-size: 14px; font-weight: 300; line-height: 1.45; color: var(--ink); }
+.vf-note { margin: 0; font-size: 14px; font-weight: 300; color: var(--muted); }
+.cam-warn { display: block; padding: 12px 14px; border-radius: 4px; background: #f6d95b; color: var(--ink); font-size: 15px; font-weight: 500; line-height: 1.4; }
