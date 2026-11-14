@@ -19,7 +19,7 @@ What's ready, and what's left. Ticked items are done.
 **Back up `~/Mahi Man Android Keys`** (upload key, keystore.properties, reviewer sign-in) somewhere safe, like a password manager or an encrypted drive. Every Play update must be signed with the upload key. If it's lost, Google can reset it, but that takes days.
 
 ### App Store
-- [x] **Version 1.0 with build 28** (gift cards) has been waiting for App Store review since it was resubmitted on 12 Nov 2026. Review notes say gift cards are sold outside in-app purchase. Leave it in review; newer builds go with the next version.
+- [x] **Version 1.0 with build 40** waiting for App Store review since 15 Nov 2026. It replaced build 28, which waited from 12 to 15 Nov; that submission was cancelled to ship the latest code. Review notes say gift cards, top-ups, Mahi Man Plus and the tradie plans are fees for real-world jobs, paid outside in-app purchase. Leave it in review; newer builds go with the next version.
 - [x] **TestFlight, Cairns pilot group** (public link https://testflight.apple.com/join/XSdk2dnn): builds 27, 28, 29, 30, 31, 33, 35, 37, 38 and 40 are approved for beta testing (40 approved on submission, 14 Nov 2026). **Build 39** (tradie plans) added 14 Nov 2026, beta review sent. 32, 34 and 36 were never uploaded.
 - [ ] When Apple approves 1.0: set `app_store_url` in Admin → Settings so the website and /get send iPhones to the App Store instead of TestFlight.
 - [x] App Review Information: tick sign-in required and enter review@mahiman.app with the code from `store-review-sign-in.txt` as the password. Note: "Enter the email, tap Email me a code, then type the code. No email is sent for this address."
