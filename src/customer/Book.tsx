@@ -112,7 +112,7 @@ export function Book() {
   const cat = cats.find((c) => c.id === d.categoryId) ?? null;
   const jt = types.find((t) => t.category_id === d.categoryId) ?? null;
   const suburb = suburbs.find((s) => s.id === d.suburbId) ?? null;
-  // A job that needs a trade licence (electrical, plumbing, gas...) is a trade job: a budget, and licensed tradies send their price.
+  // A job that needs a trade licence (electrical, plumbing, gas...) is a trade job: licensed tradies send a fixed quote.
   const tradeSkill = skillList.find((k) => k.trade && k.category_id === d.categoryId && (d.skills ?? []).includes(k.id)) ?? null;
   const isTrade = !!tradeSkill;
   useEffect(() => {
@@ -135,7 +135,6 @@ export function Book() {
     return { cents: amt(r.payg, r.payg_max), pct: r.payg, from: (payInfo?.plan ?? "now") as "now" | "weekly" | "fortnightly" };
   })();
   const bookingFee = feeMode === "on_choose" && !isPlus && !isTrade ? Math.min(Math.round((d.priceCents * feePct) / 100), feeMax) : 0;
-  const budgetOk = !!d.budgetMin && !!d.budgetMax && d.budgetMin >= 5000 && d.budgetMax >= d.budgetMin;
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
   const reusedPhotos = d.reuse.filter((r) => r.kind === "photo");
@@ -188,7 +187,6 @@ export function Book() {
     if (!photoCount) return go("/book/photos");
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !/T\d/.test(d.startAt)) return go("/book/when");
-    if (isTrade && !budgetOk) return go("/book/price");
     if (!session) { setAuth(true); return; }
     // A face to go with the job: workers see it before they offer.
     if (!profile?.photo_path && !photoAdded.current) { setPhotoScreen(true); return; }
@@ -219,7 +217,7 @@ export function Book() {
         p_details: d.details, p_media: uploaded, p_price_cents: d.priceCents,
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
         p_included: d.included ?? [], p_excluded: d.excluded ?? [], p_skills: (d.skills ?? []).filter((id) => skillList.some((k) => k.id === id && k.category_id === d.categoryId)),
-        p_budget_min_cents: isTrade ? d.budgetMin : null, p_budget_max_cents: isTrade ? d.budgetMax : null,
+        p_budget_min_cents: null, p_budget_max_cents: null,
         p_pay_method: isTrade ? null : d.payMethod ?? null, p_urgent: !isTrade && !!d.boost,
       });
       const finish = async () => {
@@ -241,10 +239,7 @@ export function Book() {
   );
 
   // ---------- Screens ----------
-  if (path === "/book/price" && isTrade) {
-    return <BudgetStep title={d.details} licence={tradeSkill!.needs ?? "licence"} catName={cat?.name ?? ""} min={d.budgetMin ?? null} max={d.budgetMax ?? null}
-      onChange={(budgetMin, budgetMax) => setD({ ...d, budgetMin, budgetMax })} />;
-  }
+  if (path === "/book/price" && isTrade) { go("/book/check", true); return null; }
   if (path === "/book/price") {
     return <PriceStep value={d.priceCents} catName={d.priceSet ? null : cat?.name ?? null} onChange={(v) => setD({ ...d, priceCents: v, priceSet: true })} />;
   }
@@ -311,9 +306,8 @@ export function Book() {
             {/* The money: big, plain, and nothing hidden. TaskRabbit and DoorDash both list each line, then a bold total. */}
             <section className="ck-money">
               {isTrade ? (<>
-                <div className="ck-m"><span>Your budget</span><b>{budgetOk ? `${money(d.budgetMin!)}–${money(d.budgetMax!)}` : "Not set"}</b></div>
                 <div className="ck-m"><span>Connection fee</span><b>$0</b></div>
-                <p>Up to 2 licensed tradies send you a fixed price. You pay the tradie directly.</p>
+                <p>Licensed tradies send you a fixed quote. Select one and pay the tradie directly.</p>
               </>) : (<>
                 {/* Two people get paid, so two groups: your worker, then Mahi Man. */}
                 <div className="ck-grp">
@@ -598,52 +592,6 @@ function PriceStep({ value, catName, onChange }: { value: number; catName: strin
   );
 }
 
-// Trade jobs: a budget, not a price. Licensed tradies see it, then each sends a fixed price.
-function BudgetStep({ title, licence, catName, min, max, onChange }: { title: string; licence: string; catName: string; min: number | null; max: number | null; onChange: (min: number | null, max: number | null) => void }) {
-  const [lo, setLo] = useState(min ? String(min / 100) : "");
-  const [hi, setHi] = useState(max ? String(max / 100) : "");
-  const [err, setErr] = useState("");
-  const clean = (v: string) => v.replace(/[^0-9]/g, "").slice(0, 5);
-  const name = title.split(/(?<=[.!?])\s/)[0].replace(/[.!?]$/, "").slice(0, 70);
-  const next = () => {
-    const a = Number(lo) * 100, b = Number(hi) * 100;
-    if (!a || !b) return setErr("Add both amounts.");
-    if (a < 5000) return setErr("The lowest budget is $50.");
-    if (b < a) return setErr("Up to has to be more than From.");
-    if (b > 2000000) return setErr("The highest budget is $20,000.");
-    onChange(a, b); go("/book/check");
-  };
-  const Li = ({ b, t }: { b: string; t: string }) => <div className="price-li">{Icon.tick("var(--emerald)", 20)}<span><b>{b}</b>{t}</span></div>;
-  return (
-    <div className="app" style={{ background: "var(--card)" }}>
-      <StepHero step={4} of={STEPS} title="What's your budget?" sub="Licensed tradies see it before they take your job." onBack={() => history.back()} />
-      <div className="cp-sec">
-        <span className="cp-title">{name}</span>
-        <span className="t15 light muted">{catName}, needs {lc(licence)}</span>
-        <div className="row" style={{ gap: 10, marginTop: 14 }}>
-          <label className="field" style={{ flex: 1 }}><span className="k">From</span>
-            <span className="row" style={{ gap: 0 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={lo} placeholder="150" aria-label="Budget from"
-              onChange={(e) => { const v = clean(e.target.value); setLo(v); setErr(""); onChange(v ? Number(v) * 100 : null, hi ? Number(hi) * 100 : null); }} /></span></label>
-          <label className="field" style={{ flex: 1 }}><span className="k">Up to</span>
-            <span className="row" style={{ gap: 0 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={hi} placeholder="300" aria-label="Budget up to"
-              onChange={(e) => { const v = clean(e.target.value); setHi(v); setErr(""); onChange(lo ? Number(lo) * 100 : null, v ? Number(v) * 100 : null); }} /></span></label>
-        </div>
-        {err && <p className="err" style={{ margin: "12px 0 0" }}>{err}</p>}
-      </div>
-      <div className="cp-sec">
-        <span className="cp-title">What happens next</span>
-        <Li b="Up to 2 licensed tradies take it." t="Licence and insurance checked by us." />
-        <Li b="Each one sends you their price." t="Fixed, so you know what you'll pay before anyone comes." />
-        <Li b="You choose, or say no to both." t="Nothing to pay Mahi Man." />
-      </div>
-      <div style={{ flex: 1 }} />
-      <div className="bottombar">
-        <span className="t15 light muted">Next, check and post</span>
-        <button className="btn primary" onClick={next}>Continue {Icon.arrow("#fff")}</button>
-      </div>
-    </div>
-  );
-}
 
 
 // ---------- Step 1: What's the job ----------
@@ -923,11 +871,11 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
     if (!d.asap && (!selDay || !selTime)) return setErr("Pick a day and a start time.");
     if (!d.asap && new Date(d.startAt) < earliest) return setErr("Pick a time at least an hour from now.");
     setErr("");
-    go("/book/price");
+    go(trade ? "/book/check" : "/book/price");
   };
   return (
     <div className="app">
-      <StepHero step={3} of={STEPS} title="Where and when?" onBack={() => history.back()} />
+      <StepHero step={3} of={trade ? 3 : STEPS} title="Where and when?" onBack={() => history.back()} />
       <div className="step-body">
         <div className="sec">
           <h2>Where</h2>
@@ -985,7 +933,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
         )}
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next, false, trade ? "your budget" : "your price")}
+      {bar("Continue", next, false, trade ? "check and post" : "your price")}
       {changeArea.picker}
       {pick === "suburb" && <SearchPicker title="Suburb" placeholder={`Search ${area?.name ?? ""} suburbs`} value={d.suburbId ? [d.suburbId] : []}
         options={[...(changeArea.option ? [changeArea.option] : []), ...suburbs.map((s) => ({ id: s.id, label: s.name }))]} onChange={(v) => { setD({ ...d, suburbId: Number(v[0]) }); setErr(""); }} onClose={() => setPick(null)} />}

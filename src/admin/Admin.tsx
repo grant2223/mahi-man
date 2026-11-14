@@ -166,7 +166,7 @@ function Overview({ open, allowed }: { open: (t: Tab, day?: string) => void; all
     ["strikes", t.strikes, "Workers to review", "Too many strikes"],
     ["tradies", t.tradies, "Tradie orders", "Waiting for payment"],
     ["partners", t.partners, "Partner applications", "Waiting for approval"],
-    ["jobs", tr?.no_quote_jobs ?? 0, "Trade jobs with no price", "After 2 hours"],
+    ["jobs", tr?.no_quote_jobs ?? 0, "Trade jobs with no quote", "After 2 hours"],
   ] as [Tab, number, string, string][]).filter((r) => r[1] > 0 && allowed(r[0]));
   const series = (k: keyof Period) => d.days.map((x) => x[k] as number | null);
   const K: [string, string, number | null, number | null, string, keyof Period, "up" | "down", number, boolean][] = [
@@ -1248,16 +1248,16 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "strikes_review_90", label: "Account reviewed after", hint: "Strikes in 90 days.", t: "num", unit: "strikes" },
   ] },
   { title: "Trade jobs", text: "Jobs that need a trade licence. Tradies pay for jobs upfront and send a fixed price; customers pay Mahi Man nothing.", fields: [
-    { k: "trade_payg_cents", label: "Pay as you go, per job", t: "num", unit: "$" },
-    { k: "trade_plan_cents", label: "Trade plan, per month", t: "num", unit: "$" },
-    { k: "trade_plan_jobs", label: "Trade plan jobs", t: "num", unit: "jobs" },
-    { k: "trade_plan_extra_cents", label: "Trade plan, extra jobs", t: "num", unit: "$" },
-    { k: "trade_pro_cents", label: "Trade Pro, per month", t: "num", unit: "$" },
-    { k: "trade_pro_jobs", label: "Trade Pro jobs", t: "num", unit: "jobs" },
-    { k: "trade_pro_extra_cents", label: "Trade Pro, extra jobs", t: "num", unit: "$" },
-    { k: "trade_pro_head_start_minutes", label: "Trade Pro sees new jobs first by", t: "num", unit: "minutes" },
-    { k: "trade_quotes_per_job", label: "Prices per job", t: "num", unit: "tradies" },
-    { k: "trade_quiet_hours", label: "Job back if the customer doesn't reply in", t: "num", unit: "hours" },
+    { k: "trade_win_fee_cents", label: "Standard, per job won", t: "num", unit: "$" },
+    { k: "trade_premium_month_cents", label: "Premium, per month", t: "num", unit: "$" },
+    { k: "trade_premium_year_cents", label: "Premium, per year", t: "num", unit: "$" },
+    { k: "trade_first_quotes", label: "Quotes a job takes at first", hint: "Premium tradies quote first.", t: "num", unit: "tradies" },
+    { k: "trade_more_quotes", label: "More quotes that open", t: "num", unit: "tradies" },
+    { k: "trade_more_every_minutes", label: "More quotes open every", hint: "Until the customer selects one.", t: "num", unit: "minutes" },
+    { k: "trade_max_quotes", label: "Most quotes on a job", t: "num", unit: "tradies" },
+    { k: "trade_standard_after_minutes", label: "Standard tradies see new jobs after", t: "num", unit: "minutes" },
+    { k: "trade_standard_early_minutes", label: "Or after, if no Premium tradie has quoted", t: "num", unit: "minutes" },
+    { k: "trade_quiet_hours", label: "A quote stays open for", t: "num", unit: "hours" },
   ] },
   { title: "Partners", text: "Local businesses that pay monthly to show one offer in the app.", fields: [
     { k: "partner_cents", label: "Partner, per month", t: "num", unit: "$" },
@@ -1635,13 +1635,11 @@ function Reviews() {
   );
 }
 
-// ---------- Tradies: invoices to mark paid, and every tradie's plan ----------
-interface TradeSummary { orders_waiting: number; waiting_cents: number; active_plans: number; paid_30_cents: number; trade_jobs_30: number; no_quote_jobs: number }
-interface TradeOrder { id: number; created_at: string; worker_id: string; worker_name: string; business_name: string | null; email: string | null; kind: "plan" | "jobs"; plan: string; jobs: number; amount_cents: number; status: string; renewal: boolean; paid_at: string | null; note: string | null }
-interface Tradie { worker_id: string; full_name: string; business_name: string | null; licences: string[]; plan: string | null; status: string | null; jobs_left: number; renews_at: string | null; quotes_30: number; won_30: number; paid_cents: number }
-interface TradeLog { created_at: string; change: number; reason: string; job_title: string | null }
-const PLAN_LABEL: Record<string, string> = { payg: "Pay as you go", trade: "Trade", pro: "Trade Pro" };
-const TRADE_VIEWS: [string, string][] = [["requested", "Invoices to be paid"], ["tradies", "Tradies"], ["paid", "Paid invoices"], ["all", "All invoices"]];
+// ---------- Tradies: what they owe (Premium and jobs won) to mark paid, and every tradie ----------
+interface TradeSummary { orders_waiting: number; waiting_cents: number; premium: number; standard: number; paid_30_cents: number; trade_jobs_30: number; no_quote_jobs: number }
+interface TradeOrder { id: number; created_at: string; worker_id: string; worker_name: string; business_name: string | null; email: string | null; kind: "plan" | "win"; billing: "month" | "year" | null; job: string | null; amount_cents: number; status: string; renewal: boolean; paid_at: string | null; note: string | null }
+interface Tradie { worker_id: string; full_name: string; business_name: string | null; licences: string[]; plan: "standard" | "premium" | null; premium: boolean; billing: "month" | "year" | null; renews_at: string | null; quotes_30: number; won_30: number; owed_cents: number; paid_cents: number }
+const TRADE_VIEWS: [string, string][] = [["requested", "To be paid"], ["tradies", "Tradies"], ["paid", "Paid"], ["all", "Everything"]];
 
 function Tradies({ onChanged }: { onChanged: () => void }) {
   const toast = useToast();
@@ -1650,22 +1648,21 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
   const [sum, setSum] = useState<TradeSummary | null>(null);
   const [orders, setOrders] = useState<TradeOrder[] | null>(null);
   const [tradies, setTradies] = useState<Tradie[] | null>(null);
-  const [open, setOpen] = useState<Tradie | null>(null);
   const load = useCallback(() => {
     rpc<TradeSummary>("admin_trade_summary").then(setSum).catch(() => {});
-    rpc<Tradie[]>("admin_tradies").then((r) => { setTradies(r); setOpen((o) => (o ? r.find((x) => x.worker_id === o.worker_id) ?? null : null)); }).catch((e) => toast((e as Error).message));
-    if (view !== "tradies") rpc<TradeOrder[]>("admin_trade_orders", { p_status: view }).then(setOrders).catch((e) => toast((e as Error).message));
+    if (view === "tradies") rpc<Tradie[]>("admin_tradies").then(setTradies).catch((e) => toast((e as Error).message));
+    else rpc<TradeOrder[]>("admin_trade_orders", { p_status: view }).then(setOrders).catch((e) => toast((e as Error).message));
   }, [view, toast]);
   useEffect(() => { load(); }, [load]);
   const act = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); toast(msg); load(); onChanged(); } catch (e) { toast((e as Error).message); } };
-  if (open) return <TradieDetail t={open} onBack={() => setOpen(null)} onChanged={() => { load(); onChanged(); }} />;
-  const what = (o: TradeOrder) => o.kind === "plan" && o.plan !== "payg" ? `${PLAN_LABEL[o.plan]}, ${o.jobs} jobs${o.renewal ? ", renewal" : ""}` : `${o.jobs} job${o.jobs === 1 ? "" : "s"}, ${PLAN_LABEL[o.plan].toLowerCase()}`;
+  const what = (o: TradeOrder) => o.kind === "plan" ? `Premium, ${o.billing === "year" ? "yearly" : "monthly"}${o.renewal ? ", renewal" : ""}` : `Job won${o.job ? `: ${o.job}` : ""}`;
+  const plan = (t: Tradie) => t.premium ? `Premium, ${t.billing === "year" ? "yearly" : "monthly"}` : t.plan ? "Standard" : "Not joined";
   return (
     <>
       {sum && (
         <div className="stats">
-          <Stat n={money2(sum.waiting_cents)} l={`${sum.orders_waiting} invoice${sum.orders_waiting === 1 ? "" : "s"} to be paid`} />
-          <Stat n={sum.active_plans} l="Monthly plans" />
+          <Stat n={money2(sum.waiting_cents)} l={`${sum.orders_waiting} to be paid`} />
+          <Stat n={sum.premium} l={`Premium tradies, ${sum.standard} on Standard`} />
           <Stat n={money2(sum.paid_30_cents)} l="Paid, 30 days" />
           <Stat n={sum.trade_jobs_30} l="Trade jobs posted, 30 days" />
         </div>
@@ -1676,89 +1673,45 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
         </button>
       </div>
       {view === "tradies" ? (
-        !tradies ? <Loading /> : !tradies.length ? <AdmEmpty text="No licensed tradies yet. They show here once a trade licence is sent in." /> : (
+        !tradies ? <Loading /> : !tradies.length ? <AdmEmpty text="No tradies yet. They show here once a trade licence is sent in." /> : (
           <div className="table-wrap"><table className="rows">
-            <thead><tr><th>Tradie</th><th>Licences</th><th>Plan</th><th>Jobs left</th><th>Prices sent, 30 days</th><th>Won</th><th>Paid in total</th><th /></tr></thead>
+            <thead><tr><th>Tradie</th><th>Licences</th><th>Plan</th><th>Quotes, 30 days</th><th>Won</th><th>To pay</th><th>Paid in total</th></tr></thead>
             <tbody>{tradies.map((t) => (
-              <tr key={t.worker_id} className="click" onClick={() => setOpen(t)}>
+              <tr key={t.worker_id}>
                 <td><span className="w5">{t.business_name ?? t.full_name}</span>{t.business_name && <span className="small muted light" style={{ display: "block" }}>{t.full_name}</span>}</td>
                 <td className="light">{t.licences.length ? t.licences.join(", ") : "Being checked"}</td>
-                <td>{t.plan ? <span className={`badge ${t.status === "active" ? "g" : ""}`}>{PLAN_LABEL[t.plan]}{t.status === "stopped" ? ", stopped" : ""}</span> : <span className="muted">None</span>}{t.renews_at && <span className="small muted light" style={{ display: "block" }}>Renews {day(t.renews_at)}</span>}</td>
-                <td className="w5">{t.jobs_left}</td>
+                <td><span className={`badge ${t.premium ? "y" : t.plan ? "g" : ""}`}>{plan(t)}</span>{t.premium && t.renews_at && <span className="small muted light" style={{ display: "block" }}>Renews {day(t.renews_at)}</span>}</td>
                 <td>{t.quotes_30}</td>
                 <td>{t.won_30}</td>
+                <td className="w5">{t.owed_cents ? money2(t.owed_cents) : "—"}</td>
                 <td>{money2(t.paid_cents)}</td>
-                <td style={{ width: 32 }}>{Icon.chevron("var(--faint)")}</td>
               </tr>))}</tbody>
           </table></div>
         )
-      ) : !orders ? <Loading /> : !orders.length ? <AdmEmpty text={view === "requested" ? "No invoices waiting to be paid." : "No invoices yet."} /> : (
+      ) : !orders ? <Loading /> : !orders.length ? <AdmEmpty text={view === "requested" ? "Nothing waiting to be paid." : "Nothing yet."} /> : (
         <div className="table-wrap"><table className="rows">
-          <thead><tr><th>Sent</th><th>Tradie</th><th>Email</th><th>For</th><th>Amount</th><th>Status</th><th /></tr></thead>
+          <thead><tr><th>Date</th><th>Reference</th><th>Tradie</th><th>For</th><th>Amount</th><th>Status</th><th /></tr></thead>
           <tbody>{orders.map((o) => (
             <tr key={o.id}>
               <td className="light" style={{ whiteSpace: "nowrap" }}>{dayTime(o.created_at)}</td>
-              <td><span className="w5">{o.business_name ?? o.worker_name}</span>{o.business_name && <span className="small muted light" style={{ display: "block" }}>{o.worker_name}</span>}</td>
-              <td className="light">{o.email ?? "—"}</td>
+              <td className="w5">TR-{o.id}</td>
+              <td><span className="w5">{o.business_name ?? o.worker_name}</span><span className="small muted light" style={{ display: "block" }}>{o.email ?? ""}</span></td>
               <td>{what(o)}</td>
               <td className="w5">{money2(o.amount_cents)}</td>
               <td>{o.status === "paid" ? <span className="badge g">Paid {o.paid_at ? day(o.paid_at) : ""}</span> : o.status === "cancelled" ? <span className="badge">Cancelled</span> : <span className="badge y">To be paid</span>}</td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                 {o.status === "requested" && <>
-                  <button className="btn stone small" onClick={() => act(() => rpc("admin_trade_order_cancel", { p_id: o.id }), "Invoice cancelled")}>Cancel</button>{" "}
-                  <button className="btn primary small" onClick={() => act(() => rpc("admin_trade_order_paid", { p_id: o.id }), `Paid. ${o.jobs} job${o.jobs === 1 ? "" : "s"} added.`)}>Mark paid</button>
+                  <button className="btn stone small" onClick={() => act(() => rpc("admin_trade_order_cancel", { p_id: o.id }), "Cancelled")}>Cancel</button>{" "}
+                  <button className="btn primary small" onClick={() => act(() => rpc("admin_trade_order_paid", { p_id: o.id }), o.kind === "plan" ? "Paid. Premium is on." : "Paid")}>Mark paid</button>
                 </>}
               </td>
             </tr>))}</tbody>
         </table></div>
       )}
-      {view === "requested" && orders && orders.length > 0 && <p className="light muted" style={{ marginTop: 14 }}>Email each tradie an invoice. Mark it paid when the money arrives, and their jobs are added straight away.</p>}
+      {view === "requested" && orders && orders.length > 0 && <p className="light muted" style={{ marginTop: 14 }}>Tradies see what they owe, your bank details and the reference in Your trade plan. Mark it paid when the money arrives. Premium starts as soon as it's marked paid.</p>}
       {pick && <SearchPicker title="Show" placeholder="Search" options={TRADE_VIEWS.map(([id, label]) => ({ id, label }))} value={[view]}
         onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
     </>
-  );
-}
-
-function TradieDetail({ t, onBack, onChanged }: { t: Tradie; onBack: () => void; onChanged: () => void }) {
-  const toast = useToast();
-  const [log, setLog] = useState<TradeLog[]>([]);
-  const [pick, setPick] = useState(false);
-  const load = useCallback(() => { rpc<TradeLog[]>("admin_trade_log", { p_worker: t.worker_id }).then(setLog).catch(() => {}); }, [t.worker_id]);
-  useEffect(() => { load(); }, [load]);
-  const adjust = async (n: number) => {
-    try { await rpc("admin_trade_adjust", { p_worker: t.worker_id, p_change: n, p_reason: n > 0 ? "Added by Mahi Man" : "Taken off by Mahi Man" }); toast(n > 0 ? `${n} added` : `${-n} taken off`); load(); onChanged(); }
-    catch (e) { toast((e as Error).message); }
-  };
-  return (
-    <div className="u-page">
-      <button className="u-back" onClick={onBack}>{Icon.back("var(--emerald)")} All tradies</button>
-      <div className="u-head">
-        <div className="stack" style={{ gap: 8, flex: 1, minWidth: 0 }}>
-          <h2>{t.business_name ?? t.full_name}</h2>
-          <span className="light muted">{t.business_name ? `${t.full_name}, ` : ""}{t.licences.join(", ") || "Licence being checked"}</span>
-          <span className="light">{t.plan ? `${PLAN_LABEL[t.plan]}${t.status === "stopped" ? ", stopped" : ""}` : "No plan"}, <b className="w5">{t.jobs_left} jobs left</b>{t.renews_at ? `, renews ${day(t.renews_at)}` : ""}</span>
-        </div>
-        <button className="btn stone" style={{ alignSelf: "flex-start" }} onClick={() => setPick(true)}>Change jobs left</button>
-      </div>
-      <div className="table-wrap" style={{ marginTop: 20 }}>
-        <table className="rows">
-          <thead><tr><th>Date</th><th>Jobs</th><th>Why</th><th>Job</th></tr></thead>
-          <tbody>
-            {log.map((l, i) => (
-              <tr key={i}>
-                <td className="light">{dayTime(l.created_at)}</td>
-                <td className="w5" style={{ color: l.change > 0 ? "var(--emerald)" : undefined }}>{l.change > 0 ? `+${l.change}` : l.change}</td>
-                <td>{l.reason}</td>
-                <td className="light">{l.job_title ?? "—"}</td>
-              </tr>
-            ))}
-            {log.length === 0 && <tr><td colSpan={4} className="muted">Nothing yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-      {pick && <SearchPicker title="Change jobs left" value={[]} options={[1, 2, 5, -1, -2].map((n) => ({ id: n, label: n > 0 ? `Add ${n} job${n === 1 ? "" : "s"}` : `Take ${-n} job${n === -1 ? "" : "s"} off` }))}
-        onClose={() => setPick(false)} onChange={(v) => adjust(Number(v[0]))} />}
-    </div>
   );
 }
 

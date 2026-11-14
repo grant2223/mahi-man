@@ -46,7 +46,7 @@ export function Privacy() {
         <li>Payments: if you add a card, it is collected and stored by our payment provider, Stripe. We never see or keep your full card number. We keep the card type, last 4 digits and expiry so you can see which card is saved, plus a record of fees charged and refunded.</li>
         <li>Location when you open the app: your phone's location is used on your phone to open on your area and the jobs near you. It isn't sent to us.</li>
         <li>Location on the way to a job: when a worker taps "I'm on my way", their phone's location is shared with that job's customer until they enter the start code. It is never collected at any other time, and the trip is deleted when it ends. We keep where and when the trip started, and where the worker was when they tapped "I'm here", so we can settle a late arrival or a customer who wasn't home.</li>
-        <li>Trade jobs: the budget a customer sets; each tradie's price, what it includes and when they can come; a tradie's business name if they give one; their plan, invoices, payments and how many jobs they have left.</li>
+        <li>Trade jobs: each tradie's quote, what it includes and when they can come; a tradie's business name if they give one; whether they're on Standard or Premium, and their invoices and payments.</li>
         <li>Local offers: which partner offers you see, open and use (call, get directions or copy the code), counted once a day. Partners only ever see totals, never who you are.</li>
         <li>Partners: the business name, ABN, contact name, email, phone and offer a business sends us when it applies, and its invoices.</li>
         <li>Reliability and cancellations: when a job is cancelled, who cancelled, when, and any fee; a worker's strikes and their "Turns up" score; and any credit a customer has.</li>
@@ -61,8 +61,8 @@ export function Privacy() {
       <ul>
         <li>Workers who can take a job see its photos, video, description, suburb and the customer's first name, last initial, photo, whether they are ID verified, and their average ratings and how many workers recommend them. The street address is only shown to the worker who takes the job.</li>
         <li>Customers see their worker's first name, last initial, photo, average ratings, how many customers recommend them, their "Turns up" score, skills, experience, gear, verified licences and whether they are ID verified. While the worker is on the way to their job, the customer also sees the worker's location on a map.</li>
-        <li>On trade jobs, tradies who can take the job also see the customer's budget, and the customer sees each tradie's price, what it includes, when they can come and their business name. A customer and a tradie who sent a price can message each other before the customer chooses.</li>
-        <li>A tradie's plan, invoices and jobs left are only shown to that tradie and the Mahi Man team.</li>
+        <li>On trade jobs, the customer sees each tradie's quote, what it includes, when they can come and their business name. A customer and a tradie who sent a quote can message each other before the customer selects one.</li>
+        <li>A tradie's plan and invoices are only shown to that tradie and the Mahi Man team.</li>
         <li>A worker's strikes are only shown to that worker and the Mahi Man team.</li>
         <li>Phone numbers and email addresses are never shown to the other person.</li>
       </ul>
@@ -128,10 +128,11 @@ export function Terms() {
       <h2>Trade jobs</h2>
       <ul>
         <li>A job that needs a trade licence, such as electrical, plumbing or gas work, is a trade job. Only tradies whose licence and public liability insurance we have checked can see it.</li>
-        <li>The customer sets a budget instead of a price. Up to 2 tradies each send a fixed price, what it includes and when they can come. The price the customer chooses becomes the job's fixed price, and the customer pays the tradie directly. Customers pay Mahi Man nothing for trade jobs.</li>
-        <li>Tradies pay Mahi Man for trade jobs upfront, one at a time or on a monthly plan. Sending a price uses one job. The job is given back if the customer doesn't reply within 48 hours or cancels before choosing. It is not given back if the customer chooses the other tradie, says no, or the tradie withdraws their price.</li>
-        <li>Monthly plans renew each month until stopped, with no contract. Unused jobs roll over for one month. Until card payments start, plans and jobs are paid by invoice and added once paid. Prices include GST where it applies and can change with notice in the app.</li>
-        <li>Once a customer chooses a tradie, the job follows the same rules as every other job, including Cancelling.</li>
+        <li>The customer describes the job and adds photos. Tradies each send a fixed quote, what it includes and when they can come. The quote the customer selects becomes the job's fixed price, and the customer pays the tradie directly. Customers pay Mahi Man nothing for trade jobs.</li>
+        <li>Tradies join on Standard or Premium. Standard is free to join, and sending a quote is free. When a customer selects a Standard tradie's quote, a fee for the job won goes on the tradie's invoice. Premium is paid monthly or yearly, with no fee on jobs won.</li>
+        <li>Premium tradies see new trade jobs first. A job takes a set number of quotes at first, and more open over time until the customer selects one. Standard tradies can quote after a set time, or sooner if no Premium tradie has quoted. The current fees and times are shown in the app.</li>
+        <li>Premium renews each month or year until stopped, with no contract. If it's stopped, it runs to the end of what's paid. Until card payments start, Premium and fees are paid by bank transfer, and Premium starts once it's paid. If a renewal isn't paid within 7 days, the tradie moves to Standard. Prices include GST where it applies and can change with notice in the app.</li>
+        <li>Once a customer selects a tradie, the job follows the same rules as every other job, including Cancelling.</li>
       </ul>
       <h2>Local offers</h2>
       <ul>

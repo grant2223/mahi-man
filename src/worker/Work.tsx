@@ -19,7 +19,7 @@ import { Standby } from "./Standby";
 import { Offline } from "./Offline";
 import { Feed } from "../customer/Feed";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
-import { TradeFeed, TradeJob, TradeJoin, TradePlan, TradePlans, TradeStrip, TradeWaiting, useTrade } from "./Trade";
+import { joined, TradeFeed, TradeJob, TradeJoin, TradePlan, TradeStrip, TradeWaiting, useTrade } from "./Trade";
 
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
@@ -127,7 +127,7 @@ export interface Offer {
   asap: boolean; start_at: string; details: string; included: string[]; excluded: string[]; cover_path: string | null; photo_count: number;
   video_path: string | null; customer_id: string; customer_name: string; customer_photo: string | null; customer_verified: boolean;
   customer_rating: number | null; customer_jobs: number; customer_since: string; others_keen: number; invited_me: boolean; customer_scores?: Scores | null;
-  trade?: boolean; budget_min_cents?: number | null; budget_max_cents?: number | null; spots_left?: number | null;
+  trade?: boolean;
   urgent?: boolean; pay_method?: "cash" | "bank" | null;
 }
 
@@ -149,8 +149,8 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const seen = useRef<Set<string>>(new Set());
   const pending = useRef(0);
   const { trade, reload: reloadTrade } = useTrade();
-  const tradeLeft = trade?.plan?.jobs_left ?? 0;
-  const [tradeScreen, setTradeScreen] = useState<null | "join" | "plans" | "plan" | "feed">(null);
+  const isTradie = joined(trade);
+  const [tradeScreen, setTradeScreen] = useState<null | "join" | "plan" | "feed">(null);
   const [tradeOpen, setTradeOpen] = useState<Offer | null>(null);
   const tradeJobs = offers.filter((o) => o.trade);
   const feedOffer = useFeedOffer(online);
@@ -180,11 +180,11 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   }, [covers, onTaken]);
 
   useEffect(() => {
-    if (!online && !mine.length && tradeLeft < 1) return;
+    if (!online && !mine.length && !isTradie) return;
     poll();
     const t = window.setInterval(poll, 8000);
     return () => window.clearInterval(t);
-  }, [online, poll, mine.length, tradeLeft]);
+  }, [online, poll, mine.length, isTradie]);
 
   useEffect(() => { rpc<MyOffer[]>("my_offers").then((m) => { setMine(m); pending.current = m.filter((x) => x.status === "pending").length; }).catch(() => {}); }, []);
 
@@ -220,7 +220,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         {!online && <button className="btn of-hero-go" onClick={toggle}>Go online</button>}
       </section>
 
-      <TradeStrip trade={trade} open={tradeJobs.length} onJoin={() => setTradeScreen("join")} onFeed={() => setTradeScreen("feed")} onPlan={() => setTradeScreen("plan")} />
+      <TradeStrip trade={trade} open={tradeJobs.length} onJoin={() => setTradeScreen("join")} onFeed={() => { reloadTrade(); setTradeScreen("feed"); }} onPlan={() => setTradeScreen("plan")} />
 
       {wrapups.length > 0 && (
         <div className="wrap-list">
@@ -276,12 +276,11 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
           onClose={() => setWaiting(null)} /> : null;
       })()}
       {ask && <AlertsAsk role="work" onDone={() => setAsk(false)} />}
-      {trade && tradeScreen === "join" && <TradeJoin trade={trade} onBack={() => setTradeScreen(null)} onPlans={() => setTradeScreen("plans")} />}
-      {trade && tradeScreen === "plans" && <TradePlans trade={trade} onBack={() => setTradeScreen(trade.plan || trade.order ? "plan" : "join")} onDone={() => { reloadTrade(); setTradeScreen("plan"); }} />}
-      {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={() => setTradeScreen(null)} onChanged={reloadTrade} onPlans={() => setTradeScreen("plans")} />}
-      {trade && tradeScreen === "feed" && <TradeFeed jobs={tradeJobs} covers={covers} left={tradeLeft} plan={trade.plan ? ({ payg: "Pay as you go", trade: "Trade plan", pro: "Trade Pro" } as const)[trade.plan.plan] : ""}
-        onBack={() => setTradeScreen(null)} onOpen={setTradeOpen} />}
-      {tradeOpen && <TradeJob o={tradeOpen} left={tradeLeft} onBack={() => setTradeOpen(null)}
+      {trade && tradeScreen === "join" && <TradeJoin trade={trade} onBack={() => setTradeScreen(isTradie ? "plan" : null)}
+        onJoined={(plan) => { reloadTrade(); poll(); setTradeScreen(plan === "premium" ? "plan" : "feed"); }} />}
+      {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={() => setTradeScreen(null)} onChanged={reloadTrade} onUpgrade={() => setTradeScreen("join")} />}
+      {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} covers={covers} onBack={() => setTradeScreen(null)} onOpen={setTradeOpen} onUpgrade={() => setTradeScreen("join")} />}
+      {tradeOpen && trade && <TradeJob o={tradeOpen} trade={trade} onBack={() => setTradeOpen(null)}
         onSent={() => { const id = tradeOpen.id; setTradeOpen(null); setTradeScreen(null); reloadTrade(); poll(); setWaiting(id); }} onGone={() => { setTradeOpen(null); poll(); }} />}
     </>
   );

@@ -31,7 +31,7 @@ const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minu
 // The customer's job while it's open: people who say they're available, and Yes or Ignore on each.
 export function OffersView({ jobId, title, price, asap, startAt, searchingAt, boosted, feeDue = 0, onChosen, onCancel, onBoosted, trade }: {
   jobId: string; title: string; price: string; asap: boolean; startAt: string; searchingAt: string; boosted: boolean; feeDue?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
-  trade?: { min: number; max: number } | null;
+  trade?: boolean;
 }) {
   const { profile: me, reload } = useSession();
   const [verifying, setVerifying] = useState(false);
@@ -96,17 +96,17 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
   if (trade) {
     return (
       <div className="app" style={{ background: "var(--card)" }}>
-        <StepHero title="Prices from tradies" sub={`${title} · your budget ${money(trade.min)}–${money(trade.max)}`} onBack={() => go("/")} />
+        <StepHero title="Quotes from tradies" sub={title} onBack={() => go("/")} />
         {!shown.length && (
           <div className="cp-sec">
-            <span className="cp-title">Waiting for prices</span>
-            <span className="t15 light muted" style={{ lineHeight: 1.45 }}>Licensed tradies near you have been told. Up to 2 send you a fixed price, and it shows here. You get an alert for each one.</span>
+            <span className="cp-title">Waiting for quotes</span>
+            <span className="t15 light muted" style={{ lineHeight: 1.45 }}>Licensed tradies near you have been told. Their quotes show here, and you get an alert for each one.</span>
           </div>
         )}
         <div className="offers">
           {shown.map((o) => {
             const first = o.full_name.split(" ")[0];
-            const creds = extras[o.worker_id]?.creds ?? [];
+            const creds = (extras[o.worker_id]?.creds ?? []).filter((c) => c !== "Insured");
             const rec = recLine(o.scores, "customers");
             return (
               <div key={o.worker_id} className="offer">
@@ -121,20 +121,20 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
                       {creds.map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c}</span>)}
                       <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}Insured</span>
                     </span>
-                    <span className="m">{o.business_name ? `${o.full_name}, ` : ""}{rec || (o.is_new ? "New to Mahi Man" : `${o.jobs_done} jobs`)} · fixed price</span>
+                    <span className="m">{o.business_name ? `${o.full_name}, ` : ""}{rec || (o.is_new ? "New to Mahi Man" : `${o.jobs_done} jobs`)}</span>
                     {o.included && <span className="m">Includes {o.included.charAt(0).toLowerCase() + o.included.slice(1)}</span>}
                     {o.can_come_at && <span className="m em">Can come {dayTime(o.can_come_at)}</span>}
                   </span>
                 </div>
                 <div className="row" style={{ gap: 10 }}>
                   <button className="btn stone" style={{ flex: 1 }} onClick={() => setChat(o)} disabled={!!busy}>{Icon.msg("var(--ink)")} Message</button>
-                  <button className="btn primary" style={{ flex: 1 }} onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Choose ${first}`}</button>
+                  <button className="btn primary" style={{ flex: 1 }} onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Select ${first}`}</button>
                 </div>
               </div>
             );
           })}
         </div>
-        <Note icon="lock">You pay the tradie directly when the job's done. Choosing one tells the other straight away.</Note>
+        <Note icon="lock">You pay the tradie directly when the job's done. Selecting one tells the others straight away.</Note>
         <div style={{ flex: 1 }} />
         <div style={{ padding: "0 16px calc(var(--safe-bottom) + 24px)" }}>
           <button className="link quiet" onClick={onCancel}>Cancel this job</button>

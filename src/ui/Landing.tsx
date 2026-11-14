@@ -34,7 +34,7 @@ const USES: [string, string, string][] = [
 ];
 
 // Every answer here is how the platform actually works (the terms and privacy policy say the same). Fees and windows come from the live settings.
-type Fee = { pct: number; max: number; plus: number; tu: number; pl: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number; tpayg: number; tplan: number; tquiet: number };
+type Fee = { pct: number; max: number; plus: number; tu: number; pl: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number; twin: number; tmonth: number; tquiet: number };
 const faq = (fee: Fee): [string, [string, string][]][] => [
   ["Getting help", [
     ["How fast can someone come?", "The moment you post, workers who are switched on near you get an alert. If nobody says they're keen within 10 minutes, workers further out can see your job too."],
@@ -53,11 +53,11 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
   ]],
   ["Trade jobs", [
     ["What's a trade job?", "Work that needs a trade licence: electrical, plumbing, gas fitting, building work over $3,300, pest control and pool safety inspections. Only tradies whose licence and insurance we've checked can take them."],
-    ["How do I get a price?", "Post the job with photos and a budget, From and Up to. Up to 2 licensed tradies send you a fixed price, what it includes and when they can come. You choose one, or say no to both."],
-    ["Can I ask the tradie questions first?", "Yes. Message either tradie from their price before you choose. Your number is never shared."],
-    ["What does it cost me?", "Nothing to Mahi Man. You pay the tradie their price directly when the job's done."],
-    ["I'm a tradie. How does it work?", `You buy jobs upfront: ${money(fee.tpayg)} a job, or a monthly plan from ${money(fee.tplan)}. You see the job and the budget before you send a price, and only 2 tradies can send one. You keep 100% of the job.`],
-    ["What if the customer goes quiet?", `If they don't reply within ${fee.tquiet} hours, or cancel before choosing, the job goes back on your plan. Unused jobs roll over for one month. No contract.`],
+    ["How do I get a quote?", "Post the job with photos. Licensed tradies send you a fixed quote, what it includes and when they can come. Select one, or say no to all of them."],
+    ["Can I ask the tradie questions first?", "Yes. Message any tradie from their quote before you select one. Your number is never shared."],
+    ["What does it cost me?", "Nothing to Mahi Man. You pay the tradie their quote directly when the job's done."],
+    ["I'm a tradie. How does it work?", `Join Standard free and pay ${money(fee.twin)} only when a customer selects your quote. Or go Premium, ${money(fee.tmonth)} a month: unlimited jobs, no fee when you win, and you see every new job first. You keep 100% of the job.`],
+    ["What if the customer goes quiet?", `Your quote stays open for ${fee.tquiet} hours. Sending a quote is free, so there's nothing to get back. No contract.`],
   ]],
   ["Cancelling: customers", [
     ["Can I cancel?", `Yes. It's free until your worker is on the way. After that it's ${money(fee.cancel)}, and all of it goes to your worker for their time.`],
@@ -104,16 +104,16 @@ export function Landing() {
   useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
   // The connection fee customers pay from launch, from the live settings.
-  const [fee, setFee] = useState<Fee>({ pct: 12, max: 3000, plus: 999, tu: 10, pl: 6, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, tpayg: 3500, tplan: 14900, tquiet: 48 });
+  const [fee, setFee] = useState<Fee>({ pct: 12, max: 3000, plus: 999, tu: 10, pl: 6, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, twin: 9900, tmonth: 24900, tquiet: 48 });
   useEffect(() => {
     sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "plus_cents", "topup_fee_percent", "plus_fee_percent", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
       "noshow_wait_minutes", "worker_cancel_window_minutes", "strikes_offline_30", "offline_days", "strikes_review_90", "customer_late_cancels_30",
-      "trade_payg_cents", "trade_plan_cents", "trade_quiet_hours"]).then(({ data }) => {
+      "trade_win_fee_cents", "trade_premium_month_cents", "trade_quiet_hours"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
       setFee((f) => ({ pct: m.booking_fee_percent || f.pct, max: m.booking_fee_max_cents || f.max, plus: m.plus_cents || f.plus, tu: m.topup_fee_percent || f.tu, pl: m.plus_fee_percent || f.pl,
         cancel: m.cancel_fee_cents || f.cancel, soon: m.worker_late_cancel_cents || f.soon, late: m.late_minutes || f.late, wait: m.noshow_wait_minutes || f.wait,
         window: m.worker_cancel_window_minutes || f.window, s30: m.strikes_offline_30 || f.s30, off: m.offline_days || f.off, s90: m.strikes_review_90 || f.s90,
-        lc30: m.customer_late_cancels_30 || f.lc30, tpayg: m.trade_payg_cents || f.tpayg, tplan: m.trade_plan_cents || f.tplan, tquiet: m.trade_quiet_hours || f.tquiet }));
+        lc30: m.customer_late_cancels_30 || f.lc30, twin: m.trade_win_fee_cents || f.twin, tmonth: m.trade_premium_month_cents || f.tmonth, tquiet: m.trade_quiet_hours || f.tquiet }));
     });
   }, []);
   const [open, setOpen] = useState<{ id: string; job_name: string; category: string | null; icon: string; suburb: string; asap: boolean; pay_cents: number }[]>([]);
