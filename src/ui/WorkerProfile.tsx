@@ -5,7 +5,7 @@ import { expLabel } from "../worker/Skills";
 import { recLine, ScoreStrip, type Scores } from "./Ratings";
 
 interface Profile {
-  name: string; photo: string | null; verified: boolean; rating: number | null; jobs: number; since: string; turns_up: number | null; scores: Scores | null;
+  name: string; age?: number | null; photo: string | null; verified: boolean; rating: number | null; jobs: number; since: string; turns_up: number | null; scores: Scores | null;
   types: { category: string; icon: string; years: number | null; skills: string[]; gear: string[] }[];
   creds: string[];
 }
@@ -25,7 +25,7 @@ export function WorkerProfile({ workerId, onBack }: { workerId: string; onBack: 
             <div className="row" style={{ gap: 14 }}>
               <Tile name={p.name} photo={p.photo} size={72} />
               <span className="stack" style={{ gap: 4 }}>
-                <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: -0.6 }}>{p.name}</span>
+                <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: -0.6 }}>{p.name}{p.age != null ? `, ${p.age}` : ""}</span>
                 {p.verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
                 <span className="t15 light muted">{p.jobs} job{p.jobs === 1 ? "" : "s"}, since {since}</span>
                 {(p.turns_up != null || p.scores?.reviewed) && <span className="t15 em">{[p.turns_up != null ? `Turns up ${p.turns_up}%` : "", recLine(p.scores, "customers")].filter(Boolean).join(". ")}</span>}

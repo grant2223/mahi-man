@@ -66,7 +66,7 @@ export interface Profile {
   first_name?: string | null; middle_names?: string | null; last_name?: string | null; area_id?: number | null;
   plus_until?: string | null; card_brand?: string | null; card_last4?: string | null; card_exp?: string | null;
 }
-export interface PersonCard { full_name: string; photo_path: string | null; rating: number | null; jobs_done: number; id_verified: boolean; member_since: string; recommended?: number | null; reviewed?: number | null; turns_up?: number | null }
+export interface PersonCard { full_name: string; photo_path: string | null; rating: number | null; jobs_done: number; id_verified: boolean; member_since: string; recommended?: number | null; reviewed?: number | null; turns_up?: number | null; age?: number | null }
 
 // Calls the server functions (payments, payouts, worker checks).
 export async function api<T = Record<string, unknown>>(action: string, body: Record<string, unknown> = {}): Promise<T> {

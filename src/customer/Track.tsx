@@ -296,7 +296,7 @@ export function Track({ id }: { id: string }) {
             <div className="pad row">
               <Tile name={worker.full_name} photo={worker.photo_path} />
               <span className="stack" style={{ gap: 3, flex: 1 }}>
-                <span style={{ fontSize: 19, fontWeight: 500 }}>{worker.full_name}</span>
+                <span style={{ fontSize: 19, fontWeight: 500 }}>{worker.full_name}{worker.age != null ? `, ${worker.age}` : ""}</span>
                 {worker.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not verified</span>}
                 <span className="small light muted">{[worker.turns_up != null ? `Turns up ${worker.turns_up}%` : "", worker.reviewed ? `recommended by ${worker.recommended} of ${worker.reviewed}` : "", `${worker.jobs_done} jobs done`].filter(Boolean).join(", ").replace(/^r/, "R")}</span>
               </span>

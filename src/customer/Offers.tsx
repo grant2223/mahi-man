@@ -21,10 +21,13 @@ export interface Offer {
   jobs_for_me: number; eta_minutes: number; distance_km: number | null; expires_at: string; is_new: boolean;
   category: string | null; cat_rating: number | null; cat_jobs: number; local_customers: number; suburb: string;
   turns_up: number | null; scores: Scores | null;
-  price_cents: number | null; included: string | null; can_come_at: string | null; business_name: string | null;
+  price_cents: number | null; included: string | null; can_come_at: string | null; business_name: string | null; age?: number | null;
 }
 
 interface Extra { worker_id: string; skills: string[]; years: number | null; gear: string[]; creds: string[] }
+
+// Gold verified tick: ID checked by the Mahi Man team.
+export const GoldTick = ({ s = 24 }: { s?: number }) => <svg className="gold-tick" width={s} height={s} viewBox="0 0 24 24" aria-label="ID verified"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#f5c518" /><path d="M7.8 12.2l2.8 2.8 5.6-6" fill="none" stroke="#2a2d32" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" /></svg>;
 
 const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
 
@@ -211,50 +214,33 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
           const at = asap ? clock(new Date(Date.now() + o.eta_minutes * 60000)) : clock(new Date(startAt));
           const photo = avatarUrl(o.photo_path);
           const first = o.full_name.split(" ")[0];
+          const insured = (extras[o.worker_id]?.creds ?? []).includes("Insured");
+          const sub = [insured ? "Insured" : "", o.jobs_for_me > 0 ? `${o.jobs_for_me} job${o.jobs_for_me === 1 ? "" : "s"} for you` : "", o.id_verified ? "" : "ID not checked"].filter(Boolean).join(" · ");
+          const reviewed = o.scores?.reviewed ?? 0;
+          const rec = reviewed ? `${Math.round(((o.scores?.recommended ?? 0) / reviewed) * 100)}%` : "New";
+          const recSub = reviewed ? "recommend" : "no reviews yet";
           return (
-            <div key={o.worker_id} className="offer">
-              <div className="row" style={{ gap: 14, alignItems: "flex-start" }}>
-                <span className="ph">{photo ? <img src={photo} alt="" /> : null}</span>
-                <span className="t">
-                  <span className="row between" style={{ gap: 8, alignItems: "baseline" }}>
-                    <button className="name-link" onClick={() => setProfile(o.worker_id)}>{o.full_name}{Icon.chevron("var(--muted)")}</button>
-                    <span className={`left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
-                  </span>
-                  <span className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>
-                    {o.id_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
-                    {o.turns_up != null && <span className={o.turns_up >= 90 ? "badge-ver" : "badge-unver"}>Turns up {o.turns_up}%</span>}
-                    {o.jobs_for_me > 0 && <span className="badge-ver">Used before</span>}
-                    {(extras[o.worker_id]?.creds ?? []).map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c}</span>)}
-                  </span>
-                  {(() => {
-                    const x = extras[o.worker_id];
-                    if (!x) return null;
-                    const exp = [x.years != null ? expLabel(x.years) : "", x.gear.length ? `brings ${x.gear.slice(0, 2).join(", ").toLowerCase()}` : ""].filter(Boolean).join(", ");
-                    return <>
-                      {x.skills.length > 0 && <span className="m sk">{x.skills.slice(0, 2).join(", ")}{x.skills.length > 2 ? ` +${x.skills.length - 2}` : ""}</span>}
-                      {exp && <span className="m">{exp.charAt(0).toUpperCase() + exp.slice(1)}</span>}
-                    </>;
-                  })()}
-                  <span className="m">
-                    {o.is_new ? `New to Mahi Man, ${o.jobs_done} job${o.jobs_done === 1 ? "" : "s"}`
-                      : o.category && o.cat_jobs > 0 ? `${o.cat_jobs} ${o.category.toLowerCase()} job${o.cat_jobs === 1 ? "" : "s"}`
-                      : `${o.jobs_done} jobs`}
-                    {o.jobs_for_me > 0 ? `, ${o.jobs_for_me} for you` : ""}
-                  </span>
-                  {(() => {
-                    const r = recLine(o.scores, "customers");
-                    const parts = [r, o.local_customers > 0 ? `${r ? "used" : "Used"} by ${o.local_customers} in ${o.suburb}` : ""].filter(Boolean);
-                    return parts.length ? <span className={r ? "m em" : "m"}>{parts.join(", ")}</span> : null;
-                  })()}
-                  <span className="e">Can be there {at}{o.distance_km != null ? `, ${o.distance_km} km away` : ""}</span>
+            <section key={o.worker_id} className="ox">
+              {/* Photo first, with name, age and the gold ID tick on it: the way Uber and Airbnb show the person who's coming. */}
+              <button className="ox-pic" onClick={() => setProfile(o.worker_id)} style={photo ? { backgroundImage: `url(${photo})` } : undefined} aria-label={`${o.full_name}'s profile`}>
+                {!photo && <span className="ox-ini">{o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>}
+                <span className={`ox-left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
+                <span className="ox-nm">
+                  <span className="n">{o.full_name}{o.age != null && <>, <i>{o.age}</i></>}{o.id_verified && <GoldTick />}</span>
+                  {sub && <span className="s">{sub}</span>}
                 </span>
+              </button>
+              <div className="ox-st">
+                <div><b>{rec}</b><small>{recSub}</small></div>
+                <div><b>{o.jobs_done}</b><small>jobs done</small></div>
+                <div><b>{o.turns_up != null ? `${o.turns_up}%` : "New"}</b><small>turn up</small></div>
               </div>
-              <ScoreStrip scores={o.scores} worker />
-              <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
+              <div className="ox-eta">Can be there <b>{at}</b>{o.distance_km != null && <i>{o.distance_km} km away</i>}</div>
+              <div className="ox-btns">
                 <button className="btn stone" onClick={() => ignore(o)} disabled={!!busy}>Ignore</button>
                 <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Select ${first}`}</button>
               </div>
-            </div>
+            </section>
           );
         })}
       </div>
