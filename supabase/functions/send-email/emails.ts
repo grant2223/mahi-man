@@ -20,8 +20,6 @@ function layout(ctx: Ctx, preheader: string, hero: Hero, body: string) {
     `<a href="${esc(b.href)}" style="display:inline-block;text-decoration:none"><img src="${site}/email/${b.img}.png" width="${b.w}" height="44" alt="${alt}" style="display:block;border:0"></a>`;
   const badges = [apple && badge(apple, "Get Mahi Man on iPhone"), ctx.play && badge({ href: ctx.play, img: "google-play", w: 155 }, "Get Mahi Man on Google Play")].filter(Boolean)
     .map((h) => `<td style="padding:0 10px 0 0">${h}</td>`).join("");
-  const stores = [ctx.appStore || ctx.testflight ? `<a href="${esc(ctx.appStore || ctx.testflight)}" style="color:${C.emerald};text-decoration:none;font-weight:500">iPhone</a>` : "",
-    ctx.play ? `<a href="${esc(ctx.play)}" style="color:${C.emerald};text-decoration:none;font-weight:500">Android</a>` : ""].filter(Boolean).join(`<span style="color:#b5bdb9">&nbsp;&nbsp;·&nbsp;&nbsp;</span>`);
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,300;12..96,400;12..96,500;12..96,600&display=swap" rel="stylesheet">
