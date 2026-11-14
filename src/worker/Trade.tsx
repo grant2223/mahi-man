@@ -237,7 +237,7 @@ export function TradeJob({ o, trade, onBack, onSent, onGone }: { o: Offer; trade
   async function send() {
     const c = Number(price) * 100;
     if (!c) return setErr("Add your price.");
-    if (!at) return setErr("Pick when you can come.");
+    if (!at) return setErr("Select when you can come.");
     if (inc.trim().length < 3) return setErr("Say what your quote includes.");
     setErr(""); setBusy(true);
     try {
@@ -266,7 +266,7 @@ export function TradeJob({ o, trade, onBack, onSent, onGone }: { o: Offer; trade
           <div className="row" style={{ gap: 10 }}>
             <label className="field" style={{ flex: 1 }}><span className="k">Fixed price</span>
               <span className="row" style={{ gap: 0 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={price} placeholder="180" onChange={(e) => { setPrice(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)); setErr(""); }} /></span></label>
-            <button className="field sel" style={{ flex: 1.3 }} onClick={() => setPick(true)}><span className="k">Can come</span><span className={at ? "v" : "v ph"}>{at ? times.find((t) => t.id === at)?.label ?? dayTime(at) : "Pick a time"}</span></button>
+            <button className="field sel" style={{ flex: 1.3 }} onClick={() => setPick(true)}><span className="k">Can come</span><span className={at ? "v" : "v ph"}>{at ? times.find((t) => t.id === at)?.label ?? dayTime(at) : "Select a time"}</span></button>
           </div>
           <label className="field" style={{ marginTop: 10, minHeight: 84, justifyContent: "flex-start" }}><span className="k">What's included</span>
             <textarea value={inc} rows={2} maxLength={200} placeholder="Parts and labour" onChange={(e) => { setInc(e.target.value); setErr(""); }} /></label>

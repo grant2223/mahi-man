@@ -56,9 +56,9 @@ export function ProfileForm({ button, onSaved }: { button: string; onSaved: () =
     const d = Number(f.day), m = Number(f.month), y = Number(f.year);
     const dt = new Date(Date.UTC(y, m - 1, d));
     if (!d || !m || f.year.length !== 4 || dt.getUTCDate() !== d || dt.getUTCMonth() !== m - 1) return setErr("Check your date of birth");
-    if (!f.gender) return setErr("Pick your gender, or Prefer not to say");
-    if (!f.nationality) return setErr("Pick your nationality");
-    if (!f.suburb) return setErr("Pick your suburb");
+    if (!f.gender) return setErr("Select your gender, or Prefer not to say");
+    if (!f.nationality) return setErr("Select your nationality");
+    if (!f.suburb) return setErr("Select your suburb");
     if (!f.heard) return setErr("Tell us how you heard about us");
     const dial = DIAL_CODES.find(([c]) => c === f.country)?.[2] ?? "";
     const digits = f.number.replace(/\D/g, "").replace(/^0+/, "");
@@ -85,10 +85,10 @@ export function ProfileForm({ button, onSaved }: { button: string; onSaved: () =
       </div>
       <h4 className="pf-h">About you</h4>
       <div className="pf-grid">
-        <button className="field sel" onClick={() => setPick("gender")}><span className="k">Gender</span><span className={f.gender ? "v" : "v ph"}>{GENDERS.find(([k]) => k === f.gender)?.[1] ?? "Pick"}</span></button>
-        <button className="field sel" onClick={() => setPick("nationality")}><span className="k">Nationality</span><span className={f.nationality ? "v" : "v ph"}>{f.nationality || "Pick"}</span></button>
-        <button className="field sel" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={subName ? "v" : "v ph"}>{subName || "Pick"}</span></button>
-        <button className="field sel" onClick={() => setPick("heard")}><span className="k">Heard about us</span><span className={f.heard ? "v" : "v ph"}>{f.heard || "Pick"}</span></button>
+        <button className="field sel" onClick={() => setPick("gender")}><span className="k">Gender</span><span className={f.gender ? "v" : "v ph"}>{GENDERS.find(([k]) => k === f.gender)?.[1] ?? "Select"}</span></button>
+        <button className="field sel" onClick={() => setPick("nationality")}><span className="k">Nationality</span><span className={f.nationality ? "v" : "v ph"}>{f.nationality || "Select"}</span></button>
+        <button className="field sel" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={subName ? "v" : "v ph"}>{subName || "Select"}</span></button>
+        <button className="field sel" onClick={() => setPick("heard")}><span className="k">Heard about us</span><span className={f.heard ? "v" : "v ph"}>{f.heard || "Select"}</span></button>
       </div>
       <h4 className="pf-h">Mobile</h4>
       <div className="pf-mob">

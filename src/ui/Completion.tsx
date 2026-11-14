@@ -165,8 +165,8 @@ export function ProblemScreen({ job, jobName, otherName, isWorker, onBack, onDon
 
   async function send() {
     setErr("");
-    if (!reason) return setErr("Pick what went wrong.");
-    if (!fix) return setErr("Pick what would put it right.");
+    if (!reason) return setErr("Select what went wrong.");
+    if (!fix) return setErr("Select what would put it right.");
     if (details.trim().length < 10) return setErr("Tell us a little more about what happened.");
     if (!session) return;
     setBusy(true);
@@ -190,11 +190,11 @@ export function ProblemScreen({ job, jobName, otherName, isWorker, onBack, onDon
       <div className="screen-body" style={{ padding: "22px 16px 0", display: "flex", flexDirection: "column", gap: 22, background: "var(--card)" }}>
         <div className="stack" style={{ gap: 8 }}>
           <span className="cp-label">What went wrong?</span>
-          <button className="cp-select" onClick={() => setPick("reason")}><span className={reason ? "" : "ph"}>{reason || "Choose a reason"}</span>{Icon.down("var(--ink)")}</button>
+          <button className="cp-select" onClick={() => setPick("reason")}><span className={reason ? "" : "ph"}>{reason || "Select a reason"}</span>{Icon.down("var(--ink)")}</button>
         </div>
         <div className="stack" style={{ gap: 8 }}>
           <span className="cp-label">What would put it right?</span>
-          <button className="cp-select" onClick={() => setPick("fix")}><span className={fix ? "" : "ph"}>{fix || "Choose one"}</span>{Icon.down("var(--ink)")}</button>
+          <button className="cp-select" onClick={() => setPick("fix")}><span className={fix ? "" : "ph"}>{fix || "Select one"}</span>{Icon.down("var(--ink)")}</button>
         </div>
         <div className="stack" style={{ gap: 8 }}>
           <label className="cp-label" htmlFor="pd">Tell us what happened</label>

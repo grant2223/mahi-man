@@ -25,7 +25,7 @@ export function ReportScreen({ name, userId, jobId, messageId, onBack, onDone }:
   const [err, setErr] = useState("");
 
   async function send() {
-    if (!reason) return setErr("Pick a reason");
+    if (!reason) return setErr("Select a reason");
     setBusy(true); setErr("");
     try {
       await rpc("report_content", { p_reason: reason, p_details: details, p_user: userId ?? null, p_job: jobId ?? null, p_message: messageId ?? null });
@@ -44,7 +44,7 @@ export function ReportScreen({ name, userId, jobId, messageId, onBack, onDone }:
         <div className="stack">
           <button className="field" onClick={() => setPick(true)}>
             <span className="row between" style={{ width: "100%" }}>
-              <span className="stack" style={{ gap: 2 }}><span className="k">Reason</span><span className={reason ? "v" : "v ph"}>{reason || "Pick a reason"}</span></span>
+              <span className="stack" style={{ gap: 2 }}><span className="k">Reason</span><span className={reason ? "v" : "v ph"}>{reason || "Select a reason"}</span></span>
               {Icon.search()}
             </span>
           </button>

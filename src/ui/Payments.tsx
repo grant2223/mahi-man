@@ -283,7 +283,7 @@ export function PaymentsPage() {
         <span className="t14 light muted" style={{ marginBottom: 4 }}>Fees are invoiced and paid by bank transfer. One transfer covers all your jobs.</span>
         <button className="cp-select" onClick={() => setPick("plan")}><span>{PLAN_OPTS.find((o) => o.id === plan)?.label}</span>{Icon.chevron("var(--muted)")}</button>
         {plan !== "now" && <button className="cp-select" onClick={() => setPick("payday")}><span>Payday: {DAYS[payday]}</span>{Icon.chevron("var(--muted)")}</button>}
-        {plan === "fortnightly" && <button className="cp-select" onClick={() => setPick("anchor")}><span className={anchorOpts.some((d) => isoDay(d) === anchor) ? "" : "ph"}>{anchor && anchorOpts.some((d) => isoDay(d) === anchor) ? `Next payday: ${dayLong(noonIso(new Date(`${anchor}T00:00:00Z`)))}` : "Pick your next payday"}</span>{Icon.chevron("var(--muted)")}</button>}
+        {plan === "fortnightly" && <button className="cp-select" onClick={() => setPick("anchor")}><span className={anchorOpts.some((d) => isoDay(d) === anchor) ? "" : "ph"}>{anchor && anchorOpts.some((d) => isoDay(d) === anchor) ? `Next payday: ${dayLong(noonIso(new Date(`${anchor}T00:00:00Z`)))}` : "Select your next payday"}</span>{Icon.chevron("var(--muted)")}</button>}
         {dirty && <button className="btn primary" style={{ alignSelf: "flex-start", marginTop: 6 }} disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button>}
       </div>
 

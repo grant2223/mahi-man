@@ -99,8 +99,8 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
 
   async function send() {
     if (!session) return;
-    if (!docType) return setErr("Pick which ID you're using");
-    if (!country) return setErr("Pick the country that issued it");
+    if (!docType) return setErr("Select which ID you're using");
+    if (!country) return setErr("Select the country that issued it");
     if (!doc || !selfie) return setErr("Add both photos");
     setStage("sending"); setErr("");
     try {
@@ -172,11 +172,11 @@ export function VerifyFlow({ onClose, onSubmitted }: { onClose: () => void; onSu
         <div className="vf-body">
           <div className="vf-pickers">
             <button className="field" onClick={() => setPick("type")}>
-              <span className="stack" style={{ gap: 2 }}><span className="k">Which ID</span><span className={docType ? "v" : "v ph"}>{docType || "Choose one"}</span></span>
+              <span className="stack" style={{ gap: 2 }}><span className="k">Which ID</span><span className={docType ? "v" : "v ph"}>{docType || "Select"}</span></span>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
             </button>
             <button className="field" onClick={() => setPick("country")}>
-              <span className="stack" style={{ gap: 2 }}><span className="k">Country that issued it</span><span className={country ? "v" : "v ph"}>{country || "Choose the country"}</span></span>
+              <span className="stack" style={{ gap: 2 }}><span className="k">Country that issued it</span><span className={country ? "v" : "v ph"}>{country || "Select the country"}</span></span>
               {Icon.search()}
             </button>
           </div>

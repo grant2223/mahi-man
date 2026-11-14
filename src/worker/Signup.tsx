@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { areaSuburbs } from "../lib/suburbs";
 import { Capacitor } from "@capacitor/core";
 import { SITE } from "../lib/share";
 import { api, rpc, sb, type IdStatus, type Suburb, myId } from "../lib/supabase";
@@ -229,7 +230,7 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
   const { area } = useArea();
   const changeArea = useChangeArea();
   useEffect(() => {
-    if (area) sb.from("suburbs").select("id,name,area_id").eq("area_id", area.id).order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
+    if (area) areaSuburbs<Suburb>(area.id, "id,name,area_id").then(setSuburbs).catch(() => {});
   }, [area?.id]);
   useEffect(() => {
     myId().then((uid) => sb.from("workers").select("base_suburb_id,radius_km,has_vehicle").eq("id", uid).maybeSingle()).then(({ data }) => {
@@ -241,8 +242,8 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
     <Screen title="Where you work" onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <div className="stack">
-          <button className="field sel" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={base ? "v" : "v ph"}>{suburbs.find((s) => s.id === base)?.name ?? "Pick your suburb"}</span></button>
-          <button className="field sel" onClick={() => setPick("radius")}><span className="k">How far you'll travel</span><span className={radius ? "v" : "v ph"}>{radius ? `Up to ${radius} km` : "Pick how far"}</span></button>
+          <button className="field sel" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={base ? "v" : "v ph"}>{suburbs.find((s) => s.id === base)?.name ?? "Select your suburb"}</span></button>
+          <button className="field sel" onClick={() => setPick("radius")}><span className="k">How far you'll travel</span><span className={radius ? "v" : "v ph"}>{radius ? `Up to ${radius} km` : "Select how far"}</span></button>
           <button className="field sel" onClick={() => setPick("vehicle")}><span className="k">Ute or trailer</span><span className="v">{vehicle ? "Yes, I have one" : "No"}</span></button>
         </div>
         <p className="small light muted" style={{ lineHeight: 1.45 }}>Tip runs and mowing need a vehicle.</p>

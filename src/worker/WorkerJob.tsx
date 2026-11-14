@@ -431,9 +431,9 @@ function EtaScreen({ job, name, onBack, onDone }: { job: Job; name: string; onBa
         <div className="cp-sec">
           <div className="row" style={{ gap: 10 }}>
             <div className="field" style={{ flex: 1 }}><span className="k">You said</span><span className="v">{hm(job.eta_at)}</span></div>
-            <button className="field" style={{ flex: 1 }} onClick={() => setPick("time")}><span className="k">New time</span><span className={mins ? "v" : "v ph"}>{mins ? hm(new Date(base + mins * 60000).toISOString()) : "Pick"}</span></button>
+            <button className="field" style={{ flex: 1 }} onClick={() => setPick("time")}><span className="k">New time</span><span className={mins ? "v" : "v ph"}>{mins ? hm(new Date(base + mins * 60000).toISOString()) : "Select"}</span></button>
           </div>
-          <button className="field" style={{ marginTop: 10 }} onClick={() => setPick("reason")}><span className="k">Reason</span><span className={reason ? "v" : "v ph"} style={{ fontSize: 16, fontWeight: reason ? 500 : 400 }}>{reason ?? "Pick a reason"}</span></button>
+          <button className="field" style={{ marginTop: 10 }} onClick={() => setPick("reason")}><span className="k">Reason</span><span className={reason ? "v" : "v ph"} style={{ fontSize: 16, fontWeight: reason ? 500 : 400 }}>{reason ?? "Select a reason"}</span></button>
         </div>
         <Note icon="clock">You can do this once per job. {name} can accept the new time or cancel for free.</Note>
         <div style={{ flex: 1 }} />
@@ -591,8 +591,8 @@ function TripAsk({ name, onBack, onGo }: { name: string; onBack: () => void; onG
             <div key={b} className="row" style={{ gap: 12, alignItems: "flex-start" }}><span style={{ flexShrink: 0, display: "flex" }}>{Icon.tick("var(--emerald)", 22)}</span><span className="stack" style={{ gap: 2 }}><span className="t17 w5">{b}</span><span className="t15 light muted">{t}</span></span></div>
           ))}
           <p className="small light muted" style={{ margin: 0, lineHeight: 1.5 }}>{Capacitor.getPlatform() === "android"
-            ? <>Your phone will ask to allow location. Pick "While using the app". It keeps working while you drive with Maps, and a notification shows while it's on.</>
-            : <>Your iPhone will ask to allow location. Pick "Allow While Using App". It keeps working while you drive with Maps.</>}</p>
+            ? <>Your phone will ask to allow location. Select "While using the app". It keeps working while you drive with Maps, and a notification shows while it's on.</>
+            : <>Your iPhone will ask to allow location. Select "Allow While Using App". It keeps working while you drive with Maps.</>}</p>
         </div>
         <div style={{ flex: 1 }} />
         <div className="actionbar"><button className="btn stone" style={{ flex: 1 }} onClick={onBack}>Not now</button><button className="btn primary" style={{ flex: 2 }} onClick={onGo}>Allow and go</button></div>

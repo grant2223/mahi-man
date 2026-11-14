@@ -94,8 +94,8 @@ export function JobsAndSkills({ onBack }: { onBack: () => void }) {
             </button>
           );
         })}
-        {!myTypes.length && <p className="t17 light" style={{ padding: "20px 16px 0", margin: 0, lineHeight: 1.4 }}>Pick the kinds of work you're happy to do. You can add details later.</p>}
-        <div style={{ padding: 16 }}><button className={myTypes.length ? "btn stone" : "btn primary"} onClick={() => setAdding(true)}>{Icon.plus(myTypes.length ? "var(--ink)" : "#fff")} {myTypes.length ? "Add more" : "Pick your skills"}</button></div>
+        {!myTypes.length && <p className="t17 light" style={{ padding: "20px 16px 0", margin: 0, lineHeight: 1.4 }}>Select the kinds of work you're happy to do. You can add details later.</p>}
+        <div style={{ padding: 16 }}><button className={myTypes.length ? "btn stone" : "btn primary"} onClick={() => setAdding(true)}>{Icon.plus(myTypes.length ? "var(--ink)" : "#fff")} {myTypes.length ? "Add more" : "Select your skills"}</button></div>
       </div>
       {adding && (
         <SearchPicker title="What will you do?" multi placeholder="Search" value={[]}
@@ -265,7 +265,7 @@ function AddCredential({ types, initial, onBack, onSaved }: { types: CredType[];
     <Screen title={t ? `Add ${lc(t.name)}` : "Add a licence or certificate"} onBack={onBack}>
       <div className="screen-body" style={{ padding: 16 }}>
         <div className="stack">
-          <button className="field sel" onClick={() => setPick(true)}><span className="k">Which one</span><span className={t ? "v w4" : "v ph"}>{t?.name ?? "Pick one"}</span></button>
+          <button className="field sel" onClick={() => setPick(true)}><span className="k">Which one</span><span className={t ? "v w4" : "v ph"}>{t?.name ?? "Select"}</span></button>
           <label className="field"><span className="k">{insurance ? "Policy number" : "Number"}</span><input value={number} onChange={(e) => setNumber(e.target.value)} autoCapitalize="characters" /></label>
           <DateField label="Expiry date, if it has one" value={expiry} onChange={setExpiry} min={today()} />
           <label className="field" style={{ cursor: "pointer" }}>

@@ -162,7 +162,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
           <>
             <span className="label" style={{ marginTop: 18 }}>Who's available</span>
             <span className="big lime">{shown.length}</span>
-            <span className="sub" style={{ marginTop: 6 }}>Pick who you want. Each offer lasts 15 minutes.</span>
+            <span className="sub" style={{ marginTop: 6 }}>Select who you want. Each offer lasts 15 minutes.</span>
           </>
         ) : (
           <>
@@ -252,7 +252,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
               <ScoreStrip scores={o.scores} worker />
               <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
                 <button className="btn stone" onClick={() => ignore(o)} disabled={!!busy}>Ignore</button>
-                <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Yes, choose ${first}`}</button>
+                <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Select ${first}`}</button>
               </div>
             </div>
           );

@@ -67,7 +67,7 @@ export function PartnerPage() {
       <input type={type} value={f[k]} placeholder={ph} onChange={set(k)} /></label>
   );
   const Sel = ({ label, value, onClick, span }: { label: string; value: string; onClick: () => void; span?: boolean }) => (
-    <button className="field sel" style={span ? { gridColumn: "1 / -1" } : undefined} onClick={onClick}><span className="k">{label}</span><span className={value ? "v w4" : "v ph"}>{value || "Pick one"}</span></button>
+    <button className="field sel" style={span ? { gridColumn: "1 / -1" } : undefined} onClick={onClick}><span className="k">{label}</span><span className={value ? "v w4" : "v ph"}>{value || "Select"}</span></button>
   );
   return (
     <div className="ld">

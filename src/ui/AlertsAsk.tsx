@@ -5,7 +5,7 @@ import { markAsked, turnOnAlerts } from "../lib/push";
 const COPY = {
   post: {
     title: "Know when they're free",
-    items: [["People who are free", "Choose them before their offer runs out"], ["On the way and done", "When your worker heads over and finishes"], ["Messages", "From the person you choose"]],
+    items: [["People who are free", "Select them before their offer runs out"], ["On the way and done", "When your worker heads over and finishes"], ["Messages", "From the person you choose"]],
     button: "Turn on alerts",
   },
   work: {

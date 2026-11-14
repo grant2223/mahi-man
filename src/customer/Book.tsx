@@ -1,4 +1,5 @@
 import { AlertsBell } from "../ui/Alerts";
+import { areaSuburbs } from "../lib/suburbs";
 import { FeePayScreen, OwedBanner, useOwed, type OwedFee } from "./Fees";
 import { claimGifts, InvoiceBanner, useDueInvoices, usePayments } from "../ui/Payments";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -82,7 +83,7 @@ export function Book() {
   const { area } = useArea();
   // Only the suburbs of the area they're in.
   useEffect(() => {
-    if (area) sb.from("suburbs").select("id,name,area_id,lat,lng").eq("area_id", area.id).order("name").then(({ data }) => setSuburbs((data ?? []) as Suburb[]));
+    if (area) areaSuburbs<Suburb>(area.id, "id,name,area_id,lat,lng").then(setSuburbs).catch(() => {});
   }, [area?.id]);
   useEffect(() => {
     sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
@@ -519,7 +520,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
           </div>
         ) : recent ? (
           <div className="stack" style={{ gap: 0 }}>
-            {[["1", "Set your price", "What you'll pay for the work"], ["2", "Show the job", "Photos and exactly what you want done"], ["3", "Choose who does it", "Pay them directly when it's done"]].map(([n, t, s]) => (
+            {[["1", "Set your price", "What you'll pay for the work"], ["2", "Show the job", "Photos and exactly what you want done"], ["3", "Select who does it", "Pay them directly when it's done"]].map(([n, t, s]) => (
               <div key={n} className="how-row"><span className="n">{n}</span><span className="t"><b>{t}</b><span>{s}</span></span></div>
             ))}
           </div>
@@ -643,7 +644,7 @@ function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar 
   const chosen = catSkills.filter((k) => (d.skills ?? []).includes(k.id));
   const needs = [...new Set(chosen.map((k) => k.needs).filter(Boolean))] as string[];
   const next = () => {
-    if (!cat) return setErr("Pick what kind of job it is.");
+    if (!cat) return setErr("Select what kind of job it is.");
     if (d.details.trim().length < 15) return setErr("Say what you want done.");
     if (!(d.included ?? []).length) return setErr("Add at least one thing that's included.");
     setErr("");
@@ -678,7 +679,7 @@ function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar 
           <button className="cp-select" onClick={() => setPickCat(true)}>
             <span className="row" style={{ gap: 12 }}>
               {cat && <CatIcon name={cat.icon} size={24} color="var(--emerald)" />}
-              <span className={cat ? "" : "ph"}>{cat?.name ?? "Pick a category"}</span>
+              <span className={cat ? "" : "ph"}>{cat?.name ?? "Select a category"}</span>
             </span>
             {Icon.down("var(--ink)")}
           </button>
@@ -688,7 +689,7 @@ function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar 
           <div className="sec">
             <h2>Skills needed <span className="h-opt">Optional</span></h2>
             <button className="cp-select" onClick={() => setPickSkills(true)}>
-              <span className={chosen.length ? "" : "ph"}>{chosen.length ? chosen.map((k) => k.name).join(", ") : "Pick any that apply"}</span>
+              <span className={chosen.length ? "" : "ph"}>{chosen.length ? chosen.map((k) => k.name).join(", ") : "Select any that apply"}</span>
               {Icon.down("var(--ink)")}
             </button>
             {needs.length > 0 && <span className="t15 em" style={{ lineHeight: 1.4 }}>Only workers with a verified {needs.map(lc).join(" and ")} can take this job.</span>}
@@ -867,9 +868,9 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
   const chosen = past.filter((p) => d.invited.includes(p.worker_id));
   const next = () => {
     if (d.address.trim().length < 3) return setErr("Add the street address.");
-    if (!suburb) return setErr("Pick the suburb.");
-    if (!d.asap && (!selDay || !selTime)) return setErr("Pick a day and a start time.");
-    if (!d.asap && new Date(d.startAt) < earliest) return setErr("Pick a time at least an hour from now.");
+    if (!suburb) return setErr("Select the suburb.");
+    if (!d.asap && (!selDay || !selTime)) return setErr("Select a day and a start time.");
+    if (!d.asap && new Date(d.startAt) < earliest) return setErr("Select a time at least an hour from now.");
     setErr("");
     go(trade ? "/book/check" : "/book/price");
   };
@@ -882,7 +883,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
           <label className="field"><span className="k">Street address</span>
             <input value={d.address} onChange={(e) => { setD({ ...d, address: e.target.value }); setErr(""); }} placeholder="22 Boland Street" autoComplete="street-address" /></label>
           <button className="field sel" onClick={() => setPick("suburb")}>
-            <span className="stack" style={{ gap: 2 }}><span className="k">Suburb</span><span className={suburb ? "v" : "v ph"}>{suburb?.name ?? "Pick your suburb"}</span></span>
+            <span className="stack" style={{ gap: 2 }}><span className="k">Suburb</span><span className={suburb ? "v" : "v ph"}>{suburb?.name ?? "Select your suburb"}</span></span>
           </button>
           <label className="field" style={{ cursor: "text" }}><span className="k">Getting in <span className="h-opt" style={{ fontSize: 13, marginLeft: 2 }}>Optional</span></span>
             <textarea value={d.notes} onChange={(e) => setD({ ...d, notes: e.target.value })} placeholder="Gate code, parking, pets, where the key is" style={{ minHeight: 64 }} /></label>
@@ -896,16 +897,16 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
             <span className="box">{d.asap && Icon.tick("var(--emerald)", 16)}</span>
           </button>
           <button className={`who-opt${!d.asap ? " on" : ""}`} onClick={() => { setD({ ...d, asap: false }); setErr(""); }}>
-            <span className="t"><b>Pick a day and time</b><span>Up to 5 days ahead</span></span>
+            <span className="t"><b>Select a day and time</b><span>Up to 5 days ahead</span></span>
             <span className="box">{!d.asap && Icon.tick("var(--emerald)", 16)}</span>
           </button>
           {!d.asap && (
             <div className="row" style={{ gap: 10 }}>
               <button className="field sel" style={{ flex: 1.2 }} onClick={() => setPick("day")}>
-                <span className="stack" style={{ gap: 2 }}><span className="k">Day</span><span className={dayLabel ? "v" : "v ph"}>{dayLabel ?? "Pick a day"}</span></span>
+                <span className="stack" style={{ gap: 2 }}><span className="k">Day</span><span className={dayLabel ? "v" : "v ph"}>{dayLabel ?? "Select a day"}</span></span>
               </button>
               <button className="field sel" style={{ flex: 1 }} onClick={() => setPick(selDay ? "time" : "day")}>
-                <span className="stack" style={{ gap: 2 }}><span className="k">Start</span><span className={timeLabel ? "v" : "v ph"}>{timeLabel ?? "Pick a time"}</span></span>
+                <span className="stack" style={{ gap: 2 }}><span className="k">Start</span><span className={timeLabel ? "v" : "v ph"}>{timeLabel ?? "Select a time"}</span></span>
               </button>
             </div>
           )}
@@ -928,7 +929,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
                 </span>
               </button>
             )}
-            <span className="small light muted">Pick someone you've used before, or leave it open to anyone nearby.</span>
+            <span className="small light muted">Select someone you've used before, or leave it open to anyone nearby.</span>
           </div>
         )}
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
