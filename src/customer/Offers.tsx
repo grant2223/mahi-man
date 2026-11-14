@@ -1,6 +1,6 @@
 import { recLine, ScoreStrip, type Scores } from "../ui/Ratings";
 import { useEffect, useState } from "react";
-import { avatarUrl, rpc } from "../lib/supabase";
+import { avatarUrl, rpc, sb } from "../lib/supabase";
 import { elapsed } from "../lib/format";
 import { Icon, Logo, StepHero, useNow, useToast } from "../ui/kit";
 import { Note } from "../ui/Completion";
@@ -52,6 +52,8 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
 
   const shown = (offers ?? []).filter((o) => new Date(o.expires_at).getTime() > now);
   const [boosting, setBoosting] = useState(false);
+  const [boostCents, setBoostCents] = useState<number | null>(null);
+  useEffect(() => { sb.from("settings").select("value").eq("key", "boost_cents").maybeSingle().then(({ data }) => data && setBoostCents(Number(data.value))); }, []);
   const [extras, setExtras] = useState<Record<string, Extra>>({});
   const [profile, setProfile] = useState<string | null>(null);
   const ids = (offers ?? []).map((o) => o.worker_id).join(",");
@@ -169,7 +171,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
         <div className="boost-row">
           <span className="stack" style={{ gap: 2, flex: 1 }}>
             <b>Urgent boost</b>
-            <span>Every worker in your category gets an alert and your job goes to the top. Free during the pilot.</span>
+            <span>Every worker in your category gets an alert and your job goes to the top.{boostCents ? ` ${money(boostCents)}, added to what you owe Mahi Man. Free with Plus.` : ""}</span>
           </span>
           <button className="btn primary small" disabled={boosting} onClick={async () => {
             setBoosting(true);

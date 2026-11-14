@@ -1233,8 +1233,8 @@ const FEE_LABEL: Record<string, string> = { paid: "paid", refunded: "refunded", 
 type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" | "jobs" | "tradies" } | { t: "text"; ph: string });
 const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   { title: "Payments", text: "Customers pay workers directly. The connection fee is billed when a job goes ahead, and paid by bank transfer on an invoice or from their balance.", fields: [
-    { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
-    { k: "fee_mode", label: "Charge the connection fee", hint: "Off: no fee on new jobs. Jobs posted while it's on keep their fee.", t: "toggle", on: "invoice", off: "off" },
+    { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash, and Mahi Man fees are invoiced. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
+    { k: "fee_mode", label: "Charge the connection fee", hint: "After the pilot. While pilot mode is on, fees are always invoiced and paid by bank transfer.", t: "toggle", on: "invoice", off: "off" },
     { k: "stripe_publishable_key", label: "Stripe publishable key", hint: "Starts with pk_. Needed before card top-ups.", t: "text", ph: "pk_live_…" },
   ] },
   { title: "Connection fee", text: "Three ways to pay, shown side by side on How you pay. Every invoice is a tax invoice that includes GST.", fields: [
@@ -1333,7 +1333,7 @@ function Settings({ payDetails }: { payDetails: boolean }) {
     if (vals.stripe_publishable_key && !vals.stripe_publishable_key.startsWith("pk_")) return toast("The publishable key starts with pk_");
     if (vals.pilot_mode === "false" && !vals.stripe_publishable_key) return toast("Add the Stripe publishable key before turning pilot mode off");
     if (vals.testflight_url && !/^https:\/\/testflight\.apple\.com\/join\/\w+$/.test(vals.testflight_url)) return toast("The TestFlight link looks like https://testflight.apple.com/join/…");
-    if (vals.fee_mode === "invoice" && !vals.pay_payid?.trim() && !(vals.pay_bsb?.trim() && vals.pay_account?.trim())) return toast("Add a PayID or a BSB and account under Payment details before charging the fee");
+    if ((vals.fee_mode === "invoice" || vals.pilot_mode === "true") && !vals.pay_payid?.trim() && !(vals.pay_bsb?.trim() && vals.pay_account?.trim())) return toast("Add a PayID or a BSB and account under Payment details before charging the fee");
     if (vals.pay_abn?.trim() && !validAbn(vals.pay_abn)) return toast("That ABN doesn't look right. Check the 11 digits.");
     if (vals.pay_bsb?.trim() && !/^\d{3}-?\d{3}$/.test(vals.pay_bsb.trim())) return toast("A BSB is 6 digits");
     for (const k of changed) {

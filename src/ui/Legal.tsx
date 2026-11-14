@@ -106,6 +106,7 @@ export function Terms() {
       <ul>
         <li>Customers pay Mahi Man a connection fee on each job that goes ahead. The fee and its rate are shown before you post the job. Trade jobs have no customer fee.</li>
         <li>The fee is charged when the job is finished. If you cancel once your worker is on the way, the fee is charged as well. If the job is cancelled before then, or never goes ahead, there is no fee.</li>
+        <li>Urgent: making a job urgent adds a set amount to the fee, shown before you post. It's included with Plus.</li>
         <li>Pay as you go: the fee is invoiced and paid by bank transfer, using the invoice number as the reference. You choose to be invoiced after each job (due in 3 days), weekly or every 2 weeks (made the evening before your payday and due on your payday). No fee waits more than about 2 weeks to be invoiced.</li>
         <li>If an invoice is not paid by its due date we send one reminder. If it is still unpaid 3 days after the due date, you can't post new jobs until it is paid.</li>
         <li>Top-up: you can add $25, $50 or $100 to your balance by card or bank transfer. While your balance covers it, the fee is charged at the lower top-up rate and taken from your balance. Your balance only pays Mahi Man fees and Plus. Anything unused is refunded if you ask.</li>

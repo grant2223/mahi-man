@@ -52,7 +52,9 @@ export function Book() {
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
   const [fee, setFee] = useState(15);
   const [pilot, setPilot] = useState(true);
-  const [feeMode, setFeeMode] = useState("off");
+  const [feeSetting, setFeeMode] = useState("off");
+  // Fees always apply. During the pilot they're invoiced and paid by bank transfer; after it, the fee setting decides (card through Stripe).
+  const feeMode = pilot ? "invoice" : feeSetting;
   const [cardScreen, setCardScreen] = useState(false);
   const cardAdded = useRef(false);
   const [photoScreen, setPhotoScreen] = useState(false);
@@ -115,7 +117,7 @@ export function Book() {
     rpc<{ online_now: number; typical_minutes: number | null }[]>("supply_near", { p_category: d.categoryId, p_suburb: d.suburbId })
       .then((r) => setSupply(r?.[0] ?? null)).catch(() => setSupply(null));
   }, [path, d.categoryId, d.suburbId]);
-  const total = d.priceCents + (pilot ? 0 : Math.round((d.priceCents * fee) / 100));
+  const total = d.priceCents + Math.round((d.priceCents * fee) / 100);
   const isPlus = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
   // Plus members' jobs are always urgent, at no charge.
   const plusNow = isPlus;
@@ -217,7 +219,7 @@ export function Book() {
         await draftMedia.clear();
         go(`/job/${id}`);
       };
-      if (pilot || isTrade || feeMode === "invoice") await finish(); else setPayJob(id);
+      if (isTrade || feeMode === "invoice") await finish(); else setPayJob(id);
     } catch (e) {
       setErr(e instanceof Error ? e.message : String(e));
     } finally { setBusy(false); }
@@ -263,11 +265,11 @@ export function Book() {
           const sk = skillList.filter((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId);
           const jobName = sk.map((k) => k.name).join(", ") || cat?.name || "The job";
           const when = d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-          // The connection fee Mahi Man charges: free in the pilot, but shown so nobody is surprised at launch.
+          // The connection fee Mahi Man charges. Invoiced (bank transfer) in the pilot, by card after it.
           const connPct = invoiceFee ? invoiceFee.pct : feePct;
           const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : Math.min(Math.round((d.priceCents * feePct) / 100), feeMax);
-          const connCharged = !pilot && !isTrade && (invoiceFee ? true : bookingFee > 0);
-          const totalCents = d.priceCents + (connCharged ? connCents : 0) + (d.boost && !pilot && !plusNow ? boostCents : 0);
+          const connCharged = !isTrade && (invoiceFee ? true : bookingFee > 0);
+          const totalCents = d.priceCents + (connCharged ? connCents : 0) + (d.boost && !plusNow ? boostCents : 0);
           return (<>
             {/* Where it is, on a map, the way Uber, DoorDash and TaskRabbit start their confirm screens. */}
             <div className="ck-map">
@@ -324,9 +326,14 @@ export function Book() {
                       <button className="ck-info" onClick={() => setUrgentInfo(true)} aria-label="What urgent does">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg></button></span>
                     {plusNow ? <span className="r"><b><em>Included with Plus</em></b></span> : (
-                    <span className="r">{pilot ? <b><s>{money(boostCents)}</s> <em>Free</em></b> : <b>+{money(boostCents)}</b>}
+                    <span className="r"><b>+{money(boostCents)}</b>
                       <button className={d.boost ? "switch on" : "switch"} onClick={() => setD({ ...d, boost: !d.boost })} aria-pressed={!!d.boost} aria-label="Make it urgent" /></span>)}
                   </div>
+                  <p className="ck-due">{bookingFee > 0 ? "Charged to your card when you choose a worker"
+                    : invoiceFee?.from === "balance" ? "Taken from your balance when the job's done"
+                    : invoiceFee?.from === "weekly" ? "On your weekly invoice. Pay by bank transfer"
+                    : invoiceFee?.from === "fortnightly" ? "On your fortnightly invoice. Pay by bank transfer"
+                    : "Invoiced when the job's done. Pay by bank transfer"}</p>
                 </div>
                 <div className="ck-m ck-total"><span>Total</span><b>{money(totalCents)}</b></div>
                 <a className="ck-hiw" href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How payment works</a>
@@ -381,7 +388,7 @@ export function Book() {
               <section><h2>Standard</h2><p className="tag">Included with every job</p>
                 <p>{cat?.name ?? "Workers"} workers who are online, and whose travel area covers {suburb?.name ?? "your suburb"}, get an alert straight away.</p>
                 <p>If no one's free after {widen} minutes, your job goes out to workers further away.</p></section>
-              <section><h2>Urgent</h2><p className="tag">{pilot ? `Free during the pilot, ${money(boostCents)} from launch` : `${money(boostCents)}, added to your total`}</p>
+              <section><h2>Urgent</h2><p className="tag">{`${money(boostCents)}, added to your total`}</p>
                 <p>Every {cat?.name.toLowerCase() ?? ""} worker online across {area?.name ?? "your area"} gets an alert straight away. No {widen} minute wait.</p>
                 <p>Your job shows first in their list of jobs.</p>
                 <p>Best when it can't wait: a tip run before the bins go out, a clean before an inspection.</p></section>
