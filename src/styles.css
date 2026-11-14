@@ -593,7 +593,7 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 
 /* Top bar icons: plain white icons, no boxes. The unread count sits on the corner. */
 .hero-icons { gap: 18px; align-items: center; }
-.hero-icon { position: relative; display: inline-flex; padding: 4px; margin: -4px; color: #fff; text-decoration: none; }
+.hero-icon { position: relative; display: inline-flex; padding: 4px; margin: -4px; color: #fff; text-decoration: none; border: 0; background: none; cursor: pointer; }
 .hero-icon .count { position: absolute; top: -4px; right: -8px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 3px; background: var(--lime); color: var(--ink); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
 
 /* A job's own photo stands in for it wherever it's listed. */
@@ -1439,3 +1439,22 @@ button.ck-m { cursor: pointer; }
 .ac-sw button.on { background: var(--emerald); } .ac-sw button.on i { left: 23px; }
 .ac-save:disabled { opacity: 0.45; }
 .ac-blk { display: flex; align-items: center; justify-content: space-between; min-height: 48px; font-size: 16px; }
+
+/* ---------- Alerts ---------- */
+.hero-right { display: flex; align-items: center; gap: 18px; }
+.al-all { border: 0; background: rgba(255,255,255,0.16); color: #fff; height: 36px; padding: 0 14px; border-radius: var(--r-control); font-size: 15px; font-weight: 500; }
+.al { background: var(--card); }
+.al-h { margin: 0; padding: 22px 20px 6px; font-size: 19px; font-weight: 600; letter-spacing: -0.3px; }
+.al-row { display: flex; align-items: flex-start; gap: 14px; width: 100%; padding: 14px 20px; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; color: var(--ink); }
+.al-row img { width: 52px; height: 52px; flex-shrink: 0; border-radius: var(--r-control); object-fit: cover; background: var(--ground); }
+.al-row img.al-mm { object-fit: contain; padding: 4px; background: none; }
+.al-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.al-t b { font-size: 16px; font-weight: 400; line-height: 1.3; }
+.al-row.new .al-t b { font-weight: 600; }
+.al-t span { font-size: 14px; font-weight: 300; line-height: 1.4; color: var(--muted); }
+.al-when { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; font-size: 13px; font-weight: 300; color: var(--muted); }
+.al-when i { width: 10px; height: 10px; border-radius: 2px; background: var(--lime); }
+.al-empty { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 80px 32px; text-align: center; }
+.al-empty b { font-size: 19px; font-weight: 600; margin-top: 6px; }
+.al-empty span { font-size: 15px; font-weight: 300; color: var(--muted); }
+.ac-always { margin: 8px 0 0; font-size: 14px; font-weight: 300; color: var(--muted); }

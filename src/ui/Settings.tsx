@@ -19,7 +19,7 @@ import { TabBar } from "./TabBar";
 /* The You page. Each band shows how things stand right now (money, jobs, work), and tapping it opens the detail.
    Account details, area, alerts, card and blocked people live on their own Account page. */
 
-type Prefs = { jobs: boolean; messages: boolean; updates: boolean };
+type Prefs = { jobs: boolean; messages: boolean; offers: boolean };
 interface HubJob { id: string; title: string; status: string; worker: string | null; keen: number; cover: string | null; on_way: boolean; arrived: boolean; total: number }
 interface Hub {
   balance: number; gift_balance: number; jobs_total: number; jobs: HubJob[]; prefs: Prefs | null;
@@ -88,7 +88,7 @@ export function Settings() {
     { label: "Account", hint: "Name, mobile, email, photo", act: () => setSub("account") },
     { label: "Verify your ID", hint: idLabel, act: () => setSub(profile.id_status === "verified" ? "account" : "verify") },
     { label: "Your area", hint: "Where you use Mahi Man", act: () => setSub("account") },
-    { label: "Alerts", hint: "New jobs, messages and job updates", act: () => setSub("account") },
+    { label: "Alerts", hint: "New jobs, messages and local offers", act: () => setSub("account") },
     { label: "Payment card", hint: "Card for top-ups and fees", act: () => setSub("cards") },
     { label: "Blocked people", hint: "People you've blocked", act: () => setSub("account") },
     { label: "Sign out", hint: "On the Account page", act: () => setSub("account") },
@@ -237,8 +237,8 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
   const [picking, setPicking] = useState(false);
   const [radius, setRadius] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<{ id: string; name: string }[] | null>(null);
-  const [on, setOn] = useState<Prefs>(prefs ?? { jobs: true, messages: true, updates: true });
-  const saved = useMemo(() => prefs ?? { jobs: true, messages: true, updates: true }, [prefs]);
+  const [on, setOn] = useState<Prefs>({ jobs: true, messages: true, offers: false, ...(prefs ?? {}) });
+  const saved = useMemo(() => ({ jobs: true, messages: true, offers: false, ...(prefs ?? {}) }), [prefs]);
   const [busy, setBusy] = useState(false);
   const [phone, setPhone] = useState<"granted" | "prompt" | "denied" | "unsupported">("unsupported");
   const file = useRef<HTMLInputElement>(null);
@@ -255,7 +255,7 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
   }, [session?.user.id]);
   if (!session || !profile) return null;
   const worker = !!profile.is_worker;
-  const changed = on.jobs !== saved.jobs || on.messages !== saved.messages || on.updates !== saved.updates;
+  const changed = on.jobs !== saved.jobs || on.messages !== saved.messages || on.offers !== saved.offers;
 
   const photo = async (f: File) => {
     try {
@@ -276,7 +276,7 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
   };
   const rows: [keyof Prefs, string][] = [
     ...(worker ? [["jobs", "New jobs near you"] as [keyof Prefs, string]] : []),
-    ["messages", "Messages"], ["updates", "Job updates"],
+    ["messages", "Messages"], ["offers", "Offers from local businesses"],
   ];
   const settingsName = Capacitor.getPlatform() === "android" ? "your phone's Settings, Apps" : "iPhone Settings";
 
@@ -328,6 +328,7 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
                 </label>
               ))}
             </div>
+            <p className="ac-always">Alerts about your jobs, payments and account are always on.</p>
             <button className="btn ac-save" disabled={!changed || busy} onClick={save}>{busy ? "Saving" : "Save"}</button>
           </section>
         )}

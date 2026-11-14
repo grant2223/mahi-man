@@ -140,6 +140,15 @@ ${ctx.play ? `<td class="stack" valign="top" width="50%" style="padding-left:6px
     return { subject: `${d.from} sent you ${amt} of help`, html: layout(ctx, `${d.from} sent you a ${amt} Mahi Man gift card.`, { eyebrow: "A gift for you", title: `${esc(d.from)} sent you ${amt} of help`, mascot: true }, body) };
   }
 
+  if (kind === "alert") {
+    // A copy of an important app alert, sent when the person has no phone alerts turned on, so they never miss it.
+    const link = `${site}${d.url ?? "/"}`;
+    const body = (d.body ? p(esc(d.body)) : "")
+      + `<div style="margin:4px 0 0">${btn(link, "Open in Mahi Man")}</div>`
+      + `<p style="margin:22px 0 0;font-size:14px;line-height:1.5;font-weight:300;color:${C.muted}">You're getting this by email because alerts are off on your phone. Turn them on in Mahi Man, You, Account.</p>`;
+    return { subject: d.title, html: layout(ctx, d.body ?? d.title, { eyebrow: d.eyebrow ?? "Job update", title: esc(d.title) }, body) };
+  }
+
   if (kind === "staff_invite") {
     const link = d.link ?? site.replace("://", "://admin.");
     const body = p(`${esc(d.from ?? "Mahi Man")} has added you to the Mahi Man admin as <b style="font-weight:500;color:${C.ink}">${esc(d.role ?? "staff")}</b>.`)

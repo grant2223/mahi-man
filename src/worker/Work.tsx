@@ -1,3 +1,4 @@
+import { AlertsBell } from "../ui/Alerts";
 import { recLine, ScoreStrip, type Scores } from "../ui/Ratings";
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { api, firstPhoto, mediaUrls, rpc, sb, type IdStatus, type Job, myId } from "../lib/supabase";
@@ -202,10 +203,13 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         {/* The brand, and across from it the switch that says whether they're available for jobs (top corner, clear of the mascot). */}
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
+          <span className="hero-right">
+          <AlertsBell />
           <button className="avail-sw" onClick={toggle} aria-label={online ? "Go offline" : "Go online"} aria-pressed={online}>
             <span>{online ? "Online" : "Offline"}</span>
             <span className={online ? "switch on" : "switch"} />
           </button>
+          </span>
         </div>
         <SetSide side="work" />
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 122, right: -24 }} />

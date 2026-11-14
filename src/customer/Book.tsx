@@ -1,3 +1,4 @@
+import { AlertsBell } from "../ui/Alerts";
 import { FeePayScreen, OwedBanner, useOwed, type OwedFee } from "./Fees";
 import { claimGifts, InvoiceBanner, useDueInvoices, usePayments } from "../ui/Payments";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -468,7 +469,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
       <section className="hero" style={{ paddingBottom: 28 }}>
         <div className="hero-top" style={{ position: "relative", zIndex: 1 }}>
           <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
-          {!signedIn && <AreaPin />}
+          {signedIn ? <AlertsBell /> : <AreaPin />}
         </div>
         {signedIn ? <SetSide side="help" /> : <SideSwitch side="help" />}
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 160, right: -30 }} />
