@@ -472,7 +472,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
           {signedIn ? <AlertsBell /> : <AreaPin />}
         </div>
         {signedIn ? <SetSide side="help" /> : <SideSwitch side="help" />}
-        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: 160, right: -30 }} />
+        <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: signedIn ? 142 : 160, right: -30 }} />
         <h1 className="mid" style={{ position: "relative", margin: "26px 0 10px" }}>Need a hand?</h1>
         <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Get help now with your odd job.</p>
         {!soon && <Available />}

@@ -56,15 +56,29 @@ let claimed = false;
 export function claimGifts() { if (claimed) return; claimed = true; rpc("gift_autoclaim").catch(() => {}); }
 export function usePayments(enabled = true) {
   const [p, setP] = useState<MyPayments | null>(null);
+  const [failed, setFailed] = useState(false);
   const load = useCallback(() => {
     if (!enabled) return;
+    setFailed(false);
     // Gifts emailed to this account go into the wallet the first time payments load.
     const first = claimed ? Promise.resolve(0) : rpc<number>("gift_autoclaim").catch(() => 0);
     claimed = true;
-    first.then(() => rpc<MyPayments>("my_payments")).then(setP).catch(() => {});
+    first.then(() => rpc<MyPayments>("my_payments")).then(setP).catch(() => setFailed(true));
   }, [enabled]);
   useEffect(() => { load(); }, [load]);
-  return { p, reload: load };
+  return { p, reload: load, failed };
+}
+
+// When a page can't load (no signal, server hiccup), say so and offer to try again, instead of spinning forever.
+function Waiting({ failed, onRetry }: { failed: boolean; onRetry: () => void }) {
+  if (!failed) return <Loading />;
+  return (
+    <div className="stack" style={{ alignItems: "center", gap: 14, padding: "64px 24px", textAlign: "center" }}>
+      <span className="t17">Couldn't load this</span>
+      <span className="t15 light muted">Check your signal, then try again.</span>
+      <button className="btn primary" onClick={onRetry}>Try again</button>
+    </div>
+  );
 }
 
 function useCopy() {
@@ -164,14 +178,14 @@ const PLAN_OPTS = [
 
 export function PaymentsPage() {
   const toast = useToast();
-  const { p, reload } = usePayments();
+  const { p, reload, failed } = usePayments();
   const [plan, setPlan] = useState<MyPayments["plan"]>("now");
   const [payday, setPayday] = useState(3);
   const [anchor, setAnchor] = useState<string | null>(null);
   const [pick, setPick] = useState<"plan" | "payday" | "anchor" | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (p) { setPlan(p.plan); setPayday(p.payday); setAnchor(p.anchor); } }, [p]);
-  if (!p) return <Page title="Payments"><Loading /></Page>;
+  if (!p) return <Page title="Payments"><Waiting failed={failed} onRetry={reload} /></Page>;
 
   const plus = isPlus(p);
   const line = plus ? `Plus · fees are ${p.rates.plus}%${p.plus_renew ? `, renews ${dayShort(p.plus_until!)}` : `, ends ${dayShort(p.plus_until!)}`}`
@@ -295,10 +309,11 @@ interface InvoiceDetail { id: number; number: string; total: number; gst: number
 export function InvoicePage({ id }: { id: number }) {
   const toast = useToast();
   const [inv, setInv] = useState<InvoiceDetail | null>(null);
+  const [failed, setFailed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => rpc<InvoiceDetail | null>("invoice_detail", { p_id: id }).then(setInv).catch(() => {}), [id]);
+  const load = useCallback(() => { setFailed(false); return rpc<InvoiceDetail | null>("invoice_detail", { p_id: id }).then((d) => { if (d) setInv(d); else setFailed(true); }).catch(() => setFailed(true)); }, [id]);
   useEffect(() => { load(); }, [load]);
-  if (!inv) return <Page title="Invoice" onBack={back("/payments")}><Loading /></Page>;
+  if (!inv) return <Page title="Invoice" onBack={back("/payments")}><Waiting failed={failed} onRetry={load} /></Page>;
   const st = invState(inv);
   const pay = inv.pay ?? {};
   return (
@@ -383,7 +398,7 @@ const AMOUNTS = [2500, 5000, 10000];
 
 export function TopUpPage() {
   const toast = useToast();
-  const { p, reload } = usePayments();
+  const { p, reload, failed } = usePayments();
   const [amount, setAmount] = useState(5000);
   const [via, setVia] = useState<"card" | "bank" | null>(null);
   const [auto, setAuto] = useState<boolean | null>(null);
@@ -398,7 +413,7 @@ export function TopUpPage() {
     const t = waitingId ? p.topups.find((x) => x.id === waitingId) : null;
     if (t) setBank({ ...t, pay: p.pay });
   }, [p, waitingId]);
-  if (!p) return <Page title="Top up" onBack={back("/payments")}><Loading /></Page>;
+  if (!p) return <Page title="Top up" onBack={back("/payments")}><Waiting failed={failed} onRetry={reload} /></Page>;
 
   const canCard = p.card_live && !!p.card;
   const how = via ?? (canCard ? "card" : "bank");
@@ -473,9 +488,9 @@ export function TopUpPage() {
 /* ---------- Get Plus ---------- */
 export function PlusPage() {
   const toast = useToast();
-  const { p } = usePayments();
+  const { p, reload: reloadP, failed } = usePayments();
   const [busy, setBusy] = useState(false);
-  if (!p) return <Page title="Mahi Man Plus" onBack={back("/payments")}><Loading /></Page>;
+  if (!p) return <Page title="Mahi Man Plus" onBack={back("/payments")}><Waiting failed={failed} onRetry={reloadP} /></Page>;
   const short = p.balance < p.rates.plus_cents;
   const plus = isPlus(p);
   return (
