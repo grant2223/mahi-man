@@ -32,7 +32,7 @@ What's ready, and what's left. Ticked items are done.
 - [x] `mahiman.app` and `www.mahiman.app` are live on Vercel (checked 14 Nov 2026).
 - [ ] `mahiman.com.au` doesn't load yet: add it in Vercel and set its DNS.
 - [ ] Set up email for hello@mahiman.app (no MX record on mahiman.app as of 14 Nov 2026) (e.g. Google Workspace or forwarding with ImprovMX). It's the contact email on both stores, and Apple and Google email it.
-- [ ] Switch the App Store and TestFlight links: `node store/apple-go-live.mjs`. It checks the pages load first.
+- [x] App Store and TestFlight links switched to mahiman.app (support, marketing, privacy policy) on 14 Nov 2026 with `node store/apple-go-live.mjs`.
 - [x] In Play Console, website, privacy policy and account-deletion URLs moved to mahiman.app (13 Nov 2026; privacy and data safety sent for review).
 
 ## 3. When Stripe is ready
