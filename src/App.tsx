@@ -1,3 +1,4 @@
+import { startOpens } from "./lib/opens";
 import { PartnerPage } from "./ui/PartnerPage";
 import { OfferDetail, OffersPage } from "./ui/LocalOffers";
 import { Capacitor } from "@capacitor/core";
@@ -25,6 +26,7 @@ import { sb } from "./lib/supabase";
 import { startPush } from "./lib/push";
 
 void startPush();
+startOpens();
 
 function GetRedirect() {
   useEffect(() => {

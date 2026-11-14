@@ -69,7 +69,10 @@ export function AlertsScreen({ onClose }: { onClose: () => void }) {
   useEffect(() => {
     rpc<Alert[]>("my_alerts").then((a) => {
       setList(a ?? []);
-      mediaUrls((a ?? []).map((x) => x.photo).filter(Boolean) as string[]).then(setPics).catch(() => {});
+      // Job photos are private and need a signed link; broadcast photos are already a public link.
+      const all = (a ?? []).map((x) => x.photo).filter(Boolean) as string[];
+      const web = Object.fromEntries(all.filter((p) => p.startsWith("https://")).map((p) => [p, p]));
+      mediaUrls(all.filter((p) => !p.startsWith("https://"))).then((m) => setPics({ ...m, ...web })).catch(() => setPics(web));
     }).catch(() => setList([]));
   }, []);
   const unread = (list ?? []).filter((a) => !a.read_at).length;

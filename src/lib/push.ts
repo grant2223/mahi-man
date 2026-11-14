@@ -52,7 +52,9 @@ export async function startPush() {
     if (data.user) await sb.from("push_tokens").upsert({ token: value, user_id: data.user.id, platform: platform(), updated_at: new Date().toISOString() });
   });
   await P.addListener("pushNotificationActionPerformed", async ({ actionId, notification }) => {
-    const d = (notification.data ?? {}) as { url?: string; job?: string; worker?: string };
+    const d = (notification.data ?? {}) as { url?: string; job?: string; worker?: string; broadcast?: string };
+    // A broadcast counts as opened when its alert is tapped.
+    if (d.broadcast) rpc("broadcast_opened", { p_broadcast: Number(d.broadcast) }).catch(() => {});
     if (actionId === "CHOOSE" && d.job && d.worker) {
       try { await rpc("choose_offer", { p_job: d.job, p_worker: d.worker }); } catch { /* the job screen shows what happened */ }
     } else if (actionId === "CONFIRM" && d.job) {

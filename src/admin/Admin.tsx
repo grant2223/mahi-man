@@ -6,10 +6,12 @@ import { go } from "../lib/router";
 import { money2, shrinkImage, validAbn } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
 import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit";
+import { UsersPage } from "./Users";
+import { BroadcastPage } from "./Broadcast";
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money" | "gifts" | "staff";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money" | "gifts" | "staff" | "broadcast";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -46,7 +48,7 @@ export function Admin() {
   const GROUPS: Group[] = ([
     { label: "", items: [["overview", "Overview"]] },
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
-    { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["launch", "Launch list"]] },
+    { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["broadcast", "Broadcast"], ["launch", "Launch list"]] },
     { label: "Trust", items: [["cancels", "Cancellations", counts.fees], ["strikes", "Strikes", counts.strikes], ["reviews", "Reviews"]] },
     { label: "Money", items: [["money", "Invoices", counts.money], ["gifts", "Gift cards", counts.gifts]] },
     { label: "Partners", items: [["partners", "Partners", counts.partners], ["tradies", "Tradies", counts.invoices]] },
@@ -91,7 +93,8 @@ export function Admin() {
         {show === "skills" && <Skills />}
         {show === "reports" && <Reports onChanged={recount} />}
         {show === "problems" && <Problems />}
-        {show === "people" && <People isOwner={role === "owner"} openStaff={() => setTab("staff")} />}
+        {show === "people" && <UsersPage detail={(row, back, reload) => <UserDetailFor p={row} isOwner={role === "owner"} openStaff={() => setTab("staff")} onBack={back} onChanged={reload} />} />}
+        {show === "broadcast" && <BroadcastPage />}
         {show === "launch" && <LaunchList />}
         {show === "areas" && <Areas />}
         {show === "types" && <Types />}
@@ -827,51 +830,15 @@ interface Person { id: string; email: string; full_name: string; photo_path: str
   created_at: string; abn: string | null; approved: boolean; jobs_posted: number; jobs_worked: number }
 const ID_BADGE: Record<string, [string, string]> = { none: ["", "Not verified"], pending: ["y", "Checking"], verified: ["g", "Verified"], retake: ["y", "Retake asked"], rejected: ["r", "Rejected"] };
 
-function People({ isOwner, openStaff }: { isOwner: boolean; openStaff: () => void }) {
-  const toast = useToast();
-  const [rows, setRows] = useState<Person[]>([]);
-  const [q, setQ] = useState("");
-  const [review, setReview] = useState<Set<string>>(new Set());
-  const [admins, setAdmins] = useState<Set<string>>(new Set());
-  const [open, setOpen] = useState<string | null>(null);
-  const load = useCallback(() => {
-    rpc<Person[]>("admin_people").then(setRows).catch((e) => toast((e as Error).message));
-    sb.from("admin_roles").select("email").then(({ data }) => setAdmins(new Set((data ?? []).map((r) => (r.email as string).toLowerCase()))));
-    sb.from("workers").select("id").eq("needs_review", true).then(({ data }) => setReview(new Set((data ?? []).map((r) => r.id as string))));
-  }, [toast]);
-  useEffect(() => { load(); }, [load]);
-  const person = rows.find((r) => r.id === open);
-  if (person) return <UserDetail p={person} isOwner={isOwner} openStaff={openStaff} isAdmin={admins.has(person.email.toLowerCase())} review={review.has(person.id)} onBack={() => setOpen(null)} onChanged={load} />;
-  const shown = rows.filter((r) => `${r.full_name} ${r.email}`.toLowerCase().includes(q.trim().toLowerCase()));
-  return (
-    <>
-      <label className="search" style={{ margin: "0 0 16px", maxWidth: 420, background: "var(--card)" }}>
-        {Icon.search("var(--muted)")}
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search name or email" />
-      </label>
-      <div className="table-wrap">
-        <table className="rows">
-          <thead><tr><th>User</th><th>Role</th><th>ID</th><th>Jobs</th><th>Joined</th><th /></tr></thead>
-          <tbody>
-            {shown.map((p) => (
-              <tr key={p.id} className="click" onClick={() => setOpen(p.id)}>
-                <td><span className="row" style={{ gap: 12 }}>
-                  {p.photo_path ? <img className="u-pic" src={avatarUrl(p.photo_path)!} alt="" /> : <span className="u-pic none">{(p.full_name || p.email).slice(0, 1).toUpperCase()}</span>}
-                  <span className="stack" style={{ gap: 1 }}><span className="w5">{p.full_name || "No name yet"}</span><span className="small muted light">{p.email}</span></span>
-                </span></td>
-                <td>{roleBadges(p, admins.has(p.email.toLowerCase()), review.has(p.id))}</td>
-                <td><span className={`badge ${ID_BADGE[p.id_status]?.[0] ?? ""}`}>{ID_BADGE[p.id_status]?.[1] ?? p.id_status}</span></td>
-                <td className="light">{p.jobs_posted} posted, {p.jobs_worked} worked</td>
-                <td className="light">{new Date(p.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}</td>
-                <td style={{ width: 32 }}>{Icon.chevron("var(--faint)")}</td>
-              </tr>
-            ))}
-            {shown.length === 0 && <tr><td colSpan={6} className="muted">No one yet.</td></tr>}
-          </tbody>
-        </table>
-      </div>
-    </>
-  );
+// One user's page, opened from the Users list: knows whether they're staff or flagged for review.
+function UserDetailFor({ p, isOwner, openStaff, onBack, onChanged }: { p: Person; isOwner: boolean; openStaff: () => void; onBack: () => void; onChanged: () => void }) {
+  const [admin, setAdmin] = useState(false);
+  const [review, setReview] = useState(false);
+  useEffect(() => {
+    sb.from("admin_roles").select("email").ilike("email", p.email).then(({ data }) => setAdmin(!!data?.length));
+    sb.from("workers").select("needs_review").eq("id", p.id).maybeSingle().then(({ data }) => setReview(!!data?.needs_review));
+  }, [p.id, p.email]);
+  return <UserDetail p={p} isOwner={isOwner} openStaff={openStaff} isAdmin={admin} review={review} onBack={onBack} onChanged={onChanged} />;
 }
 
 function roleBadges(p: Person, admin: boolean, review: boolean) {
@@ -2073,11 +2040,11 @@ function GiftCardsAdmin({ onChanged }: { onChanged: () => void }) {
 // ---------- Staff ----------
 // Who can sign in to this admin and what each one can do. Owner only.
 type StaffRole = "owner" | "admin" | "support" | "finance";
-type StaffArea = "all" | "people" | "checks" | "money" | "setup" | "settings" | "staff";
+type StaffArea = "all" | "people" | "checks" | "money" | "setup" | "settings" | "staff" | "broadcast";
 const TAB_AREA: Record<Tab, StaffArea> = {
   overview: "all", ids: "checks", licences: "checks", reports: "people", problems: "people", jobs: "people", people: "people", launch: "people",
   cancels: "people", strikes: "people", reviews: "people", money: "money", gifts: "money", partners: "money", tradies: "money",
-  areas: "setup", types: "setup", skills: "setup", settings: "settings", staff: "staff",
+  areas: "setup", types: "setup", skills: "setup", settings: "settings", staff: "staff", broadcast: "broadcast",
 };
 function roleCan(r: StaffRole, a: StaffArea | "paydetails") {
   if (a === "all" || r === "owner") return true;
@@ -2093,7 +2060,7 @@ const ROLE_INFO: Record<StaffRole, { name: string; text: string }> = {
 };
 const ROLES = Object.keys(ROLE_INFO) as StaffRole[];
 const ROLE_PAGES: [string, StaffArea | "paydetails"][] = [
-  ["Overview", "all"], ["ID and licence checks", "checks"], ["Reports and disputes", "people"], ["Users and jobs", "people"],
+  ["Overview", "all"], ["ID and licence checks", "checks"], ["Reports and disputes", "people"], ["Users and jobs", "people"], ["Broadcast", "broadcast"],
   ["Cancellations, strikes, reviews", "people"], ["Invoices and gift cards", "money"], ["Workers to pay", "money"], ["Tradies and partners", "money"],
   ["Areas, job types, skills", "setup"], ["Settings", "settings"], ["Payment details", "paydetails"], ["Staff", "staff"],
 ];

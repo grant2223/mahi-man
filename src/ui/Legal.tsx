@@ -51,6 +51,8 @@ export function Privacy() {
         <li>Partners: the business name, ABN, contact name, email, phone and offer a business sends us when it applies, and its invoices.</li>
         <li>Reliability and cancellations: when a job is cancelled, who cancelled, when, and any fee; a worker's strikes and their "Turns up" score; and any credit a customer has.</li>
         <li>Basic technical information needed to run the app, such as sign-in times.</li>
+        <li>App use: when the app is opened, on which kind of phone (iPhone or Android) and which version of the app, and, for workers, when they are online. Used to count how many people use Mahi Man and when it is busiest.</li>
+        <li>Broadcasts: which news and offers from Mahi Man we sent you, and whether you opened them.</li>
       </ul>
       <p>We do not track you across other apps or websites and we do not sell your information.</p>
       <h2>Why we use it</h2>
