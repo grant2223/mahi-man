@@ -1,4 +1,4 @@
-import { recLine, ScoreStrip, type Scores } from "../ui/Ratings";
+import { recLine, type Scores } from "../ui/Ratings";
 import { useEffect, useState } from "react";
 import { avatarUrl, rpc, sb } from "../lib/supabase";
 import { elapsed } from "../lib/format";
@@ -13,7 +13,6 @@ import { AddCardScreen, CardMark, cardLabel, stripeFor } from "./Cards";
 import { useSession } from "../lib/session";
 import { api } from "../lib/supabase";
 import { money2 } from "../lib/format";
-import { expLabel } from "../worker/Skills";
 import { VerifyFlow } from "../ui/Verify";
 
 export interface Offer {

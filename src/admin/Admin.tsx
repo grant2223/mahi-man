@@ -1198,7 +1198,7 @@ function Types() {
 const FEE_LABEL: Record<string, string> = { paid: "paid", refunded: "refunded", due: "due", invoice: "when it goes ahead", invoiced: "invoiced" };
 
 // Settings in groups, each with a plain explanation. Money is shown in dollars; nothing saves until Save.
-type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" | "jobs" | "tradies" } | { t: "text"; ph: string });
+type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" | "jobs" | "tradies" | "km" } | { t: "text"; ph: string });
 const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   { title: "Payments", text: "Customers pay workers directly. The connection fee is billed when a job goes ahead, and paid by bank transfer on an invoice or from their balance.", fields: [
     { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash, and Mahi Man fees are invoiced. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
