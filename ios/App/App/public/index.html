@@ -31,10 +31,24 @@
     <meta name="twitter:title" content="Mahi Man: Get the help you need within minutes" />
     <meta name="twitter:description" content="Post, accept, job done! Odd jobs done by locals, fast." />
     <meta name="twitter:image" content="https://mahiman.app/api/og" />
-    <script type="module" crossorigin src="/assets/index-BT9T_Z7u.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-Ce5232UY.css">
+    <script type="module" crossorigin src="/assets/index-B6m8QnCs.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D3Jufddh.css">
   </head>
   <body>
+    <!-- Splash: shows in the app only, the moment it opens, for 3 seconds, then fades into the app. -->
+    <style>#splash{z-index:9999;color:#fff;background:radial-gradient(120% 90% at 85% 0,#1a9c72 0%,#0b6b4f 50%,#064230 100%);font-family:Bricolage Grotesque,system-ui,sans-serif;transition:opacity .4s;position:fixed;inset:0;overflow:hidden}#splash.out{opacity:0}#splash .sp-w{text-align:center;padding:0 24px;position:absolute;top:22%;left:0;right:0}#splash .sp-w b{letter-spacing:-1.8px;opacity:0;font-size:52px;font-weight:600;line-height:1;animation:.6s cubic-bezier(.2,.8,.2,1) .15s forwards spUp;display:block;transform:translateY(14px)}#splash .sp-w span{color:#ffffffe0;opacity:0;margin-top:12px;font-size:18px;font-weight:300;animation:.6s cubic-bezier(.2,.8,.2,1) .35s forwards spUp;display:block;transform:translateY(10px)}#splash img{transform-origin:50% 100%;width:min(330px,86vw);animation:.8s cubic-bezier(.3,1.35,.5,1) .45s forwards spRise,.5s ease-in-out 1.5s spNod;position:absolute;bottom:-6px;left:50%;transform:translate(-50%,105%)}@keyframes spUp{to{opacity:1;transform:none}}@keyframes spRise{to{transform:translate(-50%)}}@keyframes spNod{0%{transform:translate(-50%)rotate(0)}40%{transform:translate(-50%,-6px)rotate(-3deg)}to{transform:translate(-50%)rotate(0)}}@media (prefers-reduced-motion:reduce){#splash .sp-w b,#splash .sp-w span{opacity:1;animation:none;transform:none}#splash img{animation:none;transform:translate(-50%)}}</style>
+    <div id="splash" hidden><div class="sp-w"><b>Mahi Man</b><span>Get the help you need within minutes.</span></div><img src="/mascot.png" alt="" /></div>
+    <script>
+      (function () {
+        var app = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())
+          || location.protocol === "capacitor:" || /[?&]splash=1/.test(location.search);
+        var el = document.getElementById("splash");
+        if (!app) { el.remove(); return; }
+        el.hidden = false;
+        setTimeout(function () { el.classList.add("out"); }, 2600);
+        setTimeout(function () { el.remove(); }, 3000);
+      })();
+    </script>
     <div id="root"></div>
   </body>
 </html>
