@@ -38,13 +38,14 @@ export function Privacy() {
       <p>This policy explains how Mahi Man ("we") handles your information: what we collect, why, and what you can do about it. We follow the Australian Privacy Principles.</p>
       <h2>What we collect</h2>
       <ul>
-        <li>Account details: your name, email address and profile photo.</li>
+        <li>Account details: your name, email address and profile photo. Your date of birth, gender, nationality, suburb, how you heard about us and, if you add it, your mobile number and whether it's on WhatsApp. Only the Mahi Man team sees these, never other users.</li>
         <li>ID check: a photo of your passport, national ID card or driver licence and a selfie. These are seen only by the Mahi Man team, used only to confirm who you are, and deleted as soon as the check is decided. We keep the result (verified or not) and the ID type and country.</li>
         <li>Jobs: the job you book or take, the photos and video you add, your description, the address and suburb, times, prices and reviews. A review is whether you'd recommend the other person, a rating for each thing that matters (for workers: on time, prepared, quality, communication and friendliness; for customers: job description, prepared, paid on completion and respect), and an optional comment.</li>
         <li>Messages you send through the app.</li>
         <li>Workers: PayID or bank account (shown to a customer only once their job is done), ABN if you give one, suburb and travel distance, the job types you do with your skills, experience and gear, and any licences or certificates you add (a photo, the number and the expiry date). These are checked by the Mahi Man team and only "verified" is shown to customers.</li>
         <li>Payments: if you add a card, it is collected and stored by our payment provider, Stripe. We never see or keep your full card number. We keep the card type, last 4 digits and expiry so you can see which card is saved, plus a record of fees charged and refunded.</li>
         <li>Location when you open the app: your phone's location is used on your phone to open on your area and the jobs near you. It isn't sent to us.</li>
+        <li>Setting your suburb: if you tap "Use my location" or move the map, that spot is sent to us only to find the suburb. We keep the suburb, not the spot.</li>
         <li>Location on the way to a job: when a worker taps "I'm on my way", their phone's location is shared with that job's customer until they enter the start code. It is never collected at any other time, and the trip is deleted when it ends. We keep where and when the trip started, and where the worker was when they tapped "I'm here", so we can settle a late arrival or a customer who wasn't home.</li>
         <li>Trade jobs: each tradie's quote, what it includes and when they can come; a tradie's business name if they give one; whether they're on Standard or Premium, and their invoices and payments.</li>
         <li>Local offers: which partner offers you see, open and use (call, get directions or copy the code), counted once a day. Partners only ever see totals, never who you are.</li>

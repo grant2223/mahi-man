@@ -1,5 +1,5 @@
 import { ProfileScreen } from "./Profile";
-import { GENDERS } from "../lib/people";
+import { GENDERS, showPhone } from "../lib/people";
 import { Capacitor } from "@capacitor/core";
 import QRCode from "qrcode";
 import { createPortal } from "react-dom";
@@ -41,7 +41,15 @@ const I = {
   card: () => ic(<><rect x="3" y="6" width="18" height="13" rx="2" /><path d="M3 10h18M7 15h4" /></>),
   tool: () => ic(<path d="M14.5 5.5a4 4 0 0 0 4.9 5L20 11l-9 9-3-3 9-9 .5.6a4 4 0 0 0-3-5.1z" />),
   cert: () => ic(<><rect x="4" y="3" width="16" height="13" rx="1" /><path d="M8 8h8M8 11h5M10 16l-1 5 3-2 3 2-1-5" /></>),
+  plus: () => ic(<><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></>),
+  gift: () => ic(<><rect x="3" y="8" width="18" height="13" rx="1" /><path d="M12 8v13M3 12h18M12 8c-2-4-6-4-6-1.5S10 8 12 8zM12 8c2-4 6-4 6-1.5S14 8 12 8z" /></>),
+  ticket: () => ic(<><path d="M3 8V6h18v2a2 2 0 0 0 0 4 2 2 0 0 0 0 4v2H3v-2a2 2 0 0 0 0-4 2 2 0 0 0 0-4z" /><path d="M13 6v12" strokeDasharray="2 2" /></>),
+  help: () => ic(<><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.1-2.4 3.6M12 17h.01" /></>),
+  doc: () => ic(<><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z" /><path d="M14 3v4h4M9 12h6M9 16h6" /></>),
+  qr: () => ic(<><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" /><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" /></>),
 };
+// The chat-bubble mark used beside a number that's on WhatsApp.
+export const waMark = (s = 18) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#1a9c4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}><path d="M4 20l1.4-4A8 8 0 1 1 8 18.6z" /><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1c-1-.5-2-1.5-2.5-2.5l1-1-1-2z" fill="#1a9c4a" stroke="none" /></svg>;
 
 const dayShort = (d: string) => new Date(`${d}T00:00`).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
 const monthYear = (d: string) => new Date(`${d}T00:00`).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
@@ -153,12 +161,12 @@ export function Settings() {
           <div className="hb-card">
             <small>Balance</small><div className="hb-bal">{money(bal)}</div>
             {bal > 0 && <div className="hb-split">{gift > 0 && <i style={{ flex: gift }} />}{topup > 0 && <i className={gift > 0 ? "" : "t"} style={{ flex: topup }} />}</div>}
-            <span>{bal > 0 ? [gift > 0 && `Gift card ${money(gift)}`, topup > 0 && `Top-up ${money(topup)}`].filter(Boolean).join(" · ") : "Top up or redeem a gift card to pay fees from your balance"}</span>
+            {bal > 0 && <span>{[gift > 0 && `Gift card ${money(gift)}`, topup > 0 && `Top-up ${money(topup)}`].filter(Boolean).join(" · ")}</span>}
           </div>
-          <div className="hb-acts">
-            <button className="btn" onClick={() => go("/topup")}>Top up</button>
-            <button className="btn stone" onClick={() => go("/gift")}>Buy a gift card</button>
-            <button className="btn stone" onClick={() => go("/gift-code")}>Redeem a gift card</button>
+          <div className="hb-m3">
+            <button onClick={() => go("/topup")}>{I.plus()}Top up</button>
+            <button onClick={() => go("/gift")}>{I.gift()}Buy gift card</button>
+            <button onClick={() => go("/gift-code")}>{I.ticket()}Redeem</button>
           </div>
         </section>
 
@@ -186,8 +194,8 @@ export function Settings() {
                   <span>Turned up to {w.done} of {w.total} job{w.total === 1 ? "" : "s"}</span>
                   <div className="hb-dots">{w.last.map((d, i) => <i key={i} className={d === "ok" ? "" : "n"} />)}</div>
                 </>) : (<>
-                  <div className="hb-big">New</div>
-                  <span>Your turns up score starts with your first job</span>
+                  <div className="hb-big">0</div>
+                  <span>Jobs done</span>
                 </>)}
                 {w?.payday?.on && w.payday.cents ? <span className="hb-pay">Next payday {dayShort(w.payday.on)} · <b>{money(w.payday.cents)}</b></span> : null}
               </button>
@@ -204,13 +212,6 @@ export function Settings() {
           </section>
         )}
 
-        <section className="hb-links">
-          <div>
-            {!worker && <button onClick={() => go("/code")}>Your code</button>}
-            <button onClick={() => go("/support")}>Help and support</button>
-            <button onClick={() => go("/privacy")}>Privacy and terms</button>
-          </div>
-        </section>
       </>)}
 
       <TabBar on="you" />
@@ -239,6 +240,7 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
   const [picking, setPicking] = useState(false);
   const [editing, setEditing] = useState(false);
   const [subName, setSubName] = useState("");
+  const [contact, setContact] = useState<{ phone: string; dial: string; whatsapp: boolean } | null>(null);
   const [radius, setRadius] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<{ id: string; name: string }[] | null>(null);
   const [on, setOn] = useState<Prefs>({ jobs: true, messages: true, offers: false, ...(prefs ?? {}) });
@@ -257,6 +259,11 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
     if (profile?.is_worker) sb.from("workers").select("radius_km").eq("id", session.user.id).maybeSingle().then(({ data }) => setRadius(data?.radius_km ?? null));
     alertsState().then(setPhone).catch(() => {});
   }, [session?.user.id]);
+  // Read again after Edit, so a new number shows straight away.
+  useEffect(() => {
+    if (!session || editing) return;
+    sb.from("profile_contact").select("phone,dial,whatsapp").eq("id", session.user.id).maybeSingle().then(({ data }) => setContact(data ?? null));
+  }, [session?.user.id, editing]);
   const me = (profile ?? {}) as { birth_date?: string | null; gender?: string | null; nationality?: string | null; home_suburb_id?: number | null };
   useEffect(() => {
     if (me.home_suburb_id) sb.from("suburbs").select("name").eq("id", me.home_suburb_id).maybeSingle().then(({ data }) => setSubName(data?.name ?? ""));
@@ -312,7 +319,7 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
             {profile.id_status === "verified"
               ? <div><small>ID</small><b className="ac-ok">{Icon.shieldTick("var(--emerald)")}Verified</b></div>
               : <button onClick={() => onOpen("verify")}><small>ID</small><b className="ac-todo">{profile.id_status === "pending" ? "Being checked" : "Verify now"}</b></button>}
-            <div><small>Mobile</small><b>{profile.phone || "Not added"}</b></div>
+            <div><small>Mobile</small><b>{contact ? showPhone(contact.phone, contact.dial) : "Not added"}</b>{contact?.whatsapp && <span className="ac-wa">{waMark(16)}On WhatsApp</span>}</div>
             <div><small>Email</small><b className="ac-mail">{session.user.email ?? ""}</b></div>
           </div>
         </section>
@@ -363,6 +370,14 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
                 setBlocked((x) => (x ?? []).filter((y) => y.id !== b.id)); toast("Unblocked");
               }}>Unblock</button></div>
           )) : <span className="ac-none">{blocked ? "You haven't blocked anyone." : "Loading"}</span>}
+        </section>
+
+        <section className="hb-band ac-help">
+          <div className="hb-rows">
+            {!worker && <button onClick={() => go("/code")}>{I.qr()}<span>Your code</span>{Icon.chevron("var(--faint)")}</button>}
+            <button onClick={() => go("/support")}>{I.help()}<span>Help and support</span>{Icon.chevron("var(--faint)")}</button>
+            <button onClick={() => go("/privacy")}>{I.doc()}<span>Privacy and terms</span>{Icon.chevron("var(--faint)")}</button>
+          </div>
         </section>
 
         <section className="ac-end"><div className="hb-out"><button className="btn stone" onClick={() => signOut().then(() => go("/"))}>Sign out</button></div></section>

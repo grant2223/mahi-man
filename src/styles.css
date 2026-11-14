@@ -1426,7 +1426,6 @@ button.ck-m { cursor: pointer; }
 .hb-grid > div { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
 .hb-grid > div small { font-size: 13px; font-weight: 300; color: var(--muted); }
 .hb-grid > div b { font-size: 16px; font-weight: 500; }
-.ac-mail { overflow-wrap: anywhere; }
 .ac-todo { color: var(--emerald); }
 .ac-phone { display: flex; align-items: center; gap: 12px; margin-bottom: 6px; font-size: 14px; font-weight: 300; color: var(--muted); }
 .ac-phone span { flex: 1; }
@@ -1640,3 +1639,42 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .fq-h { margin: 14px 0 6px; font-size: 20px; font-weight: 600; }
 .tj-fee { font-size: 15px; font-weight: 300; color: var(--muted); } .tj-fee b { font-size: 20px; font-weight: 600; color: var(--ink); }
 .tp-pay { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; padding: 14px; background: var(--ground); border-radius: 6px; }
+
+/* You page: money actions in one row; Your account: help rows */
+.hb-m3 { display: grid; grid-template-columns: 1fr 1fr 1fr; margin-top: 18px; }
+.hb-m3 button { display: flex; flex-direction: column; align-items: center; gap: 8px; border: 0; background: none; padding: 6px 0; font-size: 15px; font-weight: 400; color: var(--ink); }
+.hb-m3 button + button { border-left: 1px solid var(--line); }
+.hb-rows { display: flex; flex-direction: column; }
+.hb-rows button { display: flex; align-items: center; gap: 14px; min-height: 58px; border: 0; background: none; padding: 0; text-align: left; font-size: 16px; font-weight: 400; color: var(--ink); }
+.hb-rows button span { flex: 1; }
+.hb-rows button + button { border-top: 1px solid var(--line); }
+.ac-help { padding-top: 10px; padding-bottom: 10px; border-bottom: 0; }
+.ac-wa { display: flex; align-items: center; gap: 5px; margin-top: 3px; font-size: 13px; font-weight: 300; color: var(--muted); }
+/* Profile: mobile and suburb */
+.pf-mob { display: grid; grid-template-columns: 124px 1fr; gap: 8px; }
+.pf-mob .field { min-width: 0; }
+.pf-mob .field.sel { padding-right: 14px; }
+.pf-mob .field.sel::after { display: none; }
+.pf-mob .field .v { font-size: 17px; white-space: nowrap; }
+.pf-mob .field input { font-size: 17px; }
+.pf-wa { display: flex; align-items: center; gap: 12px; margin-top: 12px; min-height: 44px; font-size: 16px; }
+.pf-wa span { flex: 1; }
+.pf-wa button { width: 50px; height: 30px; border: 0; padding: 0; border-radius: 15px; background: var(--stone-2); position: relative; flex: none; }
+.pf-wa button i { position: absolute; left: 3px; top: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.2); transition: left .15s; }
+.pf-wa button.on { background: var(--emerald); } .pf-wa button.on i { left: 23px; }
+.sp-acts { padding: 0 20px; background: var(--card); border-bottom: 8px solid var(--ground); }
+.sp-list { background: var(--card); padding: 0 20px; }
+.sp-list button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 58px; border: 0; border-top: 1px solid var(--line); background: none; padding: 0; text-align: left; }
+.sp-list button:first-child { border-top: 0; }
+.sp-list b { font-size: 16px; font-weight: 400; }
+.sp-list small { display: block; font-size: 13px; font-weight: 300; color: var(--muted); }
+.sp-note { padding: 16px 20px; font-size: 15px; color: var(--muted); }
+.sp-map { position: fixed; inset: 0; z-index: 70; background: #e6ece8; }
+.sp-map > .m { position: absolute; inset: 0; }
+.sp-map .pin { position: absolute; left: 50%; top: 44%; transform: translate(-50%, -100%); pointer-events: none; }
+.sp-map .fab { position: absolute; top: calc(var(--safe-top) + 14px); width: 48px; height: 48px; border: 0; border-radius: var(--r-control); background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: var(--shadow); }
+.sp-map .fab.l { left: 16px; } .sp-map .fab.r { right: 16px; }
+.sp-map .bar { position: absolute; left: 0; right: 0; bottom: 0; background: #fff; padding: 18px 20px calc(var(--safe-bottom) + 18px); display: flex; align-items: center; gap: 14px; }
+.sp-map .bar span { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sp-map .bar small { font-size: 14px; font-weight: 300; color: var(--muted); }
+.sp-map .bar b { font-size: 24px; font-weight: 600; letter-spacing: -0.4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
