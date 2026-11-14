@@ -81,7 +81,7 @@ One account does both. Switch between Get help and Do work whenever you like.
 
 ## Data safety
 
-Updated 14 Nov 2026 for versionCode 15 / build 38 (Your profile at sign-up, app opens). **Not yet entered in Play Console or App Store Connect App Privacy.**
+Updated 14 Nov 2026 for versionCode 15 / build 38 (Your profile at sign-up, app opens). Entered in Play Console (in review with versionCode 15) and published in App Store Connect App Privacy on 14 Nov 2026. Apple's matching types: Other Data Types and Device ID, both linked to the user, not used for tracking, used for App Functionality and Analytics.
 
 Data is encrypted in transit: **Yes**. Users can request deletion: **Yes**. No data is sold or used for ads or tracking.
 "Shared" means sent to another company. Service providers like Supabase and Stripe don't count as sharing, so answer **Collected, not shared** for everything below.
