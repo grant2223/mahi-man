@@ -4,7 +4,7 @@ import { Capacitor } from "@capacitor/core";
 import { createPortal } from "react-dom";
 import { Reliability } from "../worker/Reliability";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { api, mediaUrls, rpc, sb } from "../lib/supabase";
+import { api, avatarUrl, mediaUrls, rpc, sb, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money, shrinkImage } from "../lib/format";
@@ -13,6 +13,7 @@ import { VerifyFlow } from "./Verify";
 import { AbnStep } from "../worker/Signup";
 import { Credentials, JobsAndSkills } from "../worker/Skills";
 import { PaymentMethods, cardLabel } from "../customer/Cards";
+import { GoldTick } from "../customer/Offers";
 import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
 import { isSoon, useArea } from "../lib/area";
 import { TabBar } from "./TabBar";
@@ -229,6 +230,8 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
   const [editing, setEditing] = useState(false);
   const [subName, setSubName] = useState("");
   const [contact, setContact] = useState<{ phone: string; dial: string; whatsapp: boolean } | null>(null);
+  const [card, setCard] = useState<PersonCard | null>(null);
+  const [showBlocked, setShowBlocked] = useState(false);
   const [radius, setRadius] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<{ id: string; name: string }[] | null>(null);
   const [on, setOn] = useState<Prefs>({ jobs: true, messages: true, offers: false, ...(prefs ?? {}) });
@@ -246,6 +249,7 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
     rpc<{ id: string; name: string }[]>("my_blocks").then((r) => setBlocked(r ?? [])).catch(() => setBlocked([]));
     if (profile?.is_worker) sb.from("workers").select("radius_km").eq("id", session.user.id).maybeSingle().then(({ data }) => setRadius(data?.radius_km ?? null));
     alertsState().then(setPhone).catch(() => {});
+    rpc<PersonCard[]>("person_card", { p_person: session.user.id }).then((c) => setCard(c?.[0] ?? null)).catch(() => {});
   }, [session?.user.id]);
   // Read again after Edit, so a new number shows straight away.
   useEffect(() => {
@@ -283,91 +287,123 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
   ];
   const settingsName = Capacitor.getPlatform() === "android" ? "your phone's Settings, Apps" : "iPhone Settings";
 
+  const joined = new Date(profile.created_at ?? Date.now()).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
+  const shortName = profile.full_name || "Your account";
+  const bday = me.birth_date ? new Date(me.birth_date + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
+  const pic = avatarUrl(profile.photo_path);
+  const reviewed = card?.reviewed ?? 0;
+  const ic = (d: ReactNode) => <svg className="ax-ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>;
+  const A = {
+    phone: ic(<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2" />),
+    mail: ic(<><rect x="3" y="5" width="18" height="14" rx="1" /><path d="M3 7l9 6 9-6" /></>),
+    id: ic(<><rect x="3" y="5" width="18" height="14" rx="1.5" /><circle cx="9" cy="11" r="2.3" /><path d="M5.8 16c.7-1.6 1.8-2.4 3.2-2.4s2.5.8 3.2 2.4M14.5 10h4M14.5 13h3" /></>),
+    cake: ic(<path d="M4 21h16M5 21v-8h14v8M12 13V9M12 6.5a1.5 1.5 0 0 0 0-3" />),
+    person: ic(<><circle cx="12" cy="8" r="4" /><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6" /></>),
+    globe: ic(<><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18" /></>),
+    pin: ic(<><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></>),
+    card: ic(<><rect x="3" y="6" width="18" height="13" rx="1" /><path d="M3 10h18M7 15h4" /></>),
+    block: ic(<><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>),
+    help: ic(<><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.1-2.4 3.6M12 17h.01" /></>),
+    doc: ic(<><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z" /><path d="M14 3v4h4M9 12h6M9 16h6" /></>),
+  };
+  const chev = Icon.chevron("var(--faint)");
+
   return (
-    <div className="screen hb hb-acct" role="dialog" aria-label="Your account">
+    <div className="screen hb hb-acct ax" role="dialog" aria-label="Your account">
       {editing && <ProfileScreen mode="edit" onBack={() => setEditing(false)} onDone={() => { setEditing(false); toast("Saved"); }} />}
+      {showBlocked && (
+        <Screen title="Blocked people" onBack={() => setShowBlocked(false)}>
+          <div className="screen-body ax-list">
+            {blocked && blocked.length > 0 ? blocked.map((b) => (
+              <div key={b.id} className="ax-row"><span className="ax-one">{b.name}</span>
+                <button className="ax-link" onClick={async () => {
+                  const { error } = await sb.from("blocks").delete().eq("blocker_id", session.user.id).eq("blocked_id", b.id);
+                  if (error) { toast(error.message); return; }
+                  setBlocked((x) => (x ?? []).filter((y) => y.id !== b.id)); toast("Unblocked");
+                }}>Unblock</button></div>
+            )) : <p className="ax-empty">You haven't blocked anyone.</p>}
+          </div>
+        </Screen>
+      )}
       <div className="screen-body">
-        <section className="hb-hero">
-          <div className="hb-top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button><span>Your account</span><span style={{ width: 44 }} /></div>
-          <div className="ac-me">
-            <Tile name={profile.full_name || "?"} photo={profile.photo_path} size={88} />
-            <button className="hb-edit" onClick={() => file.current?.click()}>Change photo</button>
-            <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) photo(f); }} />
+        {/* Photo first, with name, age and the gold ID tick: the same look customers see on the offer card. */}
+        <section className="ax-hero" style={pic ? { backgroundImage: `url(${pic})` } : undefined}>
+          {!pic && <span className="ax-ini">{shortName.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>}
+          <div className="ax-bar">
+            <button onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button>
+            <button onClick={() => file.current?.click()} aria-label="Change photo">{Icon.camera("#fff")}</button>
+          </div>
+          <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) photo(f); }} />
+          <div className="ax-who">
+            <div className="n">{shortName}{card?.age != null && <>, <i>{card.age}</i></>}{profile.id_status === "verified" && <GoldTick s={26} />}</div>
+            <div className="s">{[subName, `Joined ${joined}`].filter(Boolean).join(" · ")}</div>
           </div>
         </section>
 
-        <section className="hb-band">
-          <div className="hb-h"><h2>Your details</h2><button onClick={() => setEditing(true)}>Edit</button></div>
-          <div className="hb-grid">
-            <div><small>Name</small><b>{profile.full_name || "Not added"}</b></div>
-            <div><small>Date of birth</small><b>{me.birth_date ? new Date(me.birth_date + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "Not added"}</b></div>
-            <div><small>Gender</small><b>{GENDERS.find(([k]) => k === me.gender)?.[1] ?? "Not added"}</b></div>
-            <div><small>Nationality</small><b>{me.nationality || "Not added"}</b></div>
-            <div><small>Suburb</small><b>{subName || "Not added"}</b></div>
-            {profile.id_status === "verified"
-              ? <div><small>ID</small><b className="ac-ok">{Icon.shieldTick("var(--emerald)")}Verified</b></div>
-              : <button onClick={() => onOpen("verify")}><small>ID</small><b className="ac-todo">{profile.id_status === "pending" ? "Being checked" : "Verify now"}</b></button>}
-            <div><small>Mobile</small><b>{contact ? showPhone(contact.phone, contact.dial) : "Not added"}</b>{contact?.whatsapp && <span className="ac-wa">{waMark(16)}On WhatsApp</span>}</div>
-            <div><small>Email</small><b className="ac-mail">{session.user.email ?? ""}</b></div>
+        <section className="ax-st ax-3">
+          <div><b>{card?.jobs_done ?? 0}</b><small>jobs done</small></div>
+          <div><b>{reviewed ? `${Math.round(((card?.recommended ?? 0) / reviewed) * 100)}%` : "New"}</b><small>{reviewed ? "recommend" : "no reviews yet"}</small></div>
+          {worker
+            ? <div><b>{card?.turns_up != null ? `${card.turns_up}%` : "New"}</b><small>turn up</small></div>
+            : <div><b>{profile.id_status === "verified" ? "Yes" : "No"}</b><small>ID checked</small></div>}
+        </section>
+
+        <section className="ax-sec">
+          <h2>Contact<button onClick={() => setEditing(true)}>Edit</button></h2>
+          <button className="ax-row" onClick={() => !contact && setEditing(true)}>{A.phone}
+            <span className="ax-t"><small>Mobile</small>{contact ? <b>{showPhone(contact.phone, contact.dial)}</b> : <b className="add">Add your mobile</b>}</span>
+            {contact?.whatsapp && <span className="ax-wa">{waMark(20)}</span>}</button>
+          <div className="ax-row">{A.mail}<span className="ax-t"><small>Email</small><b>{session.user.email ?? ""}</b></span></div>
+          {profile.id_status !== "verified" && (
+            <button className="ax-row" onClick={() => onOpen("verify")}>{A.id}
+              <span className="ax-t"><small>ID</small><b className="add">{profile.id_status === "pending" ? "Being checked" : "Verify your ID"}</b></span></button>
+          )}
+        </section>
+
+        <section className="ax-sec">
+          <h2>About you<button onClick={() => setEditing(true)}>Edit</button></h2>
+          <div className="ax-3 ax-cells">
+            <div>{A.cake}<small>Birthday</small><b>{bday || "Not added"}</b></div>
+            <div>{A.person}<small>Gender</small><b>{GENDERS.find(([k]) => k === me.gender)?.[1] ?? "Not added"}</b></div>
+            <div>{A.globe}<small>Nationality</small><b>{me.nationality || "Not added"}</b></div>
           </div>
         </section>
 
         {area && (
-          <section className="hb-band">
-            <div className="hb-h"><h2>Your area</h2>{(areas?.length ?? 0) > 1 && <button onClick={() => setPicking(true)}>Change</button>}</div>
-            <div className="ac-area"><div className="ac-ring"><i /><i /><b /></div>
-              <div><div className="db-num">{area.name}</div><span>{isSoon(area) ? "Coming soon" : worker && radius ? `Jobs within ${radius} km` : area.state}</span></div></div>
+          <section className="ax-sec">
+            <h2>Your area{(areas?.length ?? 0) > 1 && <button onClick={() => setPicking(true)}>Change</button>}</h2>
+            <div className="ax-row">{A.pin}<span className="ax-t"><small>{isSoon(area) ? "Coming soon" : worker && radius ? `Jobs within ${radius} km` : area.state}</small><b>{area.name}</b></span></div>
           </section>
         )}
 
         {pushSupported() && (
-          <section className="hb-band">
-            <div className="hb-h"><h2>Alerts</h2></div>
+          <section className="ax-sec">
+            <h2>Alerts</h2>
             {phone !== "granted" && (
-              <div className="ac-phone">
-                <span>{phone === "denied" ? `Alerts are off on this phone. Turn them on in ${settingsName}, Mahi Man, Notifications.` : "Alerts are off on this phone."}</span>
-                {phone === "prompt" && <button className="btn stone" onClick={async () => setPhone(await turnOnAlerts())}>Turn on</button>}
-              </div>
+              <div className="ax-row ax-plain"><span className="ax-one muted">{phone === "denied" ? `Off in ${settingsName}` : "Off on this phone"}</span>
+                {phone === "prompt" && <button className="ax-link" onClick={async () => setPhone(await turnOnAlerts())}>Turn on</button>}</div>
             )}
-            <div className="ac-sw">
-              {rows.map(([k, label]) => (
-                <label key={k}><span>{label}</span>
-                  <button className={on[k] ? "on" : ""} role="switch" aria-checked={on[k]} aria-label={label} onClick={() => setOn((p) => ({ ...p, [k]: !p[k] }))}><i /></button>
-                </label>
-              ))}
-            </div>
-            <p className="ac-always">Alerts about your jobs, payments and account are always on.</p>
+            {rows.map(([k, label]) => (
+              <label key={k} className="ax-row ax-plain"><span className="ax-one">{label}</span>
+                <button className={`ax-sw${on[k] ? " on" : ""}`} role="switch" aria-checked={on[k]} aria-label={label} onClick={() => setOn((p) => ({ ...p, [k]: !p[k] }))}><i /></button>
+              </label>
+            ))}
             <button className="btn ac-save" disabled={!changed || busy} onClick={save}>{busy ? "Saving" : "Save"}</button>
           </section>
         )}
 
-        <section className="hb-band">
-          <div className="hb-h"><h2>Payment card</h2><button onClick={() => onOpen("cards")}>{profile.card_last4 ? "Change" : "Add"}</button></div>
-          {profile.card_last4
-            ? <div className="ac-card">{I.card()}<b>{cardLabel(profile)}</b><span>Used for top-ups</span></div>
-            : <span className="ac-none">No card yet. Add one for top-ups and fees.</span>}
+        <section className="ax-sec">
+          <h2>Payment card<button onClick={() => onOpen("cards")}>{profile.card_last4 ? "Change" : "Add"}</button></h2>
+          <div className="ax-row">{A.card}<span className="ax-t"><small>Card</small><b>{profile.card_last4 ? cardLabel(profile) : "No card yet"}</b></span></div>
         </section>
 
-        <section className="hb-band">
-          <div className="hb-h"><h2>Blocked people</h2></div>
-          {blocked && blocked.length > 0 ? blocked.map((b) => (
-            <div key={b.id} className="ac-blk"><span>{b.name}</span>
-              <button className="link" onClick={async () => {
-                const { error } = await sb.from("blocks").delete().eq("blocker_id", session.user.id).eq("blocked_id", b.id);
-                if (error) { toast(error.message); return; }
-                setBlocked((x) => (x ?? []).filter((y) => y.id !== b.id)); toast("Unblocked");
-              }}>Unblock</button></div>
-          )) : <span className="ac-none">{blocked ? "You haven't blocked anyone." : "Loading"}</span>}
+        <section className="ax-sec ax-links">
+          <button className="ax-row" onClick={() => setShowBlocked(true)}>{A.block}<span className="ax-one">Blocked people</span>
+            <span className="ax-r">{blocked == null ? "" : blocked.length ? blocked.length : "None"}{chev}</span></button>
+          <button className="ax-row" onClick={() => go("/support")}>{A.help}<span className="ax-one">Help and support</span><span className="ax-r">{chev}</span></button>
+          <button className="ax-row" onClick={() => go("/privacy")}>{A.doc}<span className="ax-one">Privacy and terms</span><span className="ax-r">{chev}</span></button>
+          <button className="btn stone ax-out" onClick={() => signOut().then(() => go("/"))}>Sign out</button>
         </section>
-
-        <section className="hb-band ac-help">
-          <div className="hb-rows">
-            <button onClick={() => go("/support")}>{I.help()}<span>Help and support</span>{Icon.chevron("var(--faint)")}</button>
-            <button onClick={() => go("/privacy")}>{I.doc()}<span>Privacy and terms</span>{Icon.chevron("var(--faint)")}</button>
-          </div>
-        </section>
-
-        <section className="ac-end"><div className="hb-out"><button className="btn stone" onClick={() => signOut().then(() => go("/"))}>Sign out</button></div></section>
       </div>
       {picking && area && createPortal(<SearchPicker title="Where are you?" placeholder="Search areas" value={[area.id]}
         options={(areas ?? []).map((a) => ({ id: a.id, label: a.name, hint: isSoon(a) ? `${a.state}, coming soon` : a.state }))}

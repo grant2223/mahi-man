@@ -1701,3 +1701,46 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .ox-eta i { font-style: normal; font-weight: 300; color: var(--muted); }
 .ox-btns { display: flex; gap: 10px; justify-content: flex-end; padding: 18px 20px 0; }
 .ox-btns .btn { height: 50px; font-size: 17px; }
+
+/* Your account: photo first, one grid (20px edges, 3 equal columns, 64px rows), no lines. */
+.ax .screen-body { background: var(--card); }
+.ax-hero { position: relative; height: 400px; background: var(--stone) center 30% / cover no-repeat; }
+.ax-hero::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 55%; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.62)); }
+.ax-ini { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 80px; font-weight: 600; color: var(--muted); }
+.ax-bar { position: absolute; top: var(--safe-top); left: 0; right: 0; z-index: 1; height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; }
+.ax-bar button { width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; filter: drop-shadow(0 1px 3px rgba(0,0,0,.6)); }
+.ax-who { position: absolute; left: 20px; right: 20px; bottom: 20px; z-index: 1; color: #fff; }
+.ax-who .n { display: flex; align-items: center; gap: 8px; font-size: 32px; font-weight: 600; letter-spacing: -0.8px; line-height: 40px; }
+.ax-who .n i { font-style: normal; font-weight: 300; }
+.ax-who .s { font-size: 16px; font-weight: 300; line-height: 24px; }
+.ax-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.ax-st { padding: 24px 20px 20px; border-bottom: 8px solid var(--ground); }
+.ax-st b { display: block; font-size: 28px; font-weight: 600; letter-spacing: -0.6px; line-height: 32px; }
+.ax-st small { display: block; margin-top: 4px; font-size: 13px; font-weight: 300; line-height: 16px; color: var(--muted); }
+.ax-sec { padding: 24px 20px 28px; border-bottom: 8px solid var(--ground); }
+.ax-sec:last-child { border-bottom: 0; padding-bottom: calc(var(--safe-bottom) + 28px); }
+.ax-sec h2 { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 8px; font-size: 20px; font-weight: 600; letter-spacing: -0.3px; line-height: 28px; }
+.ax-sec h2 button { border: 0; background: none; padding: 0; color: var(--emerald); font-size: 15px; font-weight: 500; }
+.ax-row { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; column-gap: 16px; align-items: center; width: 100%; height: 64px; border: 0; background: none; padding: 0; text-align: left; color: var(--ink); font: inherit; }
+.ax-row.ax-plain { grid-template-columns: minmax(0, 1fr) auto; }
+.ax-t small { display: block; font-size: 13px; font-weight: 300; line-height: 16px; color: var(--muted); }
+.ax-t b { display: block; font-size: 17px; font-weight: 400; line-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ax-t b.add { color: var(--emerald); font-weight: 500; }
+.ax-one { font-size: 17px; font-weight: 400; line-height: 24px; }
+.ax-one.muted { color: var(--muted); font-weight: 300; }
+.ax-r { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 300; color: var(--muted); }
+.ax-wa { display: flex; }
+.ax-cells { padding-top: 8px; }
+.ax-cells .ax-ic { display: block; margin-bottom: 12px; }
+.ax-cells small { display: block; font-size: 13px; font-weight: 300; line-height: 16px; color: var(--muted); }
+.ax-cells b { display: block; margin-top: 4px; font-size: 16px; font-weight: 400; line-height: 24px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ax-sw { width: 52px; height: 32px; border: 0; padding: 0; border-radius: 16px; background: var(--stone-2); position: relative; }
+.ax-sw i { position: absolute; left: 3px; top: 3px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.2); transition: left .15s; }
+.ax-sw.on { background: var(--emerald); } .ax-sw.on i { left: 23px; }
+.ax .ac-save { margin-top: 8px; height: 48px; }
+.ax-links { padding-top: 8px; }
+.ax-out { margin-top: 16px; height: 48px; font-size: 16px; }
+.ax-link { border: 0; background: none; padding: 8px 0; color: var(--emerald); font-size: 16px; font-weight: 500; }
+.ax-list { padding: 8px 20px; background: var(--card); }
+.ax-list .ax-row { grid-template-columns: minmax(0, 1fr) auto; }
+.ax-empty { margin: 16px 0; font-size: 16px; font-weight: 300; color: var(--muted); }
