@@ -134,7 +134,6 @@ export function Landing() {
           <div className="ld-hero-text">
             <span className="ld-pin">{Icon.pin("#d4f04c")} Australia wide</span>
             <h1>Get the help you need within minutes.</h1>
-            <span className="ld-tag">Post, accept, job done!</span>
             <div className="row ld-ctas">
               <a className="btn lime" href="/post" onClick={link("/post")}>Post a job, free {Icon.arrow("var(--ink)")}</a>
               <a className="btn ghost" href="/find" onClick={link("/find")}>Want work?</a>
@@ -329,7 +328,7 @@ export function SiteFooter() {
       <div className="ld-wrap ld-foot-grid">
         <div className="ld-foot-brand">
           <a className="brand" href="/" onClick={nav("/")}><Logo /> Mahi Man</a>
-          <p>Get the help you need within minutes. Post, accept, job done!</p>
+          <p>Get the help you need within minutes.</p>
           <StoreBadges stack />
         </div>
         <nav className="ld-foot-col">

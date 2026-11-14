@@ -800,9 +800,8 @@ body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: v
 .avail-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--lime); flex: none; animation: avail 1.8s ease-in-out infinite; }
 @keyframes avail { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
 
-/* Landing hero: the longer headline, and the tagline under it */
-.ld-hero h1 { font-size: clamp(38px, 4.8vw, 62px); letter-spacing: -1.5px; line-height: 1.02; }
-.ld-tag { display: block; margin: 0 0 28px; font-size: clamp(22px, 2.4vw, 30px); font-weight: 600; color: var(--lime); letter-spacing: -0.5px; }
+/* Landing hero: the longer headline (the splash slogan) */
+.ld-hero h1 { margin-bottom: 32px; font-size: clamp(38px, 4.8vw, 62px); letter-spacing: -1.5px; line-height: 1.02; }
 /* How it works: the line that opens each side's three steps */
 .ld-who { display: block; margin: 8px 0 22px; font-size: 20px; font-weight: 600; color: var(--emerald); letter-spacing: -0.2px; }
 
