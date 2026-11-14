@@ -8,7 +8,7 @@ import { hours, money, whenLabel } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
 import { Icon, Loading, Logo, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen } from "../ui/Report";
-import { Signup, type Steps } from "./Signup";
+import { AbnStep, Signup, type Steps } from "./Signup";
 import { WorkerJob } from "./WorkerJob";
 import { ActionBar, reviewSkipped } from "../ui/Completion";
 import { AlertsAsk } from "../ui/AlertsAsk";
@@ -189,12 +189,15 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   useEffect(() => { rpc<MyOffer[]>("my_offers").then((m) => { setMine(m); pending.current = m.filter((x) => x.status === "pending").length; }).catch(() => {}); }, []);
 
   const [ask, setAsk] = useState(false);
+  // No PayID or bank account yet: open Getting paid, then go online once it's saved.
+  const [needPay, setNeedPay] = useState<null | "online" | "trade">(null);
+  const needsPay = (e: unknown) => e instanceof Error && e.message.startsWith("Add your PayID");
   async function toggle() {
     try {
       await rpc("set_online", { p_online: !online }); setOnline(!online); if (online) setOffers((x) => x.filter((o) => o.trade));
       if (!online && !askedFor("work") && (await alertsState()) === "prompt") setAsk(true);
     }
-    catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+    catch (e) { if (needsPay(e)) setNeedPay("online"); else toast(e instanceof Error ? e.message : String(e)); }
   }
 
   return (
@@ -277,7 +280,8 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       })()}
       {ask && <AlertsAsk role="work" onDone={() => setAsk(false)} />}
       {trade && tradeScreen === "join" && <TradeJoin trade={trade} onBack={() => setTradeScreen(isTradie ? "plan" : null)}
-        onJoined={(plan) => { reloadTrade(); poll(); setTradeScreen(plan === "premium" ? "plan" : "feed"); }} />}
+        onJoined={(plan) => { reloadTrade(); poll(); setTradeScreen(plan === "premium" ? "plan" : "feed"); }} onNeedPay={() => setNeedPay("trade")} />}
+      {needPay && <AbnStep onBack={() => setNeedPay(null)} onSaved={() => { const was = needPay; setNeedPay(null); toast("Saved"); if (was === "online") toggle(); }} />}
       {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={() => setTradeScreen(null)} onChanged={reloadTrade} onUpgrade={() => setTradeScreen("join")} />}
       {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} covers={covers} onBack={() => setTradeScreen(null)} onOpen={setTradeOpen} onUpgrade={() => setTradeScreen("join")} />}
       {tradeOpen && trade && <TradeJob o={tradeOpen} trade={trade} onBack={() => setTradeOpen(null)}

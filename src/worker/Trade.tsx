@@ -60,7 +60,7 @@ export function TradeStrip({ trade, open, onJoin, onFeed, onPlan }: { trade: Tra
 }
 
 // Join: Premium as the offer, Standard as the free option, the comparison behind a tap.
-export function TradeJoin({ trade, onBack, onJoined }: { trade: TradeStatus; onBack: () => void; onJoined: (plan: "standard" | "premium") => void }) {
+export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: TradeStatus; onBack: () => void; onJoined: (plan: "standard" | "premium") => void; onNeedPay?: () => void }) {
   const toast = useToast();
   const p = trade.prices;
   const [year, setYear] = useState(false);
@@ -82,7 +82,10 @@ export function TradeJoin({ trade, onBack, onJoined }: { trade: TradeStatus; onB
       await rpc("trade_join", { p_plan: plan, p_billing: year ? "year" : "month", p_business: null });
       toast(plan === "premium" ? "Invoice on its way. Premium starts once it's paid." : "You're in. Trade jobs near you show on your jobs page.");
       onJoined(plan);
-    } catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
+    } catch (e) {
+      setBusy(false);
+      if (e instanceof Error && e.message.startsWith("Add your PayID") && onNeedPay) onNeedPay(); else toast(e instanceof Error ? e.message : String(e));
+    }
   };
   return (
     <div className="screen tj" role="dialog" aria-label="Trade jobs" style={{ background: "var(--card)" }}>

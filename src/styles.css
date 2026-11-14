@@ -1314,7 +1314,6 @@ button.ck-m { cursor: pointer; }
 .hp-row i { font-style: normal; font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); padding-top: 3px; }
 .hp-row span { font-size: 16px; font-weight: 300; line-height: 1.45; }
 .hp-plans { margin: 26px 20px 4px; font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
-.ck-due { color: var(--danger) !important; font-weight: 500 !important; }
 .ck-method .v.ph { color: var(--muted); font-weight: 400; }
 .ck-terms { flex: 1; max-width: 190px; font-size: 13px; font-weight: 300; line-height: 1.4; color: var(--muted); }
 .ck-terms a { color: var(--emerald); }
