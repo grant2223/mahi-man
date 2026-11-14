@@ -10,7 +10,7 @@ What's ready, and what's left. Ticked items are done.
 - [x] Reviewer sign-in: review@mahiman.app. Its code is in `~/Mahi Man Android Keys/store-review-sign-in.txt` (no email is sent for this address).
 - [x] Android notifications: Firebase project "mahi-man" (no Analytics), `android/app/google-services.json`, key in the Supabase secret `FCM_SERVICE_ACCOUNT`.
 - [x] Location foreground-service declaration with the demo video (`google-play/location-sharing-demo.mp4`, shared from Google Drive).
-- [x] **Live on Google Play** in Australia and New Zealand since 12 Nov 2026. **versionCode 14** live 14 Nov 2026. **versionCode 15** (Your profile at sign-up, ID check within 48 hours, notification taps) sent for review 14 Nov 2026. Earlier releases: 3, 4, 5, 6, 7, 8 (replaced by 10 in review), 10, 12. 9, 11 and 13 were never uploaded.
+- [x] **Live on Google Play** in Australia and New Zealand since 12 Nov 2026. **versionCode 15** (Your profile at sign-up, with its Data safety update) live 14 Nov 2026. **versionCode 16** (tradie plans: Standard $99 per job won or Premium $249/$2,499; trade jobs get quotes) sent for review 14 Nov 2026. Earlier releases: 3, 4, 5, 6, 7, 8 (replaced by 10 in review), 10, 12, 14. 9, 11 and 13 were never uploaded.
 - [x] **Store icon and feature graphic** updated 14 Nov 2026: house logo off the shirt, and the feature graphic uses the splash slogan "Get the help you need within minutes." Both are live.
 - [ ] Play needs the **trader status declaration** by February 2027 (Play Console banner). It's a legal declaration, so you do it.
 - [ ] Optional: App content, Target audience, tick "Restrict users that Google has determined to be minors".
@@ -20,7 +20,7 @@ What's ready, and what's left. Ticked items are done.
 
 ### App Store
 - [x] **Version 1.0 with build 28** (gift cards) has been waiting for App Store review since it was resubmitted on 12 Nov 2026. Review notes say gift cards are sold outside in-app purchase. Leave it in review; newer builds go with the next version.
-- [x] **TestFlight, Cairns pilot group** (public link https://testflight.apple.com/join/XSdk2dnn): builds 27, 28, 29, 30, 31, 33, 35 and 37 are all approved for beta testing (checked 14 Nov 2026). **Build 38** (Your profile at sign-up, ID check within 48 hours, notification taps) added 14 Nov 2026, beta review sent. 32, 34 and 36 were never uploaded.
+- [x] **TestFlight, Cairns pilot group** (public link https://testflight.apple.com/join/XSdk2dnn): builds 27, 28, 29, 30, 31, 33, 35, 37 and 38 are all approved for beta testing (checked 14 Nov 2026). **Build 39** (tradie plans) added 14 Nov 2026, beta review sent. 32, 34 and 36 were never uploaded.
 - [ ] When Apple approves 1.0: set `app_store_url` in Admin → Settings so the website and /get send iPhones to the App Store instead of TestFlight.
 - [x] App Review Information: tick sign-in required and enter review@mahiman.app with the code from `store-review-sign-in.txt` as the password. Note: "Enter the email, tap Email me a code, then type the code. No email is sent for this address."
 - [x] In App Store Connect → **App Privacy**: answer the questionnaire (same data as the Play Data safety table in `google-play/listing.md`; none used for tracking).
@@ -64,5 +64,5 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 
 ## Building new versions
 
-- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 38), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 15), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 39), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 16), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
