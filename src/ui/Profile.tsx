@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { rpc, sb, type Profile } from "../lib/supabase";
 import { useSession } from "../lib/session";
-import { useArea } from "../lib/area";
+import { useArea, useHere } from "../lib/area";
 import { currentPosition } from "../lib/trip";
 import { DIAL_CODES, GENDERS, HEARD, NATIONALITIES, flag } from "../lib/people";
 import { loadMapKit } from "./LiveMap";
@@ -129,24 +129,33 @@ const locIcon = () => ic(<><circle cx="12" cy="12" r="7" /><path d="M12 2v3M12 1
 const mapIcon = () => ic(<><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2z" /><path d="M9 4v14M15 6v14" /></>);
 const near = (lat: number, lng: number) => rpc<Sub[]>("suburb_find", { p_q: null, p_lat: lat, p_lng: lng, p_limit: 1 }).then((r) => r?.[0] ?? null);
 
-/* Your suburb: search all of Australia, use the phone's location, or move a map. Without a search it lists the suburbs nearest your area. */
+/* Your suburb, based on where they are: the phone's location, or their area if location is off.
+   The list and search only show suburbs within 80 km. A search with nothing nearby shows the rest under "Further away". */
+const NEAR_KM = 80;
 function SuburbPicker({ value, onClose, onPick }: { value: number | null; onClose: () => void; onPick: (s: Sub) => void }) {
   const { area } = useArea();
+  const phone = useHere();
   const [q, setQ] = useState("");
   const [list, setList] = useState<Sub[] | null>(null);
+  const [far, setFar] = useState(false);
   const [note, setNote] = useState("");
   const [locating, setLocating] = useState(false);
   const [map, setMap] = useState(false);
   const [hasMap, setHasMap] = useState(false);
-  const centre = area ? { lat: area.lat, lng: area.lng } : { lat: -16.92, lng: 145.77 };
+  const centre = phone ?? (area ? { lat: area.lat, lng: area.lng } : { lat: -16.92, lng: 145.77 });
   useEffect(() => { loadMapKit().then((mk) => setHasMap(!!mk)); }, []);
   useEffect(() => {
     const t = q.trim();
-    const id = window.setTimeout(() => {
-      rpc<Sub[]>("suburb_find", { p_q: t || null, p_lat: centre.lat, p_lng: centre.lng, p_limit: 60 }).then((r) => setList(r ?? [])).catch(() => setList([]));
+    let live = true;
+    const find = (km: number | null) => rpc<Sub[]>("suburb_find", { p_q: t || null, p_lat: centre.lat, p_lng: centre.lng, p_limit: 60, p_km: km }).then((r) => r ?? []);
+    const id = window.setTimeout(async () => {
+      const nearby = await find(NEAR_KM).catch(() => []);
+      if (nearby.length || !t) { if (live) { setFar(false); setList(nearby); } return; }
+      const rest = await find(null).catch(() => []);
+      if (live) { setFar(rest.length > 0); setList(rest); }
     }, t ? 220 : 0);
-    return () => window.clearTimeout(id);
-  }, [q]); // eslint-disable-line react-hooks/exhaustive-deps
+    return () => { live = false; window.clearTimeout(id); };
+  }, [q, centre.lat, centre.lng]); // eslint-disable-line react-hooks/exhaustive-deps
   const here = async () => {
     setNote(""); setLocating(true);
     const p = await currentPosition();
@@ -154,7 +163,7 @@ function SuburbPicker({ value, onClose, onPick }: { value: number | null; onClos
     setLocating(false);
     if (s) onPick(s); else setNote("Couldn't get your location. Search for your suburb or use the map.");
   };
-  const many = list ? new Set(list.map((s) => s.area)).size > 1 : false;
+  const many = far || (list ? new Set(list.map((s) => s.area)).size > 1 : false);
   return (
     <Screen title="Your suburb" onBack={onClose}>
       <div style={{ background: "var(--card)" }}>
@@ -168,10 +177,11 @@ function SuburbPicker({ value, onClose, onPick }: { value: number | null; onClos
           </div>
         )}
         {note && <p className="sp-note">{note}</p>}
+        {far && <h4 className="sp-far">Further away</h4>}
         <div className="sp-list">
           {(list ?? []).map((s) => (
             <button key={s.id} onClick={() => onPick(s)}>
-              <span><b>{s.name}</b>{(many || q.trim()) && <small>{s.area}, {s.state}</small>}</span>
+              <span><b>{s.name}</b>{many && <small>{s.area}, {s.state}</small>}</span>
               {s.id === value && Icon.tick("var(--emerald)")}
             </button>
           ))}
