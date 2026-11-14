@@ -1,3 +1,4 @@
+import { ProfileScreen, profileComplete } from "./ui/Profile";
 import { startOpens } from "./lib/opens";
 import { PartnerPage } from "./ui/PartnerPage";
 import { OfferDetail, OffersPage } from "./ui/LocalOffers";
@@ -23,7 +24,7 @@ import { lastSide } from "./ui/SideSwitch";
 import { GetAppPage, Landing } from "./ui/Landing";
 import { useEffect } from "react";
 import { sb } from "./lib/supabase";
-import { startPush } from "./lib/push";
+import { forgetThisPhone, startPush } from "./lib/push";
 
 void startPush();
 startOpens();
@@ -47,6 +48,9 @@ function Routes() {
   if (path === "/reset") return <div className="app"><ResetPassword onDone={() => go("/", true)} /></div>;
   // Admin lives on its own address (admin.mahiman.app) and opens for anyone with the admin role. /admin keeps working on the main site until that address is connected.
   if (location.hostname.startsWith("admin.") || path.startsWith("/admin")) return <Admin />;
+  // Signed in on the app with a profile from before these details were asked: finish it first, once.
+  if (Capacitor.isNativePlatform() && session && profile && !profileComplete(profile))
+    return <div className="app"><ProfileScreen mode="finish" onDone={() => {}} onBack={() => { void forgetThisPhone().finally(() => sb.auth.signOut()); }} /></div>;
   if (path.startsWith("/work")) return <Work />;
   // The scanned code: phones go to the store when the app is listed there, otherwise straight into Mahi Man.
   if (path === "/get") return <GetRedirect />;

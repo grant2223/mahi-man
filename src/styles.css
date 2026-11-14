@@ -1584,3 +1584,10 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 /* Pickers and screens in the admin fill the whole window, with the content kept to a readable width. */
 .admin .screen { max-width: none; }
 .admin .screen > :not(.screen-head) { width: 100%; max-width: 760px; margin-left: auto; margin-right: auto; }
+/* Your profile: date of birth in three boxes, the rest two by two */
+.pf-h { margin: 22px 0 8px; font-size: 17px; font-weight: 600; }
+.pf-dob { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
+.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pf-grid .field, .pf-dob .field { min-width: 0; }
+.pf-grid .field .v, .pf-dob .field .v { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-dob .field input { font-size: 17px; }

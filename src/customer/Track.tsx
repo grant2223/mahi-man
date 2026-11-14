@@ -24,6 +24,8 @@ const STEPS = ["Booked", "Matched", "On the way", "Working", "Done"];
 
 export function Track({ id }: { id: string }) {
   const { session, profile } = useSession();
+  const [verifyHours, setVerifyHours] = useState<number | null>(null);
+  useEffect(() => { sb.from("settings").select("value").eq("key", "verify_within_hours").maybeSingle().then(({ data }) => data && setVerifyHours(Number(data.value))); }, []);
   const toast = useToast();
   const now = useNow(1000);
   const [job, setJob] = useState<Job | null>(null);
@@ -259,6 +261,9 @@ export function Track({ id }: { id: string }) {
     case "cancelled": label = "Cancelled"; big = "—"; sub = "This booking was cancelled"; break;
   }
 
+  // The deadline to verify: the hours set in Admin from when they signed up.
+  const verifyBy = profile && verifyHours != null ? new Date(new Date(profile.created_at).getTime() + verifyHours * 3600000)
+    .toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }) : null;
   return (
     <div className="app">
       <section className="hero short">
@@ -453,7 +458,7 @@ export function Track({ id }: { id: string }) {
           {Icon.shieldTick("var(--emerald)", 34, 1.8)}
           <span className="t">
             <span className="t17 w5">{profile.id_status === "pending" ? "Your ID is being checked" : profile.id_status === "retake" ? "Retake your ID photo" : "Verify your ID"}</span>
-            <span className="small light muted">{profile.id_status === "pending" ? "Usually within a few hours." : "Workers take jobs faster from verified customers. About 2 minutes."}</span>
+            <span className="small light muted">{profile.id_status === "pending" ? "Usually within a few hours." : verifyBy ? `Verify by ${verifyBy} to keep posting jobs. About 2 minutes.` : "Verify to keep posting jobs. About 2 minutes."}</span>
           </span>
           {Icon.chevron("var(--faint)")}
         </button>

@@ -1,3 +1,5 @@
+import { ProfileScreen } from "./Profile";
+import { GENDERS } from "../lib/people";
 import { Capacitor } from "@capacitor/core";
 import QRCode from "qrcode";
 import { createPortal } from "react-dom";
@@ -85,7 +87,7 @@ export function Settings() {
 
   // Everything on this page and the Account page, so search finds it.
   const items: { label: string; hint: string; act: () => void; worker?: boolean }[] = [
-    { label: "Account", hint: "Name, mobile, email, photo", act: () => setSub("account") },
+    { label: "Account", hint: "Your profile, mobile, email, photo", act: () => setSub("account") },
     { label: "Verify your ID", hint: idLabel, act: () => setSub(profile.id_status === "verified" ? "account" : "verify") },
     { label: "Your area", hint: "Where you use Mahi Man", act: () => setSub("account") },
     { label: "Alerts", hint: "New jobs, messages and local offers", act: () => setSub("account") },
@@ -235,6 +237,8 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
   const toast = useToast();
   const { area, areas, choose } = useArea();
   const [picking, setPicking] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [subName, setSubName] = useState("");
   const [radius, setRadius] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<{ id: string; name: string }[] | null>(null);
   const [on, setOn] = useState<Prefs>({ jobs: true, messages: true, offers: false, ...(prefs ?? {}) });
@@ -253,6 +257,10 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
     if (profile?.is_worker) sb.from("workers").select("radius_km").eq("id", session.user.id).maybeSingle().then(({ data }) => setRadius(data?.radius_km ?? null));
     alertsState().then(setPhone).catch(() => {});
   }, [session?.user.id]);
+  const me = (profile ?? {}) as { birth_date?: string | null; gender?: string | null; nationality?: string | null; home_suburb_id?: number | null };
+  useEffect(() => {
+    if (me.home_suburb_id) sb.from("suburbs").select("name").eq("id", me.home_suburb_id).maybeSingle().then(({ data }) => setSubName(data?.name ?? ""));
+  }, [me.home_suburb_id]);
   if (!session || !profile) return null;
   const worker = !!profile.is_worker;
   const changed = on.jobs !== saved.jobs || on.messages !== saved.messages || on.offers !== saved.offers;
@@ -282,6 +290,7 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
 
   return (
     <div className="screen hb hb-acct" role="dialog" aria-label="Your account">
+      {editing && <ProfileScreen mode="edit" onBack={() => setEditing(false)} onDone={() => { setEditing(false); toast("Saved"); }} />}
       <div className="screen-body">
         <section className="hb-hero">
           <div className="hb-top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button><span>Your account</span><span style={{ width: 44 }} /></div>
@@ -293,9 +302,13 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
         </section>
 
         <section className="hb-band">
-          <div className="hb-h"><h2>Your details</h2></div>
+          <div className="hb-h"><h2>Your details</h2><button onClick={() => setEditing(true)}>Edit</button></div>
           <div className="hb-grid">
             <div><small>Name</small><b>{profile.full_name || "Not added"}</b></div>
+            <div><small>Date of birth</small><b>{me.birth_date ? new Date(me.birth_date + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "Not added"}</b></div>
+            <div><small>Gender</small><b>{GENDERS.find(([k]) => k === me.gender)?.[1] ?? "Not added"}</b></div>
+            <div><small>Nationality</small><b>{me.nationality || "Not added"}</b></div>
+            <div><small>Suburb</small><b>{subName || "Not added"}</b></div>
             {profile.id_status === "verified"
               ? <div><small>ID</small><b className="ac-ok">{Icon.shieldTick("var(--emerald)")}Verified</b></div>
               : <button onClick={() => onOpen("verify")}><small>ID</small><b className="ac-todo">{profile.id_status === "pending" ? "Being checked" : "Verify now"}</b></button>}

@@ -9,6 +9,7 @@ import { money, money2, shrinkImage } from "../lib/format";
 import { draftMedia, type DraftItem } from "../lib/draftMedia";
 import { CatIcon, Icon, Logo, Screen, SearchPicker, StepHero, useToast } from "../ui/kit";
 import { AuthScreen } from "../ui/Auth";
+import { VerifyFlow } from "../ui/Verify";
 import { VoiceScreen, voiceSupported } from "../ui/Voice";
 import { PayScreen } from "./Pay";
 import { AddCardScreen, cardLabel } from "./Cards";
@@ -59,6 +60,8 @@ export function Book() {
   const cardAdded = useRef(false);
   const [photoScreen, setPhotoScreen] = useState(false);
   const photoAdded = useRef(false);
+  const [verifyScreen, setVerifyScreen] = useState(false);
+  const verifySent = useRef(false);
   const [feePct, setFeePct] = useState(12);
   const [feeMax, setFeeMax] = useState(3000);
   const [boostCents, setBoostCents] = useState(500);
@@ -190,6 +193,11 @@ export function Book() {
     // A face to go with the job: workers see it before they offer.
     if (!profile?.photo_path && !photoAdded.current) { setPhotoScreen(true); return; }
     if (bookingFee > 0 && !profile?.card_last4 && !cardAdded.current) { setCardScreen(true); return; }
+    // Customers can book a few jobs before verifying their ID (Admin, Settings); after that, verify first and the job posts straight after.
+    if (profile?.id_status !== "verified" && profile?.id_status !== "pending" && !verifySent.current) {
+      const g = await rpc<{ verify_now: boolean } | null>("booking_gate").catch(() => null);
+      if (g?.verify_now) { setVerifyScreen(true); return; }
+    }
     setBusy(true);
     try {
       const uid = session.user.id;
@@ -396,6 +404,7 @@ export function Book() {
             </div>
           </Screen>
         )}
+        {verifyScreen && <VerifyFlow onClose={() => setVerifyScreen(false)} onSubmitted={() => { verifySent.current = true; setVerifyScreen(false); window.setTimeout(book, 300); }} />}
         {photoScreen && <PhotoStep note="Workers see it before they offer, so they know who they're meeting." saveLabel="Save and post" photoOnly
           onBack={() => setPhotoScreen(false)} onSaved={() => { photoAdded.current = true; setPhotoScreen(false); window.setTimeout(book, 300); }} />}
         {cardScreen && <AddCardScreen onBack={() => setCardScreen(false)} onSaved={() => { cardAdded.current = true; setCardScreen(false); window.setTimeout(book, 300); }} />}

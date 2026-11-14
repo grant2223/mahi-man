@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { sb } from "../lib/supabase";
-import { Icon, NameFields, Screen, emptyName, nameError, nameRow, type NameParts } from "./kit";
+import { Icon, Screen } from "./kit";
+import { ProfileForm, profileComplete } from "./Profile";
+import type { Profile } from "../lib/supabase";
 
 // Full-bleed sign in. Shown only when an action needs an account (so nobody signs up
 // before they've seen prices), and the action carries on as soon as they're in.
@@ -25,18 +27,18 @@ async function nameIfBlank(first: string, last: string) {
   if (!p?.first_name?.trim() || !p?.last_name?.trim()) await sb.from("profiles").update({ first_name: first.trim(), last_name: last.trim() }).eq("id", u.user.id);
 }
 
-async function hasName() {
+// Signed in: carry on if the profile is complete, otherwise fill it in first.
+async function hasProfile() {
   const { data: u } = await sb.auth.getUser();
   if (!u.user) return false;
-  const { data: p } = await sb.from("profiles").select("first_name,last_name").eq("id", u.user.id).single();
-  return !!p?.first_name?.trim() && !!p?.last_name?.trim();
+  const { data: p } = await sb.from("profiles").select("*").eq("id", u.user.id).single();
+  return profileComplete(p as Profile | null);
 }
 
-export function AuthScreen({ title, reason, need, onDone, onBack }: { title: string; reason: string; need?: string[]; onDone: () => void; onBack: () => void }) {
+export function AuthScreen({ title, reason, need, onDone, onBack, askProfile = true }: { title: string; reason: string; need?: string[]; onDone: () => void; onBack: () => void; askProfile?: boolean }) {
   const [step, setStep] = useState<"start" | "code" | "name">("start");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [name, setName] = useState<NameParts>(emptyName);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [, setNote] = useState("");
@@ -46,7 +48,7 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
     setErr(""); setNote(""); setBusy(true);
     try { await f(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
-  const finish = async () => { if (await hasName()) onDone(); else setStep("name"); };
+  const finish = async () => { if (!askProfile || (await hasProfile())) onDone(); else setStep("name"); };
 
   const apple = () => run(async () => {
     const raw = crypto.randomUUID();
@@ -80,19 +82,12 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
     await finish();
   });
 
-  const saveName = () => run(async () => {
-    const ne = nameError(name); if (ne) throw new Error(ne);
-    const { data: u } = await sb.auth.getUser();
-    const { error } = await sb.from("profiles").update(nameRow(name)).eq("id", u.user!.id);
-    if (error) throw error;
-    onDone();
-  });
 
 
   const back = step === "start" ? onBack : step === "name" ? onBack : () => { setStep("start"); setErr(""); setNote(""); };
 
   return (
-    <Screen title={step === "code" ? "Enter the code" : step === "name" ? "Your name" : title} onBack={back}>
+    <Screen title={step === "code" ? "Enter the code" : step === "name" ? "Your profile" : title} onBack={back}>
       <div className="screen-body" style={{ padding: "20px 16px" }}>
         {step === "start" && <>
           <p className="t17 light" style={{ margin: need ? "0 0 12px" : "0 0 20px", lineHeight: 1.4 }}>{reason}</p>
@@ -127,9 +122,7 @@ export function AuthScreen({ title, reason, need, onDone, onBack }: { title: str
 
         {step === "name" && <>
           <p className="t17 light" style={{ margin: "0 0 20px", lineHeight: 1.4 }}>So people know who they're dealing with.</p>
-          <NameFields value={name} onChange={setName} />
-          {err && <p className="err">{err}</p>}
-          <button className="btn primary block" style={{ marginTop: 14 }} disabled={busy || !!nameError(name)} onClick={saveName}>{busy ? "One sec…" : "Continue"}</button>
+          <ProfileForm button="Continue" onSaved={onDone} />
         </>}
 
       </div>

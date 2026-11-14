@@ -56,7 +56,7 @@ export function Admin() {
   ] as Group[]).map((g) => ({ ...g, items: g.items.filter(([k]) => allowed(k)) })).filter((g) => g.items.length);
   const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
   if (!ready) return null;
-  if (!session) return <div className="admin"><AuthScreen title="Admin sign in" reason="Sign in with your admin account." onBack={() => go("/")} onDone={() => {}} /></div>;
+  if (!session) return <div className="admin"><AuthScreen title="Admin sign in" reason="Sign in with your admin account." askProfile={false} onBack={() => go("/")} onDone={() => {}} /></div>;
   if (!profile?.is_admin) return (
     <div className="admin solo"><div className="admin-head"><span className="brand"><Logo /> Mahi Man Admin</span><h1 style={{ margin: "16px 0 0", fontWeight: 600 }}>Admins only</h1>
       <p className="light">This account isn't an admin. <button className="hero-link" onClick={() => sb.auth.signOut()}>Sign out</button></p></div></div>
@@ -521,10 +521,10 @@ function DisputeDecide({ inc, onBack }: { inc: Incident; onBack: () => void }) {
 
 // ---------- ID checks: compare the ID, the selfie and the profile photo, then decide ----------
 const RETAKE_REASONS = ["The ID photo is blurry", "Glare covers the ID", "Part of the ID is cut off", "The selfie is blurry", "The ID isn't visible in the selfie", "The face doesn't match the profile photo"];
-const REJECT_REASONS = ["The ID has expired", "The name doesn't match the account", "The face doesn't match the ID", "This document isn't accepted", "Looks altered or fake"];
+const REJECT_REASONS = ["The ID has expired", "The name doesn't match the account", "The date of birth doesn't match the account", "The face doesn't match the ID", "This document isn't accepted", "Looks altered or fake"];
 
 interface IdCheck { id: string; user_id: string; doc_type: string; country: string; doc_path: string | null; selfie_path: string | null; created_at: string;
-  profiles: { full_name: string; photo_path: string | null; is_worker: boolean } }
+  profiles: { full_name: string; photo_path: string | null; is_worker: boolean; birth_date: string | null } }
 
 function IdChecks({ onChanged }: { onChanged: () => void }) {
   const toast = useToast();
@@ -534,7 +534,7 @@ function IdChecks({ onChanged }: { onChanged: () => void }) {
   const [pick, setPick] = useState<null | "retake" | "reject">(null);
   const [busy, setBusy] = useState(false);
   const load = useCallback(() => {
-    sb.from("id_checks").select("id,user_id,doc_type,country,doc_path,selfie_path,created_at,profiles(full_name,photo_path,is_worker)")
+    sb.from("id_checks").select("id,user_id,doc_type,country,doc_path,selfie_path,created_at,profiles(full_name,photo_path,is_worker,birth_date)")
       .eq("status", "pending").order("created_at").then(({ data }) => {
         const list = (data ?? []) as unknown as IdCheck[];
         setRows(list);
@@ -585,6 +585,7 @@ function IdChecks({ onChanged }: { onChanged: () => void }) {
             <span className="stack" style={{ gap: 2 }}>
               <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: -0.6 }}>{cur.profiles.full_name}</span>
               <span className="t15 light muted">{cur.profiles.is_worker ? "Worker" : "Customer"}, {cur.country} {cur.doc_type.toLowerCase()}, sent {ago(cur.created_at)}</span>
+              <span className="t17">Born {cur.profiles.birth_date ? new Date(cur.profiles.birth_date + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }) : "not given yet"}</span>
             </span>
             <span className="stack" style={{ gap: 4, alignItems: "flex-end" }}>
               <span className="small muted">Profile photo</span>
@@ -601,7 +602,7 @@ function IdChecks({ onChanged }: { onChanged: () => void }) {
             ))}
           </div>
           <div className="row" style={{ gap: 10, flexWrap: "wrap" }}>
-            <span className="t15 light muted" style={{ flex: 1, minWidth: 240 }}>Check: same face in all three photos, the name matches the account, the ID isn't expired. Photos are deleted when you decide.</span>
+            <span className="t15 light muted" style={{ flex: 1, minWidth: 240 }}>Check: same face in all three photos, the name and date of birth match the account, the ID isn't expired. Photos are deleted when you decide.</span>
             <button className="btn stone" disabled={busy} onClick={() => setPick("retake")}>Ask to retake</button>
             <button className="btn danger" disabled={busy} onClick={() => setPick("reject")}>Reject</button>
             <button className="btn primary" disabled={busy} onClick={() => decide("approve")}>Approve</button>
@@ -1269,7 +1270,7 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "play_store_url", label: "Google Play link", t: "text", ph: "https://play.google.com/…" },
   ] },
   { title: "Customers", text: "Checks a customer needs before they can book.", fields: [
-    { k: "customer_id_required", label: "ID check required to book", hint: "Off: customers are asked after their first booking.", t: "toggle", on: "true", off: "false" },
+    { k: "verify_within_hours", label: "Time to verify ID after signing up", hint: "Customers can post jobs until then without a verified ID. After it, they verify first. Workers always verify before taking work.", t: "num", unit: "hours" },
   ] },
   { title: "Overview targets", text: "What good looks like on the Overview. Each health score turns green when it meets its target, red when it doesn't.", fields: [
     { k: "target_fill_pct", label: "Fill rate", hint: "Share of posted jobs that find a worker.", t: "num", unit: "%" },
