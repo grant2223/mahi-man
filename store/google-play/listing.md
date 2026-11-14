@@ -81,6 +81,8 @@ One account does both. Switch between Get help and Do work whenever you like.
 
 ## Data safety
 
+Updated 14 Nov 2026 for versionCode 15 / build 38 (Your profile at sign-up, app opens). **Not yet entered in Play Console or App Store Connect App Privacy.**
+
 Data is encrypted in transit: **Yes**. Users can request deletion: **Yes**. No data is sold or used for ads or tracking.
 "Shared" means sent to another company. Service providers like Supabase and Stripe don't count as sharing, so answer **Collected, not shared** for everything below.
 
@@ -90,7 +92,7 @@ Data is encrypted in transit: **Yes**. Users can request deletion: **Yes**. No d
 | Personal info: Email address | Yes | Required | App functionality, Account management, Developer communications |
 | Personal info: Phone number | Only if given | Optional | App functionality, Account management |
 | Personal info: Address | Yes (job address) | Required for posting a job | App functionality |
-| Personal info: Other info (ID type, ABN, licences) | Yes | Required for workers | App functionality, Fraud prevention, security and compliance |
+| Personal info: Other info (date of birth, gender, nationality, how they heard about us; plus ID type, ABN, licences for workers) | Yes | Required | App functionality, Analytics, Fraud prevention, security and compliance |
 | Financial info: Payment info (card brand, last 4, via Stripe) | Yes | Optional | App functionality |
 | Financial info: Other financial info (worker PayID or bank account) | Yes | Required for workers | App functionality |
 | Financial info: Purchase history (connection fee invoices, top-ups, balance) | Yes | Required for customers who book | App functionality |
@@ -100,9 +102,9 @@ Data is encrypted in transit: **Yes**. Users can request deletion: **Yes**. No d
 | Photos and videos: Photos | Yes (job photos, ID check, profile) | Required for workers | App functionality, Fraud prevention, security and compliance |
 | Photos and videos: Videos | Yes (job videos) | Optional | App functionality |
 | App activity: Other user-generated content (job details, reviews) | Yes | Required | App functionality |
-| App activity: App interactions (which partner offers are opened) | Yes | Optional | Analytics |
+| App activity: App interactions (app opens, which partner offers are opened, broadcast taps) | Yes | Required (recorded automatically) | Analytics |
 | App info and performance | No | | |
-| Device or other IDs | No for now. Change to Yes (push token, App functionality) when Android notifications are turned on | | |
+| Device or other IDs (a random install ID and the push token) | Yes | Required | App functionality, Analytics |
 
 Launch location: the location used to pick the nearest area stays on the phone. Only the "I'm here" check-in and the "I'm on my way" trip send location to us, and that's what the Location rows above cover.
 
