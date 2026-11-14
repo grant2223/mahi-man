@@ -1,7 +1,6 @@
 import { ProfileScreen } from "./Profile";
 import { GENDERS, showPhone } from "../lib/people";
 import { Capacitor } from "@capacitor/core";
-import QRCode from "qrcode";
 import { createPortal } from "react-dom";
 import { Reliability } from "../worker/Reliability";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -34,7 +33,6 @@ interface Hub {
 }
 type Sub = null | "account" | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability";
 
-const CODE_HOST = "https://mahiman.app";
 const S = { fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, strokeWidth: 1.9 };
 const ic = (d: ReactNode, c = "var(--emerald)", z = 22) => <svg width={z} height={z} viewBox="0 0 24 24" {...S} stroke={c}>{d}</svg>;
 const I = {
@@ -46,7 +44,6 @@ const I = {
   ticket: () => ic(<><path d="M3 8V6h18v2a2 2 0 0 0 0 4 2 2 0 0 0 0 4v2H3v-2a2 2 0 0 0 0-4 2 2 0 0 0 0-4z" /><path d="M13 6v12" strokeDasharray="2 2" /></>),
   help: () => ic(<><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.1-2.4 3.6M12 17h.01" /></>),
   doc: () => ic(<><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z" /><path d="M14 3v4h4M9 12h6M9 16h6" /></>),
-  qr: () => ic(<><path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4z" /><path d="M14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" /></>),
 };
 // The chat-bubble mark used beside a number that's on WhatsApp.
 export const waMark = (s = 18) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#1a9c4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}><path d="M4 20l1.4-4A8 8 0 1 1 8 18.6z" /><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1c-1-.5-2-1.5-2.5-2.5l1-1-1-2z" fill="#1a9c4a" stroke="none" /></svg>;
@@ -66,12 +63,6 @@ function jobLine(j: HubJob): string {
     case "refunded": return "Refunded";
     default: return "";
   }
-}
-
-function Qr({ url, size }: { url: string; size: number }) {
-  const [svg, setSvg] = useState("");
-  useEffect(() => { QRCode.toString(url, { type: "svg", margin: 0, errorCorrectionLevel: "M", color: { dark: "#2a2d32", light: "#ffffff" } }).then(setSvg); }, [url]);
-  return <span style={{ width: size, height: size, display: "block" }} dangerouslySetInnerHTML={{ __html: svg }} />;
 }
 
 export function Settings() {
@@ -109,7 +100,6 @@ export function Settings() {
     { label: "Redeem a gift card", hint: "Add a gift code", act: () => go("/gift-code") },
     { label: "How payment works", hint: "Who you pay and when", act: () => go("/pricing") },
     { label: "Your jobs", hint: "Jobs you've posted", act: () => go("/jobs") },
-    { label: "Your code", hint: worker ? "Customers scan it to book you again" : "A mate scans it to get Mahi Man", act: () => go("/code") },
     { label: "Turns up score", hint: "Reliability and strikes", act: () => setSub("reliability"), worker: true },
     { label: "Skills", hint: "What customers see on your offers", act: () => setSub("skills"), worker: true },
     { label: "Licences and certificates", hint: "Insurance, RSA, Blue Card, trade licences", act: () => setSub("creds"), worker: true },
@@ -124,7 +114,6 @@ export function Settings() {
 
   const bal = hub?.balance ?? 0, gift = Math.min(hub?.gift_balance ?? 0, bal), topup = Math.max(bal - gift, 0);
   const w = hub?.worker;
-  const codeUrl = worker ? `${CODE_HOST}/w/${profile.id}` : `${CODE_HOST}/get`;
 
   return (
     <div className="app hb">
@@ -199,7 +188,6 @@ export function Settings() {
                 </>)}
                 {w?.payday?.on && w.payday.cents ? <span className="hb-pay">Next payday {dayShort(w.payday.on)} · <b>{money(w.payday.cents)}</b></span> : null}
               </button>
-              <button className="hb-qr" onClick={() => go("/code")}><Qr url={codeUrl} size={104} /><span>Your code</span></button>
             </div>
             <div className="hb-more">
               <button onClick={() => setSub("skills")}>{I.tool()}<span><b>Skills</b><small>{w?.skills?.n ? `${w.skills.names}${w.skills.n > 3 ? ` +${w.skills.n - 3}` : ""}` : "Add what you can do"}</small></span>{Icon.chevron("var(--faint)")}</button>
@@ -374,7 +362,6 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
 
         <section className="hb-band ac-help">
           <div className="hb-rows">
-            {!worker && <button onClick={() => go("/code")}>{I.qr()}<span>Your code</span>{Icon.chevron("var(--faint)")}</button>}
             <button onClick={() => go("/support")}>{I.help()}<span>Help and support</span>{Icon.chevron("var(--faint)")}</button>
             <button onClick={() => go("/privacy")}>{I.doc()}<span>Privacy and terms</span>{Icon.chevron("var(--faint)")}</button>
           </div>

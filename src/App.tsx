@@ -14,7 +14,6 @@ import { Track } from "./customer/Track";
 import { MyJobs } from "./customer/MyJobs";
 import { Work } from "./worker/Work";
 import { Admin } from "./admin/Admin";
-import { MyCode } from "./ui/MyCode";
 import { Settings } from "./ui/Settings";
 import { VerifyPage } from "./ui/Verify";
 import { PayoutsDone, Privacy, Support, Terms } from "./ui/Legal";
@@ -72,7 +71,6 @@ function Routes() {
   if (path === "/partners") return <PartnerPage />;
   // Mahi Man is an app. The website is the landing page only; any app screen opened in a browser points to the app.
   if (!Capacitor.isNativePlatform()) return path === "/" ? <Landing /> : <GetAppPage />;
-  if (path === "/code") return <MyCode />;
   if (path === "/settings") {
     if (ready && !session) { go("/", true); return null; }
     return <Settings />;

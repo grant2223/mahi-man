@@ -5,7 +5,6 @@ import { useSession } from "../lib/session";
 import { elapsed, firstName, money, shrinkImage } from "../lib/format";
 import { Icon, Loading, Perf, Screen, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ChatScreen } from "../ui/Chat";
-import { MyCode } from "../ui/MyCode";
 import { currentPosition, resumeTrip, startTrip, stopTrip, tripJob } from "../lib/trip";
 import { ReportScreen } from "../ui/Report";
 import { useRules } from "../lib/rules";
@@ -32,7 +31,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     rpc("tick_items", { p_job: job.id, p_items: next }).catch((e) => { setDone(done); toast(e instanceof Error ? e.message : String(e)); });
   };
   const [extras, setExtras] = useState<Extra[]>([]);
-  const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after" | "cant" | "eta" | "mycode">(null);
+  const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after" | "cant" | "eta">(null);
   const [busy, setBusy] = useState(false);
   const [payid, setPayid] = useState<string | null>(null);
   const [bank, setBank] = useState<string | null>(null);
@@ -117,14 +116,12 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
           <span className="cp-title" style={{ marginBottom: 2 }}>Nothing to collect</span>
           <span className="t16 light muted" style={{ lineHeight: 1.45 }}>{`${cName} paid with a Mahi Man gift card. We pay ${money(earn)} to your ${payid ? "PayID" : "bank account"} on the Friday after the job is confirmed. If ${cName} does nothing for 48 hours, it confirms itself.`}</span>
         </div>
-        <button className="choice" onClick={() => setScreen("mycode")}><span className="t"><b>Show your code</b><span>{cName} scans it to book you again</span></span>{Icon.chevron("var(--faint)")}</button>
         {leaveLink}
         <ActionBar>
           <button className="btn stone" style={{ flex: 1 }} onClick={() => setReport(true)}>Something's wrong</button>
           <button className="btn primary" style={{ flex: 1 }} onClick={onChanged}>Back to jobs</button>
         </ActionBar>
         {problem}
-        {screen === "mycode" && <MyCode onBack={() => setScreen(null)} />}
       </>
     );
   }
@@ -162,7 +159,6 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
             </div>
           </>
         )}
-        <button className="choice" onClick={() => setScreen("mycode")}><span className="t"><b>Show your code</b><span>{cName} scans it to book you again</span></span>{Icon.chevron("var(--faint)")}</button>
         <Note icon="clock">{told ? "If you don't answer within 24 hours, we take it as received." : `Waiting for ${cName} to check your after photos and pay. If they do nothing for 48 hours, the job closes as done.`}</Note>
         {leaveLink}
         <ActionBar>
@@ -174,7 +170,6 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
           }}>{busy ? "Saving…" : told ? "Payment received" : "I've been paid"}</button>
         </ActionBar>
         {problem}
-        {screen === "mycode" && <MyCode onBack={() => setScreen(null)} />}
       </>
     );
   }
