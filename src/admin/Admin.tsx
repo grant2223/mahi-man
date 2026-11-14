@@ -1231,6 +1231,7 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   ] },
   { title: "Jobs", text: "Timing rules for every job.", fields: [
     { k: "widen_after_minutes", label: "Show to workers further away after", t: "num", unit: "minutes" },
+    { k: "widen_max_km", label: "Furthest a widened or urgent job goes", t: "num", unit: "km" },
     { k: "auto_release_hours", label: "Close as done if the customer does nothing for", t: "num", unit: "hours" },
   ] },
   { title: "Cancellations", text: "What cancelling costs, and when. Fees paid by a customer go to the worker; fees paid by a worker become the customer's credit.", fields: [

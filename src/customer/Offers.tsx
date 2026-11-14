@@ -53,7 +53,12 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
   const shown = (offers ?? []).filter((o) => new Date(o.expires_at).getTime() > now);
   const [boosting, setBoosting] = useState(false);
   const [boostCents, setBoostCents] = useState<number | null>(null);
-  useEffect(() => { sb.from("settings").select("value").eq("key", "boost_cents").maybeSingle().then(({ data }) => data && setBoostCents(Number(data.value))); }, []);
+  const [widenMin, setWidenMin] = useState(30);
+  useEffect(() => {
+    sb.from("settings").select("key,value").in("key", ["boost_cents", "widen_after_minutes"]).then(({ data }) => (data ?? []).forEach((r) => {
+      if (r.key === "boost_cents") setBoostCents(Number(r.value)); else setWidenMin(Number(r.value));
+    }));
+  }, []);
   const [extras, setExtras] = useState<Record<string, Extra>>({});
   const [profile, setProfile] = useState<string | null>(null);
   const ids = (offers ?? []).map((o) => o.worker_id).join(",");
@@ -62,7 +67,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
     rpc<Extra[]>("offer_extras", { p_job: jobId })
       .then((r) => setExtras(Object.fromEntries((r ?? []).map((x) => [x.worker_id, x])))).catch(() => {});
   }, [ids, jobId]);
-  const widened = now - new Date(searchingAt).getTime() > 10 * 60000;
+  const widened = now - new Date(searchingAt).getTime() > widenMin * 60000;
   const [chat, setChat] = useState<Offer | null>(null);
 
   async function choose(o: Offer) {

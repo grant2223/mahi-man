@@ -391,7 +391,7 @@ export function Book() {
                 <p>{cat?.name ?? "Workers"} workers who are online, and whose travel area covers {suburb?.name ?? "your suburb"}, get an alert straight away.</p>
                 <p>If no one's free after {widen} minutes, your job goes out to workers further away.</p></section>
               <section><h2>Urgent</h2><p className="tag">{`${money(boostCents)}, added to your total`}</p>
-                <p>Every {cat?.name.toLowerCase() ?? ""} worker online across {area?.name ?? "your area"} gets an alert straight away. No {widen} minute wait.</p>
+                <p>{cat?.name ?? "Workers"} workers further away, up to 50 km, get an alert straight away. No {widen} minute wait.</p>
                 <p>Your job shows first in their list of jobs.</p>
                 <p>Best when it can't wait: a tip run before the bins go out, a clean before an inspection.</p></section>
               <button className="btn primary" onClick={() => { setD({ ...d, boost: true }); setUrgentInfo(false); }}>{d.boost ? "Keep it urgent" : "Make it urgent"}</button>
