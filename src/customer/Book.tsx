@@ -6,12 +6,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go, usePath } from "../lib/router";
-import { money, money2, shrinkImage } from "../lib/format";
+import { money, money2, photoForReading, shrinkImage } from "../lib/format";
 import { draftMedia, type DraftItem } from "../lib/draftMedia";
 import { CatIcon, Icon, Logo, Screen, SearchPicker, StepHero, useToast } from "../ui/kit";
 import { AuthScreen } from "../ui/Auth";
 import { VerifyFlow } from "../ui/Verify";
 import { VoiceScreen, voiceSupported } from "../ui/Voice";
+import { JobCamera } from "../ui/JobCamera";
 import { PayScreen } from "./Pay";
 import { AddCardScreen, cardLabel } from "./Cards";
 import { PlaceMap } from "../ui/PlaceMap";
@@ -30,6 +31,8 @@ interface Draft {
   asap: boolean; startAt: string; invited: string[]; openAfter: number | null; reuse: Reused[];
   included: string[]; excluded: string[]; priceSet?: boolean; boost?: boolean; skills?: number[]; payMethod?: "cash" | "bank";
   budgetMin?: number | null; budgetMax?: number | null;
+  // The job's name ("Backyard clean-up") and its other kinds of work besides the main one.
+  title?: string; extraCats?: number[];
 }
 const DRAFT_KEY = "mm-draft-2";
 const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [], included: [], excluded: [] };
@@ -121,7 +124,9 @@ export function Book() {
   const jt = types.find((t) => t.category_id === d.categoryId) ?? null;
   const suburb = suburbs.find((s) => s.id === d.suburbId) ?? null;
   // A job that needs a trade licence (electrical, plumbing, gas...) is a trade job: licensed tradies send a fixed quote.
-  const tradeSkill = skillList.find((k) => k.trade && k.category_id === d.categoryId && (d.skills ?? []).includes(k.id)) ?? null;
+  const typeIds = [d.categoryId, ...(d.extraCats ?? [])].filter((x): x is number => x != null);
+  const jobSkills = skillList.filter((k) => typeIds.includes(k.category_id) && (d.skills ?? []).includes(k.id));
+  const tradeSkill = jobSkills.find((k) => k.trade) ?? null;
   const isTrade = !!tradeSkill;
   useEffect(() => {
     if (path !== "/book/check" || !d.categoryId || !d.suburbId) return;
@@ -181,6 +186,19 @@ export function Book() {
     setMedia((m) => [...(kind === "video" ? m.filter((x) => x.kind !== "video") : m), ...next]);
   }
 
+  // Photos from Snap it go straight into the job's photos.
+  async function addBlobs(blobs: Blob[]) {
+    const next: (DraftItem & { url: string })[] = [];
+    for (const b of blobs) {
+      if (photoCount + next.length >= MAX_PHOTOS) break;
+      let blob: Blob = b;
+      try { blob = await shrinkImage(b); } catch { /* keep original */ }
+      next.push({ id: crypto.randomUUID(), kind: "photo", blob, name: "photo.jpg", url: URL.createObjectURL(blob) });
+    }
+    for (const n of next) await draftMedia.put({ id: n.id, kind: n.kind, blob: n.blob, name: n.name });
+    setMedia((m) => [...m, ...next]);
+  }
+
   async function removeMedia(id: string) {
     await draftMedia.remove(id);
     setMedia((m) => m.filter((x) => x.id !== id));
@@ -224,7 +242,8 @@ export function Book() {
         p_asap: d.asap, p_start_at: d.asap ? new Date().toISOString() : new Date(d.startAt).toISOString(),
         p_details: d.details, p_media: uploaded, p_price_cents: d.priceCents,
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
-        p_included: d.included ?? [], p_excluded: d.excluded ?? [], p_skills: (d.skills ?? []).filter((id) => skillList.some((k) => k.id === id && k.category_id === d.categoryId)),
+        p_included: d.included ?? [], p_excluded: d.excluded ?? [], p_skills: jobSkills.map((k) => k.id),
+        p_title: d.title?.trim() || null, p_extra_categories: d.extraCats ?? [],
         p_budget_min_cents: null, p_budget_max_cents: null,
         p_pay_method: isTrade ? null : d.payMethod ?? null, p_urgent: !isTrade && !!d.boost,
       });
@@ -253,7 +272,9 @@ export function Book() {
   }
 
   if (path === "/book/details") {
-    return <DetailsStep d={d} setD={setD} cats={cats} cat={cat} skillList={skillList} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null} err={err} setErr={setErr} bar={bar} />;
+    return <DetailsStep d={d} setD={setD} cats={cats} skillList={skillList} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null}
+      photoUrls={[...photos.map((m) => m.url), ...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean)]} photoCount={photoCount} addPhotos={addBlobs}
+      err={err} setErr={setErr} bar={bar} />;
   }
 
   if (path === "/book/photos") {
@@ -273,8 +294,8 @@ export function Book() {
     return (
       <div className="app">
         {(() => {
-          const sk = skillList.filter((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId);
-          const jobName = sk.map((k) => k.name).join(", ") || cat?.name || "The job";
+          const jobName = d.title?.trim() || jobSkills.map((k) => k.name).join(", ") || cat?.name || "The job";
+          const typeNames = typeIds.map((id) => cats.find((c) => c.id === id)?.name).filter(Boolean).join(", ");
           const when = d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
           // The connection fee Mahi Man charges. Invoiced (bank transfer) in the pilot, by card after it.
           const connPct = invoiceFee ? invoiceFee.pct : feePct;
@@ -293,7 +314,7 @@ export function Book() {
 
             {/* The job and when. */}
             <button className="ck-head" onClick={() => go("/book/details")}>
-              <span className="k">{cat?.name} · Check and post</span>
+              <span className="k">{typeNames} · Check and post</span>
               <b>{jobName}</b>
               <span className="w">{when}</span>
             </button>
@@ -362,11 +383,11 @@ export function Book() {
                 {(video || reusedVideo) && <button className="ck-pic ck-vid" onClick={() => go("/book/photos")}>Video</button>}
                 {photoCount === 0 && !(video || reusedVideo) && <button className="ck-pic ph-0" onClick={() => go("/book/photos")} aria-label="Add photos" />}
               </div>
-              {(d.included ?? []).length > 0 && <div className="ck-list"><h3>Included</h3>
+              {(d.included ?? []).length > 0 && <div className="ck-list"><h3>What needs doing</h3>
                 {d.included.map((t) => <span key={t} className="yes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-10" /></svg>{t}</span>)}</div>}
               {(d.excluded ?? []).length > 0 && <div className="ck-list"><h3>Not included</h3>
                 {d.excluded.map((t) => <span key={t} className="no"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>{t}</span>)}</div>}
-              {(() => { const sk = skillList.filter((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId); return sk.length ? <div className="ck-list"><h3>Skills needed</h3><span className="plain">{sk.map((k) => k.name).join(", ")}</span></div> : null; })()}
+              {jobSkills.length ? <div className="ck-list"><h3>Skills needed</h3><span className="plain">{jobSkills.map((k) => k.name).join(", ")}</span></div> : null}
               {d.notes ? <div className="ck-list"><h3>Notes for your worker</h3><span className="plain">{d.notes}</span></div> : null}
               <div className="ck-list"><h3>Who can take it</h3>
                 <button className="ck-who" onClick={() => go(isTrade ? "/book/details" : "/book/where")}>{isTrade ? `Licensed tradies, ${lc(tradeSkill!.needs ?? "licence")} checked` : whoLabel}</button></div>
@@ -374,7 +395,7 @@ export function Book() {
           </>);
         })()}
 
-        {!isTrade && supply && supply.online_now > 0 && !skillList.some((k) => (d.skills ?? []).includes(k.id) && k.category_id === d.categoryId && k.needs) && (
+        {!isTrade && supply && supply.online_now > 0 && !jobSkills.some((k) => k.needs) && (
           <p className="ck-live"><i />{supply.online_now} {cat?.name.toLowerCase() ?? ""} worker{supply.online_now === 1 ? "" : "s"} online near {suburb?.name} now{supply.typical_minutes != null ? `. Usually someone's free in about ${supply.typical_minutes} min` : ""}.</p>
         )}
         <div className="ck-cancel">
@@ -427,7 +448,7 @@ const afterLabel = (m: number) => (m >= 60 ? `${m / 60} hour${m === 60 ? "" : "s
 
 // ---------- Get help: one button, then your recent jobs ----------
 interface Recent {
-  id: string; title: string | null; details: string; skill_ids: number[] | null; included: string[] | null; excluded: string[] | null; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
+  id: string; title: string | null; extra_categories: number[] | null; details: string; skill_ids: number[] | null; included: string[] | null; excluded: string[] | null; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
   status: string; worker_id: string | null; job_types: { category_id: number | null } | null; suburbs: { name: string } | null;
   job_media: { path: string; kind: "photo" | "video"; sort: number }[];
 }
@@ -465,7 +486,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   const feedOffer = useFeedOffer(true, "help");
   useEffect(() => {
     if (!uid) { setRecent([]); return; }
-    sb.from("jobs").select("id,title,details,skill_ids,included,excluded,price_cents,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
+    sb.from("jobs").select("id,title,extra_categories,details,skill_ids,included,excluded,price_cents,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
       .eq("customer_id", uid).neq("status", "awaiting_payment").order("created_at", { ascending: false }).limit(5)
       .then(({ data }) => setRecent((data ?? []) as unknown as Recent[]));
   }, [uid]);
@@ -479,7 +500,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   const [paying, setPaying] = useState<OwedFee | null>(null);
 
   const again = (r: Recent) => onStart({
-    categoryId: r.job_types?.category_id ?? null, priceCents: r.price_cents, suburbId: r.suburb_id, address: r.address, notes: r.notes,
+    categoryId: r.job_types?.category_id ?? null, extraCats: r.extra_categories ?? [], title: r.title ?? "", priceCents: r.price_cents, suburbId: r.suburb_id, address: r.address, notes: r.notes,
     details: r.details, skills: r.skill_ids ?? [], included: r.included ?? [], excluded: r.excluded ?? [], reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
     invited: r.worker_id && ["finished", "confirmed"].includes(r.status) ? [r.worker_id] : [],
   });
@@ -628,43 +649,68 @@ function guessJob(text: string, cats: Category[], skills: { id: number; category
     .map((x) => (x.charAt(0).toUpperCase() + x.slice(1)).slice(0, 60)).slice(0, 6);
   return { details, category_id: best?.id ?? null, skill_ids: [] as number[], included, excluded: [] as string[] };
 }
-function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar }: {
-  d: Draft; setD: (d: Draft) => void; cats: Category[]; cat: Category | null; skillList: { id: number; category_id: number; name: string; needs: string | null }[]; suggest: (catId: number) => number | null;
+function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount, addPhotos, err, setErr, bar }: {
+  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string; needs: string | null }[]; suggest: (catId: number) => number | null;
+  photoUrls: string[]; photoCount: number; addPhotos: (b: Blob[]) => Promise<void>;
   err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
 }) {
   const detailsBox = useRef<HTMLTextAreaElement>(null);
   const [voice, setVoice] = useState(false);
+  const [snap, setSnap] = useState(false);
   const [dictate, setDictate] = useState(false);
   const [pickCat, setPickCat] = useState(false);
   const [pickSkills, setPickSkills] = useState(false);
   const [filling, setFilling] = useState(false);
+  const [filledFrom, setFilledFrom] = useState<"said" | "photos" | null>(null);
   const filled = useRef(false);
-  // One description in, the whole job out. The AI does it when it's switched on; otherwise a simple match on the words.
-  async function fill(text: string) {
+  // The job's kinds of work: the main one first, then any others (a backyard clean-up is garden and rubbish removal).
+  const typeIds = [d.categoryId, ...(d.extraCats ?? [])].filter((x): x is number => x != null);
+  const types = typeIds.map((id) => cats.find((c) => c.id === id)).filter(Boolean) as Category[];
+  const setTypes = (ids: number[]) => {
+    const main = ids[0] ?? null;
+    const sp = main ? suggest(main) : null;
+    setD({ ...d, categoryId: main, extraCats: ids.slice(1, 4), skills: (d.skills ?? []).filter((k) => skillList.some((x) => x.id === k && ids.includes(x.category_id))),
+      ...(!d.priceSet && sp && main !== d.categoryId ? { priceCents: sp } : {}) });
+    setErr("");
+  };
+
+  // What they said, typed or photographed in; the whole job out. Claude does it when it's switched on; otherwise a simple match on the words.
+  async function fill(text: string, images: string[] = []) {
     filled.current = true; setFilling(true); setErr("");
     const payload = cats.map((c) => ({ id: c.id, name: c.name, skills: skillList.filter((k) => k.category_id === c.id).map((k) => ({ id: k.id, name: k.name })) }));
-    let r: { ai: boolean; details?: string; category_id?: number | null; skill_ids?: number[]; included?: string[]; excluded?: string[] } = { ai: false };
-    try { r = await api("fill_job", { text, categories: payload }); } catch { /* offline: the simple match below */ }
-    const out = r.ai ? r : guessJob(text, cats, skillList);
+    let r: { ai: boolean; title?: string | null; details?: string; category_id?: number | null; extra_category_ids?: number[]; skill_ids?: number[]; included?: string[]; excluded?: string[] } = { ai: false };
+    try { r = await api("fill_job", { text, images, categories: payload }); } catch { /* offline: the simple match below */ }
+    if (!r.ai && !text.trim()) { setFilling(false); return; }
+    const out = r.ai ? r : { ...guessJob(text, cats, skillList), title: null, extra_category_ids: [] as number[] };
     const catId = out.category_id ?? d.categoryId;
     const sp = catId ? suggest(catId) : null;
     setD({
       ...d, details: out.details || text, categoryId: catId,
+      extraCats: out.category_id ? (out.extra_category_ids ?? []) : d.extraCats ?? [],
+      title: d.title?.trim() ? d.title : out.title ?? d.title ?? "",
       skills: (out.skill_ids ?? []).length ? out.skill_ids! : d.skills,
       included: (d.included ?? []).length ? d.included : out.included ?? [],
       excluded: (d.excluded ?? []).length ? d.excluded : out.excluded ?? [],
       ...(!d.priceSet && sp && catId !== d.categoryId ? { priceCents: sp } : {}),
     });
+    if (r.ai) setFilledFrom(images.length && !text.trim() ? "photos" : "said");
     setFilling(false);
   }
-  const catSkills = skillList.filter((k) => k.category_id === cat?.id);
+  async function snapped(blobs: Blob[]) {
+    setSnap(false);
+    await addPhotos(blobs);
+    const images = await Promise.all(blobs.slice(0, 6).map((b) => photoForReading(b, 1024).catch(() => "")));
+    fill(d.details.trim(), images.filter(Boolean));
+  }
+  const catSkills = skillList.filter((k) => typeIds.includes(k.category_id));
   const chosen = catSkills.filter((k) => (d.skills ?? []).includes(k.id));
   const needs = [...new Set(chosen.map((k) => k.needs).filter(Boolean))] as string[];
   const next = () => {
-    if (!cat) return setErr("Select what kind of job it is.");
+    if (!d.categoryId) return setErr("Select the job type.");
     if (d.details.trim().length < 15) return setErr("Say what you want done.");
-    if (!(d.included ?? []).length) return setErr("Add at least one thing that's included.");
+    if (!(d.included ?? []).filter((x) => x.trim()).length) return setErr("Add at least one task.");
     setErr("");
+    setD({ ...d, included: (d.included ?? []).map((x) => x.trim()).filter(Boolean), excluded: (d.excluded ?? []).map((x) => x.trim()).filter(Boolean) });
     go("/book/photos");
   };
   return (
@@ -672,34 +718,52 @@ function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar 
       <StepHero step={1} of={STEPS} title="What's the job?" sub="Be specific. This is what the worker is held to." onBack={() => history.back()} />
       <div className="step-body">
         <div className="sec">
-          <h2>Tell us the job</h2>
-          <button className="wide-btn green" disabled={filling} onClick={() => {
-            if (voiceSupported()) return setVoice(true);
-            // Where the browser has no speech service (the iPhone app), the keyboard's own microphone does the same job.
-            setDictate(true);
-            detailsBox.current?.focus();
-          }}>
-            {Icon.mic("var(--lime)")}
-            <span className="t"><b>Just say it</b><span>Talk it through. We fill in everything below.</span></span>
-          </button>
-          <label className="field" style={{ cursor: "text" }}>
-            <textarea ref={detailsBox} value={d.details} onChange={(e) => setD({ ...d, details: e.target.value })} style={{ minHeight: 110 }}
-              onBlur={() => { if (!filled.current && d.details.trim().length >= 20 && !d.categoryId && !(d.included ?? []).length) fill(d.details); }}
-              placeholder="Or type it. For example: shower screen has build-up, needs a proper scrub. Benches and stovetop degreased. Products are under the sink." />
+          <div className="fill-two">
+            <button className="say" disabled={filling} onClick={() => {
+              if (voiceSupported()) return setVoice(true);
+              // Where the browser has no speech service (the iPhone app), the keyboard's own microphone does the same job.
+              setDictate(true);
+              detailsBox.current?.focus();
+            }}>{Icon.mic("var(--lime)", 24)}<b>Just say it</b><span>Talk it through</span></button>
+            <button className="snap" disabled={filling || photoCount >= MAX_PHOTOS} onClick={() => setSnap(true)}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#14211c" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+              <b>Snap it</b><span>Take photos of the job</span></button>
+          </div>
+          {filling && <span className="fill-note">{Icon.spark("#8a6d00")}Filling it in…</span>}
+          {!filling && filledFrom && <span className="fill-note">{Icon.spark("#8a6d00")}Filled from {filledFrom === "photos" ? "your photos" : "what you said"}. Tap anything to change it.</span>}
+          {dictate && !filling && !filledFrom && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk. We fill in the rest when you're done.</span>}
+          {photoUrls.length > 0 && (
+            <div className="fill-strip">
+              {photoUrls.slice(0, 5).map((u) => <span key={u} style={{ backgroundImage: `url("${u}")` }} />)}
+              {photoCount < MAX_PHOTOS && <button onClick={() => setSnap(true)} aria-label="Add photos">{Icon.plus("var(--emerald)")}</button>}
+            </div>
+          )}
+          <label className="field job-name">
+            <span className="k">Job</span>
+            <input value={d.title ?? ""} maxLength={60} placeholder="Name it, like Backyard clean-up" onChange={(e) => setD({ ...d, title: e.target.value })} />
           </label>
-          {dictate && !filling && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk. We fill in the rest when you're done.</span>}
-          {filling && <span className="t15 em" style={{ lineHeight: 1.4 }}>Filling in the rest…</span>}
+          <label className="field" style={{ cursor: "text" }}>
+            <textarea ref={detailsBox} value={d.details} onChange={(e) => setD({ ...d, details: e.target.value })} style={{ minHeight: 96 }}
+              onBlur={() => { if (!filled.current && d.details.trim().length >= 20 && !d.categoryId && !(d.included ?? []).length) fill(d.details); }}
+              placeholder="Or type it. For example: shower screen has build-up, needs a proper scrub. Benches and stovetop degreased." />
+          </label>
         </div>
 
         <div className="sec">
-          <h2>What kind of job?</h2>
-          <button className="cp-select" onClick={() => setPickCat(true)}>
-            <span className="row" style={{ gap: 12 }}>
-              {cat && <CatIcon name={cat.icon} size={24} color="var(--emerald)" />}
-              <span className={cat ? "" : "ph"}>{cat?.name ?? "Select a category"}</span>
-            </span>
-            {Icon.down("var(--ink)")}
-          </button>
+          <h2>Job type</h2>
+          <div className="type-tags">
+            {types.map((c) => (
+              <span key={c.id} className="type-tag">
+                <CatIcon name={c.icon} size={22} color="var(--emerald)" />{c.name}
+                <button onClick={() => setTypes(typeIds.filter((x) => x !== c.id))} aria-label={`Remove ${c.name}`}>{Icon.cross("var(--muted)")}</button>
+              </span>
+            ))}
+            {types.length < 4 && (
+              <button className={types.length ? "type-tag add" : "type-tag add first"} onClick={() => setPickCat(true)} aria-label="Add a job type">
+                {Icon.plus("var(--emerald)")}{types.length ? null : <span>Select the job type</span>}
+              </button>
+            )}
+          </div>
         </div>
 
         {catSkills.length > 0 && (
@@ -714,28 +778,53 @@ function DetailsStep({ d, setD, cats, cat, skillList, suggest, err, setErr, bar 
         )}
 
         <div className="sec">
-          <h2>What's included</h2>
-          <ListEditor items={d.included ?? []} onChange={(v) => { setD({ ...d, included: v }); setErr(""); }} yes
-            placeholder="e.g. Clean the shower screen" />
+          <h2>What needs doing</h2>
+          <TaskList items={d.included ?? []} onChange={(v) => { setD({ ...d, included: v }); setErr(""); }} addLabel="Add a task" placeholder="Like: Sweep the back porch" gold />
         </div>
 
         <div className="sec">
           <h2>Not included <span className="h-opt">Optional</span></h2>
-          <ListEditor items={d.excluded ?? []} onChange={(v) => setD({ ...d, excluded: v })}
-            placeholder="e.g. Inside the oven" />
-          <span className="small light muted">The price covers what's included. Anything else is agreed in the app first.</span>
+          <TaskList items={d.excluded ?? []} onChange={(v) => setD({ ...d, excluded: v })} addLabel="Add" placeholder="Like: Inside the oven" />
         </div>
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next, false, "photos")}
-      {pickCat && <SearchPicker title="What kind of job?" placeholder="Search categories" value={d.categoryId ? [d.categoryId] : []}
+      {bar("Continue", next, filling, "photos")}
+      {pickCat && <SearchPicker title="Job type" multi placeholder="Search job types" value={typeIds}
         options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
-        onChange={(v) => { const id = Number(v[0]); const sp = suggest(id); setD({ ...d, categoryId: id, skills: id === d.categoryId ? d.skills : [], ...(!d.priceSet && sp ? { priceCents: sp } : {}) }); setErr(""); }} />}
+        onChange={(v) => { const ids = v.map(Number); setTypes([...typeIds.filter((x) => ids.includes(x)), ...ids.filter((x) => !typeIds.includes(x))].slice(0, 4)); }} />}
       {pickSkills && <SearchPicker title="Skills needed" multi placeholder="Search skills" value={chosen.map((k) => k.id)}
         options={catSkills.map((k) => ({ id: k.id, label: k.name, hint: k.needs ? `Only workers with a verified ${lc(k.needs)}` : undefined }))}
         onClose={() => setPickSkills(false)} onChange={(v) => setD({ ...d, skills: v.map(Number) })} />}
-      {voice && <VoiceScreen jobName={cat?.name ?? "Odd job"} onBack={() => setVoice(false)}
+      {voice && <VoiceScreen jobName={types[0]?.name ?? "Odd job"} onBack={() => setVoice(false)}
         raw onDone={(text) => { setVoice(false); fill(d.details.trim() ? `${d.details.trim()} ${text}` : text); }} />}
+      {snap && <JobCamera max={MAX_PHOTOS - photoCount} onBack={() => setSnap(false)} onDone={snapped} />}
+    </div>
+  );
+}
+
+// A list you change in place: tap a row to change its words, × removes it, the button adds a new row ready to type.
+function TaskList({ items, onChange, addLabel, placeholder, gold = false }: { items: string[]; onChange: (v: string[]) => void; addLabel: string; placeholder: string; gold?: boolean }) {
+  const [focus, setFocus] = useState<number | null>(null);
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  useEffect(() => { if (focus != null) refs.current[focus]?.focus(); }, [focus, items.length]);
+  const set = (i: number, v: string) => onChange(items.map((x, n) => (n === i ? v : x)));
+  const drop = (i: number) => onChange(items.filter((_, n) => n !== i));
+  return (
+    <div className="tasks">
+      {items.map((x, i) => (
+        <div key={i} className="task">
+          <input ref={(el) => { refs.current[i] = el; }} value={x} maxLength={80} placeholder={placeholder} enterKeyHint="done"
+            onChange={(e) => set(i, e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+            onBlur={() => { setFocus(null); if (!x.trim()) drop(i); }} />
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => drop(i)} aria-label={`Remove ${x || "this one"}`}>{Icon.cross("var(--muted)")}</button>
+        </div>
+      ))}
+      {items.length < 12 && (
+        <button className={gold ? "task-add gold" : "task-add"} onClick={() => { onChange([...items.filter((x) => x.trim()), ""]); setFocus(items.filter((x) => x.trim()).length); }}>
+          {Icon.plus(gold ? "#14211c" : "var(--emerald)")}{addLabel}
+        </button>
+      )}
     </div>
   );
 }
@@ -808,35 +897,6 @@ function PhotosStep({ photos, video, reused, reuseUrls, photoCount, addFiles, re
 }
 
 // What's included / not included: typed lines the worker is held to.
-function ListEditor({ items, onChange, yes = false, placeholder }: { items: string[]; onChange: (v: string[]) => void; yes?: boolean; placeholder: string }) {
-  const [t, setT] = useState("");
-  const add = () => {
-    const v = t.trim().slice(0, 80);
-    if (!v || items.length >= 12 || items.some((x) => x.toLowerCase() === v.toLowerCase())) { setT(""); return; }
-    onChange([...items, v]); setT("");
-  };
-  return (
-    <div className="list-ed">
-      {items.map((x) => (
-        <div key={x} className="li">
-          {yes ? Icon.tick("var(--emerald)", 20) : Icon.cross("var(--muted)")}
-          <span>{x}</span>
-          <button onClick={() => onChange(items.filter((y) => y !== x))} aria-label={`Remove ${x}`}>{Icon.cross("var(--muted)")}</button>
-        </div>
-      ))}
-      {items.length < 12 && (
-        <div className="add">
-          <label className="field" style={{ cursor: "text", minHeight: 56 }}>
-            <input value={t} onChange={(e) => setT(e.target.value)} placeholder={placeholder} maxLength={80}
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }} onBlur={add} enterKeyHint="done" />
-          </label>
-          <button className="btn stone" onClick={add} disabled={!t.trim()} aria-label="Add">{Icon.plus("var(--ink)")}</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ---------- Step 3: Where and when (and who, once you've used someone) ----------
 const OPEN_AFTER: { id: string; label: string; v: number | null }[] = [
   { id: "15", label: "Open it to everyone after 15 minutes", v: 15 },

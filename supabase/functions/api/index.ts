@@ -461,40 +461,69 @@ Deno.serve(async (req) => {
           return ok({ text: basicTidy(raw), ai: false });
         }
       }
-      // "Just say it": one description in, the whole job out — tidy description, category, skills, included, not included.
+      // "Just say it" and "Snap it": what they said, typed or showed in photos in; the whole job out —
+      // its name, description, kinds of work (main one first), skills, what needs doing, what's not included.
       case "fill_job": {
         const raw = String(body.text ?? "").trim().slice(0, 4000);
-        if (!raw) return fail("Nothing was heard. Try again.");
+        const images = (Array.isArray(body.images) ? body.images : []).map(String).filter((x: string) => x.length > 100 && x.length < 3_000_000).slice(0, 6);
+        if (!raw && !images.length) return fail("Nothing was heard. Try again.");
         const cats = (Array.isArray(body.categories) ? body.categories : []) as { id: number; name: string; skills: { id: number; name: string }[] }[];
         const key = Deno.env.get("ANTHROPIC_API_KEY");
         if (!key) return ok({ ai: false });
         try {
           const list = cats.map((c) => `${c.id}: ${c.name} (skills: ${c.skills.map((k) => `${k.id} ${k.name}`).join("; ")})`).join("\n");
-          const r = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-            body: JSON.stringify({
-              model: "claude-haiku-5-5",
-              max_tokens: 700,
-              system: "You turn a customer's spoken or typed description of an odd job into a job post a worker can follow. Keep every detail they gave and add nothing they did not say. Plain Australian English. Reply with JSON only, no other text: {\"details\": 2 to 5 short sentences, \"category_id\": the best matching category id from the list or null, \"skill_ids\": ids of skills from that category that the job clearly needs (often none), \"included\": short tasks the worker must do, each under 60 characters, \"excluded\": things they said are not part of the job, often none}.",
-              messages: [{ role: "user", content: `Categories:\n${list}\n\nWhat they said: ${raw}` }],
-            }),
-          });
-          const j = await r.json();
-          if (!r.ok) throw new Error(`Claude said ${r.status}: ${JSON.stringify(j).slice(0, 500)}`);
-          const t = replyText(j);
-          const o = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
-          const cat = cats.find((c) => c.id === Number(o.category_id));
-          const strs = (v: unknown) => (Array.isArray(v) ? v : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 12);
+          const content: unknown[] = images.map((data: string) => ({ type: "image", source: { type: "base64", media_type: "image/jpeg", data } }));
+          content.push({ type: "text", text: `Categories:\n${list}\n\n${raw ? `What they said: ${raw}` : "They only sent the photos above."}` });
+          const o = await claudeJson(key, 2000,
+            "You turn a customer's description of an odd job (spoken, typed, or shown in photos) into a job post a worker can follow. Keep every detail they gave or that the photos clearly show, and add nothing else. Write it as plain instructions for the worker, like \"Clear the long weeds along the back fence.\", and never mention the photos or the customer. Plain Australian English. Reply with JSON only, no other text: {\"title\": a short name for the whole job, 2 to 4 words, like \"Backyard clean-up\", \"details\": 2 to 5 short sentences, \"category_ids\": ids from the list of every kind of work in the job, the main one first, up to 3 and often just 1, \"skill_ids\": ids of skills from those categories that the job clearly needs (often none), \"included\": the separate tasks the worker must do, one task per item, each under 60 characters, \"excluded\": things they said are not part of the job, often none}.",
+            content);
+          const ids = (Array.isArray(o.category_ids) ? o.category_ids : [o.category_id]).map(Number).filter((id: number) => cats.some((c) => c.id === id));
+          const chosen = [...new Set(ids)].slice(0, 3) as number[];
+          const strs = (v: unknown, n: number) => (Array.isArray(v) ? v : []).map((x) => String(x).trim()).filter(Boolean).slice(0, n);
           return ok({
             ai: true,
+            title: String(o.title ?? "").trim().slice(0, 60) || null,
             details: String(o.details ?? "").trim() || raw,
-            category_id: cat?.id ?? null,
-            skill_ids: (Array.isArray(o.skill_ids) ? o.skill_ids : []).map(Number).filter((id: number) => cat?.skills.some((k) => k.id === id)),
-            included: strs(o.included), excluded: strs(o.excluded),
+            category_id: chosen[0] ?? null,
+            extra_category_ids: chosen.slice(1),
+            skill_ids: (Array.isArray(o.skill_ids) ? o.skill_ids : []).map(Number)
+              .filter((id: number) => cats.some((c) => chosen.includes(c.id) && c.skills.some((k) => k.id === id))),
+            included: strs(o.included, 12), excluded: strs(o.excluded, 12),
           });
         } catch (e) {
           console.error("fill_job failed:", e instanceof Error ? e.message : String(e));
+          return ok({ ai: false });
+        }
+      }
+      // Licence scan: a photo or PDF of a licence or certificate in; its type, number, expiry and name out.
+      // The worker checks what was read before it's sent, and admin still approves every one.
+      case "read_credential": {
+        const data = String(body.file ?? "");
+        const media = body.media === "application/pdf" ? "application/pdf" : "image/jpeg";
+        if (data.length < 100 || data.length > 8_000_000) return fail("Take the photo again");
+        const types = (Array.isArray(body.types) ? body.types : []) as { id: number; name: string }[];
+        const key = Deno.env.get("ANTHROPIC_API_KEY");
+        if (!key) return ok({ ai: false });
+        try {
+          const doc = media === "application/pdf"
+            ? { type: "document", source: { type: "base64", media_type: media, data } }
+            : { type: "image", source: { type: "base64", media_type: media, data } };
+          const o = await claudeJson(key, 1500,
+            "You read a photo or PDF of an Australian licence, card or certificate (for example a Blue Card, White Card, RSA, first aid certificate, trade licence or a public liability insurance certificate of currency). In Queensland a Working with Children Check card is called a Blue Card, and a White Card is the construction induction card. Report only what is printed on it and never guess. Reply with JSON only, no other text: {\"readable\": true or false, \"problem\": null, or one short sentence the person can act on, like \"The photo is blurry. Take it again.\", \"Part of the card is cut off. Get the whole card in.\", \"There's glare over the card. Tilt it away from the light.\" or \"This isn't a licence or certificate.\", \"type_id\": the matching id from the list or null, \"number\": the licence, card or policy number exactly as printed, or null, \"expiry\": the expiry date as YYYY-MM-DD, or null if it has none, \"name\": the holder's or insured's name as printed, or null}.",
+            [doc, { type: "text", text: `Types:\n${types.map((t) => `${t.id}: ${t.name}`).join("\n")}` }]);
+          const name = o.name ? String(o.name).trim() : null;
+          const words = (x: string) => x.toLowerCase().replace(/[^a-z\s'-]/g, " ").split(/\s+/).filter((w) => w.length > 1);
+          const mine = words(String(me?.full_name ?? ""));
+          const theirs = name ? words(name) : [];
+          const nameMatch = mine.length > 0 && theirs.length > 0 && theirs.includes(mine[0]) && theirs.includes(mine[mine.length - 1]);
+          const expiry = typeof o.expiry === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.expiry) ? o.expiry : null;
+          return ok({
+            ai: true, readable: o.readable !== false, problem: o.problem ? String(o.problem) : null,
+            type_id: types.some((t) => t.id === Number(o.type_id)) ? Number(o.type_id) : null,
+            number: o.number ? String(o.number).trim().slice(0, 40) : null, expiry, name, name_match: nameMatch,
+          });
+        } catch (e) {
+          console.error("read_credential failed:", e instanceof Error ? e.message : String(e));
           return ok({ ai: false });
         }
       }
@@ -575,6 +604,19 @@ async function mapToken(): Promise<string | null> {
   const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(input));
   mapCache = { t: `${input}.${b64url(sig)}`, exp };
   return mapCache.t;
+}
+
+// Asks Claude (Haiku) and reads its JSON answer. Throws on any error so the caller falls back.
+async function claudeJson(key: string, maxTokens: number, system: string, content: unknown[]): Promise<Record<string, unknown>> {
+  const r = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "x-api-key": key, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    body: JSON.stringify({ model: "claude-haiku-5-5", max_tokens: maxTokens, system, messages: [{ role: "user", content }] }),
+  });
+  const j = await r.json();
+  if (!r.ok) throw new Error(`Claude said ${r.status}: ${JSON.stringify(j).slice(0, 500)}`);
+  const t = replyText(j);
+  return JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
 }
 
 // Claude's answer is the text part of its reply. Newer models send a thinking part first, so never assume the first part is the answer.

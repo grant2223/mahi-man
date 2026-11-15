@@ -67,8 +67,9 @@ export function Privacy() {
         <li>A worker's strikes are only shown to that worker and the Mahi Man team.</li>
         <li>Phone numbers and email addresses are never shown to the other person.</li>
       </ul>
-      <h2>Voice input</h2>
-      <p>If you use "Just say it", your phone's speech service turns your voice into text, and the text may be tidied up by an AI service before you see it. You can always edit it, or type instead.</p>
+      <h2>Voice, photos and licence reading</h2>
+      <p>If you use "Just say it", your phone's speech service turns your voice into text. If you use "Snap it", the photos of your job are read too. Either way, what you said or showed is sent to an AI service (Anthropic) to fill in the job for you to check. You can always edit it, or type instead.</p>
+      <p>When you add a licence or certificate, its photo or PDF is read by the same AI service to fill in its type, number, expiry and name for you to check. We still check every one by hand. The AI service doesn't keep what it reads to train its models.</p>
       <h2>Where it is stored</h2>
       <p>Your information is stored with our hosting provider, Supabase, in its Sydney, Australia region. Cards and payments are handled by Stripe. Maps are shown with Apple Maps, and directions open in your phone's maps app. Some service providers we use may process information outside Australia.</p>
       <h2>Keeping and deleting</h2>

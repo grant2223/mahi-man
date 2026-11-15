@@ -34,7 +34,7 @@ export function elapsed(fromIso: string, now: number) {
 }
 
 // Shrinks a phone photo before upload so it is quick on mobile data.
-export async function shrinkImage(file: File, max = 1600): Promise<Blob> {
+export async function shrinkImage(file: Blob, max = 1600): Promise<Blob> {
   const bmp = await createImageBitmap(file);
   const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
   const c = document.createElement("canvas");
@@ -42,6 +42,15 @@ export async function shrinkImage(file: File, max = 1600): Promise<Blob> {
   c.height = Math.round(bmp.height * scale);
   c.getContext("2d")!.drawImage(bmp, 0, 0, c.width, c.height);
   return await new Promise((res) => c.toBlob((b) => res(b!), "image/jpeg", 0.85));
+}
+
+// A photo as base64 (no "data:" prefix), small enough to send to Claude to read.
+export async function photoForReading(file: Blob, max = 1280): Promise<string> {
+  const small = await shrinkImage(file, max).catch(() => file);
+  return blobBase64(small);
+}
+export function blobBase64(b: Blob): Promise<string> {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1] ?? ""); r.onerror = rej; r.readAsDataURL(b); });
 }
 
 export function validAbn(abn: string): boolean {

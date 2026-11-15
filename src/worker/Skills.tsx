@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
-import { rpc, sb, type Category, type JobType, myId } from "../lib/supabase";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { api, rpc, sb, type Category, type JobType, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
-import { shrinkImage } from "../lib/format";
-import { CatIcon, DateField, Icon, Screen, SearchPicker, useToast } from "../ui/kit";
+import { blobBase64, photoForReading, shrinkImage } from "../lib/format";
+import { CatIcon, Icon, Screen, SearchPicker, useToast } from "../ui/kit";
 
 /* Worker skills, experience and gear for each type of job, plus licences and certificates. */
 
@@ -226,29 +226,53 @@ export function Credentials({ onBack }: { onBack: () => void }) {
   );
 }
 
+// Add a licence: snap it, Claude reads it, the worker checks what was read, then it goes to admin to approve.
+// If it can't be read, the worker fills it in by hand. Nothing ever stops them sending it.
+interface Read { type_id: number | null; number: string; expiry: string; name: string | null; name_match: boolean; ai: boolean }
 function AddCredential({ types, initial, onBack, onSaved }: { types: CredType[]; initial: number | null; onBack: () => void; onSaved: () => void }) {
   const { session } = useSession();
   const toast = useToast();
-  const [type, setType] = useState<number | null>(initial);
-  const [number, setNumber] = useState("");
-  const [expiry, setExpiry] = useState("");
+  const [stage, setStage] = useState<"snap" | "reading" | "check">("snap");
   const [file, setFile] = useState<File | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [got, setGot] = useState<Read>({ type_id: initial, number: "", expiry: "", name: null, name_match: false, ai: false });
   const [pick, setPick] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [unlocks, setUnlocks] = useState<string[]>([]);
+  const camera = useRef<HTMLInputElement>(null);
+  const pdf = useRef<HTMLInputElement>(null);
   useEffect(() => {
     setUnlocks([]);
-    if (type == null) return;
-    sb.from("skills").select("name, cat:categories(name)").eq("credential_type_id", type).eq("active", true)
+    if (got.type_id == null) return;
+    sb.from("skills").select("name, cat:categories(name)").eq("credential_type_id", got.type_id).eq("active", true)
       .then(({ data }) => setUnlocks(((data ?? []) as unknown as { name: string; cat: { name: string } | null }[]).map((r) => r.cat ? `${r.name.toLowerCase()} in ${r.cat.name}` : r.name.toLowerCase())));
-  }, [type]);
-  const t = types.find((x) => x.id === type);
+  }, [got.type_id]);
+  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  const t = types.find((x) => x.id === got.type_id);
   const insurance = t?.name === "Public liability insurance";
+  const isPdf = file?.type === "application/pdf";
+
+  async function read(f: File) {
+    setFile(f); setUrl(f.type.startsWith("image/") ? URL.createObjectURL(f) : null); setProblem(null); setErr("");
+    setStage("reading");
+    try {
+      const data = f.type === "application/pdf" ? await blobBase64(f) : await photoForReading(f, 1600);
+      const r = await api<{ ai: boolean; readable?: boolean; problem?: string | null; type_id?: number | null; number?: string | null; expiry?: string | null; name?: string | null; name_match?: boolean }>(
+        "read_credential", { file: data, media: f.type === "application/pdf" ? "application/pdf" : "image/jpeg", types: types.map((x) => ({ id: x.id, name: x.name })) });
+      if (!r.ai) { setGot((g) => ({ ...g, ai: false })); setStage("check"); return; }
+      if (r.readable === false) { setProblem(r.problem || "We couldn't read it. Take it again."); return; }
+      setGot({ type_id: r.type_id ?? got.type_id, number: r.number ?? "", expiry: r.expiry ?? "", name: r.name ?? null, name_match: !!r.name_match, ai: true });
+      setStage("check");
+    } catch {
+      setGot((g) => ({ ...g, ai: false })); setStage("check");
+    }
+  }
 
   async function send() {
-    if (!session || type == null || !file) return;
-    if (expiry && expiry < today()) return setErr("That one has expired");
+    if (!session || got.type_id == null || !file) return;
+    if (got.expiry && got.expiry < today()) return setErr("That one has expired");
     setErr(""); setBusy(true);
     try {
       const blob = file.type.startsWith("image/") ? await shrinkImage(file, 1800) : file;
@@ -256,32 +280,97 @@ function AddCredential({ types, initial, onBack, onSaved }: { types: CredType[];
       const path = `${session.user.id}/cred-${Date.now()}.${ext}`;
       const { error } = await sb.storage.from("insurance").upload(path, blob, { contentType: file.type.startsWith("image/") ? "image/jpeg" : file.type });
       if (error) throw error;
-      await rpc("submit_credential", { p_type: type, p_number: number, p_expiry: expiry || null, p_photo: path });
+      await rpc("submit_credential", { p_type: got.type_id, p_number: got.number.trim(), p_expiry: got.expiry || null, p_photo: path });
       toast("Sent. We'll check it within a few hours."); onSaved();
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
-  return (
-    <Screen title={t ? `Add ${lc(t.name)}` : "Add a licence or certificate"} onBack={onBack}>
-      <div className="screen-body" style={{ padding: 16 }}>
-        <div className="stack">
-          <button className="field sel" onClick={() => setPick(true)}><span className="k">Which one</span><span className={t ? "v w4" : "v ph"}>{t?.name ?? "Select"}</span></button>
-          <label className="field"><span className="k">{insurance ? "Policy number" : "Number"}</span><input value={number} onChange={(e) => setNumber(e.target.value)} autoCapitalize="characters" /></label>
-          <DateField label="Expiry date, if it has one" value={expiry} onChange={setExpiry} min={today()} />
-          <label className="field" style={{ cursor: "pointer" }}>
-            <span className="k">{insurance ? "Certificate of currency" : "Photo of the card"}</span>
-            <span className={file ? "v w4" : "v ph"}>{file?.name ? (file.type.startsWith("image/") ? "Photo added" : file.name) : "Take or choose a photo"}</span>
-            <input type="file" accept="image/*,application/pdf" hidden onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
-          </label>
+  const inputs = <>
+    <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) read(f); }} />
+    <input ref={pdf} type="file" accept="application/pdf,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) read(f); }} />
+  </>;
+  const shot = (w: number) => url ? <img className="cs-shot" src={url} alt="" style={{ width: w }} />
+    : <span className="cs-doc" style={{ width: w }}>{Icon.doc("var(--emerald)")}<b>{file?.name ?? "Certificate"}</b></span>;
+
+  if (stage === "reading") return (
+    <div className="cs-read" role="dialog" aria-label="Reading your card">
+      <button className="back" onClick={() => setStage("snap")} aria-label="Back">{Icon.back("#fff")}</button>
+      <div className="cs-tilt">{shot(300)}{!problem && <span className="cs-scan" />}</div>
+      {problem ? <div className="cs-prob">
+        <span className="cam-warn">{problem}</span>
+        <div className="row" style={{ gap: 10, justifyContent: "flex-end" }}>
+          <button className="btn light" onClick={() => { setGot((g) => ({ ...g, ai: false })); setStage("check"); }}>Fill it in myself</button>
+          <button className="btn primary" onClick={() => (isPdf ? pdf : camera).current?.click()}>Take it again</button>
         </div>
-        {unlocks.length > 0 && <p className="t15 light muted" style={{ lineHeight: 1.45 }}>Unlocks {unlocks.join(", ")}.</p>}
-        {err && <p className="err">{err}</p>}
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: 8 }}>
-          <button className="btn primary" disabled={busy || type == null || !file} onClick={send}>{busy ? "Sending…" : "Send for checking"}</button>
+      </div> : <>
+        <span className="cs-rd">{Icon.spark("#f5c518", 26)}Reading your {insurance ? "certificate" : "card"}</span>
+        <span className="cs-sub">A few seconds</span>
+      </>}
+      {inputs}
+    </div>
+  );
+
+  if (stage === "check") {
+    const inDate = !!got.expiry && got.expiry >= today();
+    return (
+      <Screen title="Check it" onBack={() => setStage("snap")}>
+        <div className="screen-body cs-check">
+          <div className="cs-pic"><div className="cs-tilt">{shot(220)}</div></div>
+          <div className="cs-fields">
+            {got.ai && <span className="fill-note">{Icon.spark("#8a6d00")}Read from your {isPdf ? "file" : "photo"}</span>}
+            <button className="field sel" onClick={() => setPick(true)}><span className="k">Which one</span><span className={t ? "v w4" : "v ph"}>{t?.name ?? "Select"}</span></button>
+            <label className="field"><span className="k">{insurance ? "Policy number" : "Number"}</span>
+              <input value={got.number} onChange={(e) => setGot({ ...got, number: e.target.value })} autoCapitalize="characters" /></label>
+            <label className="field date-field cs-exp">
+              <span className="k">Expires</span>
+              <span className="row between" style={{ width: "100%" }}>
+                <span className={got.expiry ? "v" : "v ph"}>{got.expiry ? dmy(got.expiry) : "DD / MM / YYYY"}</span>
+                {got.expiry && (inDate ? <span className="cs-ok">{Icon.tick("var(--emerald)", 18)}In date</span> : <span className="cs-bad">Expired</span>)}
+              </span>
+              <input type="date" value={got.expiry} onChange={(e) => setGot({ ...got, expiry: e.target.value })} aria-label="Expires" />
+            </label>
+            {got.name && <div className="field"><span className="k">Name on {insurance ? "certificate" : "card"}</span>
+              <span className="v row between" style={{ width: "100%" }}>{got.name.toLowerCase().replace(/(^|[\s'-])\p{L}/gu, (m) => m.toUpperCase())}
+                {got.name_match ? <span className="cs-ok">{Icon.tick("var(--emerald)", 18)}Matches you</span> : <span className="cs-bad">Not your name</span>}</span></div>}
+            {unlocks.length > 0 && <p className="t15 light muted" style={{ lineHeight: 1.45, margin: "4px 0 0" }}>Unlocks {unlocks.join(", ")}.</p>}
+            {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
+          </div>
+          <div className="cs-ft">
+            <button className="btn stone" onClick={() => (isPdf ? pdf : camera).current?.click()}>Retake</button>
+            <button className="btn primary" disabled={busy || got.type_id == null || !file} onClick={send}>{busy ? "Sending…" : "Send for checking"}</button>
+          </div>
+        </div>
+        {pick && <SearchPicker title="Which one" placeholder="Search" value={got.type_id != null ? [got.type_id] : []}
+          options={types.map((x) => ({ id: x.id, label: x.name }))} onClose={() => setPick(false)} onChange={(v) => setGot({ ...got, type_id: Number(v[0]) })} />}
+        {inputs}
+      </Screen>
+    );
+  }
+
+  return (
+    <Screen title={t ? `Add ${lc(t.name)}` : "Add a licence"} onBack={onBack}>
+      <div className="screen-body cs-snap">
+        <h2>Snap the {insurance ? "certificate" : "card"}</h2>
+        <p>We read it for you.</p>
+        <div className="cs-ex" aria-hidden="true">
+          <i /><i /><i /><i />
+          <div className="cs-card">
+            <div className="h">{insurance ? "CERTIFICATE OF CURRENCY" : (t?.name ?? "Licence").toUpperCase()}</div>
+            <div className="b"><span className="ph" /><span className="f"><small>Name</small><b>YOUR NAME</b><small>Number</small><b>1234567</b><small>Expires</small><b>01/01/2030</b></span></div>
+          </div>
+        </div>
+        <div className="cs-tips">
+          <span>{Icon.frame("var(--emerald)")}Whole {insurance ? "page" : "card"} in</span>
+          <span>{Icon.sun("var(--emerald)")}No glare</span>
+          <span>{Icon.layers("var(--emerald)")}Flat on a table</span>
+        </div>
+        <div className="cs-go">
+          <button className="cs-take" onClick={() => camera.current?.click()}>
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#14211c" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>Take photo</button>
+          <button className="link cs-pdf" onClick={() => pdf.current?.click()}>{Icon.doc("var(--emerald)")}Upload a PDF instead</button>
         </div>
       </div>
-      {pick && <SearchPicker title="Which one" placeholder="Search" value={type != null ? [type] : []}
-        options={types.map((x) => ({ id: x.id, label: x.name }))} onClose={() => setPick(false)} onChange={(v) => setType(Number(v[0]))} />}
+      {inputs}
     </Screen>
   );
 }
