@@ -42,10 +42,10 @@ export function OffersPage() {
   const [q, setQ] = useState("");
   useEffect(() => {
     const sides = side === "all" ? ["help", "work"] : [side];
-    Promise.all(sides.map((p) => rpc<PartnerOffer[]>("partner_offers", { p_side: p }).then((r) => r ?? [])))
+    Promise.all(sides.map((p) => rpc<PartnerOffer[]>("partner_offers", { p_side: p, p_area: area?.id ?? null }).then((r) => r ?? [])))
       .then((rs) => { const seen = new Set<number>(); setList(rs.flat().filter((o) => !seen.has(o.id) && seen.add(o.id)).sort((a, b) => Number(b.featured) - Number(a.featured))); })
       .catch(() => setList([]));
-  }, [side]);
+  }, [side, area?.id]);
   const shown = (list ?? []).filter((o) => !q || `${o.title} ${o.business} ${o.type}`.toLowerCase().includes(q.toLowerCase()));
   const featured = shown.find((o) => o.featured);
   const rest = shown.filter((o) => o !== featured);
@@ -53,15 +53,14 @@ export function OffersPage() {
     <div className="app" style={{ background: "var(--card)" }}>
       <section className="hero" style={{ paddingBottom: 24 }}>
         <div className="hero-top" />
-        <h1 className="mid" style={{ margin: "22px 0 6px" }}>Local offers</h1>
-        <p className="lede" style={{ margin: 0 }}>From {area?.name ?? "local"} businesses, for Mahi Man {side === "work" ? "workers" : side === "all" ? "customers and workers" : "customers"}.</p>
+        <h1 className="mid" style={{ margin: "22px 0 0" }}>Local offers</h1>
       </section>
       <div className="invite-band">
         <span className="t"><b>Invite a mate</b><span>Send a friend the link to Mahi Man</span></span>
         <button className="btn primary small" onClick={async () => { const r = await shareLink(inviteText, SITE); if (r === "copied") toast("Link copied. Paste it in a message."); }}>Invite</button>
       </div>
       {!list ? <Loading /> : !list.length ? (
-        <p className="t17 light" style={{ padding: "24px 16px", margin: 0, lineHeight: 1.45 }}>No offers near you yet. New ones show here.</p>
+        <p className="t17 light" style={{ padding: "24px 16px", margin: 0, lineHeight: 1.45 }}>No offers near you yet.</p>
       ) : (
         <>
           <div style={{ paddingTop: 16 }}><label className="search"><span>{Icon.search("var(--muted)")}</span><input placeholder="Search offers" value={q} onChange={(e) => setQ(e.target.value)} /></label></div>
@@ -156,10 +155,11 @@ export function AfterJobOffer({ jobId }: { jobId: string }) {
 // 4. A featured offer in the feed: between jobs for workers, under recent jobs for customers.
 export function useFeedOffer(enabled: boolean, side: "help" | "work" = "work") {
   const [o, setO] = useState<PartnerOffer | null>(null);
+  const { area } = useArea();
   useEffect(() => {
     if (!enabled) return;
-    rpc<PartnerOffer[]>("partner_offers", { p_side: side }).then((r) => setO((r ?? []).find((x) => x.featured) ?? null)).catch(() => {});
-  }, [enabled, side]);
+    rpc<PartnerOffer[]>("partner_offers", { p_side: side, p_area: area?.id ?? null }).then((r) => setO((r ?? []).find((x) => x.featured) ?? null)).catch(() => {});
+  }, [enabled, side, area?.id]);
   return o;
 }
 export function FeedOfferCard({ o, side = "work", style }: { o: PartnerOffer; side?: "help" | "work"; style?: CSSProperties }) {

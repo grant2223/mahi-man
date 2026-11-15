@@ -66,6 +66,13 @@ export function Delta({ cur, prev, pct, good = "up" }: { cur: number | null; pre
   const ok = diff === 0 || (diff > 0) === (good === "up");
   return <span className="mu-dl"><b className={ok ? "up" : "down"}>{diff >= 0 ? "▲" : "▼"} {Math.abs(diff)}{pct ? " pts" : "%"}</b> vs {vs}</span>;
 }
+// On a phone: just the change, +2 or −3, next to the number.
+function DeltaShort({ cur, prev, good = "up" }: { cur: number | null; prev: number | null | undefined; good?: "up" | "down" }) {
+  if (prev === undefined) return null;
+  const diff = cur == null || prev == null ? 0 : Math.round((cur - prev) * 10) / 10;
+  if (!diff) return <span className="mu-dlx z">—</span>;
+  return <span className={(diff > 0) === (good === "up") ? "mu-dlx" : "mu-dlx dn"}>{diff > 0 ? "+" : "−"}{fmt(Math.abs(diff))}</span>;
+}
 type Row = { l: string; n: number };
 export function BarList({ rows, empty = "Nothing yet" }: { rows: Row[]; empty?: string }) {
   const shown = rows.filter((r) => r.n > 0);
@@ -132,14 +139,14 @@ export function UsersPage({ detail }: { detail: (row: UserRow, back: () => void,
     <div className="ov">
       <div className="ov-top"><h1>Users</h1>
         {tab !== "all" && <div className="mu-when">
-          <button className="mu-drop" onClick={() => setPick("period")}><span className="k">Showing</span><span className="v">{pLabel} · {rangeLabel(range)}</span></button>
+          <button className="mu-drop" onClick={() => setPick("period")}><span className="k">Showing</span><span className="v">{pLabel}<span className="rg"> · {rangeLabel(range)}</span></span></button>
           {tab !== "who" && <button className="mu-drop" onClick={() => setPick("compare")} disabled={period === "all"}><span className="k">Compared to</span>
             <span className="v">{cmp ? `${COMPARES.find(([k]) => k === cmpId)![1]} · ${rangeLabel(cmp)}` : "Nothing"}</span></button>}
         </div>}
       </div>
       <div className="mu-tabs">
-        {([["summary", "Summary"], ["usage", "Usage"], ["who", "Who they are"], ["all", "Everyone"]] as [Tab, string][]).map(([k, l]) =>
-          <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{l}</button>)}
+        {([["summary", "Summary"], ["usage", "Usage"], ["who", "Who they are", "Who"], ["all", "Everyone"]] as [Tab, string, string?][]).map(([k, l, sm]) =>
+          <button key={k} className={tab === k ? "on" : ""} onClick={() => setTab(k)}>{sm ? <><span className="lg">{l}</span><span className="sm">{sm}</span></> : l}</button>)}
       </div>
       {tab === "summary" && <Summary rep={rep} pLabel={pLabel} cmpOn={!!cmp} cmpLabel={COMPARES.find(([k]) => k === cmpId)![1].toLowerCase()} />}
       {tab === "usage" && <UsageTab range={range} />}
@@ -198,14 +205,14 @@ function Summary({ rep, pLabel, cmpOn, cmpLabel }: { rep: Report | null; pLabel:
       <section className="ov-sec ov-first">
         <div className="ov-h"><h2>{pLabel}</h2><span>{cmpOn ? `Compared to ${cmpLabel}` : ""}</span></div>
         <div className="mu-kpis">
-          <div className="mu-kpi"><span className="t">Sign-ups</span><b>{fmt(c.signups)}</b><Delta cur={c.signups} prev={k("signups")} /><small>{c.signups_c} customers · {c.signups_w} workers</small></div>
-          <div className="mu-kpi"><span className="t">Opened the app</span><b>{fmt(c.opened)}</b><Delta cur={c.opened} prev={k("opened")} /><small>Different people, at least once</small></div>
-          <div className="mu-kpi"><span className="t">Opened it most days</span><b>{c.most_days == null ? "—" : `${c.most_days}%`}</b><Delta cur={c.most_days} prev={k("most_days")} pct /><small>Daily users out of all users</small></div>
-          <div className="mu-kpi"><span className="t">Booked a job</span><b>{fmt(c.booked)}</b><Delta cur={c.booked} prev={k("booked")} /><small>Customers who posted and got a worker</small></div>
-          <div className="mu-kpi"><span className="t">Booked again</span><b>{c.repeat == null ? "—" : `${c.repeat}%`}</b><Delta cur={c.repeat} prev={k("repeat")} pct /><small>Of those, had booked before</small></div>
-          <div className="mu-kpi"><span className="t">Workers who took a job</span><b>{fmt(c.took)}</b><Delta cur={c.took} prev={k("took")} /><small>Of {c.approved} approved</small></div>
-          <div className="mu-kpi"><span className="t">Hours workers were online</span><b>{fmt(c.online_hours)}</b><Delta cur={c.online_hours} prev={k("online_hours")} /><small>{c.online_workers ? `${Math.round(c.online_hours / c.online_workers)} hours each on average` : "No one online yet"}</small></div>
-          <div className="mu-kpi"><span className="t">Stopped using it</span><b>{fmt(c.stopped)}</b><Delta cur={c.stopped} prev={k("stopped")} good="down" /><small>Not opened in 30 days</small></div>
+          <div className="mu-kpi"><span className="t">Sign-ups</span><b>{fmt(c.signups)}</b><Delta cur={c.signups} prev={k("signups")} /><DeltaShort cur={c.signups} prev={k("signups")} /><small>{c.signups_c} customers · {c.signups_w} workers</small></div>
+          <div className="mu-kpi"><span className="t">Opened the app</span><b>{fmt(c.opened)}</b><Delta cur={c.opened} prev={k("opened")} /><DeltaShort cur={c.opened} prev={k("opened")} /><small>Different people, at least once</small></div>
+          <div className="mu-kpi"><span className="t">Opened it most days</span><b>{c.most_days == null ? "—" : `${c.most_days}%`}</b><Delta cur={c.most_days} prev={k("most_days")} pct /><DeltaShort cur={c.most_days} prev={k("most_days")} /><small>Daily users out of all users</small></div>
+          <div className="mu-kpi"><span className="t">Booked a job</span><b>{fmt(c.booked)}</b><Delta cur={c.booked} prev={k("booked")} /><DeltaShort cur={c.booked} prev={k("booked")} /><small>Customers who posted and got a worker</small></div>
+          <div className="mu-kpi"><span className="t">Booked again</span><b>{c.repeat == null ? "—" : `${c.repeat}%`}</b><Delta cur={c.repeat} prev={k("repeat")} pct /><DeltaShort cur={c.repeat} prev={k("repeat")} /><small>Of those, had booked before</small></div>
+          <div className="mu-kpi"><span className="t">Workers who took a job</span><b>{fmt(c.took)}</b><Delta cur={c.took} prev={k("took")} /><DeltaShort cur={c.took} prev={k("took")} /><small>Of {c.approved} approved</small></div>
+          <div className="mu-kpi"><span className="t">Hours workers were online</span><b>{fmt(c.online_hours)}</b><Delta cur={c.online_hours} prev={k("online_hours")} /><DeltaShort cur={c.online_hours} prev={k("online_hours")} /><small>{c.online_workers ? `${Math.round(c.online_hours / c.online_workers)} hours each on average` : "No one online yet"}</small></div>
+          <div className="mu-kpi"><span className="t">Stopped using it</span><b>{fmt(c.stopped)}</b><Delta cur={c.stopped} prev={k("stopped")} good="down" /><DeltaShort cur={c.stopped} prev={k("stopped")} good="down" /><small>Not opened in 30 days</small></div>
         </div>
       </section>
 
@@ -335,7 +342,7 @@ function UsageTab({ range }: { range: Range }) {
       <section className="ov-sec">
         <div className="ov-h"><h2>Busiest times</h2><Seg value={heat} onChange={setHeat} options={[["jobs", "Jobs posted"], ["online", "Workers online"], ["opens", "App opened"]]} /></div>
         <div className="mu-heat">
-          <span />{hrs.map((h) => <span key={h} className="hx">{h % 3 === 0 ? hourLbl(h) : ""}</span>)}
+          <span />{hrs.map((h) => <span key={h} className="hm-x">{h % 3 === 0 ? hourLbl(h) : ""}</span>)}
           {DAYS.map((d, di) => [<span key={d} className="dy">{d}</span>, ...hrs.map((h) => { const v = Number(cell(di + 1, h)); return <i key={d + h} title={`${d} ${hourLbl(h)}: ${v}`} style={{ background: v ? `rgba(11,107,79,${0.12 + (v / max) * 0.88})` : "#eef2f0" }} />; })])}
         </div>
         <p className="mu-cap">{busiest || "Nothing yet for this period."}</p>

@@ -1,14 +1,13 @@
-import { ProfileScreen } from "./Profile";
+import { AboutEdit, ContactEdit, SuburbEdit } from "./Profile";
 import { GENDERS, showPhone } from "../lib/people";
 import { Capacitor } from "@capacitor/core";
-import { createPortal } from "react-dom";
 import { Reliability } from "../worker/Reliability";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, avatarUrl, mediaUrls, rpc, sb, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money, shrinkImage } from "../lib/format";
-import { Icon, Screen, SearchPicker, StepHero, Tile, useToast } from "./kit";
+import { Icon, Screen, StepHero, Tile, useToast } from "./kit";
 import { VerifyFlow } from "./Verify";
 import { AbnStep } from "../worker/Signup";
 import { Credentials, JobsAndSkills } from "../worker/Skills";
@@ -225,9 +224,8 @@ function HeroArea() {
 function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPrefs: (p: Prefs) => void; onBack: () => void; onOpen: (s: Sub) => void }) {
   const { session, profile, reload } = useSession();
   const toast = useToast();
-  const { area, areas, choose } = useArea();
-  const [picking, setPicking] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const { area } = useArea();
+  const [editing, setEditing] = useState<"contact" | "about" | "suburb" | null>(null);
   const [subName, setSubName] = useState("");
   const [contact, setContact] = useState<{ phone: string; dial: string; whatsapp: boolean } | null>(null);
   const [card, setCard] = useState<PersonCard | null>(null);
@@ -310,7 +308,9 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
 
   return (
     <div className="screen hb hb-acct ax" role="dialog" aria-label="Your account">
-      {editing && <ProfileScreen mode="edit" onBack={() => setEditing(false)} onDone={() => { setEditing(false); toast("Saved"); }} />}
+      {editing === "contact" && <ContactEdit onBack={() => setEditing(null)} onDone={(m) => { setEditing(null); toast(m); }} />}
+      {editing === "about" && <AboutEdit onBack={() => setEditing(null)} onDone={() => { setEditing(null); toast("Saved"); }} />}
+      {editing === "suburb" && <SuburbEdit value={me.home_suburb_id ?? null} onBack={() => setEditing(null)} onDone={() => { setEditing(null); toast("Saved"); }} />}
       {showBlocked && (
         <Screen title="Blocked people" onBack={() => setShowBlocked(false)}>
           <div className="screen-body ax-list">
@@ -349,8 +349,8 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
         </section>
 
         <section className="ax-sec">
-          <h2>Contact<button onClick={() => setEditing(true)}>Edit</button></h2>
-          <button className="ax-row" onClick={() => !contact && setEditing(true)}>{A.phone}
+          <h2>Contact<button onClick={() => setEditing("contact")}>Edit</button></h2>
+          <button className="ax-row" onClick={() => !contact && setEditing("contact")}>{A.phone}
             <span className="ax-t"><small>Mobile</small>{contact ? <b>{showPhone(contact.phone, contact.dial)}</b> : <b className="add">Add your mobile</b>}</span>
             {contact?.whatsapp && <span className="ax-wa">{waMark(20)}</span>}</button>
           <div className="ax-row">{A.mail}<span className="ax-t"><small>Email</small><b>{session.user.email ?? ""}</b></span></div>
@@ -361,7 +361,7 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
         </section>
 
         <section className="ax-sec">
-          <h2>About you<button onClick={() => setEditing(true)}>Edit</button></h2>
+          <h2>About you<button onClick={() => setEditing("about")}>Edit</button></h2>
           <div className="ax-3 ax-cells">
             <div>{A.cake}<small>Birthday</small><b>{bday || "Not added"}</b></div>
             <div>{A.person}<small>Gender</small><b>{GENDERS.find(([k]) => k === me.gender)?.[1] ?? "Not added"}</b></div>
@@ -371,8 +371,8 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
 
         {area && (
           <section className="ax-sec">
-            <h2>Your area{(areas?.length ?? 0) > 1 && <button onClick={() => setPicking(true)}>Change</button>}</h2>
-            <div className="ax-row">{A.pin}<span className="ax-t"><small>{isSoon(area) ? "Coming soon" : worker && radius ? `Jobs within ${radius} km` : area.state}</small><b>{area.name}</b></span></div>
+            <h2>Your area<button onClick={() => setEditing("suburb")}>Change</button></h2>
+            <div className="ax-row">{A.pin}<span className="ax-t"><small>{isSoon(area) ? "Coming soon" : worker && radius ? `Jobs within ${radius} km` : area.state}</small><b>{[subName, area.name].filter(Boolean).join(", ")}</b></span></div>
           </section>
         )}
 
@@ -405,9 +405,6 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
           <button className="btn stone ax-out" onClick={() => signOut().then(() => go("/"))}>Sign out</button>
         </section>
       </div>
-      {picking && area && createPortal(<SearchPicker title="Where are you?" placeholder="Search areas" value={[area.id]}
-        options={(areas ?? []).map((a) => ({ id: a.id, label: a.name, hint: isSoon(a) ? `${a.state}, coming soon` : a.state }))}
-        onClose={() => setPicking(false)} onChange={(v) => choose(Number(v[0]))} />, document.body)}
     </div>
   );
 }

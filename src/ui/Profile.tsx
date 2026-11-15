@@ -5,7 +5,7 @@ import { useArea, useHere } from "../lib/area";
 import { currentPosition } from "../lib/trip";
 import { DIAL_CODES, GENDERS, HEARD, NATIONALITIES, flag } from "../lib/people";
 import { loadMapKit } from "./LiveMap";
-import { Icon, NameFields, Screen, SearchPicker, type NameParts } from "./kit";
+import { Icon, NameFields, Screen, SearchPicker, useToast, type NameParts } from "./kit";
 
 /* Your profile: name, date of birth, gender, nationality, suburb and how they heard about us.
    Asked at sign-up, editable under Your account. Verifying an ID is its own step. */
@@ -109,6 +109,129 @@ export function ProfileForm({ button, onSaved }: { button: string; onSaved: () =
       {pick === "heard" && <SearchPicker title="How did you hear about us?" placeholder="Search" value={[f.heard]} options={HEARD.map((h) => ({ id: h, label: h }))} onClose={() => setPick(null)} onChange={(v) => set({ heard: String(v[0]) })} />}
     </>
   );
+}
+
+/* Your account, Contact, Edit: only the mobile and the email. */
+export function ContactEdit({ onBack, onDone }: { onBack: () => void; onDone: (msg: string) => void }) {
+  const { session } = useSession();
+  const [f, setF] = useState<{ country: string; number: string; whatsapp: boolean; email: string } | null>(null);
+  const [pick, setPick] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    if (!session) return;
+    sb.from("profile_contact").select("country,dial,phone,whatsapp").eq("id", session.user.id).maybeSingle().then(({ data: c }) =>
+      setF({ country: c?.country || "AU", number: c ? String(c.phone).replace(`+${c.dial}`, "").replace(/(\d{3})(?=\d{3,})/g, "$1 ") : "",
+        whatsapp: !!c?.whatsapp, email: session.user.email ?? "" }));
+  }, [session?.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const set = (x: Partial<NonNullable<typeof f>>) => { setErr(""); setF((v) => (v ? { ...v, ...x } : v)); };
+  const save = async () => {
+    if (!f || !session) return;
+    const dial = DIAL_CODES.find(([c]) => c === f.country)?.[2] ?? "";
+    const digits = f.number.replace(/\D/g, "").replace(/^0+/, "");
+    if (digits && (digits.length < 6 || dial.length + digits.length > 15)) return setErr("Check your mobile number");
+    const email = f.email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return setErr("Check your email");
+    setBusy(true);
+    try {
+      await rpc("save_contact", { p_country: f.country, p_dial: dial, p_number: digits, p_whatsapp: !!digits && f.whatsapp });
+      const newEmail = email !== (session.user.email ?? "").toLowerCase();
+      if (newEmail) { const { error } = await sb.auth.updateUser({ email }); if (error) throw error; }
+      onDone(newEmail ? `Saved. Open the link we sent to ${email} to switch your email.` : "Saved");
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
+  };
+  const dc = f ? DIAL_CODES.find(([c]) => c === f.country) ?? DIAL_CODES[0] : DIAL_CODES[0];
+  return (
+    <Screen title="Contact" onBack={onBack}>
+      <div className="screen-body pe-body">
+        {f && (<>
+          <div className="pf-mob pe-mob">
+            <button className="field sel" onClick={() => setPick(true)}><span className="k">Country code</span><span className="v">{flag(dc[0])} +{dc[2]}</span></button>
+            <label className="field"><span className="k">Number</span><input inputMode="tel" autoComplete="tel-national" value={f.number} placeholder="412 345 678" onChange={(e) => set({ number: e.target.value.replace(/[^\d ]/g, "").slice(0, 16) })} /></label>
+          </div>
+          <div className="pf-wa"><span>On WhatsApp</span>
+            <button className={f.whatsapp ? "on" : ""} role="switch" aria-checked={f.whatsapp} aria-label="On WhatsApp" onClick={() => set({ whatsapp: !f.whatsapp })}><i /></button></div>
+          <label className="field pe-gap"><span className="k">Email</span><input type="email" inputMode="email" autoComplete="email" autoCapitalize="none" value={f.email} onChange={(e) => set({ email: e.target.value })} /></label>
+          {err && <p className="err">{err}</p>}
+        </>)}
+      </div>
+      <div className="pe-foot"><button className="btn primary block" disabled={!f || busy} onClick={save}>{busy ? "Saving…" : "Save"}</button></div>
+      {pick && f && <SearchPicker title="Country code" placeholder="Search countries" value={[f.country]}
+        options={DIAL_CODES.map(([c, n, d]) => ({ id: c, label: `${flag(c)}  ${n}`, right: `+${d}` }))} onClose={() => setPick(false)} onChange={(v) => set({ country: String(v[0]) })} />}
+    </Screen>
+  );
+}
+
+/* Your account, About you, Edit: only birthday, gender and nationality. Everything else saved is sent back unchanged. */
+export function AboutEdit({ onBack, onDone }: { onBack: () => void; onDone: () => void }) {
+  const { session, reload } = useSession();
+  const [d, setD] = useState<Record<string, unknown> | null>(null);
+  const [f, setF] = useState({ day: "", month: "", year: "", gender: "", nationality: "" });
+  const [pick, setPick] = useState<"gender" | "nationality" | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  useEffect(() => {
+    if (!session) return;
+    sb.from("profiles").select("first_name,middle_names,last_name,birth_date,gender,nationality,home_suburb_id,heard_from").eq("id", session.user.id).single().then(({ data }) => {
+      const x = (data ?? {}) as Record<string, unknown>;
+      const [y, m, dd] = String(x.birth_date ?? "").split("-");
+      setD(x);
+      setF({ day: dd ? pad(String(Number(dd))) : "", month: m ? pad(String(Number(m))) : "", year: y ?? "", gender: String(x.gender ?? ""), nationality: String(x.nationality ?? "") });
+    });
+  }, [session?.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const set = (x: Partial<typeof f>) => { setErr(""); setF((v) => ({ ...v, ...x })); };
+  const num = (v: string, max: number) => v.replace(/\D/g, "").slice(0, max);
+  const save = async () => {
+    if (!d) return;
+    const dd = Number(f.day), m = Number(f.month), y = Number(f.year);
+    const dt = new Date(Date.UTC(y, m - 1, dd));
+    if (!dd || !m || f.year.length !== 4 || dt.getUTCDate() !== dd || dt.getUTCMonth() !== m - 1) return setErr("Check your date of birth");
+    if (!f.gender) return setErr("Select your gender, or Prefer not to say");
+    if (!f.nationality) return setErr("Select your nationality");
+    setBusy(true);
+    try {
+      await rpc("save_profile", { p_first: d.first_name ?? "", p_middle: d.middle_names ?? "", p_last: d.last_name ?? "", p_birth: `${f.year}-${pad(f.month)}-${pad(f.day)}`,
+        p_gender: f.gender, p_nationality: f.nationality, p_suburb: d.home_suburb_id ?? null, p_heard: d.heard_from ?? "" });
+      await reload();
+      onDone();
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); setBusy(false); }
+  };
+  return (
+    <Screen title="About you" onBack={onBack}>
+      <div className="screen-body pe-body">
+        {d && (<>
+          <div className="pf-dob">
+            <label className="field"><span className="k">Day</span><input inputMode="numeric" value={f.day} placeholder="DD" onChange={(e) => set({ day: num(e.target.value, 2) })} /></label>
+            <label className="field"><span className="k">Month</span><input inputMode="numeric" value={f.month} placeholder="MM" onChange={(e) => set({ month: num(e.target.value, 2) })} /></label>
+            <label className="field"><span className="k">Year</span><input inputMode="numeric" value={f.year} placeholder="YYYY" onChange={(e) => set({ year: num(e.target.value, 4) })} /></label>
+          </div>
+          <button className="field sel pe-gap" onClick={() => setPick("gender")}><span className="k">Gender</span><span className={f.gender ? "v" : "v ph"}>{GENDERS.find(([k]) => k === f.gender)?.[1] ?? "Select"}</span></button>
+          <button className="field sel pe-gap" onClick={() => setPick("nationality")}><span className="k">Nationality</span><span className={f.nationality ? "v" : "v ph"}>{f.nationality || "Select"}</span></button>
+          {err && <p className="err">{err}</p>}
+        </>)}
+      </div>
+      <div className="pe-foot"><button className="btn primary block" disabled={!d || busy} onClick={save}>{busy ? "Saving…" : "Save"}</button></div>
+      {pick === "gender" && <SearchPicker title="Gender" placeholder="Search" value={[f.gender]} options={GENDERS.map(([id, label]) => ({ id, label }))} onClose={() => setPick(null)} onChange={(v) => set({ gender: String(v[0]) })} />}
+      {pick === "nationality" && <SearchPicker title="Nationality" placeholder="Search nationalities" value={[f.nationality]} options={NATIONALITIES.map((n) => ({ id: n, label: n }))} onClose={() => setPick(null)} onChange={(v) => set({ nationality: String(v[0]) })} />}
+    </Screen>
+  );
+}
+
+/* Your account, Your area: change your suburb. The area moves with it on the server. */
+export function SuburbEdit({ value, onBack, onDone }: { value: number | null; onBack: () => void; onDone: () => void }) {
+  const { session, reload } = useSession();
+  const toast = useToast();
+  return <SuburbPicker value={value} onClose={onBack} onPick={async (sub) => {
+    if (!session) return;
+    const { data } = await sb.from("profiles").select("first_name,middle_names,last_name,birth_date,gender,nationality,heard_from").eq("id", session.user.id).single();
+    const x = (data ?? {}) as Record<string, unknown>;
+    try {
+      await rpc("save_profile", { p_first: x.first_name ?? "", p_middle: x.middle_names ?? "", p_last: x.last_name ?? "", p_birth: x.birth_date ?? null,
+        p_gender: x.gender ?? "", p_nationality: x.nationality ?? "", p_suburb: sub.id, p_heard: x.heard_from ?? "" });
+      await reload();
+      onDone();
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  }} />;
 }
 
 // Its own full screen: finishing a profile from before these details were asked, or editing it from Your account.

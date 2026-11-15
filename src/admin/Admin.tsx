@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useEffect, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
 import { api, avatarUrl, brandUrl, rpc, sb, type Area, type Category, type JobType } from "../lib/supabase";
 import { loadMapKit } from "../ui/LiveMap";
 import { useSession } from "../lib/session";
@@ -43,6 +43,25 @@ export function Admin() {
     setCounts({ ids: a.count ?? 0, reports: b.count ?? 0, problems: c.count ?? 0, licences: d.count ?? 0, fees: e.count ?? 0, strikes: f.count ?? 0, invoices: g.count ?? 0, partners: h.count ?? 0, money: (m1.count ?? 0) + (m2.count ?? 0) + (m3.count ?? 0), gifts: m4.count ?? 0 });
   }, []);
   useEffect(() => { if (profile?.is_admin) recount(); }, [profile?.is_admin, recount, tab]);
+  // On a phone each table row becomes its own block, so every cell carries its column name.
+  const adminRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = adminRef.current;
+    if (!root) return;
+    const label = () => root.querySelectorAll<HTMLTableElement>(".adm-main table").forEach((t) => {
+      const heads = Array.from(t.querySelectorAll("thead th")).map((th) => th.textContent?.trim() ?? "");
+      t.querySelectorAll("tbody tr").forEach((tr) => Array.from(tr.children).forEach((td, i) => {
+        const l = (td as HTMLElement).hasAttribute("colspan") ? "" : heads[i] ?? "";
+        if (td.getAttribute("data-label") !== l) td.setAttribute("data-label", l);
+      }));
+    });
+    label();
+    const mo = new MutationObserver(label);
+    mo.observe(root, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, [role, ready, session?.user.id]);
+  // The open page's tab scrolls into view in the phone's tab row.
+  useEffect(() => { adminRef.current?.querySelector(".adm-link.on")?.scrollIntoView({ inline: "center", block: "nearest" }); }, [tab]);
   // Full-width admin: a fixed side menu grouped by what needs doing, and the page on the right.
   type Group = { label: string; items: [Tab, string, number?][] };
   const GROUPS: Group[] = ([
@@ -64,7 +83,7 @@ export function Admin() {
   if (!role) return <div className="admin solo"><Loading /></div>;
   const show = allowed(tab) ? tab : "overview";
   return (
-    <div className="admin">
+    <div className="admin" ref={adminRef}>
       <aside className="adm-side">
         <span className="brand"><Logo /> Mahi Man</span>
         <nav>
