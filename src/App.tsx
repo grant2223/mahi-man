@@ -1,4 +1,5 @@
 import { ProfileScreen, profileComplete } from "./ui/Profile";
+import { WorkerPage } from "./ui/WorkerPage";
 import { startOpens } from "./lib/opens";
 import { PartnerPage } from "./ui/PartnerPage";
 import { OfferDetail, OffersPage } from "./ui/LocalOffers";
@@ -69,6 +70,9 @@ function Routes() {
   }
   if (path === "/pricing") return <HowYouPay />;
   if (path === "/partners") return <PartnerPage />;
+  // A worker's card or link, opened in a browser: who they are, and Book.
+  const wk = path.match(/^\/w\/([A-Za-z0-9-]{2,60})$/);
+  if (wk && !Capacitor.isNativePlatform()) return <WorkerPage id={wk[1]} />;
   // Mahi Man is an app. The website is the landing page only; any app screen opened in a browser points to the app.
   if (!Capacitor.isNativePlatform()) return path === "/" ? <Landing /> : <GetAppPage />;
   if (path === "/settings") {

@@ -493,31 +493,35 @@ export function PlusPage() {
   if (!p) return <Page title="Mahi Man Plus" onBack={back("/payments")}><Waiting failed={failed} onRetry={reloadP} /></Page>;
   const short = p.balance < p.rates.plus_cents;
   const plus = isPlus(p);
+  const G = "#f5c518";
+  const ic = (d: ReactNode) => <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={G} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>;
   return (
-    <Page title="Mahi Man Plus" onBack={back("/payments")}>
-      <div className="iv-hero">
-        <span className="t15 light">From your balance, each month</span>
-        <span className="iv-big">{money2(p.rates.plus_cents)}</span>
-        <span className="t15 light">Your balance: {money2(p.balance)}</span>
+    <div className="pp">
+      <button className="pp-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
+      <div className="pp-top">
+        <svg width="64" height="64" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill={G} /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
+        <div className="w">MAHI MAN</div>
+        <h1>Plus</h1>
+        <div className="pp-price"><b>{money2(p.rates.plus_cents)}</b> a month</div>
+        {plus && <div className="on">{p.plus_renew ? `You're on Plus. Renews ${new Date(p.plus_until!).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}` : `You're on Plus until ${new Date(p.plus_until!).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}`}</div>}
       </div>
-      <div className="cp-sec iv-band">
-        <Li b={`Connection fee ${p.rates.plus}%, max ${money(p.rates.plus_max)}`} s={`Instead of ${p.rates.payg}%. Comes off your balance, like top-up.`} />
-        <Li b="Priority on every job" s="Your jobs go to the top, and every worker in your category is told." />
-        <Li b="Top-rated first" s="Your jobs reach the best-rated workers before anyone else." />
-        <Li b="Fix-it guarantee" s="Not done as listed? We send someone to finish it." />
-        <Li b="Stop any time" s="In You, Payments. Plus runs to the end of the month you've paid for." />
+      <div className="pp-bn">
+        <div>{ic(<path d="M12 19V5M5 12l7-7 7 7" />)}Your jobs go first</div>
+        <div>{ic(<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" />)}Top-rated workers first</div>
+        <div>{ic(<><path d="M14.7 6.3a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3z" /><path d="M5 5l3 3" /></>)}Fix-it guarantee</div>
+        <div>{ic(<><path d="M19 5L5 19" /><circle cx="7" cy="7" r="2.5" /><circle cx="17" cy="17" r="2.5" /></>)}Lower fees</div>
       </div>
-      <div style={{ flex: 1 }} />
-      <ActionBar>
+      <div className="pp-ft">
         {short && !plus
-          ? <button className="btn primary" style={{ flex: 1 }} onClick={() => go("/topup")}>Top up first</button>
-          : <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={async () => {
+          ? <button className="btn pp-join" onClick={() => go("/topup")}>Top up first</button>
+          : <button className="btn pp-join" disabled={busy} onClick={async () => {
               setBusy(true);
               try { await rpc("plus_join"); toast(plus ? "Plus renews each month" : "You're on Plus"); go("/payments", true); }
               catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
-            }}>{busy ? "Working…" : plus ? "Keep Plus each month" : `Join Plus, ${money2(p.rates.plus_cents)}`}</button>}
-      </ActionBar>
-    </Page>
+            }}>{busy ? "Working…" : plus ? "Keep Plus each month" : "Join Plus"}</button>}
+        <span>{short && !plus ? `It comes off your balance: ${money2(p.balance)} now` : "Stop any time"}</span>
+      </div>
+    </div>
   );
 }
 

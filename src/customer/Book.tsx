@@ -99,7 +99,14 @@ export function Book() {
   }, []);
   // A scanned worker code (mahiman.app/w/ID): start a job sent to that worker. Once signed in, they're saved,
   // so they show under "People you've used" and the job can go to them first.
-  const scanned = path.match(/^\/w\/([0-9a-f-]{36})$/)?.[1] ?? null;
+  // The link can carry their id or their card name (mahiman.app/w/grant-goes); a name is looked up first.
+  const scannedKey = path.match(/^\/w\/([A-Za-z0-9-]{2,60})$/)?.[1] ?? null;
+  const [scanned, setScanned] = useState<string | null>(null);
+  useEffect(() => {
+    if (!scannedKey) return;
+    if (/^[0-9a-f-]{36}$/.test(scannedKey)) { setScanned(scannedKey); return; }
+    rpc<{ id: string } | null>("worker_public", { p_key: scannedKey }).then((w) => setScanned(w?.id ?? null)).catch(() => {});
+  }, [scannedKey]);
   useEffect(() => { if (scanned) { sessionStorage.setItem("mm-worker", scanned); startNew({ invited: [scanned] }); } }, [scanned]);
   useEffect(() => {
     if (!session) { setPast([]); return; }
@@ -452,6 +459,8 @@ function Available() {
 
 function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn: boolean; uid: string | null; onStart: (p?: Partial<Draft>) => void }) {
   const soon = isSoon(useArea().area);
+  const { profile: me } = useSession();
+  const onPlus = !!me?.plus_until && new Date(me.plus_until) > new Date();
   const [recent, setRecent] = useState<Recent[] | null>(null);
   const feedOffer = useFeedOffer(true, "help");
   useEffect(() => {
@@ -498,6 +507,14 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
           <span>Post a job</span>
           {Icon.arrow("var(--lime)")}
         </button>
+
+        {signedIn && !onPlus && (
+          <button className="plus-band" onClick={() => go("/plus")}>
+            <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#f5c518" /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
+            <span><span className="pw">PLUS</span><b>Your jobs go first</b><small>Top-rated workers, fix-it guarantee</small></span>
+            <span className="go">Try it</span>
+          </button>
+        )}
 
         {recent && recent.length > 0 ? (
           <div className="stack" style={{ gap: 0 }}>

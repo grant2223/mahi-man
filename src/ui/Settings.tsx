@@ -7,15 +7,15 @@ import { api, avatarUrl, mediaUrls, rpc, sb, type PersonCard } from "../lib/supa
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money, shrinkImage } from "../lib/format";
-import { Icon, Screen, StepHero, Tile, useToast } from "./kit";
+import { Icon, Screen, StepHero, useToast } from "./kit";
 import { VerifyFlow } from "./Verify";
 import { AbnStep } from "../worker/Signup";
 import { Credentials, JobsAndSkills } from "../worker/Skills";
 import { PaymentMethods, cardLabel } from "../customer/Cards";
-import { GoldTick } from "../customer/Offers";
 import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
 import { isSoon, useArea } from "../lib/area";
 import { TabBar } from "./TabBar";
+import { ProfileHero, ShareCard, WorkerHome, type WorkerHomeData } from "./ProfileHome";
 
 /* The You page. Each band shows how things stand right now (money, jobs, work), and tapping it opens the detail.
    Account details, area, alerts, card and blocked people live on their own Account page. */
@@ -31,7 +31,7 @@ interface Hub {
     licences: { n: number; pending: number; next: { name: string; expiry: string } | null } | null;
   };
 }
-type Sub = null | "account" | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability";
+type Sub = null | "account" | "card" | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability";
 
 const S = { fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, strokeWidth: 1.9 };
 const ic = (d: ReactNode, c = "var(--emerald)", z = 22) => <svg width={z} height={z} viewBox="0 0 24 24" {...S} stroke={c}>{d}</svg>;
@@ -48,8 +48,6 @@ const I = {
 // The chat-bubble mark used beside a number that's on WhatsApp.
 export const waMark = (s = 18) => <svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="#1a9c4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}><path d="M4 20l1.4-4A8 8 0 1 1 8 18.6z" /><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 1c-1-.5-2-1.5-2.5-2.5l1-1-1-2z" fill="#1a9c4a" stroke="none" /></svg>;
 
-const dayShort = (d: string) => new Date(`${d}T00:00`).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
-const monthYear = (d: string) => new Date(`${d}T00:00`).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
 
 function jobLine(j: HubJob): string {
   const w = j.worker ?? "Your worker";
@@ -71,31 +69,44 @@ export function Settings() {
   const [hub, setHub] = useState<Hub | null>(null);
   const [covers, setCovers] = useState<Record<string, string>>({});
   const [sub, setSub] = useState<Sub>(null);
-  const [q, setQ] = useState("");
+  const [wh, setWh] = useState<WorkerHomeData | null>(null);
+  const [card, setCard] = useState<PersonCard | null>(null);
+  const [place, setPlace] = useState<{ suburb: string; area: string }>({ suburb: "", area: "" });
+  const [onlineBusy, setOnlineBusy] = useState(false);
 
   const load = () => rpc<Hub>("my_hub").then((h) => {
     setHub(h);
     mediaUrls(h.jobs.map((j) => j.cover).filter(Boolean) as string[]).then(setCovers).catch(() => {});
   }).catch(() => {});
-  useEffect(() => { if (session) load(); }, [session]);
+  const loadWorker = () => { if (profile?.is_worker) rpc<WorkerHomeData>("worker_home").then(setWh).catch(() => {}); };
+  const home = (profile as { home_suburb_id?: number | null } | null)?.home_suburb_id ?? null;
+  useEffect(() => { if (session) { load(); rpc<PersonCard[]>("person_card", { p_person: session.user.id }).then((c) => setCard(c?.[0] ?? null)).catch(() => {}); } }, [session]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadWorker(); }, [profile?.is_worker]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!home) return;
+    sb.from("suburbs").select("name, areas(name)").eq("id", home).maybeSingle().then(({ data }) =>
+      setPlace({ suburb: (data as { name?: string } | null)?.name ?? "", area: ((data as { areas?: { name: string } | null } | null)?.areas?.name) ?? "" }));
+  }, [home]);
 
   if (ready && !session) { go("/", true); return null; }
-  if (!session || !profile) return <div className="app"><StepHero title="You" /></div>;
+  if (!session || !profile) return <div className="app"><StepHero title="Profile" /></div>;
   const worker = !!profile.is_worker;
   const idLabel = { none: "Not verified", pending: "ID being checked", verified: "ID verified", retake: "ID retake needed", rejected: "ID not approved" }[profile.id_status];
 
   // Everything on this page and the Account page, so search finds it.
   const items: { label: string; hint: string; act: () => void; worker?: boolean }[] = [
-    { label: "Account", hint: "Your profile, mobile, email, photo", act: () => setSub("account") },
+    { label: "Photo", hint: "Change your photo", act: () => setSub("account") },
+    { label: "Contact", hint: "Mobile, WhatsApp and email", act: () => setSub("account") },
+    { label: "Your share card", hint: "QR code and link to book you", act: () => setSub("card"), worker: true },
     { label: "Verify your ID", hint: idLabel, act: () => setSub(profile.id_status === "verified" ? "account" : "verify") },
     { label: "Your area", hint: "Where you use Mahi Man", act: () => setSub("account") },
     { label: "Alerts", hint: "New jobs, messages and local offers", act: () => setSub("account") },
     { label: "Payment card", hint: "Card for top-ups and fees", act: () => setSub("cards") },
     { label: "Blocked people", hint: "People you've blocked", act: () => setSub("account") },
-    { label: "Sign out", hint: "On the Account page", act: () => setSub("account") },
+    { label: "Sign out", hint: "At the bottom of Settings", act: () => setSub("account") },
     { label: "Balance and history", hint: "Payments, invoices and receipts", act: () => go("/payments") },
     { label: "Top up", hint: "Add to your balance", act: () => go("/topup") },
-    { label: "Mahi Man Plus", hint: "Lower fees, urgent jobs free", act: () => go("/plus") },
+    { label: "Mahi Man Plus", hint: "Your jobs go first", act: () => go("/plus") },
     { label: "Buy a gift card", hint: "Mahi Man help for someone else", act: () => go("/gift") },
     { label: "Redeem a gift card", hint: "Add a gift code", act: () => go("/gift-code") },
     { label: "How payment works", hint: "Who you pay and when", act: () => go("/pricing") },
@@ -109,58 +120,34 @@ export function Settings() {
     { label: "Delete account", hint: "On the Privacy page", act: () => go("/privacy") },
     { label: "Terms of use", hint: "The rules for using Mahi Man", act: () => go("/terms") },
   ].filter((x) => !x.worker || worker);
-  const t = q.trim().toLowerCase();
-  const found = t ? items.filter((x) => `${x.label} ${x.hint}`.toLowerCase().includes(t)) : [];
-
-  const bal = hub?.balance ?? 0, gift = Math.min(hub?.gift_balance ?? 0, bal), topup = Math.max(bal - gift, 0);
-  const w = hub?.worker;
+  const bal = hub?.balance ?? 0, gift = Math.min(hub?.gift_balance ?? 0, bal);
+  const plus = !!profile.plus_until && new Date(profile.plus_until) > new Date();
+  const goOnline = async () => {
+    setOnlineBusy(true);
+    try { await rpc("set_online", { p_online: true }); toast("You're online"); loadWorker(); }
+    catch (e) { const m = e instanceof Error ? e.message : String(e); if (m.startsWith("Add your PayID")) setSub("payid"); else toast(m); }
+    setOnlineBusy(false);
+  };
+  const finishProfile = () => setSub(profile.id_status !== "verified" ? "verify" : !profile.photo_path ? "account" : "payid");
+  const recPct = card?.reviewed ? Math.round(((card.recommended ?? 0) / card.reviewed) * 100) : null;
 
   return (
-    <div className="app hb">
-      <section className="hb-hero">
-        <div className="hb-top"><span style={{ width: 44 }} /><span>You</span><span style={{ width: 44 }} /></div>
-        <div className="hb-me">
-          <Tile name={profile.full_name || "?"} photo={profile.photo_path} size={64} />
-          <div className="hb-who">
-            <b>{profile.full_name || "Your account"}</b>
-            <span>{profile.id_status === "verified" && Icon.shieldTick("var(--lime)")}{idLabel}<HeroArea /></span>
-          </div>
-          <button className="hb-edit" onClick={() => setSub("account")}>Account</button>
-        </div>
-      </section>
+    <div className="app pr">
+      <ProfileHero photo={profile.photo_path} name={card?.full_name ?? profile.full_name ?? ""} age={card?.age ?? null} verified={profile.id_status === "verified"}
+        place={[place.suburb, place.area].filter(Boolean).join(", ")} onCard={worker ? () => setSub("card") : undefined} onCog={() => setSub("account")} />
 
-      <label className="search hb-search">{Icon.search("var(--muted)")}<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search settings" /></label>
-
-      {t ? (
-        <section className="hb-found">
-          {found.map((x) => (
-            <button key={x.label} onClick={() => { setQ(""); x.act(); }}><span><b>{x.label}</b><small>{x.hint}</small></span>{Icon.chevron("var(--faint)")}</button>
-          ))}
-          {found.length === 0 && <p className="ac-none">Nothing matches "{q}".</p>}
+      {worker ? (wh ? <WorkerHome d={wh} onlineBusy={onlineBusy} onOnline={goOnline} onStep={finishProfile} onSkills={() => setSub("skills")} onBadge={() => setSub("creds")} /> : <div className="pr-sec"><p className="ac-none">Loading</p></div>) : (<>
+        <section className="pr-sec pr-3">
+          <div><b>{hub?.jobs_total ?? 0}</b><small>jobs posted</small></div>
+          <div><b>{recPct == null ? "New" : `${recPct}%`}</b><small>{recPct == null ? "no reviews yet" : "recommend"}</small></div>
+          <div><b>{profile.id_status === "verified" ? "Yes" : "No"}</b><small>ID checked</small></div>
         </section>
-      ) : (<>
         {profile.id_status !== "verified" && (
-          <section className="hb-band hb-verify">
-            <button onClick={() => setSub("verify")}><span><b>Verify your ID</b><small>{profile.id_status === "pending" ? "We're checking it now" : "Passport or national ID, plus a selfie"}</small></span>{Icon.chevron("var(--faint)")}</button>
-          </section>
+          <section className="pr-sec pr-tight"><button className="pr-line" onClick={() => setSub("verify")}><span><b>Verify your ID</b><small>{profile.id_status === "pending" ? "We're checking it now" : "Passport or national ID, plus a selfie"}</small></span>{Icon.chevron("var(--faint)")}</button></section>
         )}
-
-        <section className="hb-band">
-          <div className="hb-h"><h2>Your money</h2><button onClick={() => go("/payments")}>History</button></div>
-          <div className="hb-card">
-            <small>Balance</small><div className="hb-bal">{money(bal)}</div>
-            {bal > 0 && <div className="hb-split">{gift > 0 && <i style={{ flex: gift }} />}{topup > 0 && <i className={gift > 0 ? "" : "t"} style={{ flex: topup }} />}</div>}
-            {bal > 0 && <span>{[gift > 0 && `Gift card ${money(gift)}`, topup > 0 && `Top-up ${money(topup)}`].filter(Boolean).join(" · ")}</span>}
-          </div>
-          <div className="hb-m3">
-            <button onClick={() => go("/topup")}>{I.plus()}Top up</button>
-            <button onClick={() => go("/gift")}>{I.gift()}Buy gift card</button>
-            <button onClick={() => go("/gift-code")}>{I.ticket()}Redeem</button>
-          </div>
-        </section>
-
-        <section className="hb-band">
-          <div className="hb-h"><h2>Your jobs</h2>{(hub?.jobs_total ?? 0) > 0 && <button onClick={() => go("/jobs")}>All {hub!.jobs_total}</button>}</div>
+        {!plus && <section className="pr-sec pr-tight"><PlusRow /></section>}
+        <section className="pr-sec">
+          <h2>Your jobs{(hub?.jobs_total ?? 0) > 0 && <button onClick={() => go("/jobs")}>All {hub!.jobs_total}</button>}</h2>
           {hub && hub.jobs.length > 0 ? (
             <div className="hb-jobs">
               {hub.jobs.map((j) => (
@@ -170,65 +157,53 @@ export function Settings() {
                 </button>
               ))}
             </div>
-          ) : <p className="ac-none">{hub ? "Jobs you post show here." : "Loading"}</p>}
+          ) : <p className="pr-none">{hub ? "None yet" : "Loading"}</p>}
         </section>
-
-        {worker && (
-          <section className="hb-band">
-            <div className="hb-h"><h2>Your work</h2><button onClick={() => setSub("payid")}>Getting paid</button></div>
-            <div className="hb-work">
-              <button className="hb-rel" onClick={() => setSub("reliability")}>
-                {w && w.total > 0 ? (<>
-                  <div className="hb-big">{w.turns_up ?? Math.round((w.done / w.total) * 100)}<small>%</small></div>
-                  <span>Turned up to {w.done} of {w.total} job{w.total === 1 ? "" : "s"}</span>
-                  <div className="hb-dots">{w.last.map((d, i) => <i key={i} className={d === "ok" ? "" : "n"} />)}</div>
-                </>) : (<>
-                  <div className="hb-big">0</div>
-                  <span>Jobs done</span>
-                </>)}
-                {w?.payday?.on && w.payday.cents ? <span className="hb-pay">Next payday {dayShort(w.payday.on)} · <b>{money(w.payday.cents)}</b></span> : null}
-              </button>
-            </div>
-            <div className="hb-more">
-              <button onClick={() => setSub("skills")}>{I.tool()}<span><b>Skills</b><small>{w?.skills?.n ? `${w.skills.names}${w.skills.n > 3 ? ` +${w.skills.n - 3}` : ""}` : "Add what you can do"}</small></span>{Icon.chevron("var(--faint)")}</button>
-              <button onClick={() => setSub("creds")}>{I.cert()}<span><b>Licences</b><small>{
-                w?.licences?.next ? `${w.licences.next.name} ends ${monthYear(w.licences.next.expiry)}`
-                  : w?.licences?.n ? `${w.licences.n} approved`
-                  : w?.licences?.pending ? `${w.licences.pending} being checked` : "Insurance, RSA, Blue Card, trade licences"
-              }</small></span>{Icon.chevron("var(--faint)")}</button>
-            </div>
-          </section>
-        )}
-
+        <section className="pr-sec">
+          <h2>Your money<button onClick={() => go("/payments")}>History</button></h2>
+          <div className="pr-bal"><b>{money(bal)}</b><small>{gift > 0 ? `balance · gift card ${money(gift)}` : "balance"}</small></div>
+          <button className="pr-line" onClick={() => go("/topup")}>{I.plus()}<span><b>Top up</b></span></button>
+          <button className="pr-line" onClick={() => go("/gift")}>{I.gift()}<span><b>Buy a gift card</b></span></button>
+          <button className="pr-line" onClick={() => go("/gift-code")}>{I.ticket()}<span><b>Redeem a gift card</b></span></button>
+        </section>
       </>)}
 
       <TabBar on="you" />
       {sub === "account" && <Account prefs={hub?.prefs ?? null} onPrefs={(p) => setHub((h) => (h ? { ...h, prefs: p } : h))}
-        onBack={() => setSub(null)} onOpen={(s) => setSub(s)} />}
-      {sub === "payid" && <AbnStep onBack={() => setSub(null)} onSaved={() => { setSub(null); toast("Saved"); }} />}
+        items={items} balance={bal} plus={plus} onBack={() => { setSub(null); load(); loadWorker(); }} onOpen={(s) => setSub(s)} />}
+      {sub === "card" && <ShareCard onBack={() => setSub(null)} />}
+      {sub === "payid" && <AbnStep onBack={() => setSub(null)} onSaved={() => { setSub(null); toast("Saved"); loadWorker(); }} />}
       {sub === "cards" && <PaymentMethods onBack={() => setSub(null)} />}
       {sub === "reliability" && <Reliability onBack={() => setSub(null)} />}
-      {sub === "skills" && <JobsAndSkills onBack={() => { setSub(null); load(); }} />}
-      {sub === "creds" && <Credentials onBack={() => { setSub(null); load(); }} />}
-      {sub === "verify" && <VerifyFlow onClose={() => { setSub(null); reload(); }} />}
+      {sub === "skills" && <JobsAndSkills onBack={() => { setSub(null); load(); loadWorker(); }} />}
+      {sub === "creds" && <Credentials onBack={() => { setSub(null); load(); loadWorker(); }} />}
+      {sub === "verify" && <VerifyFlow onClose={() => { setSub(null); reload(); loadWorker(); }} />}
     </div>
   );
 }
 
-function HeroArea() {
-  const { area } = useArea();
-  return area ? <> · {area.name}</> : null;
+/* Mahi Man Plus, in gold: on a customer's Profile and in Settings. */
+export function PlusRow() {
+  return (
+    <button className="pr-plus" onClick={() => go("/plus")}>
+      <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#f5c518" /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
+      <span><b>Mahi Man Plus</b><small>Your jobs go first</small></span>{Icon.chevron("var(--faint)")}
+    </button>
+  );
 }
 
+
 /* Account: details, photo, area, alerts, card, blocked people and sign out. Delete account is on the Privacy page. */
-function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPrefs: (p: Prefs) => void; onBack: () => void; onOpen: (s: Sub) => void }) {
+type Item = { label: string; hint: string; act: () => void; worker?: boolean };
+/* Settings, behind the cog on the Profile tab: search, contact, about you, area, alerts, money, work, card, blocked people and sign out. */
+function Account({ prefs, onPrefs, onBack, onOpen, items, balance, plus }: { prefs: Prefs | null; onPrefs: (p: Prefs) => void; onBack: () => void; onOpen: (s: Sub) => void; items: Item[]; balance: number; plus: boolean }) {
   const { session, profile, reload } = useSession();
   const toast = useToast();
   const { area } = useArea();
   const [editing, setEditing] = useState<"contact" | "about" | "suburb" | null>(null);
   const [subName, setSubName] = useState("");
   const [contact, setContact] = useState<{ phone: string; dial: string; whatsapp: boolean } | null>(null);
-  const [card, setCard] = useState<PersonCard | null>(null);
+  const [q, setQ] = useState("");
   const [showBlocked, setShowBlocked] = useState(false);
   const [radius, setRadius] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<{ id: string; name: string }[] | null>(null);
@@ -247,7 +222,6 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
     rpc<{ id: string; name: string }[]>("my_blocks").then((r) => setBlocked(r ?? [])).catch(() => setBlocked([]));
     if (profile?.is_worker) sb.from("workers").select("radius_km").eq("id", session.user.id).maybeSingle().then(({ data }) => setRadius(data?.radius_km ?? null));
     alertsState().then(setPhone).catch(() => {});
-    rpc<PersonCard[]>("person_card", { p_person: session.user.id }).then((c) => setCard(c?.[0] ?? null)).catch(() => {});
   }, [session?.user.id]);
   // Read again after Edit, so a new number shows straight away.
   useEffect(() => {
@@ -285,11 +259,10 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
   ];
   const settingsName = Capacitor.getPlatform() === "android" ? "your phone's Settings, Apps" : "iPhone Settings";
 
-  const joined = new Date(profile.created_at ?? Date.now()).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
-  const shortName = profile.full_name || "Your account";
+  const t = q.trim().toLowerCase();
+  const found = t ? items.filter((x) => (!x.worker || worker) && `${x.label} ${x.hint}`.toLowerCase().includes(t)) : [];
   const bday = me.birth_date ? new Date(me.birth_date + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "";
   const pic = avatarUrl(profile.photo_path);
-  const reviewed = card?.reviewed ?? 0;
   const ic = (d: ReactNode) => <svg className="ax-ic" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>;
   const A = {
     phone: ic(<path d="M5 3h4l2 5-2.5 1.5a11 11 0 0 0 6 6L16 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 5a2 2 0 0 1 2-2" />),
@@ -303,6 +276,14 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
     block: ic(<><circle cx="12" cy="12" r="9" /><path d="M5.6 5.6l12.8 12.8" /></>),
     help: ic(<><circle cx="12" cy="12" r="9" /><path d="M9.5 9.5a2.5 2.5 0 0 1 4.9.7c0 1.7-2.4 2.1-2.4 3.6M12 17h.01" /></>),
     doc: ic(<><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V7z" /><path d="M14 3v4h4M9 12h6M9 16h6" /></>),
+    bank: ic(<path d="M3 10l9-6 9 6M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18" />),
+    clock: ic(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
+    tool: ic(<path d="M14.5 5.5a4 4 0 0 0 4.9 5L20 11l-9 9-3-3 9-9 .5.6a4 4 0 0 0-3-5.1z" />),
+    cert: ic(<><rect x="4" y="3" width="16" height="13" rx="1" /><path d="M8 8h8M8 11h5M10 16l-1 5 3-2 3 2-1-5" /></>),
+    wallet: ic(<><path d="M3 7h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" /><path d="M3 7l12-3v3M16 13.5h2" /></>),
+    plus: ic(<><circle cx="12" cy="12" r="9" /><path d="M12 8v8M8 12h8" /></>),
+    gift: ic(<><rect x="3" y="8" width="18" height="13" rx="1" /><path d="M12 8v13M3 12h18M12 8c-2-4-6-4-6-1.5S10 8 12 8zM12 8c2-4 6-4 6-1.5S14 8 12 8z" /></>),
+    ticket: ic(<><path d="M3 8V6h18v2a2 2 0 0 0 0 4 2 2 0 0 0 0 4v2H3v-2a2 2 0 0 0 0-4 2 2 0 0 0 0-4z" /><path d="M13 6v12" strokeDasharray="2 2" /></>),
   };
   const chev = Icon.chevron("var(--faint)");
 
@@ -326,26 +307,18 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
         </Screen>
       )}
       <div className="screen-body">
-        {/* Photo first, with name, age and the gold ID tick: the same look customers see on the offer card. */}
-        <section className="ax-hero" style={pic ? { backgroundImage: `url(${pic})` } : undefined}>
-          {!pic && <span className="ax-ini">{shortName.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>}
-          <div className="ax-bar">
-            <button onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button>
-            <button onClick={() => file.current?.click()} aria-label="Change photo">{Icon.camera("#fff")}</button>
-          </div>
+        <div className="ax-head"><button onClick={onBack} aria-label="Back">{Icon.back("var(--ink)")}</button><h1>Settings</h1></div>
+        <label className="search ax-search">{Icon.search("var(--muted)")}<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search settings" /></label>
+        {t ? (
+          <section className="ax-sec ax-found">
+            {found.map((x) => <button key={x.label} className="ax-row ax-plain" onClick={() => { setQ(""); x.act(); }}><span className="ax-t"><b>{x.label}</b><small>{x.hint}</small></span>{chev}</button>)}
+            {found.length === 0 && <p className="ax-empty">Nothing matches "{q}".</p>}
+          </section>
+        ) : (<>
+        <section className="ax-sec">
+          <h2>Photo<button onClick={() => file.current?.click()}>Change</button></h2>
           <input ref={file} type="file" accept="image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) photo(f); }} />
-          <div className="ax-who">
-            <div className="n">{shortName}{card?.age != null && <>, <i>{card.age}</i></>}{profile.id_status === "verified" && <GoldTick s={26} />}</div>
-            <div className="s">{[subName, `Joined ${joined}`].filter(Boolean).join(" · ")}</div>
-          </div>
-        </section>
-
-        <section className="ax-st ax-3">
-          <div><b>{card?.jobs_done ?? 0}</b><small>jobs done</small></div>
-          <div><b>{reviewed ? `${Math.round(((card?.recommended ?? 0) / reviewed) * 100)}%` : "New"}</b><small>{reviewed ? "recommend" : "no reviews yet"}</small></div>
-          {worker
-            ? <div><b>{card?.turns_up != null ? `${card.turns_up}%` : "New"}</b><small>turn up</small></div>
-            : <div><b>{profile.id_status === "verified" ? "Yes" : "No"}</b><small>ID checked</small></div>}
+          <button className="ax-photo" onClick={() => file.current?.click()} aria-label="Change photo" style={pic ? { backgroundImage: `url(${pic})` } : undefined}>{!pic && Icon.camera("var(--muted)")}</button>
         </section>
 
         <section className="ax-sec">
@@ -392,9 +365,24 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
           </section>
         )}
 
-        <section className="ax-sec">
-          <h2>Payment card<button onClick={() => onOpen("cards")}>{profile.card_last4 ? "Change" : "Add"}</button></h2>
-          <div className="ax-row">{A.card}<span className="ax-t"><small>Card</small><b>{profile.card_last4 ? cardLabel(profile) : "No card yet"}</b></span></div>
+        {worker && (
+          <section className="ax-sec ax-links">
+            <h2>Your work</h2>
+            <button className="ax-row" onClick={() => onOpen("payid")}>{A.bank}<span className="ax-one">Getting paid</span><span className="ax-r">{chev}</span></button>
+            <button className="ax-row" onClick={() => onOpen("reliability")}>{A.clock}<span className="ax-one">Turn-up score</span><span className="ax-r">{chev}</span></button>
+            <button className="ax-row" onClick={() => onOpen("skills")}>{A.tool}<span className="ax-one">Skills</span><span className="ax-r">{chev}</span></button>
+            <button className="ax-row" onClick={() => onOpen("creds")}>{A.cert}<span className="ax-one">Licences and certificates</span><span className="ax-r">{chev}</span></button>
+          </section>
+        )}
+
+        <section className="ax-sec ax-links">
+          <h2>Money<button onClick={() => go("/payments")}>History</button></h2>
+          <div className="ax-row">{A.wallet}<span className="ax-t"><small>Balance</small><b>{money(balance)}</b></span></div>
+          <button className="ax-row" onClick={() => go("/topup")}>{A.plus}<span className="ax-one">Top up</span><span className="ax-r">{chev}</span></button>
+          <button className="ax-row" onClick={() => go("/gift")}>{A.gift}<span className="ax-one">Buy a gift card</span><span className="ax-r">{chev}</span></button>
+          <button className="ax-row" onClick={() => go("/gift-code")}>{A.ticket}<span className="ax-one">Redeem a gift card</span><span className="ax-r">{chev}</span></button>
+          <button className="ax-row" onClick={() => onOpen("cards")}>{A.card}<span className="ax-t"><small>Payment card</small><b>{profile.card_last4 ? cardLabel(profile) : "Add a card"}</b></span><span className="ax-r">{chev}</span></button>
+          {!plus && <PlusRow />}
         </section>
 
         <section className="ax-sec ax-links">
@@ -404,6 +392,7 @@ function Account({ prefs, onPrefs, onBack, onOpen }: { prefs: Prefs | null; onPr
           <button className="ax-row" onClick={() => go("/privacy")}>{A.doc}<span className="ax-one">Privacy and terms</span><span className="ax-r">{chev}</span></button>
           <button className="btn stone ax-out" onClick={() => signOut().then(() => go("/"))}>Sign out</button>
         </section>
+        </>)}
       </div>
     </div>
   );
