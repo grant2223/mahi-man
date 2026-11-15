@@ -20,7 +20,7 @@ What's ready, and what's left. Ticked items are done.
 
 ### App Store
 - [x] **Version 1.0 with build 40** waiting for App Store review since 15 Nov 2026. It replaced build 28, which waited from 12 to 15 Nov; that submission was cancelled to ship the latest code. Review notes say gift cards, top-ups, Mahi Man Plus and the tradie plans are fees for real-world jobs, paid outside in-app purchase. Leave it in review; newer builds go with the next version.
-- [x] **TestFlight, Cairns pilot group** (public link https://testflight.apple.com/join/XSdk2dnn): builds 27, 28, 29, 30, 31, 33, 35, 37, 38 and 40 are approved for beta testing (40 approved on submission, 14 Nov 2026). **Build 39** (tradie plans) added 14 Nov 2026, beta review sent. 32, 34 and 36 were never uploaded.
+- [x] **TestFlight, Cairns pilot group** (public link https://testflight.apple.com/join/XSdk2dnn): builds 27, 28, 29, 30, 31, 33, 35, 37, 38, 40 and 41 are approved for beta testing (40 and 41 approved on submission, 14 and 15 Nov 2026). **Build 39** (tradie plans) added 14 Nov 2026, beta review sent. 32, 34 and 36 were never uploaded.
 - [ ] When Apple approves 1.0: set `app_store_url` in Admin → Settings so the website and /get send iPhones to the App Store instead of TestFlight.
 - [x] App Review Information: tick sign-in required and enter review@mahiman.app with the code from `store-review-sign-in.txt` as the password. Note: "Enter the email, tap Email me a code, then type the code. No email is sent for this address."
 - [x] In App Store Connect → **App Privacy**: answer the questionnaire (same data as the Play Data safety table in `google-play/listing.md`; none used for tracking).
@@ -64,5 +64,5 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 
 ## Building new versions
 
-- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 40), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
+- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 41), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
 - **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 17), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
