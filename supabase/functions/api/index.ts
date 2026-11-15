@@ -453,9 +453,11 @@ Deno.serve(async (req) => {
             }),
           });
           const j = await r.json();
-          const text = j?.content?.[0]?.text?.trim();
+          if (!r.ok) console.error("tidy_text: Claude said", r.status, JSON.stringify(j).slice(0, 500));
+          const text = replyText(j).trim();
           return ok({ text: text || basicTidy(raw), ai: !!text });
-        } catch {
+        } catch (e) {
+          console.error("tidy_text failed:", e instanceof Error ? e.message : String(e));
           return ok({ text: basicTidy(raw), ai: false });
         }
       }
@@ -479,8 +481,9 @@ Deno.serve(async (req) => {
             }),
           });
           const j = await r.json();
-          const t = String(j?.content?.[0]?.text ?? "").replace(/^```(json)?|```$/g, "").trim();
-          const o = JSON.parse(t);
+          if (!r.ok) throw new Error(`Claude said ${r.status}: ${JSON.stringify(j).slice(0, 500)}`);
+          const t = replyText(j);
+          const o = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
           const cat = cats.find((c) => c.id === Number(o.category_id));
           const strs = (v: unknown) => (Array.isArray(v) ? v : []).map((x) => String(x).trim()).filter(Boolean).slice(0, 12);
           return ok({
@@ -490,7 +493,8 @@ Deno.serve(async (req) => {
             skill_ids: (Array.isArray(o.skill_ids) ? o.skill_ids : []).map(Number).filter((id: number) => cat?.skills.some((k) => k.id === id)),
             included: strs(o.included), excluded: strs(o.excluded),
           });
-        } catch {
+        } catch (e) {
+          console.error("fill_job failed:", e instanceof Error ? e.message : String(e));
           return ok({ ai: false });
         }
       }
@@ -571,6 +575,11 @@ async function mapToken(): Promise<string | null> {
   const sig = await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, new TextEncoder().encode(input));
   mapCache = { t: `${input}.${b64url(sig)}`, exp };
   return mapCache.t;
+}
+
+// Claude's answer is the text part of its reply. Newer models send a thinking part first, so never assume the first part is the answer.
+function replyText(j: { content?: { type: string; text?: string }[] } | null): string {
+  return (j?.content ?? []).filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
 }
 
 function basicTidy(t: string): string {
