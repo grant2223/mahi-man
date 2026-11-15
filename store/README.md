@@ -10,7 +10,7 @@ What's ready, and what's left. Ticked items are done.
 - [x] Reviewer sign-in: review@mahiman.app. Its code is in `~/Mahi Man Android Keys/store-review-sign-in.txt` (no email is sent for this address).
 - [x] Android notifications: Firebase project "mahi-man" (no Analytics), `android/app/google-services.json`, key in the Supabase secret `FCM_SERVICE_ACCOUNT`.
 - [x] Location foreground-service declaration with the demo video (`google-play/location-sharing-demo.mp4`, shared from Google Drive).
-- [x] **Live on Google Play** in Australia and New Zealand since 12 Nov 2026. **versionCode 15** (Your profile at sign-up, with its Data safety update) live 14 Nov 2026. **versionCode 16** (tradie plans) live by 15 Nov 2026. **versionCode 17** (offer card and Your account redesign, mobile with WhatsApp, suburb search, urgent jobs up to 50 km, PayID before going online) sent for review 15 Nov 2026. Earlier releases: 3, 4, 5, 6, 7, 8 (replaced by 10 in review), 10, 12, 14. 9, 11 and 13 were never uploaded.
+- [x] **Live on Google Play** in Australia and New Zealand since 12 Nov 2026. **versionCode 15** (Your profile at sign-up, with its Data safety update) live 14 Nov 2026. **versionCode 17** live by 16 Nov 2026. **versionCode 18** (Snap it, licence scan, Profile tab) sent for review 16 Nov 2026. Earlier releases: 3, 4, 5, 6, 7, 8 (replaced by 10 in review), 10, 12, 14, 15, 16. 9, 11 and 13 were never uploaded.
 - [x] **Store icon and feature graphic** updated 14 Nov 2026: house logo off the shirt, and the feature graphic uses the splash slogan "Get the help you need within minutes." Both are live.
 - [ ] Play needs the **trader status declaration** by February 2027 (Play Console banner). It's a legal declaration, so you do it.
 - [ ] Optional: App content, Target audience, tick "Restrict users that Google has determined to be minors".
@@ -65,4 +65,4 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 ## Building new versions
 
 - **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 41), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 17), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 18), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
