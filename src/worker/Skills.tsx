@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api, rpc, sb, type Category, type JobType, myId } from "../lib/supabase";
+import { api, mediaUrls, rpc, sb, type Category, type JobType, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { blobBase64, photoForReading, shrinkImage } from "../lib/format";
 import { CatIcon, Icon, Screen, SearchPicker, useToast } from "../ui/kit";
@@ -10,7 +10,7 @@ export interface Skill { id: number; category_id: number; kind: "skill" | "gear"
 export interface CredType { id: number; name: string; short: string }
 export interface MyCred { id: string; credential_type_id: number; number: string; expiry: string | null; status: "pending" | "verified" | "retake" | "rejected"; reason: string | null; created_at: string }
 
-const EXP = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
+const MAX_WORK = 6;
 export const expLabel = (y: number | null | undefined) => y == null ? "" : y === 0 ? "Under 1 year" : y >= 10 ? "10+ years" : `${y} year${y === 1 ? "" : "s"}`;
 const dmy = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 // Licence names in a sentence: "electrical licence", but "RSA" and "Blue Card" keep their capitals.
@@ -103,31 +103,66 @@ export function JobsAndSkills({ onBack }: { onBack: () => void }) {
           onClose={() => setAdding(false)} onChange={(v) => addTypes(v.map(Number))} />
       )}
       {openType && (
-        <JobDetail type={openType} catalog={cat} mine={mine} isNew={!myTypes.includes(openType)}
-          onBack={() => setOpen(null)} onSaved={() => { setOpen(null); load(); rpc("worker_status").catch(() => {}); }} onCredsChanged={load} />
+        <JobDetail key={openType.id} type={openType} catalog={cat} mine={mine} isNew={!myTypes.includes(openType)}
+          next={myTypes[myTypes.indexOf(openType) + 1] ?? null}
+          onBack={() => setOpen(null)} onCredsChanged={load}
+          onSaved={(goNext) => { const nx = goNext ? myTypes[myTypes.indexOf(openType) + 1] : null; setOpen(nx ? nx.id : null); load(); rpc("worker_status").catch(() => {}); }} />
       )}
     </Screen>
   );
 }
 
 /* ---------- One type of job: skills, experience, gear ---------- */
-function JobDetail({ type, catalog, mine, isNew, onBack, onSaved, onCredsChanged }: {
+function JobDetail({ type, catalog, mine, isNew, next, onBack, onSaved, onCredsChanged }: {
   type: JobType & { cat: Category }; catalog: NonNullable<ReturnType<typeof useCatalog>>; mine: NonNullable<ReturnType<typeof useMine>["mine"]>;
-  isNew: boolean; onBack: () => void; onSaved: () => void; onCredsChanged: () => void;
+  isNew: boolean; next: (JobType & { cat: Category }) | null; onBack: () => void; onSaved: (goNext: boolean) => void; onCredsChanged: () => void;
 }) {
   const { session } = useSession();
   const toast = useToast();
+  const kind = type.cat.name.toLowerCase();
   const catSkills = catalog.skills.filter((k) => k.category_id === type.cat.id);
   const [skills, setSkills] = useState<number[]>(mine.skills.filter((id) => catSkills.some((k) => k.id === id && k.kind === "skill")));
   const [gear, setGear] = useState<number[]>(mine.skills.filter((id) => catSkills.some((k) => k.id === id && k.kind === "gear")));
   const [years, setYears] = useState<number | null>(mine.types.find((m) => m.job_type_id === type.id)?.years ?? null);
-  const [pick, setPick] = useState<null | "skills" | "years" | "gear">(null);
+  const [pick, setPick] = useState<null | "skills" | "gear">(null);
   const [addCred, setAddCred] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const creds = latestCreds(mine.creds);
   const credName = (id: number) => catalog.creds.find((c) => c.id === id);
   const nameOf = (ids: number[]) => catSkills.filter((k) => ids.includes(k.id)).map((k) => k.name).join(", ");
+  // Photos of past work for this kind of work. Saved straight away (they're files); everything else waits for Save.
+  const [work, setWork] = useState<{ id: number; path: string; url: string }[] | null>(null);
+  const [adding, setAdding] = useState(false);
+  const loadWork = useCallback(async () => {
+    const uid = await myId();
+    const { data } = await sb.from("worker_work_photos").select("id,path").eq("worker_id", uid).eq("category_id", type.cat.id).order("created_at");
+    const rows = (data ?? []) as { id: number; path: string }[];
+    const urls = rows.length ? await mediaUrls(rows.map((r) => r.path)) : {};
+    setWork(rows.map((r) => ({ ...r, url: urls[r.path] ?? "" })));
+  }, [type.cat.id]);
+  useEffect(() => { loadWork(); }, [loadWork]);
+  async function addWork(files: FileList | null) {
+    if (!files?.length || !session) return;
+    setAdding(true); setErr("");
+    try {
+      const uid = session.user.id;
+      for (const f of Array.from(files).slice(0, MAX_WORK - (work?.length ?? 0))) {
+        const blob = await shrinkImage(f);
+        const path = `${uid}/work/${type.cat.id}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const up = await sb.storage.from("job-media").upload(path, blob, { contentType: "image/jpeg" });
+        if (up.error) throw up.error;
+        const ins = await sb.from("worker_work_photos").insert({ worker_id: uid, category_id: type.cat.id, path });
+        if (ins.error) throw ins.error;
+      }
+      await loadWork();
+    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setAdding(false); }
+  }
+  async function removeWork(w: { id: number; path: string }) {
+    await sb.from("worker_work_photos").delete().eq("id", w.id);
+    await sb.storage.from("job-media").remove([w.path]);
+    setWork((x) => (x ?? []).filter((y) => y.id !== w.id));
+  }
 
   async function save() {
     if (!session) return;
@@ -143,7 +178,7 @@ function JobDetail({ type, catalog, mine, isNew, onBack, onSaved, onCredsChanged
         r = await sb.from("worker_skills").insert([...skills, ...gear].map((id) => ({ worker_id: uid, skill_id: id })));
         if (r.error) throw r.error;
       }
-      toast("Saved"); onSaved();
+      toast("Saved"); onSaved(!!next);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
@@ -152,20 +187,59 @@ function JobDetail({ type, catalog, mine, isNew, onBack, onSaved, onCredsChanged
     setBusy(true);
     await sb.from("worker_skills").delete().eq("worker_id", session.user.id).in("skill_id", catSkills.map((k) => k.id));
     await sb.from("worker_job_types").delete().eq("worker_id", session.user.id).eq("job_type_id", type.id);
-    setBusy(false); toast(`Removed ${type.cat.name.toLowerCase()}`); onSaved();
+    setBusy(false); toast(`Removed ${kind}`); onSaved(false);
   }
 
   return (
-    <Screen title={type.cat.name} onBack={onBack} right={<button className="btn primary small" disabled={busy} onClick={save}>Save</button>}>
-      <div className="screen-body" style={{ padding: 16 }}>
-        <div className="stack">
-          <button className="field sel" onClick={() => setPick("skills")}><span className="k">Skills</span><span className={skills.length ? "v w4" : "v ph"}>{skills.length ? nameOf(skills) : "Optional"}</span></button>
-          <button className="field sel" onClick={() => setPick("years")}><span className="k">Experience</span><span className={years != null ? "v w4" : "v ph"}>{years != null ? expLabel(years) : "Optional"}</span></button>
-          <button className="field sel" onClick={() => setPick("gear")}><span className="k">Gear you bring</span><span className={gear.length ? "v w4" : "v ph"}>{gear.length ? nameOf(gear) : "None"}</span></button>
+    <div className="screen" role="dialog" aria-label={`Your ${kind} work`}>
+      <section className="step-hero">
+        <div className="top">
+          <button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button>
+          <span className="count">My skills</span>
         </div>
+        <h1>Your {kind} work</h1>
+        <p>Customers see this when you say you're free for a {kind} job.</p>
+      </section>
+      <div className="screen-body kw">
+        <div className="kw-sec">
+          <span className="kw-h">Years doing {kind}</span>
+          <div className="kw-step">
+            <button className="btn stone" aria-label="Fewer years" disabled={!years} onClick={() => setYears(Math.max(0, (years ?? 0) - 1))}>&minus;</button>
+            <b>{years == null ? "0" : years >= 10 ? "10+" : years === 0 ? "<1" : years}</b>
+            <button className="btn stone" aria-label="More years" disabled={(years ?? 0) >= 10} onClick={() => setYears(years == null ? 1 : Math.min(10, years + 1))}>+</button>
+          </div>
+        </div>
+        <div className="kw-sec">
+          <span className="kw-h row between">What you do<button className="link" onClick={() => setPick("skills")}>Edit</button></span>
+          <span className={skills.length ? "kw-v" : "kw-v muted"}>{skills.length ? nameOf(skills) : "Nothing added yet"}</span>
+        </div>
+        <div className="kw-sec">
+          <span className="kw-h row between">What you bring<button className="link" onClick={() => setPick("gear")}>Edit</button></span>
+          <span className={gear.length ? "kw-v" : "kw-v muted"}>{gear.length ? nameOf(gear) : "Nothing added yet"}</span>
+        </div>
+        <div className="kw-sec">
+          <span className="kw-h">Photos of your past work</span>
+          <span className="kw-hint">{type.cat.name} work you've done before Mahi Man. Customers see them marked as added by you.</span>
+          <div className="kw-grid">
+            {(work ?? []).map((w) => (
+              <span key={w.id} className="kw-pic" style={{ backgroundImage: `url("${w.url}")` }}>
+                <button aria-label="Remove photo" onClick={() => removeWork(w)}>{Icon.cross("#fff")}</button>
+              </span>
+            ))}
+            {(work?.length ?? 0) < MAX_WORK && (
+              <label className="kw-add">{Icon.camera("var(--emerald)")}<span>{adding ? "Adding…" : "Add photo"}</span>
+                <input type="file" accept="image/*" multiple hidden disabled={adding} onChange={(e) => { addWork(e.target.files); e.target.value = ""; }} />
+              </label>
+            )}
+          </div>
+        </div>
+        <div className="kw-auto">{Icon.tick("var(--emerald)", 22)}<span>Every {kind} job you finish on Mahi Man adds its after photos and the customer's review here by itself.</span></div>
         {err && <p className="err">{err}</p>}
-        <p className="t15 light muted" style={{ lineHeight: 1.45 }}>Customers see this on your offers for {type.cat.name.toLowerCase()} jobs.</p>
-        {!isNew && <button className="link quiet" style={{ padding: 0 }} disabled={busy} onClick={stop}>Stop doing {type.cat.name.toLowerCase()} jobs</button>}
+        {!isNew && <button className="link quiet" style={{ padding: 0, marginTop: 18 }} disabled={busy} onClick={stop}>Stop doing {kind} jobs</button>}
+      </div>
+      <div className="bottombar">
+        <span className="small light muted">{next ? `Next, ${next.cat.name.toLowerCase()}` : ""}</span>
+        <button className="btn primary" disabled={busy} onClick={save}>Save</button>
       </div>
       {pick === "skills" && (
         <SearchPicker title={`${type.cat.name} skills`} multi placeholder="Search skills" value={skills}
@@ -178,17 +252,13 @@ function JobDetail({ type, catalog, mine, isNew, onBack, onSaved, onCredsChanged
           })}
           onClose={() => setPick(null)} onChange={(v) => setSkills(v.map(Number))} />
       )}
-      {pick === "years" && (
-        <SearchPicker title="Experience" placeholder="Search" value={years != null ? [years] : []}
-          options={EXP.map((y) => ({ id: y, label: expLabel(y) }))} onClose={() => setPick(null)} onChange={(v) => setYears(Number(v[0]))} />
-      )}
       {pick === "gear" && (
-        <SearchPicker title="Gear you bring" multi placeholder="Search gear" value={gear}
+        <SearchPicker title="What you bring" multi placeholder="Search gear" value={gear}
           options={catSkills.filter((k) => k.kind === "gear").map((k) => ({ id: k.id, label: k.name }))}
           onClose={() => setPick(null)} onChange={(v) => setGear(v.map(Number))} />
       )}
       {addCred != null && <AddCredential types={catalog.creds} initial={addCred} onBack={() => setAddCred(null)} onSaved={() => { setAddCred(null); onCredsChanged(); }} />}
-    </Screen>
+    </div>
   );
 }
 

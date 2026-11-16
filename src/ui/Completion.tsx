@@ -66,6 +66,7 @@ export function ReviewView({ jobId, jobName, done, other, isWorker, onDone }: {
   const [rec, setRec] = useState<boolean | null>(null);
   const [scores, setScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState("");
+  const [showPhotos, setShowPhotos] = useState(true);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const first = other.split(" ")[0];
@@ -104,6 +105,12 @@ export function ReviewView({ jobId, jobName, done, other, isWorker, onDone }: {
       <div className="cp-sec" style={{ gap: 10 }}>
         <label className="cp-label" htmlFor="rv">Anything else? <span className="t15 light muted">Optional</span></label>
         <textarea id="rv" className="cp-text" style={{ height: 80 }} value={comment} maxLength={600} onChange={(e) => setComment(e.target.value)} />
+        {!isWorker && (
+          <button className={showPhotos ? "tick-item pf-ok on" : "tick-item pf-ok"} aria-pressed={showPhotos} onClick={() => setShowPhotos(!showPhotos)}>
+            <span className="box">{showPhotos && Icon.tick("#fff", 16)}</span>
+            <span>Show the after photos on {first}'s work<small className="small light muted" style={{ display: "block" }}>Your suburb only, never your address.</small></span>
+          </button>
+        )}
       </div>
       <Note icon="lock">{first} sees your review once they've reviewed you, or after 7 days. Neither of you can change it after that.</Note>
       <div style={{ flex: 1 }} />
@@ -111,7 +118,11 @@ export function ReviewView({ jobId, jobName, done, other, isWorker, onDone }: {
         <button className="btn stone" style={{ flex: 1 }} onClick={() => { try { localStorage.setItem(`mm-review-later-${jobId}`, "1"); } catch { /* fine */ } onDone(); }}>Later</button>
         <button className="btn primary" style={{ flex: 2 }} disabled={!ready || busy} onClick={async () => {
           setBusy(true);
-          try { await rpc("leave_review", { p_job: jobId, p_recommend: rec, p_scores: scores, p_comment: comment }); setSaved(true); setBusy(false); }
+          try {
+            await rpc("leave_review", { p_job: jobId, p_recommend: rec, p_scores: scores, p_comment: comment });
+            if (!isWorker && !showPhotos) await rpc("set_portfolio_ok", { p_job: jobId, p_ok: false });
+            setSaved(true); setBusy(false);
+          }
           catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
         }}>{busy ? "Saving…" : ready ? "Save review" : "Rate every line"}</button>
       </ActionBar>

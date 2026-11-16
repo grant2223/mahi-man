@@ -1,63 +1,89 @@
 import { useEffect, useState } from "react";
-import { rpc } from "../lib/supabase";
-import { CatIcon, Icon, Screen, Tile } from "./kit";
-import { expLabel } from "../worker/Skills";
-import { recLine, ScoreStrip, type Scores } from "./Ratings";
+import { avatarUrl, rpc, type Work, workPhotoUrls } from "../lib/supabase";
+import { CatIcon, Icon, Screen } from "./kit";
+import { GoldTick } from "../customer/Offers";
+import type { Scores } from "./Ratings";
 
-interface Profile {
-  name: string; age?: number | null; photo: string | null; verified: boolean; rating: number | null; jobs: number; since: string; turns_up: number | null; scores: Scores | null;
-  types: { category: string; icon: string; years: number | null; skills: string[]; gear: string[] }[];
-  creds: string[];
+interface Portfolio {
+  name: string; age: number | null; photo: string | null; verified: boolean; since: string; suburb: string | null;
+  jobs: number; scores: Scores | null; turns_up: number | null;
+  sections: Work[];
+  creds: { name: string; expiry: string | null }[];
 }
 
-// What a customer sees when they tap a worker: skills for each type of job, and verified licences.
-export function WorkerProfile({ workerId, onBack }: { workerId: string; onBack: () => void }) {
-  const [p, setP] = useState<Profile | null>(null);
+const monthYear = (d: string) => new Date(d).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
+const lcFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+const yearsLine = (y: number | null, kind: string) => y == null ? "" : y >= 10 ? `10+ years doing ${kind}` : y === 0 ? `New to ${kind}` : `${y} year${y === 1 ? "" : "s"} doing ${kind}`;
+
+// A worker's work, built from their finished jobs: the kind of work in the customer's job first.
+export function WorkerProfile({ workerId, category = null, onBack }: { workerId: string; category?: number | null; onBack: () => void }) {
+  const [p, setP] = useState<Portfolio | null>(null);
+  const [urls, setUrls] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
-  useEffect(() => { rpc<Profile | null>("worker_profile", { p_worker: workerId }).then((r) => r ? setP(r) : setErr("This profile isn't available.")).catch((e) => setErr(e.message)); }, [workerId]);
-  const since = p ? new Date(p.since).toLocaleDateString("en-AU", { month: "short", year: "numeric" }) : "";
+  useEffect(() => {
+    rpc<Portfolio | null>("worker_portfolio", { p_worker: workerId, p_category: category }).then(async (r) => {
+      if (!r) { setErr("This profile isn't available."); return; }
+      setP(r);
+      setUrls(await workPhotoUrls(r.sections.flatMap((s) => s.photos)));
+    }).catch((e) => setErr(e.message));
+  }, [workerId, category]);
+  const first = p?.name.split(" ")[0] ?? "";
+  const face = avatarUrl(p?.photo);
+  const rec = p?.scores?.reviewed ? `${p.scores.recommended} of ${p.scores.reviewed}` : "New";
+
   return (
-    <Screen title="Profile" onBack={onBack}>
-      <div className="screen-body" style={{ background: "var(--ground)" }}>
+    <Screen title={p ? `${first}'s work` : "Their work"} onBack={onBack}>
+      <div className="screen-body pf">
         {err && <p className="t15 muted" style={{ padding: 16 }}>{err}</p>}
         {p && <>
-          <div className="cp-sec">
-            <div className="row" style={{ gap: 14 }}>
-              <Tile name={p.name} photo={p.photo} size={72} />
-              <span className="stack" style={{ gap: 4 }}>
-                <span style={{ fontSize: 24, fontWeight: 600, letterSpacing: -0.6 }}>{p.name}{p.age != null ? `, ${p.age}` : ""}</span>
-                {p.verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}ID verified</span> : <span className="badge-unver">Not ID verified</span>}
-                <span className="t15 light muted">{p.jobs} job{p.jobs === 1 ? "" : "s"}, since {since}</span>
-                {(p.turns_up != null || p.scores?.reviewed) && <span className="t15 em">{[p.turns_up != null ? `Turns up ${p.turns_up}%` : "", recLine(p.scores, "customers")].filter(Boolean).join(". ")}</span>}
-              </span>
+          <div className={face ? "pf-top" : "pf-top noface"} style={face ? { backgroundImage: `url(${face})` } : { background: "var(--hero)" }}>
+            <div className="w">
+              <div className="n"><span>{p.name}{p.age != null && <i>, {p.age}</i>}</span>{p.verified && <GoldTick s={26} />}</div>
+              <div className="s">{[p.suburb, `On Mahi Man since ${monthYear(p.since)}`].filter(Boolean).join(". ")}</div>
             </div>
-            {p.scores?.reviewed ? <div style={{ marginTop: 14 }}><ScoreStrip scores={p.scores} worker /></div> : null}
           </div>
-          {p.types.length > 0 && (
-            <div className="cp-sec" style={{ marginTop: 10 }}>
-              <span className="cp-title">Skills</span>
-              {p.types.map((t) => (
-                <div key={t.category} className="row" style={{ gap: 12, alignItems: "flex-start", padding: "12px 0", borderTop: "1px solid var(--line)" }}>
-                  <CatIcon name={t.icon} size={24} color="var(--emerald)" />
-                  <span className="stack" style={{ gap: 2, flex: 1 }}>
-                    <span className="t17 w5">{t.category} {t.years != null && <span className="light muted">{expLabel(t.years)}</span>}</span>
-                    {t.skills.length > 0 && <span className="t15 light">{t.skills.join(", ")}</span>}
-                    <span className="small muted light">{t.gear.length ? `Brings ${t.gear.join(", ").toLowerCase()}` : "No gear"}</span>
-                  </span>
-                </div>
-              ))}
+          <div className="pf-all">
+            <div><b>{p.jobs}</b><small>jobs done</small></div>
+            <div><b>{rec}</b><small>{p.scores?.reviewed ? "would hire again" : "no reviews yet"}</small></div>
+            <div><b>{p.turns_up != null ? `${p.turns_up}%` : "New"}</b><small>turn up on time</small></div>
+          </div>
+          {p.sections.map((s, i) => {
+            const kind = s.category.toLowerCase();
+            const big = i === 0 || s.category_id === category;
+            const pics = s.photos.filter((x) => urls[x.path]);
+            const own = pics.length > 0 && pics.every((x) => x.src === "work");
+            const line = [
+              s.jobs ? `${s.jobs} job${s.jobs === 1 ? "" : "s"}` : "No Mahi Man jobs yet",
+              s.reviewed ? (s.recommended === s.reviewed ? (s.reviewed === 1 ? "would hire again" : "all would hire again") : `${s.recommended} would hire again`) : "",
+            ].filter(Boolean).join(", ") + (s.years != null ? `. ${yearsLine(s.years, kind)}` : "");
+            return (
+              <section key={s.category_id} className={big ? "pf-sec" : "pf-sec small"}>
+                <h2><CatIcon name={s.icon} size={big ? 24 : 22} color="var(--emerald)" />{s.category}{s.category_id === category && <em>Your job</em>}</h2>
+                <div className="pf-line">{line}</div>
+                {own && <span className="pf-added">{Icon.camera("var(--ink)")}Added by {first}. Not Mahi Man jobs yet</span>}
+                {pics.length > 0 && (big
+                  ? <div className="pf-grid">{pics.map((x) => <a key={x.path} href={urls[x.path]} target="_blank" rel="noreferrer" style={{ backgroundImage: `url("${urls[x.path]}")` }}>{x.suburb && <span className="c">{x.suburb}</span>}</a>)}</div>
+                  : <div className="pf-thumbs">{pics.slice(0, 4).map((x) => <a key={x.path} href={urls[x.path]} target="_blank" rel="noreferrer" style={{ backgroundImage: `url("${urls[x.path]}")` }} />)}</div>)}
+                {big && s.reviews.map((r) => (
+                  <div key={r.at} className="pf-rv"><q>{r.comment}</q><span>{r.who}{r.job ? `, ${lcFirst(r.job)}` : ""} in {r.suburb}</span></div>
+                ))}
+                {big && (s.skills.length > 0 || s.gear.length > 0) && (
+                  <div className="pf-kv">
+                    {s.skills.length > 0 && <><b>Does:</b> {s.skills.map(lcFirst).join(", ")}<br /></>}
+                    {s.gear.length > 0 && <><b>Brings:</b> {s.gear.map(lcFirst).join(", ")}</>}
+                  </div>
+                )}
+              </section>
+            );
+          })}
+          <section className="pf-sec small">
+            <h2>{Icon.shieldTick("var(--emerald)")}Checked by Mahi Man</h2>
+            <div className="pf-line">
+              {[p.verified ? "ID verified" : "ID not checked yet",
+                ...p.creds.map((c) => c.expiry ? `${c.name}, valid to ${monthYear(c.expiry)}` : c.name)].join(". ")}
             </div>
-          )}
-          {p.creds.length > 0 && (
-            <div className="cp-sec" style={{ marginTop: 10 }}>
-              <span className="cp-title">Licences and certificates</span>
-              {p.creds.map((c) => (
-                <div key={c} className="row between" style={{ padding: "12px 0", borderTop: "1px solid var(--line)" }}>
-                  <span className="t17">{c}</span><span className="badge-ver">{Icon.shieldTick("var(--emerald)")}Verified</span>
-                </div>
-              ))}
-            </div>
-          )}
+          </section>
+          <div style={{ height: "calc(var(--safe-bottom) + 24px)" }} />
         </>}
       </div>
     </Screen>

@@ -62,6 +62,7 @@ export function Privacy() {
       <ul>
         <li>Workers who can take a job see its photos, video, description, suburb and the customer's first name, last initial, photo, whether they are ID verified, and their average ratings and how many workers recommend them. The street address is only shown to the worker who takes the job.</li>
         <li>Customers see their worker's first name, last initial, photo, average ratings, how many customers recommend them, their "Turns up" score, skills, experience, gear, verified licences and whether they are ID verified. While the worker is on the way to their job, the customer also sees the worker's location on a map.</li>
+        <li>A worker's work: customers who are offered that worker see the after photos from their finished jobs, with the suburb only and never the address, and the reviews they were given. The customer of each job can keep their after photos off it when they leave their review. Photos a worker adds of their own past work are always shown as added by them.</li>
         <li>On trade jobs, the customer sees each tradie's quote, what it includes, when they can come and their business name. A customer and a tradie who sent a quote can message each other before the customer selects one.</li>
         <li>A tradie's plan and invoices are only shown to that tradie and the Mahi Man team.</li>
         <li>A worker's strikes are only shown to that worker and the Mahi Man team.</li>

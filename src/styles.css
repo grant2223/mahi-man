@@ -2121,3 +2121,83 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 /* Sections inside the job sheet are separated by space only: no perforated line, no ticket notches. */
 .perf { height: 10px; }
 .perf::before, .perf::after, .perf i { display: none; }
+
+/* ---------- Worker: your work for one kind of job (My skills) ---------- */
+.kw { background: var(--card); padding: 20px 20px 24px; }
+.kw-sec { display: flex; flex-direction: column; gap: 6px; margin-bottom: 22px; }
+.kw-h { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
+.kw-h .link { font-size: 16px; padding: 0; }
+.kw-v { font-size: 17px; font-weight: 300; line-height: 1.4; }
+.kw-hint { font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.4; }
+.kw-step { display: flex; align-items: center; gap: 18px; }
+.kw-step .btn { width: 48px; height: 48px; padding: 0; font-size: 26px; font-weight: 400; }
+.kw-step b { min-width: 52px; text-align: center; font-size: 40px; font-weight: 600; letter-spacing: -1px; }
+.kw-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.kw-pic { position: relative; aspect-ratio: 1; border-radius: 3px; background: var(--stone) center / cover no-repeat; }
+.kw-pic button { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; border: 0; border-radius: 3px; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.kw-add { aspect-ratio: 1; border-radius: 3px; background: var(--emerald-tint); color: var(--emerald); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 14px; font-weight: 500; cursor: pointer; }
+.kw-auto { display: flex; gap: 12px; align-items: flex-start; font-size: 15px; font-weight: 300; line-height: 1.4; }
+
+/* ---------- Offer card: their work in this kind of job first ---------- */
+.ow { position: relative; display: grid; grid-template-columns: 2fr 1fr; grid-template-rows: 1fr 1fr; gap: 3px; height: 236px; width: 100%; padding: 0; border: 0; background: var(--card); cursor: pointer; }
+.ow.one { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+.ow.two { grid-template-rows: 1fr; grid-template-columns: 1fr 1fr; }
+.ow .p { position: relative; background: var(--stone) center / cover no-repeat; }
+.ow .p.a { grid-row: 1 / 3; }
+.ow.two .p.a, .ow.one .p.a { grid-row: auto; }
+.ow .p span { position: absolute; left: 8px; bottom: 7px; font-size: 12px; font-weight: 500; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.6); }
+.ow .more { position: absolute; right: 10px; bottom: 10px; padding: 5px 9px; border-radius: 3px; background: rgba(0,0,0,0.55); color: #fff; font-size: 13px; font-weight: 500; }
+.ox .ow + .ox-added, .ox-added { display: inline-flex; align-items: center; gap: 6px; margin: 14px 20px 0; padding: 4px 8px; border-radius: 3px; background: var(--stone-2); font-size: 13px; font-weight: 500; }
+.ox-who { display: flex; align-items: center; gap: 14px; width: 100%; padding: 16px 20px 0; border: 0; background: none; text-align: left; color: var(--ink); cursor: pointer; }
+.ox-face { width: 64px; height: 64px; flex: none; border-radius: 4px; background: var(--stone-2) center 20% / cover no-repeat; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: 600; color: var(--muted); }
+.ox-who .n { display: flex; align-items: center; gap: 6px; font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
+.ox-who .n i { font-style: normal; font-weight: 300; }
+.ox-who .s { display: block; margin-top: 2px; font-size: 15px; font-weight: 300; color: var(--muted); }
+.ox-kind { display: flex; align-items: center; gap: 8px; padding: 18px 20px 0; font-size: 15px; font-weight: 500; color: var(--emerald); }
+.ox .ox-st { gap: 16px; padding-top: 10px; }
+.ox .ox-st div + div { padding-left: 0; border-left: 0; }
+.ox .ox-st b { font-size: 30px; letter-spacing: -0.8px; }
+.ox .ox-st small { line-height: 1.3; }
+.ox-q { position: relative; margin: 16px 20px 0; padding-left: 30px; }
+.ox-q::before { content: "\201C"; position: absolute; left: 0; top: -8px; font-size: 48px; font-weight: 600; line-height: 1; color: var(--gold, #f5c518); }
+.ox-q q { display: block; font-size: 16px; line-height: 1.4; quotes: none; }
+.ox-q span { display: block; margin-top: 6px; font-size: 13px; font-weight: 300; color: var(--muted); }
+.ox-does { padding: 14px 20px 0; font-size: 15px; font-weight: 300; line-height: 1.45; }
+.ox-does b { font-weight: 500; }
+.ox-ver { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 20px 0; }
+.ox-see { display: inline-flex; align-items: center; gap: 4px; margin: 14px 20px 0; padding: 0; border: 0; background: none; font-size: 15px; font-weight: 500; color: var(--emerald); cursor: pointer; }
+.ox-pic .ox-left, .ow .ox-left { z-index: 2; }
+
+/* ---------- Worker portfolio ---------- */
+.pf { background: var(--ground); }
+.pf-top { position: relative; height: 300px; background: var(--stone-2) center 20% / cover no-repeat; }
+.pf-top::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 55%; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,0.62)); }
+.pf-top .w { position: absolute; left: 20px; right: 20px; bottom: 16px; z-index: 1; color: #fff; }
+.pf-top .n { display: flex; align-items: center; gap: 8px; font-size: 32px; font-weight: 600; letter-spacing: -0.8px; }
+.pf-top .n i { font-style: normal; font-weight: 300; }
+.pf-top .s { font-size: 15px; font-weight: 300; }
+.pf-top.noface { height: 140px; }
+.pf-all { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 20px 20px 22px; background: var(--card); }
+.pf-all b { display: block; font-size: 28px; font-weight: 600; letter-spacing: -0.6px; line-height: 1; }
+.pf-all small { display: block; margin-top: 4px; font-size: 13px; font-weight: 300; color: var(--muted); }
+.pf-sec { margin-top: 8px; padding: 22px 20px; background: var(--card); }
+.pf-sec h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.6px; }
+.pf-sec.small h2 { font-size: 20px; letter-spacing: -0.3px; }
+.pf-sec h2 em { padding: 3px 8px; border-radius: 3px; background: var(--gold, #f5c518); color: var(--ink); font-size: 13px; font-style: normal; font-weight: 500; letter-spacing: 0; }
+.pf-line { margin-top: 4px; font-size: 15px; font-weight: 300; color: var(--muted); }
+.pf-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 3px; margin-top: 16px; }
+.pf-grid a, .pf-grid span.p { position: relative; display: block; aspect-ratio: 1; background: var(--stone) center / cover no-repeat; }
+.pf-grid span.c { position: absolute; left: 6px; bottom: 5px; font-size: 11px; font-weight: 500; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.7); }
+.pf-thumbs { display: flex; gap: 3px; margin-top: 12px; }
+.pf-thumbs a { width: 70px; height: 70px; background: var(--stone) center / cover no-repeat; }
+.pf-rv { margin-top: 16px; }
+.pf-rv q { display: block; font-size: 16px; line-height: 1.4; }
+.pf-rv span { display: block; margin-top: 5px; font-size: 13px; font-weight: 300; color: var(--muted); }
+.pf-kv { margin-top: 16px; font-size: 15px; font-weight: 300; line-height: 1.5; }
+.pf-kv b { font-weight: 500; }
+.pf-added { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 4px 8px; border-radius: 3px; background: var(--stone-2); font-size: 13px; font-weight: 500; }
+.tick-item.pf-ok.on span:last-child { color: var(--ink); }
+.pf-all b, .ox .ox-st b { white-space: nowrap; }
+.pf-all { grid-template-columns: 0.8fr 1.3fr 1fr; }
+.ox .ox-st { grid-template-columns: 0.9fr 1.2fr 1fr; }
+.kw-auto svg { flex: none; }

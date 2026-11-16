@@ -117,6 +117,24 @@ export function brandUrl(path: string | null | undefined): string | null {
 export const firstPhoto = (m: { path: string; kind: string; sort: number }[] | null | undefined) =>
   [...(m ?? [])].filter((x) => x.kind === "photo").sort((a, b) => a.sort - b.sort)[0]?.path ?? null;
 
+// A worker's portfolio, one kind of work: from public.work_in.
+export interface WorkPhoto { path: string; src: "job" | "work"; suburb: string | null }
+export interface Work {
+  category_id: number; category: string; icon: string; jobs: number; reviewed: number; recommended: number; years: number | null;
+  skills: string[]; gear: string[]; photos: WorkPhoto[]; reviews: { comment: string; who: string; job: string | null; suburb: string; at: string }[];
+}
+// After photos from Mahi Man jobs live in job-photos; photos of past work the worker added live in job-media.
+export async function workPhotoUrls(photos: WorkPhoto[]): Promise<Record<string, string>> {
+  const job = photos.filter((p) => p.src === "job").map((p) => p.path), own = photos.filter((p) => p.src === "work").map((p) => p.path);
+  const [a, b] = await Promise.all([
+    job.length ? sb.storage.from("job-photos").createSignedUrls(job, 3600) : Promise.resolve({ data: [] as { path: string | null; signedUrl: string }[] }),
+    own.length ? sb.storage.from("job-media").createSignedUrls(own, 3600) : Promise.resolve({ data: [] as { path: string | null; signedUrl: string }[] }),
+  ]);
+  const out: Record<string, string> = {};
+  for (const d of [...(a.data ?? []), ...(b.data ?? [])]) if (d.path && d.signedUrl) out[d.path] = d.signedUrl;
+  return out;
+}
+
 export async function mediaUrls(paths: string[]): Promise<Record<string, string>> {
   const clean = paths.filter(Boolean);
   if (!clean.length) return {};

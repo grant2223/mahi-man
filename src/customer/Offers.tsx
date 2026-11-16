@@ -1,8 +1,8 @@
 import { recLine, type Scores } from "../ui/Ratings";
 import { useEffect, useState } from "react";
-import { avatarUrl, rpc, sb } from "../lib/supabase";
+import { avatarUrl, rpc, sb, type Work, workPhotoUrls } from "../lib/supabase";
 import { elapsed } from "../lib/format";
-import { Icon, Logo, StepHero, useNow, useToast } from "../ui/kit";
+import { CatIcon, Icon, Logo, StepHero, useNow, useToast } from "../ui/kit";
 import { Note } from "../ui/Completion";
 import { ChatScreen } from "../ui/Chat";
 import { dayTime, money } from "../lib/format";
@@ -68,6 +68,17 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
     if (!ids) return;
     rpc<Extra[]>("offer_extras", { p_job: jobId })
       .then((r) => setExtras(Object.fromEntries((r ?? []).map((x) => [x.worker_id, x])))).catch(() => {});
+  }, [ids, jobId]);
+  // Each worker's work in this job's kind of work: photos from finished jobs, reviews and numbers.
+  const [work, setWork] = useState<Record<string, Work>>({});
+  const [workUrls, setWorkUrls] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (!ids) return;
+    rpc<{ worker_id: string; work: Work }[]>("offer_work", { p_job: jobId }).then(async (r) => {
+      const m = Object.fromEntries((r ?? []).map((x) => [x.worker_id, x.work]));
+      setWork(m);
+      setWorkUrls(await workPhotoUrls(Object.values(m).flatMap((x) => x?.photos ?? [])));
+    }).catch(() => {});
   }, [ids, jobId]);
   const widened = now - new Date(searchingAt).getTime() > widenMin * 60000;
   const [chat, setChat] = useState<Offer | null>(null);
@@ -213,32 +224,72 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
           const at = asap ? clock(new Date(Date.now() + o.eta_minutes * 60000)) : clock(new Date(startAt));
           const photo = avatarUrl(o.photo_path);
           const first = o.full_name.split(" ")[0];
-          const insured = (extras[o.worker_id]?.creds ?? []).includes("Insured");
-          const sub = [insured ? "Insured" : "", o.jobs_for_me > 0 ? `${o.jobs_for_me} job${o.jobs_for_me === 1 ? "" : "s"} for you` : "", o.id_verified ? "" : "ID not checked"].filter(Boolean).join(" · ");
-          const reviewed = o.scores?.reviewed ?? 0;
-          const rec = reviewed ? `${Math.round(((o.scores?.recommended ?? 0) / reviewed) * 100)}%` : "New";
-          const recSub = reviewed ? "recommend" : "no reviews yet";
+          const ex = extras[o.worker_id];
+          const w = work[o.worker_id];
+          const kind = (w?.category ?? o.category ?? "").toLowerCase();
+          const pics = (w?.photos ?? []).filter((x) => workUrls[x.path]);
+          const ownOnly = pics.length > 0 && pics.every((x) => x.src === "work");
+          const jobs = w?.jobs ?? 0;
+          const years = w?.years ?? ex?.years ?? null;
+          const yrs = years == null ? null : years >= 10 ? "10+ yrs" : years === 0 ? "<1 yr" : `${years} yr${years === 1 ? "" : "s"}`;
+          const skills = w?.skills?.length ? w.skills : ex?.skills ?? [];
+          const gear = w?.gear?.length ? w.gear : ex?.gear ?? [];
+          const rv = w?.reviews?.[0];
+          const lcFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
+          const stats: [string, string][] = jobs > 0
+            ? [[String(jobs), `${kind} job${jobs === 1 ? "" : "s"} on Mahi Man`],
+               [w!.reviewed ? `${w!.recommended} of ${w!.reviewed}` : "New", w!.reviewed ? `would hire ${first} again` : "no reviews yet"],
+               [yrs ?? `${o.jobs_done}`, yrs ? `${kind} experience` : "jobs done in all"]]
+            : [["New", "first Mahi Man job"], [yrs ?? "–", `${kind} experience`], [o.id_verified ? "ID" : "No ID", o.id_verified ? "checked by Mahi Man" : "not checked yet"]];
+          const creds = ex?.creds ?? [];
           return (
             <section key={o.worker_id} className="ox">
-              {/* Photo first, with name, age and the gold ID tick on it: the way Uber and Airbnb show the person who's coming. */}
-              <button className="ox-pic" onClick={() => setProfile(o.worker_id)} style={photo ? { backgroundImage: `url(${photo})` } : undefined} aria-label={`${o.full_name}'s profile`}>
-                {!photo && <span className="ox-ini">{o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>}
-                <span className={`ox-left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
-                <span className="ox-nm">
-                  <span className="n">{o.full_name}{o.age != null && <>, <i>{o.age}</i></>}{o.id_verified && <GoldTick />}</span>
-                  {sub && <span className="s">{sub}</span>}
+              {/* Their work in this kind of job comes first: photos from finished jobs, or their own past work, clearly marked. */}
+              {pics.length > 0 ? (
+                <button className={`ow${pics.length === 1 ? " one" : pics.length === 2 ? " two" : ""}`} onClick={() => setProfile(o.worker_id)} aria-label={`${first}'s work`}>
+                  <span className={`ox-left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
+                  {pics.slice(0, 3).map((x, i) => (
+                    <span key={x.path} className={i === 0 ? "p a" : "p"} style={{ backgroundImage: `url("${workUrls[x.path]}")` }}>
+                      {i === 0 && <span>{x.src === "work" ? `${w!.category}, before Mahi Man` : x.suburb}</span>}
+                    </span>
+                  ))}
+                  {jobs > 3 && <span className="more">{jobs} {kind} jobs</span>}
+                </button>
+              ) : (
+                <button className="ox-pic" onClick={() => setProfile(o.worker_id)} style={photo ? { backgroundImage: `url(${photo})` } : undefined} aria-label={`${first}'s work`}>
+                  {!photo && <span className="ox-ini">{o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>}
+                  <span className={`ox-left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
+                </button>
+              )}
+              {ownOnly && <span className="ox-added">{Icon.camera("var(--ink)")}Photos added by {first}. Not Mahi Man jobs yet</span>}
+              <button className="ox-who" onClick={() => setProfile(o.worker_id)}>
+                <span className="ox-face" style={photo ? { backgroundImage: `url(${photo})` } : undefined}>{!photo && o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>
+                <span>
+                  <span className="n"><span>{o.full_name}{o.age != null && <i>, {o.age}</i>}</span>{o.id_verified && <GoldTick s={22} />}</span>
+                  <span className="s">{[o.distance_km != null ? `${o.distance_km} km away` : "", o.jobs_for_me > 0 ? `${o.jobs_for_me} job${o.jobs_for_me === 1 ? "" : "s"} for you` : ""].filter(Boolean).join(", ")}</span>
                 </span>
               </button>
-              <div className="ox-st">
-                <div><b>{rec}</b><small>{recSub}</small></div>
-                <div><b>{o.jobs_done}</b><small>jobs done</small></div>
-                <div><b>{o.turns_up != null ? `${o.turns_up}%` : "New"}</b><small>turn up</small></div>
-              </div>
-              <div className="ox-eta">Can be there <b>{at}</b>{o.distance_km != null && <i>{o.distance_km} km away</i>}</div>
+              {kind && <div className="ox-kind"><CatIcon name={w?.icon ?? null} size={18} color="var(--emerald)" />{w?.category ?? o.category} work</div>}
+              <div className="ox-st">{stats.map(([b, s]) => <div key={s}><b>{b}</b><small>{s}</small></div>)}</div>
+              {rv && <div className="ox-q"><q>{rv.comment}</q><span>{rv.who}{rv.job ? `, ${lcFirst(rv.job)}` : ""} in {rv.suburb}</span></div>}
+              {(skills.length > 0 || gear.length > 0) && (
+                <div className="ox-does">
+                  {skills.length > 0 && <><b>Does:</b> {skills.map(lcFirst).join(", ")}. </>}
+                  {gear.length > 0 && <><b>Brings:</b> {gear.map(lcFirst).join(", ")}.</>}
+                </div>
+              )}
+              {(creds.length > 0 || o.turns_up != null) && (
+                <div className="ox-ver">
+                  {creds.map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c}</span>)}
+                  {o.turns_up != null && <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}Turns up {o.turns_up}%</span>}
+                </div>
+              )}
+              <div className="ox-eta">Can be there <b>{at}</b></div>
               <div className="ox-btns">
                 <button className="btn stone" onClick={() => ignore(o)} disabled={!!busy}>Ignore</button>
                 <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Select ${first}`}</button>
               </div>
+              <button className="ox-see" onClick={() => setProfile(o.worker_id)}>See all of {first}'s work{Icon.chevron("var(--emerald)")}</button>
             </section>
           );
         })}
@@ -261,7 +312,7 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
         <button className="link quiet" onClick={onCancel}>Cancel this job</button>
       </div>
       {verifying && <VerifyFlow onClose={() => { setVerifying(false); reload(); }} />}
-      {profile && <WorkerProfile workerId={profile} onBack={() => setProfile(null)} />}
+      {profile && <WorkerProfile workerId={profile} category={work[profile]?.category_id ?? null} onBack={() => setProfile(null)} />}
       {needCard && <AddCardScreen onBack={() => setNeedCard(null)} onSaved={() => { const o = needCard; setNeedCard(null); window.setTimeout(() => choose(o), 200); }} />}
     </div>
   );
