@@ -34,6 +34,7 @@ export const Icon = {
   tick: (c = "currentColor", s = 22) => <svg width={s} height={s} viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2.2" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>,
   chevron: (c = "currentColor") => <svg width="20" height="20" viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2.2" aria-hidden="true"><path d="M9 6l6 6-6 6" /></svg>,
   msg: (c = "currentColor") => <svg width="18" height="18" viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2" aria-hidden="true"><path d="M4 5h16v11H9l-5 4z" /></svg>,
+  repeat: (c = "currentColor", s = 20) => <svg width={s} height={s} viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2.2" aria-hidden="true" style={{ flexShrink: 0 }}><path d="M4 12a8 8 0 0 1 14-5.3L20 9" /><path d="M20 4v5h-5" /><path d="M20 12a8 8 0 0 1-14 5.3L4 15" /><path d="M4 20v-5h5" /></svg>,
   camera: (c = "currentColor") => <svg width="20" height="20" viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2.2" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>,
   lock: (c = "currentColor") => <svg width="22" height="22" viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2" aria-hidden="true"><rect x="4" y="10" width="16" height="10" rx="1" /><path d="M8 10V7a4 4 0 0 1 8 0v3" /></svg>,
   shield: (c = "currentColor") => <svg width="24" height="24" viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2" aria-hidden="true"><path d="M12 3l7 3v5c0 4.5-3 8.3-7 10-4-1.7-7-5.5-7-10V6z" /></svg>,

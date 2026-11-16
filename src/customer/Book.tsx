@@ -3,7 +3,7 @@ import { areaSuburbs } from "../lib/suburbs";
 import { FeePayScreen, OwedBanner, useOwed, type OwedFee } from "./Fees";
 import { claimGifts, InvoiceBanner, useDueInvoices, usePayments } from "../ui/Payments";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { api, firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
+import { api, avatarUrl, firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go, usePath } from "../lib/router";
 import { money, money2, photoForReading, shrinkImage } from "../lib/format";
@@ -33,9 +33,11 @@ interface Draft {
   budgetMin?: number | null; budgetMax?: number | null;
   // The job's name ("Backyard clean-up") and its other kinds of work besides the main one.
   title?: string; extraCats?: number[];
+  // 0 for just once; otherwise it posts itself again every 1, 2 or 4 weeks.
+  repeatWeeks?: 0 | 1 | 2 | 4;
 }
 const DRAFT_KEY = "mm-draft-2";
-const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [], included: [], excluded: [] };
+const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 10, reuse: [], included: [], excluded: [] };
 const MAX_PHOTOS = 6;
 // The address and pay method from their last job, so the next one starts filled in. Kept on this phone only.
 const LAST_KEY = "mm-last-job";
@@ -46,7 +48,6 @@ function rememberLast(d: Draft) {
   try { localStorage.setItem(LAST_KEY, JSON.stringify({ suburbId: d.suburbId, address: d.address, notes: d.notes, payMethod: d.payMethod })); } catch { /* private mode */ }
 }
 const MAX_VIDEO_SECONDS = 60;
-const STEPS = 4;
 
 export interface PastWorker { worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_for_me: number; last_job: string | null }
 
@@ -90,6 +91,8 @@ export function Book() {
   const [widen, setWiden] = useState(30);
   const [urgentInfo, setUrgentInfo] = useState(false);
   const [pickMethod, setPickMethod] = useState(false);
+  const [pickWho, setPickWho] = useState<null | "people" | "after">(null);
+  const [pickRepeat, setPickRepeat] = useState(false);
 
   const { area } = useArea();
   // Only the suburbs of the area they're in.
@@ -162,16 +165,43 @@ export function Book() {
   const reusedVideo = d.reuse.find((r) => r.kind === "video") ?? null;
   const photoCount = photos.length + reusedPhotos.length;
 
-  async function startNew(prefill?: Partial<Draft>) {
+  // A new job starts on the one-tap start screen; a job posted again goes straight to Check and post.
+  async function startNew(prefill?: Partial<Draft>, to = "/book/start") {
     await draftMedia.clear();
     setMedia([]);
     setReuseUrls({});
+    uploads.current = {};
     setErr("");
-    setD({ ...blank, ...lastUsed(), ...prefill, priceSet: !!prefill?.priceCents });
-    go("/book/details");
+    setD({ ...blank, ...lastUsed(), ...prefill, ...(prefill?.priceCents ? { priceCents: Math.max(prefill.priceCents, LO) } : {}), priceSet: !!prefill?.priceCents });
+    go(to);
   }
 
-  async function addFiles(files: FileList | null, kind: "photo" | "video") {
+  // Photos upload while they check the job, so Post is instant.
+  const uploads = useRef<Record<string, Promise<string>>>({});
+  const upload = (m: DraftItem) => {
+    if (!session) return Promise.reject(new Error("Sign in first"));
+    const uid = session.user.id;
+    return (uploads.current[m.id] ??= (async () => {
+      const ext = m.kind === "photo" ? "jpg" : (m.name.split(".").pop() || "mp4").toLowerCase();
+      const p = `${uid}/${m.id}.${ext}`;
+      const { error } = await sb.storage.from("job-media").upload(p, m.blob, { upsert: true, contentType: m.kind === "photo" ? "image/jpeg" : (m.blob.type || "video/mp4") });
+      if (error) { delete uploads.current[m.id]; throw new Error("A photo didn't upload. Check your signal and try again."); }
+      return p;
+    })());
+  };
+  useEffect(() => {
+    if (path === "/book/check" && session) for (const m of media) upload(m).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, session?.user.id, media]);
+  const mediaIn = useRef<HTMLInputElement>(null);
+  const addPicked = async (list: FileList | null) => {
+    const all = Array.from(list ?? []);
+    const ph = all.filter((f) => f.type.startsWith("image/")), vid = all.filter((f) => f.type.startsWith("video/")).slice(0, 1);
+    if (ph.length) await addFiles(ph, "photo");
+    if (vid.length) await addFiles(vid, "video");
+  };
+
+  async function addFiles(files: FileList | File[] | null, kind: "photo" | "video") {
     if (!files?.length) return;
     setErr("");
     const next: (DraftItem & { url: string })[] = [];
@@ -217,8 +247,11 @@ export function Book() {
     if (!isTrade && !d.payMethod) { setPickMethod(true); return; }
     setErr("");
     if (!jt) return go("/book/details");
-    if (d.details.trim().length < 15 || !(d.included ?? []).length) return go("/book/details");
-    if (!photoCount) return go("/book/photos");
+    if (d.details.trim().length < 15) return go("/book/details");
+    if (!(d.included ?? []).some((x) => x.trim())) { setErr("Add at least one thing that's included."); return; }
+    if (!photoCount && !video && !reusedVideo) { mediaIn.current?.click(); return; }
+    if (!photoCount) { setErr("Add at least one photo. A video on its own isn't enough."); return; }
+    if (!isTrade && (d.priceCents < LO || d.priceCents > HI)) { setErr(`Set a price from ${money(LO)} to ${money(HI)}.`); return; }
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !/T\d/.test(d.startAt)) return go("/book/when");
     if (!session) { setAuth(true); return; }
@@ -234,27 +267,21 @@ export function Book() {
     try {
       const uid = session.user.id;
       const uploaded: { path: string; kind: string }[] = d.reuse.filter((r) => r.path.startsWith(`${uid}/`)).map((r) => ({ path: r.path, kind: r.kind }));
-      for (const m of media) {
-        const ext = m.kind === "photo" ? "jpg" : (m.name.split(".").pop() || "mp4").toLowerCase();
-        const p = `${uid}/${m.id}.${ext}`;
-        const { error } = await sb.storage.from("job-media").upload(p, m.blob, {
-          upsert: true,
-          contentType: m.kind === "photo" ? "image/jpeg" : (m.blob.type || "video/mp4"),
-        });
-        if (error) throw new Error("A photo didn't upload. Check your signal and try again.");
-        uploaded.push({ path: p, kind: m.kind });
-      }
+      // Most are already up: they started uploading when this screen opened.
+      for (const m of media) uploaded.push({ path: await upload(m), kind: m.kind });
       const invited = d.invited.filter((w) => past.some((p) => p.worker_id === w));
       const id = await rpc<string>("create_job", {
         p_job_type: jt.id, p_suburb: d.suburbId, p_address: d.address, p_notes: d.notes,
         p_asap: d.asap, p_start_at: d.asap ? new Date().toISOString() : new Date(d.startAt).toISOString(),
         p_details: d.details, p_media: uploaded, p_price_cents: d.priceCents,
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
-        p_included: d.included ?? [], p_excluded: d.excluded ?? [], p_skills: jobSkills.map((k) => k.id),
+        p_included: (d.included ?? []).map((x) => x.trim()).filter(Boolean), p_excluded: (d.excluded ?? []).map((x) => x.trim()).filter(Boolean), p_skills: jobSkills.map((k) => k.id),
         p_title: d.title?.trim() || null, p_extra_categories: d.extraCats ?? [],
         p_budget_min_cents: null, p_budget_max_cents: null,
         p_pay_method: isTrade ? null : d.payMethod ?? null, p_urgent: !isTrade && !!d.boost,
       });
+      // A repeat: set up now the job is posted. If it fails the job still stands; they can set it from Home.
+      if (!isTrade && d.repeatWeeks) await rpc("repeat_set", { p_job: id, p_weeks: d.repeatWeeks }).catch(() => toast("Posted. The repeat didn't save, so post it again from Home to repeat it."));
       const finish = async () => {
         rememberLast(d);
         sessionStorage.removeItem(DRAFT_KEY);
@@ -280,6 +307,10 @@ export function Book() {
     return <PriceStep value={d.priceCents} catName={d.priceSet ? null : cat?.name ?? null} onChange={(v) => setD({ ...d, priceCents: v, priceSet: true })} />;
   }
 
+  if (path === "/book/start") {
+    return <StartStep d={d} setD={setD} cats={cats} skillList={skillList} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null} addPhotos={addBlobs} />;
+  }
+
   if (path === "/book/details") {
     return <DetailsStep d={d} setD={setD} cats={cats} skillList={skillList} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null}
       photoUrls={[...photos.map((m) => m.url), ...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean)]} photoCount={photoCount} addPhotos={addBlobs}
@@ -297,9 +328,7 @@ export function Book() {
 
   if (path === "/book/check") {
     const chosen = past.filter((p) => d.invited.includes(p.worker_id));
-    const whoLabel = chosen.length
-      ? `${chosen.map((p) => p.full_name).join(", ")}${d.openAfter ? `, then everyone after ${afterLabel(d.openAfter)}` : " only"}`
-      : "Anyone nearby";
+    const suggested = isTrade ? null : jt?.price_cents ?? null;
     return (
       <div className="app">
         {(() => {
@@ -328,6 +357,56 @@ export function Book() {
               <span className="w">{when}</span>
             </button>
 
+            {/* The photos and video, straight under the job: a job needs at least one photo to post. */}
+            <section className="ck-media">
+              {reusedPhotos.map((r) => reuseUrls[r.path] && (
+                <span key={r.path} className="ck-tile" style={{ backgroundImage: `url("${reuseUrls[r.path]}")` }}>
+                  <button onClick={() => removeReused(r.path)} aria-label="Remove photo">{Icon.x("#fff", 14)}</button></span>
+              ))}
+              {photos.map((m) => (
+                <span key={m.id} className="ck-tile" style={{ backgroundImage: `url("${m.url}")` }}>
+                  <button onClick={() => removeMedia(m.id)} aria-label="Remove photo">{Icon.x("#fff", 14)}</button></span>
+              ))}
+              {(video || (reusedVideo && reuseUrls[reusedVideo.path])) && (
+                <VideoTile src={video ? video.url : reuseUrls[reusedVideo!.path]} onRemove={() => (video ? removeMedia(video.id) : removeReused(reusedVideo!.path))} />
+              )}
+              {photoCount === 0 ? (
+                <button className="ck-addm need" onClick={() => mediaIn.current?.click()}>{Icon.camera("#14211c")}<span>Add a photo or video</span></button>
+              ) : photoCount < MAX_PHOTOS && (
+                <button className="ck-addm" onClick={() => mediaIn.current?.click()}>{Icon.camera("var(--emerald)")}<span>Add more</span></button>
+              )}
+              {photoCount === 0 && <p>Workers decide from what they see. Add one to post.</p>}
+              <input ref={mediaIn} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addPicked(e.target.files); e.target.value = ""; }} />
+            </section>
+
+            {/* What's included and what isn't: type straight into each line. */}
+            <section className="ck-ie">
+              <CheckList title="Included" kind="yes" items={d.included ?? []} placeholder="Like: Mow the back lawn" onChange={(v) => { setD({ ...d, included: v }); setErr(""); }} />
+              <CheckList title="Not included" kind="no" items={d.excluded ?? []} placeholder="Like: The front lawn" onChange={(v) => setD({ ...d, excluded: v })} />
+            </section>
+
+            {!isTrade && (
+              <section className="ck-money" style={{ paddingBottom: 4 }}>
+                {(() => {
+                  const first = chosen[0];
+                  const ph = first ? avatarUrl(first.photo_path) : null;
+                  const after = d.openAfter == null ? "Only them" : `Then anyone after ${afterLabel(d.openAfter)}`;
+                  return past.length ? (
+                    <button className="ck-method ck-who2" onClick={() => setPickWho("people")}>
+                      {first ? <>{ph ? <i style={{ backgroundImage: `url("${ph}")` }} /> : <i className="no">{first.full_name.charAt(0)}</i>}
+                        <span className="v">{chosen.map((p) => p.full_name).join(", ")} first<small>{after}</small></span></>
+                        : <><span className="k">Who</span><span className="v">Anyone nearby</span></>}
+                      {Icon.down("var(--muted)")}
+                    </button>
+                  ) : <div className="ck-method"><span className="k">Who</span><span className="v">Anyone nearby</span></div>;
+                })()}
+                <button className={d.repeatWeeks ? "ck-method rp-on" : "ck-method"} onClick={() => setPickRepeat(true)}>
+                  {Icon.repeat("#c99a06")}<span className="k">Repeat</span><span className="v">{REPEATS.find((r) => r.v === (d.repeatWeeks ?? 0))!.label}</span>{Icon.down("var(--muted)")}
+                </button>
+                {!!d.repeatWeeks && <p className="ck-due">Next one posts itself {nextLabel(firstRepeatAt(d, d.repeatWeeks))}. Skip or stop any time.</p>}
+              </section>
+            )}
+
             {/* Pay less: the cheaper plans, priced on this job, the way Uber One and DashPass show what you'd save at checkout. */}
             {connCharged && invoiceFee && payInfo && !(payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) && (() => {
               const r = payInfo.rates;
@@ -350,9 +429,17 @@ export function Book() {
                 {/* Two people get paid, so two groups: your worker, then Mahi Man. */}
                 <div className="ck-grp">
                   <button className="ck-m ck-gh" onClick={() => go("/book/price")}><span>Pay your worker</span><b>{money(d.priceCents)}</b></button>
+                  {suggested != null && <p className="ck-hint">{d.priceCents === suggested ? `Suggested for ${cat?.name.toLowerCase() ?? "this job"}` : `Suggested ${money(suggested)} for ${cat?.name.toLowerCase() ?? "this job"}`}</p>}
+                  {(() => {
+                    const v = Math.min(Math.max(d.priceCents, LO), SLIDER_MAX);
+                    const pct = ((v - LO) / (SLIDER_MAX - LO)) * 100;
+                    return <input className="mm-range ck-range" type="range" min={LO / 100} max={SLIDER_MAX / 100} step={5} value={v / 100} aria-label="Price"
+                      onChange={(e) => setD({ ...d, priceCents: Number(e.target.value) * 100, priceSet: true })}
+                      style={{ background: `linear-gradient(90deg, var(--emerald) ${pct}%, var(--stone-2) ${pct}%) center / 100% 10px no-repeat` }} />;
+                  })()}
                   {/* The customer says how they'll pay, so the worker knows before they offer. */}
                   <button className="ck-method" onClick={() => setPickMethod(true)}>
-                    <span className="k">How will you pay?</span><span className="v">{PAY_METHODS.find((m) => m.id === d.payMethod)?.label ?? ""}</span>
+                    <span className="k">How will you pay?</span><span className="v">{PAY_METHODS.find((m) => m.id === d.payMethod)?.short ?? ""}</span>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg></button>
                   <p className="ck-due">Paid straight to your worker when the job is done</p>
                 </div>
@@ -385,21 +472,10 @@ export function Book() {
             <section className="ck-job">
               <div className="ck-jh"><h2>The job</h2><button className="link" onClick={() => go("/book/details")}>Edit</button></div>
               <p className="ck-desc">{d.details}</p>
-              <div className="ck-pics">
-                {[...photos.map((m) => m.url), ...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean)].map((u, n) => (
-                  <button key={n} className="ck-pic" style={{ backgroundImage: `url("${u}")` }} onClick={() => go("/book/photos")} aria-label="Change photos" />
-                ))}
-                {(video || reusedVideo) && <button className="ck-pic ck-vid" onClick={() => go("/book/photos")}>Video</button>}
-                {photoCount === 0 && !(video || reusedVideo) && <button className="ck-pic ph-0" onClick={() => go("/book/photos")} aria-label="Add photos" />}
-              </div>
-              {(d.included ?? []).length > 0 && <div className="ck-list"><h3>What needs doing</h3>
-                {d.included.map((t) => <span key={t} className="yes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12l5 5 9-10" /></svg>{t}</span>)}</div>}
-              {(d.excluded ?? []).length > 0 && <div className="ck-list"><h3>Not included</h3>
-                {d.excluded.map((t) => <span key={t} className="no"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>{t}</span>)}</div>}
               {jobSkills.length ? <div className="ck-list"><h3>Skills needed</h3><span className="plain">{jobSkills.map((k) => k.name).join(", ")}</span></div> : null}
               {d.notes ? <div className="ck-list"><h3>Notes for your worker</h3><span className="plain">{d.notes}</span></div> : null}
-              <div className="ck-list"><h3>Who can take it</h3>
-                <button className="ck-who" onClick={() => go(isTrade ? "/book/details" : "/book/where")}>{isTrade ? `Licensed tradies, ${lc(tradeSkill!.needs ?? "licence")} checked` : whoLabel}</button></div>
+              {isTrade && <div className="ck-list"><h3>Who can take it</h3>
+                <button className="ck-who" onClick={() => go("/book/details")}>{`Licensed tradies, ${lc(tradeSkill!.needs ?? "licence")} checked`}</button></div>}
             </section>
           </>);
         })()}
@@ -417,9 +493,18 @@ export function Book() {
         <div className="bottombar">
           <span className="ck-terms">By pressing Post my job, you agree to the <a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>terms and conditions</a>.</span>
           <button className="btn primary" disabled={busy} onClick={book}>
-            {busy ? "Posting…" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : "Post my job"} {Icon.arrow("#fff")}
+            {busy ? "Posting…" : photoCount === 0 ? "Add a photo" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : <>Post my job {Icon.arrow("#fff")}</>}
           </button>
         </div>
+        {pickWho === "people" && <SearchPicker title="Ask first" multi placeholder="Search by name" value={d.invited}
+          options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: p.jobs_for_me ? `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` : "Saved from their code" }))}
+          onClose={() => setPickWho(null)} onChange={(v) => { setD({ ...d, invited: v.map(String) }); if (v.length) window.setTimeout(() => setPickWho("after"), 0); }} />}
+        {pickWho === "after" && <SearchPicker title="If they can't take it" value={[OPEN_AFTER.find((o) => o.v === d.openAfter)?.id ?? "10"]}
+          options={OPEN_AFTER.map((o) => ({ id: o.id, label: o.label }))}
+          onClose={() => setPickWho(null)} onChange={(v) => setD({ ...d, openAfter: OPEN_AFTER.find((o) => o.id === v[0])?.v ?? null })} />}
+        {pickRepeat && <SearchPicker title="Repeat" value={[d.repeatWeeks ?? 0]}
+          options={REPEATS.map((r) => ({ id: r.v, label: r.label, hint: repeatHint(d, r.v) }))}
+          onClose={() => setPickRepeat(false)} onChange={(v) => setD({ ...d, repeatWeeks: Number(v[0]) as Draft["repeatWeeks"] })} />}
         {pickMethod && <SearchPicker title="How will you pay?" value={d.payMethod ? [d.payMethod] : []} options={PAY_METHODS.map((m) => ({ id: m.id, label: m.label, hint: m.hint }))}
           onChange={(v) => setD({ ...d, payMethod: String(v[0]) as Draft["payMethod"] })} onClose={() => setPickMethod(false)} />}
         {urgentInfo && (
@@ -455,6 +540,63 @@ export function Book() {
 
 const afterLabel = (m: number) => (m >= 60 ? `${m / 60} hour${m === 60 ? "" : "s"}` : `${m} minutes`);
 
+// Repeats: the job posts itself again every 1, 2 or 4 weeks, on the same weekday. An as-soon-as-possible job repeats at 8am.
+const REPEATS = [{ v: 0, label: "Just once" }, { v: 1, label: "Every week" }, { v: 2, label: "Every 2 weeks" }, { v: 4, label: "Every 4 weeks" }] as const;
+const fmtTime = (t: Date) => t.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(":00", "").replace(/\s?([ap])\.?m\.?/i, "$1m").toLowerCase();
+function firstRepeatAt(d: Draft, weeks: number) {
+  const start = d.asap || !/T\d/.test(d.startAt) ? new Date() : new Date(d.startAt);
+  const t = new Date(start); t.setDate(t.getDate() + weeks * 7);
+  if (d.asap || !/T\d/.test(d.startAt)) t.setHours(8, 0, 0, 0);
+  return t;
+}
+const nextLabel = (t: Date) => `${t.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}, ${fmtTime(t)}`;
+function repeatHint(d: Draft, weeks: number) {
+  if (!weeks) return "This job only";
+  const t = firstRepeatAt(d, weeks);
+  const day = t.toLocaleDateString("en-AU", { weekday: "long" });
+  return weeks === 1 ? `${day}s, ${fmtTime(t)}` : `Every ${weeks === 2 ? "second" : "fourth"} ${day}, ${fmtTime(t)}`;
+}
+
+// A video in the photo row, with its length.
+function VideoTile({ src, onRemove }: { src: string; onRemove: () => void }) {
+  const [secs, setSecs] = useState<number | null>(null);
+  return (
+    <span className="ck-tile vid">
+      <video src={src} muted playsInline preload="metadata" onLoadedMetadata={(e) => setSecs(Math.round(e.currentTarget.duration || 0))} />
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+      {secs != null && <em>{Math.floor(secs / 60)}:{String(secs % 60).padStart(2, "0")}</em>}
+      <button onClick={onRemove} aria-label="Remove video">{Icon.x("#fff", 14)}</button>
+    </span>
+  );
+}
+
+// Included / not included on Check and post: each line is typed into straight away; Add puts in a new line ready to type.
+function CheckList({ title, kind, items, onChange, placeholder }: { title: string; kind: "yes" | "no"; items: string[]; onChange: (v: string[]) => void; placeholder: string }) {
+  const [focus, setFocus] = useState<number | null>(null);
+  const refs = useRef<(HTMLInputElement | null)[]>([]);
+  useEffect(() => { if (focus != null) refs.current[focus]?.focus(); }, [focus, items.length]);
+  const drop = (i: number) => onChange(items.filter((_, n) => n !== i));
+  const mark = kind === "yes"
+    ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
+    : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b3402f" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>;
+  return (
+    <div className="cl">
+      <div className="cl-h"><b>{title}</b>
+        {items.length < 12 && <button className="btn stone small" onClick={() => { onChange([...items.filter((x) => x.trim()), ""]); setFocus(items.filter((x) => x.trim()).length); }}>Add</button>}</div>
+      {items.map((x, i) => (
+        <label key={i} className="cl-r">
+          {mark}
+          <input ref={(el) => { refs.current[i] = el; }} value={x} maxLength={80} placeholder={placeholder} enterKeyHint="done"
+            onChange={(e) => onChange(items.map((y, n) => (n === i ? e.target.value : y)))}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
+            onBlur={() => { setFocus(null); if (!x.trim()) drop(i); }} />
+          <button onMouseDown={(e) => e.preventDefault()} onClick={() => drop(i)} aria-label={`Remove ${x || "this one"}`}>{Icon.cross("var(--faint)")}</button>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 // ---------- Get help: one button, then your recent jobs ----------
 interface Recent {
   id: string; title: string | null; extra_categories: number[] | null; details: string; skill_ids: number[] | null; included: string[] | null; excluded: string[] | null; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
@@ -487,7 +629,7 @@ function Available() {
   );
 }
 
-function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn: boolean; uid: string | null; onStart: (p?: Partial<Draft>) => void }) {
+function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn: boolean; uid: string | null; onStart: (p?: Partial<Draft>, to?: string) => void }) {
   const soon = isSoon(useArea().area);
   const { profile: me } = useSession();
   const onPlus = !!me?.plus_until && new Date(me.plus_until) > new Date();
@@ -503,16 +645,30 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   const [pics, setPics] = useState<Record<string, string>>({});
   useEffect(() => { if (recent?.length) mediaUrls(recent.map((r) => firstPhoto(r.job_media)).filter(Boolean) as string[]).then(setPics); }, [recent]);
 
+  // Repeats: jobs that post themselves again.
+  const [repeats, setRepeats] = useState<Repeat[]>([]);
+  const [openRepeat, setOpenRepeat] = useState<Repeat | null>(null);
+  const loadRepeats = () => { if (uid) rpc<Repeat[]>("my_repeats").then((r) => setRepeats(r ?? [])).catch(() => {}); else setRepeats([]); };
+  useEffect(loadRepeats, [uid]);
+  const [repPics, setRepPics] = useState<Record<string, string>>({});
+  useEffect(() => { const ps = repeats.map((r) => r.photo).filter(Boolean) as string[]; if (ps.length) mediaUrls(ps).then(setRepPics); }, [repeats]);
+  const toast = useToast();
+  const skipNext = async (r: Repeat) => {
+    const day = localDay(r.next_at), skipped = r.skips.includes(day);
+    try { await rpc("repeat_skip", { p_id: r.id, p_date: day, p_skip: !skipped }); toast(skipped ? "It's back on." : `Skipped. Next one ${nextLabel(new Date(r.dates[1]))}.`); loadRepeats(); }
+    catch (e) { toast(e instanceof Error ? e.message : "That didn't save. Try again."); }
+  };
+
   const { owed, reload: reloadOwed } = useOwed(!!uid);
   const { invoices, paused } = useDueInvoices(!!uid);
   useEffect(() => { if (uid) claimGifts(); }, [uid]);
   const [paying, setPaying] = useState<OwedFee | null>(null);
 
-  const again = (r: Recent) => onStart({
+  const again = (r: Recent) => onStart({ repeatWeeks: 0,
     categoryId: r.job_types?.category_id ?? null, extraCats: r.extra_categories ?? [], title: r.title ?? "", priceCents: r.price_cents, suburbId: r.suburb_id, address: r.address, notes: r.notes,
     details: r.details, skills: r.skill_ids ?? [], included: r.included ?? [], excluded: r.excluded ?? [], reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
     invited: r.worker_id && ["finished", "confirmed"].includes(r.status) ? [r.worker_id] : [],
-  });
+  }, "/book/check");
 
   return (
     <div className="app" style={{ background: "var(--ground)" }}>
@@ -544,6 +700,28 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
             <span><span className="pw">PLUS</span><b>Your jobs go first</b><small>Top-rated workers, fix-it guarantee</small></span>
             <span className="go">Try it</span>
           </button>
+        )}
+
+        {repeats.length > 0 && (
+          <div className="stack" style={{ gap: 0, marginBottom: 4 }}>
+            <span className="post-h">Repeats</span>
+            {repeats.map((r) => {
+              const skipped = r.skips.includes(localDay(r.next_at));
+              return (
+                <div key={r.id} className="recent-row">
+                  <button className="rp-open" onClick={() => setOpenRepeat(r)}>
+                    {r.photo && repPics[r.photo] ? <span className="sq pic" style={{ backgroundImage: `url("${repPics[r.photo]}")` }} /> : <span className="sq" />}
+                    <span className="t">
+                      <b>{r.title}</b>
+                      <span>{REPEATS.find((x) => x.v === r.every_weeks)?.label}{r.worker_name ? `, ${r.worker_name.split(" ")[0]} first` : ""}</span>
+                      <span className="rp-next">{Icon.repeat("#c99a06", 18)}{r.held ? "Waiting on a payment" : skipped ? `Skipped ${nextLabel(new Date(r.next_at))}` : `Next ${nextLabel(new Date(r.next_at))}`}</span>
+                    </span>
+                  </button>
+                  <button className="btn stone small" onClick={() => skipNext(r)}>{skipped ? "Undo" : "Skip it"}</button>
+                </div>
+              );
+            })}
+          </div>
         )}
 
         {recent && recent.length > 0 ? (
@@ -581,13 +759,95 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         </p>}
       </div>
       <TabBar on="help" />
+      {openRepeat && <RepeatScreen r={openRepeat} pic={openRepeat.photo ? repPics[openRepeat.photo] : undefined} onClose={() => setOpenRepeat(null)} onSaved={() => { setOpenRepeat(null); loadRepeats(); }} />}
     </div>
+  );
+}
+
+interface Repeat {
+  id: string; title: string; every_weeks: 1 | 2 | 4; next_at: string; price_cents: number; skips: string[]; worker_id: string | null;
+  worker_name: string | null; worker_photo: string | null; photo: string | null; held: boolean; dates: string[];
+}
+// The day a repeat falls on, in Queensland time (the same day the server skips).
+const localDay = (iso: string) => new Date(iso).toLocaleDateString("en-CA", { timeZone: "Australia/Brisbane" });
+
+// One repeat: how often, when, who first and the price; skip any of the next dates. Nothing changes until Save.
+function RepeatScreen({ r, pic, onClose, onSaved }: { r: Repeat; pic?: string; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [weeks, setWeeks] = useState<number>(r.every_weeks);
+  const [next, setNext] = useState(new Date(r.next_at));
+  const [worker, setWorker] = useState<string | null>(r.worker_id);
+  const [price, setPrice] = useState(r.price_cents);
+  const [skips, setSkips] = useState<string[]>(r.skips);
+  const [pick, setPick] = useState<null | "weeks" | "day" | "time" | "who" | "price">(null);
+  const [past, setPast] = useState<PastWorker[]>([]);
+  const [stop, setStop] = useState(false);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { rpc<PastWorker[]>("my_past_workers").then(setPast).catch(() => {}); }, []);
+  const dates = [0, 1, 2].map((g) => { const t = new Date(next); t.setDate(t.getDate() + weeks * 7 * g); return t; });
+  const who = past.find((p) => p.worker_id === worker) ?? (worker ? { full_name: r.worker_name ?? "", photo_path: r.worker_photo } as PastWorker : null);
+  const ph = who ? avatarUrl(who.photo_path) : null;
+  const days = Array.from({ length: weeks * 7 }, (_, i) => { const t = new Date(); t.setDate(t.getDate() + i + 1); t.setHours(next.getHours(), next.getMinutes(), 0, 0); return t; });
+  const times = Array.from({ length: 29 }, (_, i) => { const t = new Date(next); t.setHours(6 + Math.floor(i / 2), (i % 2) * 30, 0, 0); return t; });
+  const save = async () => {
+    setBusy(true);
+    try {
+      await rpc("repeat_save", { p_id: r.id, p_weeks: weeks, p_next_at: next.toISOString(), p_worker: worker, p_price_cents: price, p_skips: skips });
+      toast("Saved"); onSaved();
+    } catch (e) { toast(e instanceof Error ? e.message : "That didn't save. Try again."); } finally { setBusy(false); }
+  };
+  const stopIt = async () => {
+    setBusy(true);
+    try { await rpc("repeat_stop", { p_id: r.id }); toast("Stopped. It won't post again."); onSaved(); }
+    catch (e) { toast(e instanceof Error ? e.message : "That didn't stop. Try again."); } finally { setBusy(false); }
+  };
+  return (
+    <Screen title={r.title} onBack={onClose}>
+      <div className="screen-body">
+        {pic && <div className="rp-hero" style={{ backgroundImage: `url("${pic}")` }} />}
+        <div className="rp-body">
+          <button className="ck-method rp-on" onClick={() => setPick("weeks")}>{Icon.repeat("#c99a06")}<span className="k">Repeat</span><span className="v">{REPEATS.find((x) => x.v === weeks)?.label}</span>{Icon.down("var(--muted)")}</button>
+          <button className="ck-method" onClick={() => setPick("day")}><span className="k">Time</span><span className="v">{next.toLocaleDateString("en-AU", { weekday: "long" })}, {fmtTime(next)}</span>{Icon.down("var(--muted)")}</button>
+          <button className="ck-method ck-who2" onClick={() => setPick("who")}>
+            {who ? <>{ph ? <i style={{ backgroundImage: `url("${ph}")` }} /> : <i className="no">{who.full_name.charAt(0)}</i>}<span className="v">{who.full_name} first<small>Then anyone after 10 minutes</small></span></>
+              : <><span className="k">Who</span><span className="v">Anyone nearby</span></>}
+            {Icon.down("var(--muted)")}
+          </button>
+          <button className="ck-method" onClick={() => setPick("price")}><span className="k">Price</span><span className="v">{money(price)}</span>{Icon.down("var(--muted)")}</button>
+          <h2 className="rp-sec">Coming up</h2>
+          {dates.map((t) => {
+            const day = t.toLocaleDateString("en-CA", { timeZone: "Australia/Brisbane" }), off = skips.includes(day);
+            return (
+              <div key={day} className={off ? "rp-up skip" : "rp-up"}>
+                <span className="n">{t.getDate()}<small>{t.toLocaleDateString("en-AU", { month: "short" })}</small></span>
+                <span className="d"><b>{t.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}</b><span>{off ? "Skipped" : `Posts itself at ${fmtTime(t)}`}</span></span>
+                <button className="btn stone small" onClick={() => setSkips(off ? skips.filter((x) => x !== day) : [...skips, day])}>{off ? "Undo" : "Skip"}</button>
+              </div>
+            );
+          })}
+          {stop
+            ? <div className="rp-stopask"><span>Stop repeating this job?</span><button className="rp-stop" disabled={busy} onClick={stopIt}>Yes, stop it</button><button className="rp-keep" onClick={() => setStop(false)}>Keep it</button></div>
+            : <button className="rp-stop" onClick={() => setStop(true)}>Stop repeating</button>}
+        </div>
+      </div>
+      <div className="bottombar"><span /><button className="btn primary" disabled={busy} onClick={save}>Save</button></div>
+      {pick === "weeks" && <SearchPicker title="Repeat" value={[weeks]} options={REPEATS.filter((x) => x.v).map((x) => ({ id: x.v, label: x.label }))} onClose={() => setPick(null)} onChange={(v) => setWeeks(Number(v[0]))} />}
+      {pick === "day" && <SearchPicker title="Next one" placeholder="Search days" value={[]} options={days.map((t, i) => ({ id: i, label: t.toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "short" }) }))}
+        onClose={() => setPick(null)} onChange={(v) => { setNext(days[Number(v[0])]); window.setTimeout(() => setPick("time"), 0); }} />}
+      {pick === "time" && <SearchPicker title="Start time" placeholder="Search times" value={[]} options={times.map((t, i) => ({ id: i, label: fmtTime(t) }))}
+        onClose={() => setPick(null)} onChange={(v) => setNext(times[Number(v[0])])} />}
+      {pick === "who" && <SearchPicker title="Ask first" placeholder="Search by name" value={[worker ?? "any"]}
+        options={[{ id: "any", label: "Anyone nearby" }, ...past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: p.jobs_for_me ? `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` : undefined }))]}
+        onClose={() => setPick(null)} onChange={(v) => setWorker(v[0] === "any" ? null : String(v[0]))} />}
+      {pick === "price" && <SearchPicker title="Price" placeholder="Search prices" value={[price]} options={Array.from({ length: (SLIDER_MAX - LO) / 500 + 1 }, (_, i) => LO + i * 500).map((c) => ({ id: c, label: money(c) }))}
+        onClose={() => setPick(null)} onChange={(v) => setPrice(Number(v[0]))} />}
+    </Screen>
   );
 }
 
 // ---------- Step 1: Set your price ----------
 const QUICK = [3000, 5000, 8000, 12000, 20000];
-const LO = 2000, HI = 200000, SLIDER_MAX = 30000;
+const LO = 2500, HI = 200000, SLIDER_MAX = 30000;
 
 function PriceStep({ value, catName, onChange }: { value: number; catName: string | null; onChange: (v: number) => void }) {
   const [text, setText] = useState(String(Math.round(value / 100)));
@@ -603,7 +863,7 @@ function PriceStep({ value, catName, onChange }: { value: number; catName: strin
   };
   return (
     <div className="app" style={{ background: "var(--card)" }}>
-      <StepHero step={4} of={STEPS} title="Set your price" sub="What will you pay?" onBack={() => history.back()} />
+      <StepHero title="Set your price" sub="What will you pay?" onBack={() => history.back()} />
       <div className="price-body">
         <label htmlFor="amt" className="t15 muted">You pay</label>
         <div className="price-box">
@@ -633,8 +893,8 @@ function PriceStep({ value, catName, onChange }: { value: number; catName: strin
       </div>
       <div style={{ flex: 1 }} />
       <div className="bottombar">
-        <span className="t15 light muted">Next, check and post</span>
-        <button className="btn primary" onClick={next}>Continue {Icon.arrow("#fff")}</button>
+        <span />
+        <button className="btn primary" onClick={next}>Done</button>
       </div>
     </div>
   );
@@ -658,38 +918,18 @@ function guessJob(text: string, cats: Category[], skills: { id: number; category
     .map((x) => (x.charAt(0).toUpperCase() + x.slice(1)).slice(0, 60)).slice(0, 6);
   return { details, category_id: best?.id ?? null, skill_ids: [] as number[], included, excluded: [] as string[] };
 }
-function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount, addPhotos, err, setErr, bar }: {
-  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string; needs: string | null }[]; suggest: (catId: number) => number | null;
-  photoUrls: string[]; photoCount: number; addPhotos: (b: Blob[]) => Promise<void>;
-  err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
-}) {
-  const detailsBox = useRef<HTMLTextAreaElement>(null);
-  const [voice, setVoice] = useState(false);
-  const [snap, setSnap] = useState(false);
-  const [dictate, setDictate] = useState(false);
-  const [pickCat, setPickCat] = useState(false);
-  const [pickSkills, setPickSkills] = useState(false);
+// Said, typed or photographed in; the whole job out: its name, kind of work, what's included and not, and a suggested price.
+function useFill(d: Draft, setD: (d: Draft) => void, cats: Category[], skillList: { id: number; category_id: number; name: string }[], suggest: (catId: number) => number | null) {
   const [filling, setFilling] = useState(false);
   const [filledFrom, setFilledFrom] = useState<"said" | "photos" | null>(null);
   const filled = useRef(false);
-  // The job's kinds of work: the main one first, then any others (a backyard clean-up is garden and rubbish removal).
-  const typeIds = [d.categoryId, ...(d.extraCats ?? [])].filter((x): x is number => x != null);
-  const types = typeIds.map((id) => cats.find((c) => c.id === id)).filter(Boolean) as Category[];
-  const setTypes = (ids: number[]) => {
-    const main = ids[0] ?? null;
-    const sp = main ? suggest(main) : null;
-    setD({ ...d, categoryId: main, extraCats: ids.slice(1, 4), skills: (d.skills ?? []).filter((k) => skillList.some((x) => x.id === k && ids.includes(x.category_id))),
-      ...(!d.priceSet && sp && main !== d.categoryId ? { priceCents: sp } : {}) });
-    setErr("");
-  };
-
   // What they said, typed or photographed in; the whole job out. Claude does it when it's switched on; otherwise a simple match on the words.
-  async function fill(text: string, images: string[] = []) {
-    filled.current = true; setFilling(true); setErr("");
+  async function fill(text: string, images: string[] = []): Promise<boolean> {
+    filled.current = true; setFilling(true);
     const payload = cats.map((c) => ({ id: c.id, name: c.name, skills: skillList.filter((k) => k.category_id === c.id).map((k) => ({ id: k.id, name: k.name })) }));
     let r: { ai: boolean; title?: string | null; details?: string; category_id?: number | null; extra_category_ids?: number[]; skill_ids?: number[]; included?: string[]; excluded?: string[] } = { ai: false };
     try { r = await api("fill_job", { text, images, categories: payload }); } catch { /* offline: the simple match below */ }
-    if (!r.ai && !text.trim()) { setFilling(false); return; }
+    if (!r.ai && !text.trim()) { setFilling(false); return false; }
     const out = r.ai ? r : { ...guessJob(text, cats, skillList), title: null, extra_category_ids: [] as number[] };
     const catId = out.category_id ?? d.categoryId;
     const sp = catId ? suggest(catId) : null;
@@ -704,7 +944,83 @@ function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount,
     });
     if (r.ai) setFilledFrom(images.length && !text.trim() ? "photos" : "said");
     setFilling(false);
+    return !!catId;
   }
+  return { fill, filling, filledFrom, filled };
+}
+
+// ---------- Start: snap it, say it or type it. The job gets written, then straight to Check and post ----------
+function StartStep({ d, setD, cats, skillList, suggest, addPhotos }: {
+  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string }[];
+  suggest: (catId: number) => number | null; addPhotos: (b: Blob[]) => Promise<void>;
+}) {
+  const { fill, filling } = useFill(d, setD, cats, skillList, suggest);
+  const [voice, setVoice] = useState(false);
+  const [snap, setSnap] = useState(false);
+  const [dictate, setDictate] = useState(false);
+  const [text, setText] = useState("");
+  const [err, setErr] = useState("");
+  const box = useRef<HTMLInputElement>(null);
+  // Written: on to Check and post. If the kind of work couldn't be worked out, the full job form to select it.
+  const run = async (t: string, images: string[] = []) => { setErr(""); const ok = await fill(t, images); go(ok ? "/book/check" : "/book/details"); };
+  async function snapped(blobs: Blob[]) {
+    setSnap(false);
+    await addPhotos(blobs);
+    const images = await Promise.all(blobs.slice(0, 6).map((b) => photoForReading(b, 1024).catch(() => "")));
+    run("", images.filter(Boolean));
+  }
+  const typed = () => { if (text.trim().length < 8) { setErr("Say a bit more about the job."); return; } run(text.trim()); };
+  return (
+    <div className="app" style={{ background: "var(--card)" }}>
+      <StepHero title="What needs doing?" onBack={() => history.back()} />
+      <div className="st-body">
+        {filling ? (
+          <div className="st-writing">{Icon.spark("#8a6d00", 28)}<b>Writing your job…</b><span>A few seconds. You can change anything next.</span></div>
+        ) : (<>
+          <button className="st-big gold" onClick={() => setSnap(true)}>
+            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#14211c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+            <span><b>Snap it</b><small>Take a photo. We write the job</small></span></button>
+          <button className="st-big em" onClick={() => { if (voiceSupported()) return setVoice(true); setDictate(true); box.current?.focus(); }}>
+            {Icon.mic("var(--lime)", 34)}
+            <span><b>Just say it</b><small>Talk it through. We write the job</small></span></button>
+          <label className="st-type">
+            <input ref={box} value={text} onChange={(e) => { setText(e.target.value); setErr(""); }} placeholder="Or type it, e.g. mow the back lawn" enterKeyHint="go"
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); typed(); } }} />
+            <button onClick={typed}>Go</button>
+          </label>
+          {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk, then tap Go.</span>}
+          {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
+        </>)}
+      </div>
+      {voice && <VoiceScreen jobName="Job" onBack={() => setVoice(false)} raw onDone={(t) => { setVoice(false); run(t); }} />}
+      {snap && <JobCamera max={MAX_PHOTOS} onBack={() => setSnap(false)} onDone={snapped} />}
+    </div>
+  );
+}
+
+function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount, addPhotos, err, setErr, bar }: {
+  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string; needs: string | null }[]; suggest: (catId: number) => number | null;
+  photoUrls: string[]; photoCount: number; addPhotos: (b: Blob[]) => Promise<void>;
+  err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
+}) {
+  const detailsBox = useRef<HTMLTextAreaElement>(null);
+  const [voice, setVoice] = useState(false);
+  const [snap, setSnap] = useState(false);
+  const [dictate, setDictate] = useState(false);
+  const [pickCat, setPickCat] = useState(false);
+  const [pickSkills, setPickSkills] = useState(false);
+  const { fill, filling, filledFrom, filled } = useFill(d, setD, cats, skillList, suggest);
+  // The job's kinds of work: the main one first, then any others (a backyard clean-up is garden and rubbish removal).
+  const typeIds = [d.categoryId, ...(d.extraCats ?? [])].filter((x): x is number => x != null);
+  const types = typeIds.map((id) => cats.find((c) => c.id === id)).filter(Boolean) as Category[];
+  const setTypes = (ids: number[]) => {
+    const main = ids[0] ?? null;
+    const sp = main ? suggest(main) : null;
+    setD({ ...d, categoryId: main, extraCats: ids.slice(1, 4), skills: (d.skills ?? []).filter((k) => skillList.some((x) => x.id === k && ids.includes(x.category_id))),
+      ...(!d.priceSet && sp && main !== d.categoryId ? { priceCents: sp } : {}) });
+    setErr("");
+  };
+
   async function snapped(blobs: Blob[]) {
     setSnap(false);
     await addPhotos(blobs);
@@ -720,12 +1036,11 @@ function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount,
     if (!(d.included ?? []).filter((x) => x.trim()).length) return setErr("Add at least one task.");
     setErr("");
     setD({ ...d, included: (d.included ?? []).map((x) => x.trim()).filter(Boolean), excluded: (d.excluded ?? []).map((x) => x.trim()).filter(Boolean) });
-    // Photos already in (Snap it, or a job posted again): no need to ask for them twice.
-    go(photoCount > 0 ? "/book/where" : "/book/photos");
+    go("/book/check");
   };
   return (
     <div className="app">
-      <StepHero step={1} of={STEPS} title="What's the job?" sub="Be specific. This is what the worker is held to." onBack={() => history.back()} />
+      <StepHero title="What's the job?" sub="Be specific. This is what the worker is held to." onBack={() => history.back()} />
       <div className="step-body">
         <div className="sec">
           <div className="fill-two">
@@ -798,7 +1113,7 @@ function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount,
         </div>
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next, filling, photoCount > 0 ? "where and when" : "photos")}
+      {bar("Done", next, filling)}
       {pickCat && <SearchPicker title="Job type" multi placeholder="Search job types" value={typeIds}
         options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
         onChange={(v) => { const ids = v.map(Number); setTypes([...typeIds.filter((x) => ids.includes(x)), ...ids.filter((x) => !typeIds.includes(x))].slice(0, 4)); }} />}
@@ -852,11 +1167,11 @@ function PhotosStep({ photos, video, reused, reuseUrls, photoCount, addFiles, re
   const next = () => {
     if (!photoCount) return setErr("Add at least one photo so workers can see the job.");
     setErr("");
-    go("/book/where");
+    go("/book/check");
   };
   return (
     <div className="app">
-      <StepHero step={2} of={STEPS} title="Show the job" sub="Workers decide from what they see." onBack={() => history.back()} />
+      <StepHero title="Show the job" sub="Workers decide from what they see." onBack={() => history.back()} />
       <div className="step-body">
         <div className="sec">
           <div className="row between" style={{ alignItems: "baseline" }}>
@@ -901,7 +1216,7 @@ function PhotosStep({ photos, video, reused, reuseUrls, photoCount, addFiles, re
 
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next, false, "where and when")}
+      {bar("Done", next)}
     </div>
   );
 }
@@ -909,6 +1224,7 @@ function PhotosStep({ photos, video, reused, reuseUrls, photoCount, addFiles, re
 // What's included / not included: typed lines the worker is held to.
 // ---------- Step 3: Where and when (and who, once you've used someone) ----------
 const OPEN_AFTER: { id: string; label: string; v: number | null }[] = [
+  { id: "10", label: "Open it to everyone after 10 minutes", v: 10 },
   { id: "15", label: "Open it to everyone after 15 minutes", v: 15 },
   { id: "30", label: "Open it to everyone after 30 minutes", v: 30 },
   { id: "60", label: "Open it to everyone after 1 hour", v: 60 },
@@ -959,11 +1275,11 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
     if (!d.asap && (!selDay || !selTime)) return setErr("Select a day and a start time.");
     if (!d.asap && new Date(d.startAt) < earliest) return setErr("Select a time at least an hour from now.");
     setErr("");
-    go(trade ? "/book/check" : "/book/price");
+    go("/book/check");
   };
   return (
     <div className="app">
-      <StepHero step={3} of={trade ? 3 : STEPS} title="Where and when?" onBack={() => history.back()} />
+      <StepHero title="Where and when?" onBack={() => history.back()} />
       <div className="step-body">
         <div className="sec">
           <h2>Where</h2>
@@ -1012,7 +1328,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
               <button className="field sel" onClick={() => setPick("after")}>
                 <span className="stack" style={{ gap: 2 }}>
                   <span className="k">If they can't take it</span>
-                  <span className="v">{OPEN_AFTER.find((o) => o.v === d.openAfter)?.label ?? OPEN_AFTER[1].label}</span>
+                  <span className="v">{OPEN_AFTER.find((o) => o.v === d.openAfter)?.label ?? OPEN_AFTER[0].label}</span>
                 </span>
               </button>
             )}
@@ -1021,7 +1337,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
         )}
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next, false, trade ? "check and post" : "your price")}
+      {bar("Done", next)}
       {changeArea.picker}
       {pick === "suburb" && <SearchPicker title="Suburb" placeholder={`Search ${area?.name ?? ""} suburbs`} value={d.suburbId ? [d.suburbId] : []}
         options={[...(changeArea.option ? [changeArea.option] : []), ...suburbs.map((s) => ({ id: s.id, label: s.name }))]} onChange={(v) => { setD({ ...d, suburbId: Number(v[0]) }); setErr(""); }} onClose={() => setPick(null)} />}
@@ -1055,6 +1371,6 @@ function videoSeconds(f: File): Promise<number> {
 }
 
 const PAY_METHODS = [
-  { id: "cash", label: "Pay by cash", hint: "Have it ready when they finish" },
-  { id: "bank", label: "Pay via bank transfer", hint: "Their PayID or account shows when the job's done" },
+  { id: "cash", label: "Pay by cash", short: "Cash", hint: "Have it ready when they finish" },
+  { id: "bank", label: "Pay via bank transfer", short: "Bank transfer", hint: "Their PayID or account shows when the job's done" },
 ] as const;

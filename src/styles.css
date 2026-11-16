@@ -2226,3 +2226,63 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .ofj-row .t b { font-size: 17px; font-weight: 500; line-height: 1.25; }
 .ofj-row .t small { font-size: 14px; font-weight: 300; color: var(--muted); }
 .ofj-row .p { font-size: 22px; font-weight: 600; color: var(--muted); }
+
+/* ---------- Fast posting: start screen ---------- */
+.st-body { display: flex; flex-direction: column; gap: 12px; padding: 18px 20px calc(var(--safe-bottom) + 20px); }
+.st-big { display: flex; align-items: center; gap: 18px; width: 100%; height: 112px; padding: 0 22px; border: 0; border-radius: 6px; text-align: left; font: inherit; cursor: pointer; }
+.st-big.gold { background: #f5c518; color: #14211c; }
+.st-big.em { background: var(--hero); color: #fff; }
+.st-big b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
+.st-big small { display: block; font-size: 15px; font-weight: 300; margin-top: 2px; opacity: 0.85; }
+.st-type { display: flex; align-items: center; gap: 10px; height: 58px; padding: 0 8px 0 16px; background: var(--ground); border-radius: 6px; }
+.st-type input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 17px; outline: 0; color: var(--ink); }
+.st-type button { height: 42px; padding: 0 18px; border: 0; border-radius: 4px; background: var(--emerald); color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer; }
+.st-writing { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 30px 0; }
+.st-writing b { font-size: 26px; font-weight: 600; letter-spacing: -0.6px; }
+.st-writing span { font-size: 16px; font-weight: 300; color: var(--muted); }
+
+/* ---------- Check and post: photos, included, who, repeat, price slider ---------- */
+.ck-media { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 20px 4px; background: var(--card); }
+.ck-tile { position: relative; flex: none; width: 78px; height: 78px; border-radius: 4px; background: var(--stone) center / cover; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.ck-tile video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.ck-tile.vid::after { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.3); }
+.ck-tile.vid svg { position: relative; z-index: 1; }
+.ck-tile em { position: absolute; z-index: 1; left: 6px; bottom: 5px; font-style: normal; font-size: 13px; color: #fff; }
+.ck-tile button { position: absolute; z-index: 2; top: 3px; right: 3px; width: 24px; height: 24px; border: 0; border-radius: 3px; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 0; }
+.ck-addm { flex: none; width: 78px; height: 78px; border: 0; border-radius: 4px; background: var(--ground); color: var(--emerald); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; font: inherit; font-size: 13px; cursor: pointer; }
+.ck-addm svg { width: 26px; height: 26px; }
+.ck-addm.need { width: 100%; height: 110px; flex-direction: row; gap: 14px; background: #f5c518; color: #14211c; font-size: 18px; font-weight: 500; }
+.ck-media p { width: 100%; margin: 2px 0 0; font-size: 15px; font-weight: 300; color: var(--muted); }
+.ck-ie { background: var(--card); padding: 12px 20px 6px; }
+.cl + .cl { margin-top: 14px; }
+.cl-h { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.cl-h b { font-size: 18px; font-weight: 600; }
+.cl-r { display: flex; align-items: center; gap: 10px; height: 50px; margin-bottom: 6px; padding: 0 2px 0 12px; background: var(--ground); border-radius: 4px; cursor: text; }
+.cl-r:focus-within { background: #d9efe2; }
+.cl-r input { flex: 1; min-width: 0; border: 0; background: none; font: inherit; font-size: 16px; font-weight: 300; color: var(--ink); outline: 0; }
+.cl-r button { width: 40px; height: 40px; flex: none; border: 0; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.ck-who2 { height: 66px; }
+.ck-who2 i { width: 40px; height: 40px; flex: none; border-radius: 4px; background: var(--stone-2) center 25% / cover no-repeat; display: flex; align-items: center; justify-content: center; font-style: normal; font-weight: 600; color: var(--muted); }
+.ck-who2 .v small { display: block; font-size: 14px; font-weight: 300; color: var(--muted); }
+.ck-method.rp-on { background: #fdf3c4; }
+.ck-method.rp-on .k { color: #6b5a1a; }
+.ck-hint { margin: -2px 0 0 !important; font-size: 15px; font-weight: 300; color: var(--muted); }
+.ck-range { margin: 4px 0 2px; }
+
+/* ---------- Repeats: Home and the manage screen ---------- */
+.rp-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; padding: 0; border: 0; background: none; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.recent-row .t .rp-next { display: flex; align-items: center; gap: 6px; color: var(--emerald); font-weight: 400; }
+.rp-hero { height: 150px; background: var(--stone) center / cover; }
+.rp-body { padding: 10px 20px 20px; }
+.rp-sec { margin: 26px 0 4px; font-size: 20px; font-weight: 600; letter-spacing: -0.4px; }
+.rp-up { display: flex; align-items: center; gap: 16px; padding: 12px 0; }
+.rp-up .n { width: 46px; text-align: center; font-size: 30px; font-weight: 600; letter-spacing: -1px; line-height: 1; color: var(--emerald); }
+.rp-up .n small { display: block; margin-top: 3px; font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: uppercase; color: var(--muted); }
+.rp-up .d { flex: 1; min-width: 0; }
+.rp-up .d b { display: block; font-size: 17px; font-weight: 500; }
+.rp-up .d span { font-size: 14px; font-weight: 300; color: var(--muted); }
+.rp-up.skip .n, .rp-up.skip .d b { color: var(--faint); text-decoration: line-through; }
+.rp-stop { display: block; margin: 22px 0 0; padding: 0; border: 0; background: none; color: #b3402f; font: inherit; font-size: 16px; cursor: pointer; }
+.rp-stopask { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 22px; font-size: 16px; }
+.rp-stopask .rp-stop { margin: 0; font-weight: 500; }
+.rp-keep { padding: 0; border: 0; background: none; font: inherit; font-size: 16px; color: var(--muted); cursor: pointer; }
