@@ -2201,3 +2201,28 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .pf-all { grid-template-columns: 0.8fr 1.3fr 1fr; }
 .ox .ox-st { grid-template-columns: 0.9fr 1.2fr 1fr; }
 .kw-auto svg { flex: none; }
+
+/* ---------- Nobody has answered yet ---------- */
+.rs { padding: 22px 20px 24px; background: var(--card); }
+.rs h2 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.6px; }
+.rs p { margin: 6px 0 0; font-size: 15px; font-weight: 300; line-height: 1.45; color: var(--muted); }
+.rs-opt { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+.rs-opt .t { flex: 1; min-width: 0; }
+.rs-opt .t b { display: block; font-size: 18px; font-weight: 500; }
+.rs-opt .t small { display: block; margin-top: 2px; font-size: 14px; font-weight: 300; line-height: 1.35; color: var(--muted); }
+.rs-opt .btn { height: 48px; padding: 0 18px; font-size: 16px; }
+.btn.rs-gold { background: var(--gold); color: var(--ink); box-shadow: none; }
+.rs .rs-share { display: block; margin-top: 18px; padding: 0; text-align: left; font-size: 16px; }
+
+/* ---------- Offline worker: jobs they could take now ---------- */
+.ofj { background: var(--card); padding-bottom: 8px; }
+.ofj-h { padding: 18px 20px 6px; }
+.ofj-h b { font-size: 20px; font-weight: 600; }
+.ofj-h span { display: block; margin-top: 2px; font-size: 15px; font-weight: 300; color: var(--muted); }
+.ofj-row { display: flex; align-items: center; gap: 14px; width: 100%; padding: 12px 20px; border: 0; background: none; text-align: left; color: var(--ink); cursor: pointer; }
+.ofj-row .pic { width: 76px; height: 76px; flex: none; border-radius: 4px; background: var(--stone) center / cover no-repeat; filter: grayscale(0.35); }
+.ofj-row .t { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.ofj-row .t i { font-style: normal; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--emerald); }
+.ofj-row .t b { font-size: 17px; font-weight: 500; line-height: 1.25; }
+.ofj-row .t small { font-size: 14px; font-weight: 300; color: var(--muted); }
+.ofj-row .p { font-size: 22px; font-weight: 600; color: var(--muted); }

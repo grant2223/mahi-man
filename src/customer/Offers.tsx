@@ -2,7 +2,7 @@ import { recLine, type Scores } from "../ui/Ratings";
 import { useEffect, useState } from "react";
 import { avatarUrl, rpc, sb, type Work, workPhotoUrls } from "../lib/supabase";
 import { elapsed } from "../lib/format";
-import { CatIcon, Icon, Logo, StepHero, useNow, useToast } from "../ui/kit";
+import { CatIcon, Icon, Logo, SearchPicker, StepHero, useNow, useToast } from "../ui/kit";
 import { Note } from "../ui/Completion";
 import { ChatScreen } from "../ui/Chat";
 import { dayTime, money } from "../lib/format";
@@ -31,8 +31,10 @@ export const GoldTick = ({ s = 24 }: { s?: number }) => <svg className="gold-tic
 const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
 
 // The customer's job while it's open: people who say they're available, and Yes or Ignore on each.
-export function OffersView({ jobId, title, price, asap, startAt, searchingAt, boosted, feeDue = 0, onChosen, onCancel, onBoosted, trade }: {
-  jobId: string; title: string; price: string; asap: boolean; startAt: string; searchingAt: string; boosted: boolean; feeDue?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
+const RAISE = 1000;
+
+export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt, searchingAt, boosted, feeDue = 0, onChosen, onCancel, onBoosted, trade }: {
+  jobId: string; title: string; price: string; priceCents?: number; asap: boolean; startAt: string; searchingAt: string; boosted: boolean; feeDue?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
   trade?: boolean;
 }) {
   const { profile: me, reload } = useSession();
@@ -81,6 +83,32 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
     }).catch(() => {});
   }, [ids, jobId]);
   const widened = now - new Date(searchingAt).getTime() > widenMin * 60000;
+  // Nobody has said they're free after 10 minutes: one-tap ways through instead of just waiting.
+  const stuck = !shown.length && !trade && now - new Date(searchingAt).getTime() >= 10 * 60000;
+  const [rescueBusy, setRescueBusy] = useState(false);
+  const [pickWhen, setPickWhen] = useState<null | "day" | "time">(null);
+  const [day, setDay] = useState("");
+  async function rescue(run: () => Promise<unknown>, done: string) {
+    setRescueBusy(true);
+    try { await run(); toast(done); onBoosted(); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+    finally { setRescueBusy(false); }
+  }
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const days = Array.from({ length: 6 }, (_, i) => {
+    const x = new Date(); x.setDate(x.getDate() + i);
+    const nice = x.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+    return { id: `${x.getFullYear()}-${pad(x.getMonth() + 1)}-${pad(x.getDate())}`, label: i === 0 ? `Today, ${nice}` : i === 1 ? `Tomorrow, ${nice}` : nice };
+  });
+  const times = (d: string) => {
+    const out: { id: string; label: string }[] = [];
+    for (let m = 6 * 60; m <= 20 * 60; m += 30) {
+      const hh = pad(Math.floor(m / 60)), mm = pad(m % 60);
+      if (new Date(`${d}T${hh}:${mm}`).getTime() < Date.now() + 60 * 60000) continue;
+      out.push({ id: `${hh}:${mm}`, label: new Date(2000, 0, 1, m / 60, m % 60).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase() });
+    }
+    return out;
+  };
   const [chat, setChat] = useState<Offer | null>(null);
 
   async function choose(o: Offer) {
@@ -185,7 +213,37 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
           </>
         )}
       </section>
-      {!boosted && !shown.length && (
+      {stuck && (
+        <div className="rs">
+          <h2>Nobody's free yet</h2>
+          <p>Workers near you are busy right now. Any one of these usually gets an answer in minutes.</p>
+          <div className="rs-opt">
+            <span className="t"><b>Pay {money(RAISE)} more</b><small>{money(priceCents + RAISE)} instead of {money(priceCents)}. Higher prices get taken faster.</small></span>
+            <button className="btn rs-gold" disabled={rescueBusy} onClick={() => rescue(() => rpc("raise_job_price", { p_job: jobId, p_add_cents: RAISE }), `Now ${money(priceCents + RAISE)}. Workers have been told again.`)}>Add {money(RAISE)}</button>
+          </div>
+          {!boosted && (
+            <div className="rs-opt">
+              <span className="t"><b>Urgent boost</b><small>Every worker in your category gets an alert.{boostCents ? ` ${money(boostCents)}, free with Plus.` : ""}</small></span>
+              <button className="btn primary" disabled={rescueBusy} onClick={() => rescue(() => rpc("boost_job", { p_job: jobId }), "Boosted. Every worker in your category has been told.")}>Boost</button>
+            </div>
+          )}
+          {asap && (
+            <div className="rs-opt">
+              <span className="t"><b>Pick a time instead</b><small>More people are free for later today or tomorrow.</small></span>
+              <button className="btn stone" disabled={rescueBusy} onClick={() => setPickWhen("day")}>Pick a time</button>
+            </div>
+          )}
+          <button className="link rs-share" onClick={async () => {
+            const r = await shareLink(`Paid job on Mahi Man: ${title}, ${price}. Workers keep 100%.`, `${SITE}/work`);
+            if (r === "copied") toast("Link copied. Paste it in a message.");
+          }}>Know someone who could do this? Share the job</button>
+        </div>
+      )}
+      {pickWhen === "day" && <SearchPicker title="Which day?" placeholder="Search" value={[]} options={days} onClose={() => setPickWhen(null)}
+        onChange={(v) => { setDay(String(v[0])); setPickWhen("time"); }} />}
+      {pickWhen === "time" && <SearchPicker title="What time?" placeholder="Search" value={[]} options={times(day)} onClose={() => setPickWhen(null)}
+        onChange={(v) => { setPickWhen(null); rescue(() => rpc("set_job_time", { p_job: jobId, p_start_at: new Date(`${day}T${v[0]}`).toISOString() }), "Time set. Workers have been told again."); }} />}
+      {!stuck && !boosted && !shown.length && (
         <div className="boost-row">
           <span className="stack" style={{ gap: 2, flex: 1 }}>
             <b>Urgent boost</b>
@@ -295,11 +353,13 @@ export function OffersView({ jobId, title, price, asap, startAt, searchingAt, bo
         })}
       </div>
 
-      <div className="cp-note">
-        {Icon.msg("var(--muted)")}
-        <span>Messages open with the person you choose. Everyone else is told the job's taken.</span>
-      </div>
-      {!shown.length && (
+      {!stuck && (
+        <div className="cp-note">
+          {Icon.msg("var(--muted)")}
+          <span>Messages open with the person you choose. Everyone else is told the job's taken.</span>
+        </div>
+      )}
+      {!shown.length && !stuck && (
         <div className="cp-note">
           <span>Know someone who could do this? <button className="link" style={{ padding: 0 }} onClick={async () => {
             const r = await shareLink(`Paid job on Mahi Man: ${title}, ${price}. Workers keep 100%.`, `${SITE}/work`);

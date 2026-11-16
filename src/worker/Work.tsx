@@ -266,6 +266,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       {online && !jobs.length && <Standby />}
       {online && jobs.length < 3 && feedOffer && <FeedOfferCard o={feedOffer} />}
 
+      {!online && <OfflineJobs onGoOnline={toggle} />}
       {!online && <Offline />}
       <History />
       <TabBar on="work" />
@@ -476,3 +477,30 @@ function History() {
 }
 
 export { hours };
+
+// Offline: the jobs they could take right now, so there's a reason to go online. Tapping one goes online.
+function OfflineJobs({ onGoOnline }: { onGoOnline: () => void }) {
+  const [jobs, setJobs] = useState<{ id: string; job_name: string; category: string | null; suburb: string; distance_km: number | null; earn_cents: number; asap: boolean; start_at: string; cover_path: string | null }[] | null>(null);
+  const [pics, setPics] = useState<Record<string, string>>({});
+  useEffect(() => {
+    rpc<NonNullable<typeof jobs>>("jobs_if_online").then((r) => {
+      setJobs(r ?? []);
+      const need = (r ?? []).map((j) => j.cover_path).filter((x): x is string => !!x);
+      if (need.length) mediaUrls(need).then(setPics);
+    }).catch(() => setJobs([]));
+  }, []);
+  if (!jobs?.length) return null;
+  const when = (j: (typeof jobs)[number]) => j.asap ? "Now" : new Date(j.start_at).toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" });
+  return (
+    <div className="ofj">
+      <div className="ofj-h"><b>{jobs.length} job{jobs.length === 1 ? "" : "s"} near you now</b><span>Go online to say you're free for one.</span></div>
+      {jobs.map((j) => (
+        <button key={j.id} className="ofj-row" onClick={onGoOnline}>
+          <span className="pic" style={j.cover_path && pics[j.cover_path] ? { backgroundImage: `url("${pics[j.cover_path]}")` } : undefined} />
+          <span className="t">{j.category && <i>{j.category}</i>}<b>{j.job_name}</b><small>{j.suburb}{j.distance_km != null ? `, ${j.distance_km} km` : ""}. {when(j)}</small></span>
+          <span className="p">{money(j.earn_cents)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}

@@ -142,7 +142,7 @@ export function Track({ id }: { id: string }) {
   if (job.status === "searching") {
     return (
       <>
-        <OffersView jobId={id} title={jobName} price={money(job.price_cents)} feeDue={job.fee_status === "due" ? job.fee_cents : 0} asap={job.asap} startAt={job.start_at}
+        <OffersView jobId={id} title={jobName} price={money(job.price_cents)} priceCents={job.price_cents} feeDue={job.fee_status === "due" ? job.fee_cents : 0} asap={job.asap} startAt={job.start_at}
           searchingAt={job.searching_at ?? job.created_at} boosted={!!job.boosted} onBoosted={load} onChosen={load} onCancel={() => setScreen("cancel")}
           trade={!!job.trade} />
         {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
