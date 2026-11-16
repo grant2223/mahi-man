@@ -16,11 +16,12 @@ export interface PayDetails { trading_name?: string; legal_name?: string; abn?: 
 interface Line { date: string; job: string; who: string; cents: number }
 interface InvoiceRow { id: number; number: string; total: number; status: "due" | "claimed" | "paid"; issued_at: string; due_at: string }
 interface TopupRow { id: number; reference: string; amount: number; status: "requested" | "claimed"; created_at: string }
+interface PlusOrder { id: number; reference: string; amount: number; months: number; status: "requested" | "claimed" }
 export interface MyPayments {
   mode: string; card_live: boolean;
-  rates: { payg: number; payg_max: number; topup: number; topup_max: number; plus: number; plus_max: number; plus_cents: number; auto_topup: number; auto_below: number };
+  rates: { payg: number; payg_max: number; topup: number; topup_max: number; plus: number; plus_max: number; plus_cents: number; plus_year: number; auto_topup: number; auto_below: number };
   balance: number; gift_balance: number; gift_from: string | null; plan: "now" | "weekly" | "fortnightly"; payday: number; anchor: string | null;
-  plus_until: string | null; plus_renew: boolean; auto_topup: boolean; card: string | null; pay: PayDetails;
+  plus_until: string | null; plus_renew: boolean; plus_order: PlusOrder | null; auto_topup: boolean; card: string | null; pay: PayDetails;
   next: { total: number; lines: Line[] }; invoices: InvoiceRow[]; log: { delta: number; kind: string; note: string; at: string }[]; topups: TopupRow[];
   gifts: { id: number; amount: number; to: string; status: string; send_by: string; send_on: string; sent_at: string | null; redeemed: boolean }[];
 }
@@ -114,13 +115,13 @@ const Badge = ({ s }: { s: string }) => <span className={`badge ${STATUS[s]?.[0]
 /* ---------- How you pay (was Pricing) ---------- */
 export function HowYouPay() {
   const { session } = useSession();
-  const [r, setR] = useState({ payg: 12, payg_max: 3000, topup: 10, topup_max: 2500, plus: 6, plus_max: 1500, plus_cents: 999 });
+  const [r, setR] = useState({ payg: 12, payg_max: 3000, topup: 10, topup_max: 2500, plus: 6, plus_max: 1500, plus_year: 9900 });
   const [auth, setAuth] = useState<string | null>(null);
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "topup_fee_percent", "topup_fee_max_cents", "plus_fee_percent", "plus_fee_max_cents", "plus_cents"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "topup_fee_percent", "topup_fee_max_cents", "plus_fee_percent", "plus_fee_max_cents", "plus_year_cents"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((x) => [x.key, Number(x.value)]));
       setR((c) => ({ payg: m.booking_fee_percent || c.payg, payg_max: m.booking_fee_max_cents || c.payg_max, topup: m.topup_fee_percent || c.topup, topup_max: m.topup_fee_max_cents || c.topup_max,
-        plus: m.plus_fee_percent || c.plus, plus_max: m.plus_fee_max_cents || c.plus_max, plus_cents: m.plus_cents || c.plus_cents }));
+        plus: m.plus_fee_percent || c.plus, plus_max: m.plus_fee_max_cents || c.plus_max, plus_year: m.plus_year_cents || c.plus_year }));
     });
   }, []);
   // A weekly regular: 4 jobs of $80 in a month.
@@ -148,9 +149,9 @@ export function HowYouPay() {
         <div className="pl-row pl-head"><span /><b>Pay as you go</b><b>Top-up</b><b><span className="pl-badge">Plus</span></b></div>
         <div className="pl-row"><span>Connection fee</span><b>{r.payg}%</b><b>{r.topup}%</b><b className="pl-plus">{r.plus}%</b></div>
         <div className="pl-row"><span>Fee cap</span><span>{dollars(r.payg_max)}</span><span>{dollars(r.topup_max)}</span><span className="pl-plus">{dollars(r.plus_max)}</span></div>
-        <div className="pl-row"><span>Each month</span><span>Nothing</span><span>Nothing</span><span className="pl-plus">{money2(r.plus_cents)}</span></div>
+        <div className="pl-row"><span>To join</span><span>Free</span><span>Free</span><span className="pl-plus">{dollars(r.plus_year)} a year</span></div>
         <div className="pl-row"><span>Priority and fix-it guarantee</span><span>—</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
-        <div className="pl-row pl-eg"><span>Weekly, 4 jobs of $80</span><b>{money2(eg(r.payg, r.payg_max))}</b><b>{money2(eg(r.topup, r.topup_max))}</b><b className="pl-plus">{money2(eg(r.plus, r.plus_max) + r.plus_cents)}</b></div>
+        <div className="pl-row pl-eg"><span>Weekly, 4 jobs of $80</span><b>{money2(eg(r.payg, r.payg_max))}</b><b>{money2(eg(r.topup, r.topup_max))}</b><b className="pl-plus">{money2(eg(r.plus, r.plus_max) + Math.round(r.plus_year / 12))}</b></div>
       </div>
       <div className="cp-sec" style={{ paddingBottom: Capacitor.isNativePlatform() ? 18 : "calc(var(--safe-bottom) + 32px)" }}>
         <Li b="Pay as you go" s="Nothing upfront. Pay the fee by bank transfer, after each job, weekly or every 2 weeks on your payday." />
@@ -486,40 +487,84 @@ export function TopUpPage() {
 }
 
 /* ---------- Get Plus ---------- */
+// Plus: one payment for a year. In beta it's a bank transfer; card payments switch on when Stripe is connected.
 export function PlusPage() {
   const toast = useToast();
   const { p, reload: reloadP, failed } = usePayments();
+  const [order, setOrder] = useState<(PlusOrder & { pay: PayDetails }) | null>(null);
   const [busy, setBusy] = useState(false);
   if (!p) return <Page title="Mahi Man Plus" onBack={back("/payments")}><Waiting failed={failed} onRetry={reloadP} /></Page>;
-  const short = p.balance < p.rates.plus_cents;
   const plus = isPlus(p);
-  const G = "#f5c518";
-  const ic = (d: ReactNode) => <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke={G} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{d}</svg>;
+  const year = p.rates.plus_year, monthly = p.rates.plus_cents;
+  const save = 12 * monthly - year;
+  const until = p.plus_until ? new Date(p.plus_until).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ }) : "";
+  const waiting = p.plus_order;
+
+  async function start() {
+    setBusy(true);
+    try { setOrder(await rpc<PlusOrder & { pay: PayDetails }>("plus_request", { p_months: 12 })); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+  }
+
+  if (order) return (
+    <div className="app">
+      <div className="screen-head brand"><button className="back" onClick={() => setOrder(null)} aria-label="Back">{Icon.back("#fff")}</button><h3>Pay for Plus</h3></div>
+      <div className="pq-body">
+        <div className="pq-amt">{money(order.amount)}<small>A year of Plus, by bank transfer</small></div>
+        <div className="pq-rows"><BankDetails pay={order.pay} reference={order.reference} /></div>
+        <p className="pq-note">Use the reference so we can match it. Plus starts as soon as it lands, usually within a day.</p>
+        <div className="pq-go">
+          {order.status === "claimed"
+            ? <span className="pq-wait">{Icon.clock("var(--emerald)")}We're checking for your transfer</span>
+            : <button className="btn primary pq-btn" disabled={busy} onClick={async () => {
+                setBusy(true);
+                try { await rpc("plus_claim", { p_id: order.id }); setOrder({ ...order, status: "claimed" }); reloadP(); toast("Thanks. We'll switch Plus on when it lands."); }
+                catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+              }}>I've paid</button>}
+        </div>
+      </div>
+    </div>
+  );
+
+  const ic = (d: ReactNode) => <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>{d}</svg>;
   return (
-    <div className="pp">
-      <button className="pp-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
-      <div className="pp-top">
-        <svg width="64" height="64" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill={G} /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
-        <div className="w">MAHI MAN</div>
-        <h1>Plus</h1>
-        <div className="pp-price"><b>{money2(p.rates.plus_cents)}</b> a month</div>
-        {plus && <div className="on">{p.plus_renew ? `You're on Plus. Renews ${new Date(p.plus_until!).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}` : `You're on Plus until ${new Date(p.plus_until!).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}`}</div>}
+    <div className="app">
+      <div className="pq-hero">
+        <button className="back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
+        <div className="pq-title">
+          <svg width="56" height="56" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#f5c518" /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
+          <h1><small>MAHI MAN</small>Plus</h1>
+        </div>
+        <p>{plus ? `You're on Plus until ${until}.` : "For people who book help every week."}</p>
       </div>
-      <div className="pp-bn">
-        <div>{ic(<path d="M12 19V5M5 12l7-7 7 7" />)}Your jobs go first</div>
-        <div>{ic(<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" />)}Top-rated workers first</div>
-        <div>{ic(<><path d="M14.7 6.3a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3z" /><path d="M5 5l3 3" /></>)}Fix-it guarantee</div>
-        <div>{ic(<><path d="M19 5L5 19" /><circle cx="7" cy="7" r="2.5" /><circle cx="17" cy="17" r="2.5" /></>)}Lower fees</div>
-      </div>
-      <div className="pp-ft">
-        {short && !plus
-          ? <button className="btn pp-join" onClick={() => go("/topup")}>Top up first</button>
-          : <button className="btn pp-join" disabled={busy} onClick={async () => {
-              setBusy(true);
-              try { await rpc("plus_join"); toast(plus ? "Plus renews each month" : "You're on Plus"); go("/payments", true); }
-              catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
-            }}>{busy ? "Working…" : plus ? "Keep Plus each month" : "Join Plus"}</button>}
-        <span>{short && !plus ? `It comes off your balance: ${money2(p.balance)} now` : "Stop any time"}</span>
+      <div className="pq-body">
+        <div className="pq-bn">
+          <div>{ic(<path d="M12 19V5M5 12l7-7 7 7" />)}Your jobs go out first</div>
+          <div>{ic(<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" />)}Top-rated workers see them first</div>
+          <div>{ic(<><path d="M14.7 6.3a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3z" /><path d="M5 5l3 3" /></>)}Fix-it guarantee</div>
+          <div>{ic(<><path d="M19 5L5 19" /><circle cx="7" cy="7" r="2.5" /><circle cx="17" cy="17" r="2.5" /></>)}Lower connection fees</div>
+        </div>
+        {waiting ? (
+          <button className="pq-waiting" onClick={start}>
+            {Icon.clock("var(--emerald)")}
+            <span><b>{waiting.status === "claimed" ? "We're checking for your transfer" : `Waiting for your ${money(waiting.amount)} transfer`}</b>
+              <small>{waiting.reference}</small></span>
+            {Icon.chevron("var(--faint)")}
+          </button>
+        ) : <>
+          <div className="pq-price"><b>{money(year)}</b><span>a year</span>{save > 0 && <em>Save {money(save)}</em>}</div>
+          <div className="pq-how">
+            <span className="on">{Icon.tick("#fff", 18)}Bank transfer</span>
+            <span className="off">Card · coming soon</span>
+          </div>
+          <div className="pq-beta"><b>BETA</b><span>We're in beta, so Plus is paid by bank transfer for now. Card payments are coming soon.</span></div>
+        </>}
+        {!waiting && (
+          <div className="pq-go">
+            <button className="pq-gold" disabled={busy} onClick={start}>{busy ? "One moment…" : plus ? `Add a year for ${money(year)}` : `Get Plus for ${money(year)}`}</button>
+            <span>One payment. No auto-renew.</span>
+          </div>
+        )}
       </div>
     </div>
   );

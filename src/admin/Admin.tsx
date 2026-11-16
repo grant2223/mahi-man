@@ -1231,7 +1231,8 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "topup_fee_max_cents", label: "Top-up cap", t: "num", unit: "$" },
     { k: "plus_fee_percent", label: "Plus", t: "num", unit: "%" },
     { k: "plus_fee_max_cents", label: "Plus cap", t: "num", unit: "$" },
-    { k: "plus_cents", label: "Plus, per month", hint: "Taken from their balance.", t: "num", unit: "$" },
+    { k: "plus_year_cents", label: "Plus, per year", hint: "One payment, by bank transfer in beta.", t: "num", unit: "$" },
+    { k: "plus_cents", label: "Plus, monthly value", hint: "Only used to show the yearly saving.", t: "num", unit: "$" },
     { k: "invoice_due_days", label: "Invoice after each job is due in", t: "num", unit: "days" },
     { k: "invoice_pause_days", label: "Posting pauses once overdue by", t: "num", unit: "days" },
     { k: "auto_topup_cents", label: "Automatic top-up adds", t: "num", unit: "$" },
@@ -1915,9 +1916,9 @@ function PartnerDetail({ p, onBack, onChanged }: { p: PartnerRow; onBack: () => 
 
 // Every invoice in one place: customer connection fees, customer bank top-ups, tradie plans and partner months.
 // Match the reference on the bank statement, then mark it paid. "They say paid" means the customer pressed I've paid.
-interface MoneyRow { kind: "invoice" | "topup" | "gift" | "tradie" | "partner"; id: number; ref: string; who: string; what: string; item: string; amount: number; due: string; state: "due" | "late" | "claimed" | "paid"; paused: boolean; created: string; paid_at: string | null }
+interface MoneyRow { kind: "invoice" | "topup" | "gift" | "plus" | "tradie" | "partner"; id: number; ref: string; who: string; what: string; item: string; amount: number; due: string; state: "due" | "late" | "claimed" | "paid"; paused: boolean; created: string; paid_at: string | null }
 interface MoneyData { rows: MoneyRow[]; due_week: number; due_week_n: number; late: number; late_n: number; paid_month: number; paid_month_n: number }
-const MONEY_VIEWS: [string, string][] = [["open", "To check and due"], ["late", "Overdue"], ["topups", "Top-ups and gift cards"], ["paid", "Paid"], ["all", "Everything"]];
+const MONEY_VIEWS: [string, string][] = [["open", "To check and due"], ["late", "Overdue"], ["topups", "Top-ups, gift cards and Plus"], ["paid", "Paid"], ["all", "Everything"]];
 function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
   const toast = useToast();
   const [view, setView] = useState("open");
@@ -1932,6 +1933,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
       if (r.kind === "invoice") await rpc("admin_invoice_set", { p_id: r.id, p_status: "paid" });
       else if (r.kind === "topup") await rpc("admin_topup_paid", { p_id: r.id });
       else if (r.kind === "gift") await rpc("admin_gift_paid", { p_id: r.id });
+      else if (r.kind === "plus") await rpc("admin_plus_paid", { p_id: r.id });
       else if (r.kind === "tradie") await rpc("admin_trade_order_paid", { p_id: r.id, p_note: `Bank transfer ${r.ref}` });
       else await rpc("admin_partner_paid", { p_invoice: r.id });
       toast(`${r.ref} marked paid`); load(); onChanged();
@@ -1966,7 +1968,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
             </tr>
           ))}</tbody></table></div>
       )}
-      <p className="light muted" style={{ marginTop: 14 }}>Match the reference on your bank statement to the invoice, then mark it paid. "They say paid" means the customer pressed I've paid. Top-ups are added to the customer's balance when you mark them paid. A gift card sends once it's marked paid.</p>
+      <p className="light muted" style={{ marginTop: 14 }}>Match the reference on your bank statement to the invoice, then mark it paid. "They say paid" means the customer pressed I've paid. Top-ups are added to the customer's balance when you mark them paid. A gift card sends once it's marked paid. Plus switches on for a year once it's marked paid.</p>
       {pick && <SearchPicker title="Show" placeholder="Search" options={MONEY_VIEWS.map(([id, label]) => ({ id, label }))} value={[view]} onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
     </>
   );

@@ -2071,3 +2071,39 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .cs-ft { margin-top: auto; padding: 16px 16px calc(var(--safe-bottom) + 12px); display: flex; gap: 10px; }
 .cs-ft .btn { flex: 1; }
 .cs-ft .btn.primary { flex: 1.6; }
+
+/* Plus: one yearly price, bank transfer in beta */
+.pq-hero { background: var(--hero); color: #fff; padding: calc(var(--safe-top) + 6px) 20px 26px; }
+.pq-hero .back { margin-left: -4px; }
+.pq-title { display: flex; align-items: center; gap: 14px; margin-top: 10px; }
+.pq-title h1 { margin: 0; font-size: 34px; font-weight: 600; letter-spacing: -1.2px; line-height: 1; }
+.pq-title h1 small { display: block; font-size: 14px; font-weight: 600; letter-spacing: 0.06em; color: #f5c518; margin-bottom: 6px; }
+.pq-hero p { margin: 14px 0 0; font-size: 16px; font-weight: 300; color: rgba(255,255,255,0.9); }
+.pq-body { flex: 1; display: flex; flex-direction: column; padding: 22px 20px calc(var(--safe-bottom) + 14px); background: var(--card); }
+.pq-waiting svg, .pq-wait svg { width: 26px; height: 26px; flex: none; }
+.pq-bn { display: grid; gap: 14px; }
+.pq-bn div { display: flex; align-items: center; gap: 14px; font-size: 17px; font-weight: 400; }
+.pq-price { display: flex; align-items: baseline; gap: 8px; margin-top: 28px; }
+.pq-price b { font-size: 46px; font-weight: 600; letter-spacing: -1.6px; line-height: 1; }
+.pq-price span { font-size: 18px; font-weight: 300; color: var(--muted); }
+.pq-price em { margin-left: auto; align-self: center; font-style: normal; background: #f5c518; color: #14211c; font-size: 13px; font-weight: 600; padding: 4px 8px; border-radius: 3px; }
+.pq-how { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 18px; }
+.pq-how span { display: flex; align-items: center; justify-content: center; gap: 8px; height: 48px; border-radius: var(--r-control); font-size: 16px; }
+.pq-how .on { background: var(--emerald); color: #fff; font-weight: 500; }
+.pq-how .off { background: var(--ground); color: var(--faint); font-weight: 400; }
+.pq-beta { display: flex; gap: 10px; align-items: flex-start; margin-top: 16px; font-size: 15px; font-weight: 300; line-height: 1.4; }
+.pq-beta b { flex: none; background: #f5c518; color: #14211c; font-size: 12px; font-weight: 600; padding: 3px 7px; border-radius: 3px; margin-top: 1px; }
+.pq-go { margin-top: auto; padding-top: 22px; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.pq-go > span { font-size: 14px; font-weight: 300; color: var(--muted); }
+.pq-gold { width: 100%; height: 58px; border: 0; border-radius: var(--r-control); background: #f5c518; color: #14211c; font-size: 18px; font-weight: 600; cursor: pointer; }
+.pq-gold:disabled { opacity: 0.6; }
+.pq-btn { width: 100%; height: 58px; font-size: 18px; }
+.pq-amt { font-size: 52px; font-weight: 600; letter-spacing: -2px; line-height: 1; }
+.pq-amt small { display: block; font-size: 16px; font-weight: 300; letter-spacing: 0; color: var(--muted); margin-top: 8px; }
+.pq-rows { display: grid; gap: 8px; margin-top: 22px; }
+.pq-note { margin: 16px 0 0; font-size: 15px; font-weight: 300; line-height: 1.45; color: var(--muted); }
+.pq-wait { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 500; color: var(--emerald); }
+.pq-waiting { display: flex; align-items: center; gap: 14px; width: 100%; margin-top: 26px; padding: 16px; border: 0; border-radius: var(--r-control); background: #fbf3e4; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.pq-waiting span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.pq-waiting b { font-size: 17px; font-weight: 500; }
+.pq-waiting small { font-size: 14px; font-weight: 300; color: var(--muted); }

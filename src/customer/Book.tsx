@@ -326,7 +326,7 @@ export function Book() {
               const save = connCents - plusCents;
               return save > 0 ? (
                 <div className="ck-save">
-                  <div className="t"><b>Save {money2(save)} with Plus</b><span>{r.plus}% fees, {money(r.plus_cents)} a month</span></div>
+                  <div className="t"><b>Save {money2(save)} with Plus</b><span>{r.plus}% fees, {money(r.plus_year)} a year</span></div>
                   <div className="a"><button className="btn primary" onClick={() => go("/plus")}>Get Plus</button></div>
                 </div>
               ) : null;
