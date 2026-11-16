@@ -203,7 +203,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
           <>
             <span className="label" style={{ marginTop: 18 }}>Who's available</span>
             <span className="big lime">{shown.length}</span>
-            <span className="sub" style={{ marginTop: 6 }}>Select who you want. Each offer lasts 15 minutes.</span>
+            <span className="sub" style={{ marginTop: 6 }}>Select who you want. Each one stays for 15 minutes.</span>
           </>
         ) : (
           <>

@@ -75,7 +75,7 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["What happens with strikes?", `${fee.s30} in 30 days and you're offline for ${fee.off} days. ${fee.s90} in 90 days and we review your account. Each strike drops off after 90 days.`],
     ["What if the customer isn't home?", `Tap I'm here. If they still haven't answered after ${fee.wait} minutes, you can cancel and they pay you ${money(fee.cancel)} for your time.`],
     ["What if I have an emergency?", "Tell us what happened when you cancel. Your first emergency in 90 days has no fee and no strike."],
-    ["What's my Turns up score?", "How often you turn up on time for the jobs you take. Customers see it on every offer you send."],
+    ["What's my Turns up score?", "How often you turn up on time for the jobs you take. Customers see it every time you say you're available."],
   ]],
   ["Payments and fees", [
     ["What does it cost?", `You pay your worker directly by bank transfer or cash. When a job goes ahead, customers pay Mahi Man a connection fee of ${fee.pct}%, up to ${money(fee.max)} a job. Workers keep 100%.`],

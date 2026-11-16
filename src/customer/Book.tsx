@@ -437,7 +437,7 @@ export function Book() {
           </Screen>
         )}
         {verifyScreen && <VerifyFlow onClose={() => setVerifyScreen(false)} onSubmitted={() => { verifySent.current = true; setVerifyScreen(false); window.setTimeout(book, 300); }} />}
-        {photoScreen && <PhotoStep note="Workers see it before they offer, so they know who they're meeting." saveLabel="Save and post" photoOnly
+        {photoScreen && <PhotoStep note="Workers see it before they say they're available, so they know who they're meeting." saveLabel="Save and post" photoOnly
           onBack={() => setPhotoScreen(false)} onSaved={() => { photoAdded.current = true; setPhotoScreen(false); window.setTimeout(book, 300); }} />}
         {cardScreen && <AddCardScreen onBack={() => setCardScreen(false)} onSaved={() => { cardAdded.current = true; setCardScreen(false); window.setTimeout(book, 300); }} />}
         {auth && (

@@ -240,7 +240,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <div className="wrap-list">
           {mine.filter((m) => m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).map((m) => (
             <button key={m.job_id} className="wrap-row" onClick={() => setWaiting(m.job_id)}>
-              <span className="t"><b>Waiting for {m.customer_name}</b><span>{m.title}, {money(m.pay_cents)}, {m.trade ? "price sent" : `offer ends ${new Date(m.expires_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}`}</span></span>
+              <span className="t"><b>Waiting for {m.customer_name}</b><span>{m.title}, {money(m.pay_cents)}, {m.trade ? "price sent" : `available until ${new Date(m.expires_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}`}</span></span>
               {Icon.chevron("var(--faint)")}
             </button>
           ))}

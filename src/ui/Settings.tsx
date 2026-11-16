@@ -112,7 +112,7 @@ export function Settings() {
     { label: "How payment works", hint: "Who you pay and when", act: () => go("/pricing") },
     { label: "Your jobs", hint: "Jobs you've posted", act: () => go("/jobs") },
     { label: "Turns up score", hint: "Reliability and strikes", act: () => setSub("reliability"), worker: true },
-    { label: "Skills", hint: "What customers see on your offers", act: () => setSub("skills"), worker: true },
+    { label: "Skills", hint: "What customers see when you're available", act: () => setSub("skills"), worker: true },
     { label: "Licences and certificates", hint: "Insurance, RSA, Blue Card, trade licences", act: () => setSub("creds"), worker: true },
     { label: "Getting paid", hint: "Where customers pay you", act: () => setSub("payid"), worker: true },
     { label: "Help and support", hint: "Contact the Mahi Man team", act: () => go("/support") },

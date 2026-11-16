@@ -30,7 +30,7 @@ export function Reliability({ onBack }: { onBack: () => void }) {
           <div className="top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button></div>
           <span style={{ color: "rgba(255,255,255,.8)", fontSize: 15 }}>You turn up</span>
           <h1 style={{ fontSize: 56, letterSpacing: -2 }}>{r.turns_up != null ? `${r.turns_up}%` : "New"}</h1>
-          <p>{r.turns_up != null ? "Customers see this on every offer you send." : "Shown to customers after your first 3 jobs."}</p>
+          <p>{r.turns_up != null ? "Customers see this every time you say you're available." : "Shown to customers after your first 3 jobs."}</p>
         </section>
         {r.offline_until && (
           <div className="cp-sec" style={{ background: "#fbf3e4" }}>
