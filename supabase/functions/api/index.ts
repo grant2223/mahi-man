@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.49.4";
-import { admin, releaseJob, setting, stripe } from "./payments.ts";
+import { admin, feePaid, refreshWorker, releaseJob, setting, stripe } from "./payments.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
         if (job.status !== "awaiting_payment") return ok({ status: job.status });
         const pi = await stripe().paymentIntents.retrieve(job.payment_intent_id);
         if (pi.status !== "requires_capture") return fail("Your card was not approved. Try another card.");
-        await admin.from("jobs").update({ status: "searching", searching_at: new Date().toISOString() }).eq("id", job.id);
+        await admin.rpc("job_card_held", { p_job: job.id, p_intent: pi.id });
         return ok({ status: "searching" });
       }
       case "pay_extra": {
@@ -95,8 +95,7 @@ Deno.serve(async (req) => {
         if (er.status === "approved") return ok({});
         const pi = await stripe().paymentIntents.retrieve(er.payment_intent_id);
         if (pi.status !== "requires_capture") return fail("Your card was not approved. Try another card.");
-        await admin.from("extra_requests").update({ status: "approved", decided_at: new Date().toISOString() }).eq("id", er.id);
-        await admin.from("jobs").update({ extra_cents: er.jobs.extra_cents + er.amount_cents }).eq("id", er.job_id);
+        await admin.rpc("extra_card_held", { p_request: er.id, p_intent: pi.id });
         return ok({});
       }
       case "confirm_job": {
@@ -551,22 +550,6 @@ async function chargeFee(feeId: number, uid: string, email?: string): Promise<bo
   return true;
 }
 
-// Marks a fee paid and sends it to the worker's payout account. Without one, admin pays them out.
-async function feePaid(feeId: number | null, payee: string | null, amount: number, charge: unknown, jobId: string | null) {
-  if (!feeId) return;
-  const chargeId = typeof charge === "string" ? charge : (charge as { id?: string } | null)?.id;
-  let paidOut: string | null = null;
-  if (payee && chargeId) {
-    const { data: w } = await admin.from("workers").select("stripe_account_id").eq("id", payee).single();
-    if (w?.stripe_account_id) {
-      await stripe().transfers.create({ amount, currency: "aud", destination: w.stripe_account_id, source_transaction: chargeId,
-        metadata: { fee_id: String(feeId), job_id: jobId ?? "", kind: "cancel_fee" } }, { idempotencyKey: `fee-out-${feeId}` });
-      paidOut = new Date().toISOString();
-    }
-  }
-  await admin.from("fees_owed").update({ status: "paid", paid_at: new Date().toISOString(), payment_ref: chargeId ?? "card", paid_out_at: paidOut }).eq("id", feeId);
-}
-
 async function customerFor(uid: string, email: string, name: string): Promise<string> {
   const { data: p } = await admin.from("profiles").select("stripe_customer_id").eq("id", uid).single();
   if (p?.stripe_customer_id) return p.stripe_customer_id;
@@ -630,31 +613,3 @@ function basicTidy(t: string): string {
   return /[.!?]$/.test(out) ? out : out + ".";
 }
 
-async function refreshWorker(id: string) {
-  const { data: w } = await admin.from("workers").select("*").eq("id", id).single();
-  const { data: p } = await admin.from("profiles").select("*").eq("id", id).single();
-  const { count } = await admin.from("worker_job_types").select("*", { count: "exact", head: true }).eq("worker_id", id);
-  let payoutsReady = false;
-  if (w?.stripe_account_id && Deno.env.get("STRIPE_SECRET_KEY")) {
-    const a = await stripe().accounts.retrieve(w.stripe_account_id);
-    payoutsReady = !!(a.details_submitted && a.payouts_enabled);
-  }
-  const pilot = (await setting("pilot_mode")) === "true";
-  const idVerified = p?.id_status === "verified";
-  const steps = {
-    photo: !!p?.photo_path && !!p?.full_name,
-    id_and_bank: pilot ? idVerified : payoutsReady && idVerified,
-    // "abn" is the Getting paid step. ABN itself is optional: a PayID or a bank account is enough.
-    abn: !!w?.payid || (!!w?.bsb && !!w?.account_number),
-    area: !!w?.base_suburb_id,
-    jobs: (count ?? 0) > 0,
-  };
-  const approved = Object.values(steps).every(Boolean) && !w?.suspended;
-  await admin.from("workers").update({
-    payouts_ready: payoutsReady,
-    id_verified: idVerified,
-    approved,
-    online: approved ? w?.online : false,
-  }).eq("id", id);
-  return { steps, approved, suspended: w?.suspended ?? false, pilot, id_status: p?.id_status ?? "none", id_note: p?.id_note ?? null };
-}

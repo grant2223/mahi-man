@@ -57,3 +57,48 @@ export async function releaseJob(jobId: string): Promise<void> {
   await admin.from("jobs").update({ status: "confirmed", confirmed_at: new Date().toISOString(), transfer_id: firstTransfer })
     .eq("id", jobId);
 }
+
+// Marks a fee paid and sends it to the worker's payout account. Without one, admin pays them out.
+export async function feePaid(feeId: number | null, payee: string | null, amount: number, charge: unknown, jobId: string | null) {
+  if (!feeId) return;
+  const chargeId = typeof charge === "string" ? charge : (charge as { id?: string } | null)?.id;
+  let paidOut: string | null = null;
+  if (payee && chargeId) {
+    const { data: w } = await admin.from("workers").select("stripe_account_id").eq("id", payee).single();
+    if (w?.stripe_account_id) {
+      await stripe().transfers.create({ amount, currency: "aud", destination: w.stripe_account_id, source_transaction: chargeId,
+        metadata: { fee_id: String(feeId), job_id: jobId ?? "", kind: "cancel_fee" } }, { idempotencyKey: `fee-out-${feeId}` });
+      paidOut = new Date().toISOString();
+    }
+  }
+  await admin.from("fees_owed").update({ status: "paid", paid_at: new Date().toISOString(), payment_ref: chargeId ?? "card", paid_out_at: paidOut }).eq("id", feeId);
+}
+
+export async function refreshWorker(id: string) {
+  const { data: w } = await admin.from("workers").select("*").eq("id", id).single();
+  const { data: p } = await admin.from("profiles").select("*").eq("id", id).single();
+  const { count } = await admin.from("worker_job_types").select("*", { count: "exact", head: true }).eq("worker_id", id);
+  let payoutsReady = false;
+  if (w?.stripe_account_id && Deno.env.get("STRIPE_SECRET_KEY")) {
+    const a = await stripe().accounts.retrieve(w.stripe_account_id);
+    payoutsReady = !!(a.details_submitted && a.payouts_enabled);
+  }
+  const pilot = (await setting("pilot_mode")) === "true";
+  const idVerified = p?.id_status === "verified";
+  const steps = {
+    photo: !!p?.photo_path && !!p?.full_name,
+    id_and_bank: pilot ? idVerified : payoutsReady && idVerified,
+    // "abn" is the Getting paid step. ABN itself is optional: a PayID or a bank account is enough.
+    abn: !!w?.payid || (!!w?.bsb && !!w?.account_number),
+    area: !!w?.base_suburb_id,
+    jobs: (count ?? 0) > 0,
+  };
+  const approved = Object.values(steps).every(Boolean) && !w?.suspended;
+  await admin.from("workers").update({
+    payouts_ready: payoutsReady,
+    id_verified: idVerified,
+    approved,
+    online: approved ? w?.online : false,
+  }).eq("id", id);
+  return { steps, approved, suspended: w?.suspended ?? false, pilot, id_status: p?.id_status ?? "none", id_note: p?.id_note ?? null };
+}
