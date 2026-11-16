@@ -64,6 +64,6 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 
 ## Building new versions
 
-- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 43 on 17 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 20 on 17 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
-- **Latest (17 Nov 2026, from 07076c9):** iOS build 43 is in TestFlight (Cairns pilot) and Android versionCode 20 is in Play review (Australia and New Zealand). Both add faster posting (snap it, say it or type it, then Check and post), repeat jobs every 1, 2 or 4 weeks, worker portfolios, more ways to get a worker fast when nobody is free, workers saying they're available instead of making offers on normal jobs, and a $25 lowest price.
+- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 44 on 17 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 21 on 17 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Latest (17 Nov 2026, from c834400):** iOS build 44 is in TestFlight (Cairns pilot) and Android versionCode 21 is in Play review (Australia and New Zealand); they replace 43 and 20 from earlier the same day, which still said "odd jobs" in the invite text. Both add faster posting (snap it, say it or type it, then Check and post), repeat jobs every 1, 2 or 4 weeks, worker portfolios, more ways to get a worker fast when nobody is free, workers saying they're available instead of making offers on normal jobs, and a $25 lowest price.
