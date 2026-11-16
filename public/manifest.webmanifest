@@ -1,7 +1,7 @@
 {
   "name": "Mahi Man",
   "short_name": "Mahi Man",
-  "description": "Get the help you need within minutes. Odd jobs done by locals, fast.",
+  "description": "Get the help you need within minutes. Jobs done by locals, fast.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#EFEDE6",
