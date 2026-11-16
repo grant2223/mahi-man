@@ -37,6 +37,14 @@ interface Draft {
 const DRAFT_KEY = "mm-draft-2";
 const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 30, reuse: [], included: [], excluded: [] };
 const MAX_PHOTOS = 6;
+// The address and pay method from their last job, so the next one starts filled in. Kept on this phone only.
+const LAST_KEY = "mm-last-job";
+function lastUsed(): Partial<Draft> {
+  try { const l = JSON.parse(localStorage.getItem(LAST_KEY) || "{}"); return { ...(l.suburbId ? { suburbId: l.suburbId, address: l.address ?? "", notes: l.notes ?? "" } : {}), ...(l.payMethod ? { payMethod: l.payMethod } : {}) }; } catch { return {}; }
+}
+function rememberLast(d: Draft) {
+  try { localStorage.setItem(LAST_KEY, JSON.stringify({ suburbId: d.suburbId, address: d.address, notes: d.notes, payMethod: d.payMethod })); } catch { /* private mode */ }
+}
 const MAX_VIDEO_SECONDS = 60;
 const STEPS = 4;
 
@@ -70,7 +78,7 @@ export function Book() {
   const [feeMax, setFeeMax] = useState(3000);
   const [boostCents, setBoostCents] = useState(500);
   const [supply, setSupply] = useState<{ online_now: number; typical_minutes: number | null } | null>(null);
-  const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
+  const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...lastUsed(), ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
   const [media, setMedia] = useState<(DraftItem & { url: string })[]>([]);
   const [reuseUrls, setReuseUrls] = useState<Record<string, string>>({});
   const [past, setPast] = useState<PastWorker[]>([]);
@@ -159,7 +167,7 @@ export function Book() {
     setMedia([]);
     setReuseUrls({});
     setErr("");
-    setD({ ...blank, ...prefill, priceSet: !!prefill?.priceCents });
+    setD({ ...blank, ...lastUsed(), ...prefill, priceSet: !!prefill?.priceCents });
     go("/book/details");
   }
 
@@ -248,6 +256,7 @@ export function Book() {
         p_pay_method: isTrade ? null : d.payMethod ?? null, p_urgent: !isTrade && !!d.boost,
       });
       const finish = async () => {
+        rememberLast(d);
         sessionStorage.removeItem(DRAFT_KEY);
         await draftMedia.clear();
         go(`/job/${id}`);
@@ -515,7 +524,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         {signedIn ? <SetSide side="help" /> : <SideSwitch side="help" />}
         <img className="mascot" src="/mascot.png" alt="" style={{ top: "auto", bottom: 0, height: signedIn ? 142 : 160, right: -30 }} />
         <h1 className="mid" style={{ position: "relative", margin: "26px 0 10px" }}>Need a hand?</h1>
-        <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Get help now with your odd job.</p>
+        <p className="lede" style={{ position: "relative", maxWidth: 200 }}>Get the help you need within minutes.</p>
         {!soon && <Available />}
       </section>
 
@@ -558,7 +567,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
           </div>
         ) : recent ? (
           <div className="stack" style={{ gap: 0 }}>
-            {[["1", "Set your price", "What you'll pay for the work"], ["2", "Show the job", "Photos and exactly what you want done"], ["3", "Select who does it", "Pay them directly when it's done"]].map(([n, t, s]) => (
+            {[["1", "Show the job", "Say it or snap it. We fill in the rest"], ["2", "Set your price", "What you'll pay for the work"], ["3", "Select who does it", "Pay them directly when it's done"]].map(([n, t, s]) => (
               <div key={n} className="how-row"><span className="n">{n}</span><span className="t"><b>{t}</b><span>{s}</span></span></div>
             ))}
           </div>
@@ -711,7 +720,8 @@ function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount,
     if (!(d.included ?? []).filter((x) => x.trim()).length) return setErr("Add at least one task.");
     setErr("");
     setD({ ...d, included: (d.included ?? []).map((x) => x.trim()).filter(Boolean), excluded: (d.excluded ?? []).map((x) => x.trim()).filter(Boolean) });
-    go("/book/photos");
+    // Photos already in (Snap it, or a job posted again): no need to ask for them twice.
+    go(photoCount > 0 ? "/book/where" : "/book/photos");
   };
   return (
     <div className="app">
@@ -788,14 +798,14 @@ function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount,
         </div>
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Continue", next, filling, "photos")}
+      {bar("Continue", next, filling, photoCount > 0 ? "where and when" : "photos")}
       {pickCat && <SearchPicker title="Job type" multi placeholder="Search job types" value={typeIds}
         options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
         onChange={(v) => { const ids = v.map(Number); setTypes([...typeIds.filter((x) => ids.includes(x)), ...ids.filter((x) => !typeIds.includes(x))].slice(0, 4)); }} />}
       {pickSkills && <SearchPicker title="Skills needed" multi placeholder="Search skills" value={chosen.map((k) => k.id)}
         options={catSkills.map((k) => ({ id: k.id, label: k.name, hint: k.needs ? `Only workers with a verified ${lc(k.needs)}` : undefined }))}
         onClose={() => setPickSkills(false)} onChange={(v) => setD({ ...d, skills: v.map(Number) })} />}
-      {voice && <VoiceScreen jobName={types[0]?.name ?? "Odd job"} onBack={() => setVoice(false)}
+      {voice && <VoiceScreen jobName={types[0]?.name ?? "Job"} onBack={() => setVoice(false)}
         raw onDone={(text) => { setVoice(false); fill(d.details.trim() ? `${d.details.trim()} ${text}` : text); }} />}
       {snap && <JobCamera max={MAX_PHOTOS - photoCount} onBack={() => setSnap(false)} onDone={snapped} />}
     </div>

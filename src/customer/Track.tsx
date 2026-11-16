@@ -15,12 +15,13 @@ import { AlertsAsk } from "../ui/AlertsAsk";
 import { alertsState, askedFor } from "../lib/push";
 import { FeePayScreen, useOwed, type OwedFee } from "./Fees";
 import { GiftPaidSection, JobFeeSection, useJobFee } from "../ui/Payments";
-import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
+import { ActionBar, DisputeView, DONE_STEPS, DoneHero, Note, PriceRows, ProblemScreen, ReviewView, reviewSkipped, showPayid } from "../ui/Completion";
 
 interface PayDetails { payid: string | null; bsb: string | null; account_number: string | null; account_name: string }
 
 interface Extra { id: string; amount_cents: number; reason: string; status: string }
-const STEPS = ["Booked", "Matched", "On the way", "Working", "Done"];
+// One set of stages from booking to review, the same on every screen (Completion uses DONE_STEPS, the same list).
+const STEPS = DONE_STEPS;
 
 export function Track({ id }: { id: string }) {
   const { session, profile } = useSession();
@@ -119,7 +120,7 @@ export function Track({ id }: { id: string }) {
   const jobName = job.title || jt.name;
   const direct = isDirectPay(job);
   const wName = worker ? firstName(worker.full_name) : "Your worker";
-  const stepIdx = { awaiting_payment: 0, searching: 0, accepted: trip ? 2 : 1, in_progress: 3, finished: 4, confirmed: 4, disputed: 4, cancelled: 0, refunded: 4 }[job.status];
+  const stepIdx = { awaiting_payment: 0, searching: 0, accepted: trip ? 1 : 0, in_progress: 2, finished: 3, confirmed: 4, disputed: 3, cancelled: 0, refunded: 3 }[job.status];
   const pendingExtra = extras.find((e) => e.status === "pending");
   // What the job costs. On direct-pay jobs the booking fee was charged separately when the worker was chosen.
   const total = job.price_cents + job.extra_cents + (direct ? 0 : job.fee_cents);
@@ -447,7 +448,7 @@ export function Track({ id }: { id: string }) {
         <section className="row" style={{ margin: "22px 20px 0", alignItems: "flex-start", gap: 14 }}>
           {Icon.lock("var(--ink)")}
           <span className="stack" style={{ gap: 3 }}>
-            <span className="t17 w5">{direct ? `Pay ${money2(total)} when it's done` : `${money2(total)} held, not paid`}</span>
+            <span className="t17 w5">{direct ? `Pay ${money(total)} when it's done` : `${money2(total)} held, not paid`}</span>
             <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${worker ? wName : "your worker"} ${payWay(job)} once the job is finished.` : `${worker ? wName : "Your worker"} is paid only after you confirm the job is done.`}</span>
           </span>
         </section>

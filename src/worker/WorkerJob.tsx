@@ -271,7 +271,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         </div>
       )}
 
-      <div className="ticket" style={{ marginTop: (j.status === "accepted" && (onWay || j.arrived_at)) || (j.status === "accepted" && !j.asap && j.confirm_asked_at && !j.day_confirmed_at) ? 16 : -70 }}>
+      <div className="ticket">
         <div className="pad row">
           <Tile name={cust?.full_name ?? "?"} photo={cust?.photo_path} size={48} />
           <span className="stack" style={{ gap: 2, flex: 1, minWidth: 0 }}>

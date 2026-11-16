@@ -8,11 +8,11 @@ Copy each part into Play Console. Graphics are in this folder.
 Mahi Man: Need a hand?
 
 **Short description** (80 max)
-Post an odd job, pick a verified local, watch them arrive. Or earn doing jobs.
+Post a job, pick who comes, watch them arrive. Or earn doing jobs.
 
 **Full description** (4000 max)
 
-Get a hand with odd jobs around Cairns, or earn by doing them.
+Get the help you need within minutes, anywhere in Australia. Or earn by doing jobs.
 
 GET HELP
 Post a job in a minute. Add photos, a video or just say what you need and Mahi Man writes it up for you. Set your price and what's included. Workers who are switched on nearby get an alert straight away.

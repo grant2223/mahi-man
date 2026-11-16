@@ -2,8 +2,9 @@ import { useEffect, useState } from "react";
 import { firstPhoto, mediaUrls, sb, type Job } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
-import { money2, whenLabel } from "../lib/format";
+import { money, whenLabel } from "../lib/format";
 import { Icon, Loading } from "../ui/kit";
+import { TabBar } from "../ui/TabBar";
 
 const STATUS: Record<string, string> = {
   awaiting_payment: "Not booked", searching: "Finding someone", accepted: "On the way", in_progress: "Working",
@@ -38,7 +39,7 @@ export function MyJobs() {
             {(() => { const p = firstPhoto(j.job_media); return p && pics[p] ? <span className="li-pic" style={{ backgroundImage: `url("${pics[p]}")` }} /> : null; })()}
             <span className="t">
               <b>{j.title || j.job_types.name}</b>
-              <span>{whenLabel(j.asap, j.start_at)}, {money2(j.price_cents + j.extra_cents + (j.payment_intent_id ? j.fee_cents : 0))}</span>
+              <span>{whenLabel(j.asap, j.start_at)}, {money(j.price_cents + j.extra_cents + (j.payment_intent_id ? j.fee_cents : 0))}</span>
             </span>
             <span className={j.status === "finished" ? "t15 w5 em" : "small muted"}>{STATUS[j.status]}</span>
             {Icon.chevron("var(--faint)")}
@@ -48,6 +49,7 @@ export function MyJobs() {
       <div className="footer" style={{ justifyContent: "flex-end" }}>
         <button className="btn primary" onClick={() => go("/post")}>Post a job</button>
       </div>
+      <TabBar on="help" />
     </div>
   );
 }

@@ -55,7 +55,7 @@ export function Signup({ steps, pilot, idStatus, idNote, onChanged, onBack }: { 
         </div>
       </section>
 
-      <div className="ticket" style={{ marginTop: -76 }}>
+      <div className="ticket">
         {info.map((s, i) => (
           <button key={s.key} className={s.key === next ? "li current" : "li"} onClick={() => setOpen(s.key)}>
             {steps[s.key] ? <span style={{ width: 24, display: "flex", justifyContent: "center" }}>{Icon.tick("var(--emerald)", 24)}</span> : <span className="n">{i + 1}</span>}

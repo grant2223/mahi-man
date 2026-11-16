@@ -2107,3 +2107,17 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .pq-waiting span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
 .pq-waiting b { font-size: 17px; font-weight: 500; }
 .pq-waiting small { font-size: 14px; font-weight: 300; color: var(--muted); }
+
+/* No divider lines between rows or items in the app or on the website. Rows are kept apart by space, not rules. */
+.li, .li:last-child, .choice, .review-row, .job-row, .poster, .feed-empty, .pop-row, .cp-sec + .cp-sec, .cp-total, .cp-payid, .cp-step,
+.wrap-list, .wrap-row, .recent-row, .how-row, .who-person, .thread, .offer, .opt, .list-ed .li, .alerts-ask .li, .face-row, .rec-yn,
+.iv-past, .gf-step, .ck-m, .ck-card, .ck-grp, .ui-info section, .hp-who section, .al-row, .sp-list button, .stat3, .auth-switch,
+.cmp-toggle, .ld-job, .ld-faq details, .ld-faq details:last-child, .ld-faq-group details:last-child { border-top: 0; border-bottom: 0; }
+.cp-total { margin-top: 12px; }
+
+/* The job card sits under the header, full width: never a floating box over it. */
+.ticket, .hero.short + .ticket { margin: 0; border-radius: 0; box-shadow: none; }
+.hero:has(+ .ticket) { padding-bottom: 30px; }
+/* Sections inside the job sheet are separated by space only: no perforated line, no ticket notches. */
+.perf { height: 10px; }
+.perf::before, .perf::after, .perf i { display: none; }

@@ -153,7 +153,7 @@ Deno.serve(async (req) => {
             email: user.email,
             business_type: "individual",
             capabilities: { transfers: { requested: true } },
-            business_profile: { mcc: "7349", product_description: "Odd jobs booked through Mahi Man" },
+            business_profile: { mcc: "7349", product_description: "Jobs booked through Mahi Man" },
             metadata: { user_id: user.id },
           });
           acct = a.id;
@@ -374,7 +374,7 @@ Deno.serve(async (req) => {
               pi = await s.paymentIntents.create({
                 amount: job.fee_cents, currency: "aud", customer: me.stripe_customer_id, payment_method: me.card_pm,
                 off_session: true, confirm: true, receipt_email: user.email ?? undefined,
-                description: `Mahi Man connection fee: ${job.title ?? "odd job"}`, metadata: { job_id: job.id, kind: "booking_fee" },
+                description: `Mahi Man connection fee: ${job.title ?? "a job"}`, metadata: { job_id: job.id, kind: "booking_fee" },
                 statement_descriptor_suffix: "MAHI MAN",
               });
             } catch (e) {

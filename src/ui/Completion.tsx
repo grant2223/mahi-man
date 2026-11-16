@@ -9,7 +9,7 @@ import { inviteText, shareLink, SITE } from "../lib/share";
 
 /* The end of a job, for both sides: get paid, pay, confirm, review, and sort out problems. */
 
-export const DONE_STEPS = ["Booked", "Started", "Finished", "Paid", "Reviewed"];
+export const DONE_STEPS = ["Booked", "On the way", "Working", "Paid", "Reviewed"];
 
 export function DoneHero({ jobName, label, big, lime, sub, step }: { jobName: string; label: string; big: string; lime?: boolean; sub: string; step: number }) {
   return (
@@ -76,7 +76,7 @@ export function ReviewView({ jobId, jobName, done, other, isWorker, onDone }: {
         <section className="hero cp-hero" style={{ paddingBottom: 30 }}>
           <span className="row t15 light" style={{ gap: 8, color: "rgba(255,255,255,0.85)" }}>{Icon.tick("var(--lime)", 16)}Review saved</span>
           <h1 className="mid" style={{ margin: "14px 0 8px" }}>Know someone who'd use this?</h1>
-          <span className="sub">{isWorker ? "Mates who want extra cash, or anyone with odd jobs that need doing." : "Anyone with odd jobs that need doing, or mates who want extra cash."}</span>
+          <span className="sub">{isWorker ? "Mates who want extra cash, or anyone who needs a hand with a job." : "Anyone who needs a hand with a job, or mates who want extra cash."}</span>
         </section>
         <div style={{ flex: 1 }} />
         <ActionBar>

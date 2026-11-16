@@ -120,7 +120,7 @@ export function ComingSoon({ side }: { side: "help" | "work" }) {
   return (
     <div className="feed-empty" style={{ margin: "20px 16px" }}>
       <b>Coming soon to {area.name}</b>
-      <span>Mahi Man is open in Australia now and coming to {area.name} soon. {side === "help" ? "Check back to post your first odd job." : "Check back to start earning."}</span>
+      <span>Mahi Man is open in Australia now and coming to {area.name} soon. {side === "help" ? "Check back to post your first job." : "Check back to start earning."}</span>
       {option && <div className="row" style={{ gap: 10, marginTop: 6 }}><button className="btn stone" onClick={option.action}>Change area</button></div>}
       {picker}
     </div>
