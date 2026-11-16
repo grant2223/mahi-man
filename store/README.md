@@ -45,12 +45,12 @@ What's ready, and what's left. Ticked items are done.
 - [ ] Play → App content → Financial features: add "service payments processed by a third party".
 - [x] Worker payout setup works from the apps (Stripe returns to mahiman.app/payouts-done, and the app re-checks).
 
-Card payments for real-world services (odd jobs) are allowed outside Apple's and Google's in-app purchase systems, so Stripe is fine on both stores.
+Card payments for real-world services (jobs done in person) are allowed outside Apple's and Google's in-app purchase systems, so Stripe is fine on both stores.
 Mahi Man gift cards are the same: they only pay for real-world jobs (the worker and the connection fee), so they're sold outside in-app purchase too. If a reviewer asks, say that.
 
 ## 4. Submit
 
-- [x] **App Store:** version 1.0 submitted (now with build 28, waiting for review).
+- [x] **App Store:** version 1.0 submitted (now with build 40, waiting for review since 15 Nov 2026).
 - [x] **Google Play:** live in Australia and New Zealand.
 - [x] `play_store_url` and `testflight_url` are set in Admin → Settings, so the website shows Google Play and the iPhone beta. `app_store_url` stays empty until Apple approves 1.0.
 
@@ -64,5 +64,6 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 
 ## Building new versions
 
-- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 42), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 19), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 43 on 17 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 20 on 17 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Latest (17 Nov 2026, from 07076c9):** iOS build 43 is in TestFlight (Cairns pilot) and Android versionCode 20 is in Play review (Australia and New Zealand). Both add faster posting (snap it, say it or type it, then Check and post), repeat jobs every 1, 2 or 4 weeks, worker portfolios, more ways to get a worker fast when nobody is free, workers saying they're available instead of making offers on normal jobs, and a $25 lowest price.
