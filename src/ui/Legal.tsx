@@ -116,7 +116,7 @@ export function Terms() {
         <li>If an invoice is not paid by its due date we send one reminder. If it is still unpaid 3 days after the due date, you can't post new jobs until it is paid.</li>
         <li>Top-up: you can add $25, $50 or $100 to your balance by card or bank transfer. While your balance covers it, the fee is charged at the lower top-up rate and taken from your balance. Your balance only pays Mahi Man fees and Plus. Anything unused is refunded if you ask.</li>
         <li>Plus: a yearly membership, paid upfront in one payment, with the lowest fee rate, alerts to nearby workers when you post, and saved favourite workers. While we're in beta it's paid by bank transfer. Once you confirm you've paid, Plus is on for 24 hours while we check, and for a year from the day your payment is confirmed. If the payment doesn't arrive, Plus is switched off. A false or misleading confirmation may lead to your Plus membership being cancelled and your account being suspended. Plus doesn't renew by itself.</li>
-        <li>Every invoice is a tax invoice and includes GST. Rates, caps and prices are shown on the How you pay page and can change; the rate shown when you post a job is the one that applies to it.</li>
+        <li>Mahi Man is owned and operated by Find Fit People Pty Ltd, which is not registered for GST, so no GST is charged on our fees or memberships. Rates, caps and prices are shown on the How you pay page and can change; the rate shown when you post a job is the one that applies to it.</li>
         <li>By saving a card you allow us to charge the top-ups you ask for, and automatic top-ups if you turn them on. You can remove a saved card at any time in the app, under You, Payment methods.</li>
       </ul>
       <h2>Gift cards</h2>

@@ -1240,7 +1240,8 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "fee_mode", label: "Charge the connection fee", hint: "After the pilot. While pilot mode is on, fees are always invoiced and paid by bank transfer.", t: "toggle", on: "invoice", off: "off" },
     { k: "stripe_publishable_key", label: "Stripe publishable key", hint: "Starts with pk_. Needed before card top-ups.", t: "text", ph: "pk_live_…" },
   ] },
-  { title: "Connection fee", text: "Three ways to pay, shown side by side on How you pay. Every invoice is a tax invoice that includes GST.", fields: [
+  { title: "Connection fee", text: "Three ways to pay, shown side by side on How you pay. Invoices show GST only once you turn on Registered for GST under Payment details.", fields: [
+
     { k: "booking_fee_percent", label: "Pay as you go", hint: "Invoiced after each job, weekly or every 2 weeks.", t: "num", unit: "%" },
     { k: "booking_fee_max_cents", label: "Pay as you go cap", t: "num", unit: "$" },
     { k: "topup_fee_percent", label: "Top-up", hint: "When their balance covers the fee.", t: "num", unit: "%" },
@@ -1259,6 +1260,7 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "pay_trading_name", label: "Trading name", t: "text", ph: "Mahi Man" },
     { k: "pay_legal_name", label: "Legal name", t: "text", ph: "Company Pty Ltd" },
     { k: "pay_abn", label: "ABN", t: "text", ph: "11 digits" },
+    { k: "pay_gst", label: "Registered for GST", hint: "Turn on once registered. Invoices then say Tax invoice and show the GST.", t: "toggle", on: "yes", off: "no" },
     { k: "pay_payid", label: "PayID", hint: "Email, mobile or ABN.", t: "text", ph: "pay@…" },
     { k: "pay_bsb", label: "BSB", t: "text", ph: "000-000" },
     { k: "pay_account", label: "Account number", t: "text", ph: "" },

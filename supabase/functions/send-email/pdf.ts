@@ -1,8 +1,8 @@
-// Mahi Man tax invoices and receipts as A4 PDFs, attached to the invoice, reminder and receipt emails.
-// Meets the ATO's tax invoice rules: the words "Tax invoice", seller name and ABN, issue date, what was sold, and the GST.
+// Mahi Man invoices and receipts as A4 PDFs, attached to the invoice, reminder and receipt emails.
+// Once pay_gst is "yes" it meets the ATO's tax invoice rules: the words "Tax invoice", seller name and ABN, issue date, what was sold, and the GST.
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFImage } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
-import type { Pay } from "./emails.ts";
+import { fmtAbn, fmtBsb, type Pay } from "./emails.ts";
 
 export type Assets = { fonts: Record<"300" | "400" | "500" | "600", Uint8Array> | null; head: Uint8Array };
 export type Line = { date: string; job: string; who?: string; cents: number };
@@ -31,7 +31,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   };
   const head = await doc.embedPng(a.head);
   const receipt = d.kind === "receipt";
-  doc.setTitle(`${receipt ? "Receipt" : "Tax invoice"} ${d.number}`);
+  doc.setTitle(`${receipt ? "Receipt" : d.pay.gst === "yes" ? "Tax invoice" : "Invoice"} ${d.number}`);
   doc.setAuthor("Mahi Man");
   doc.setCreator("Mahi Man");
 
@@ -57,7 +57,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   drawHead(page, head, M, H - 62, 30);
   text("Mahi Man", M + 38, H - 54, F.bold, 17, C.white);
   text("Get the help you need within minutes.", M + 38, H - 70, F.light, 9.5, hex("#cfe3da"));
-  text(receipt ? "Receipt" : "Tax invoice", W - M, H - 50, F.med, 12, C.lime, "right");
+  text(receipt ? "Receipt" : d.pay.gst === "yes" ? "Tax invoice" : "Invoice", W - M, H - 50, F.med, 12, C.lime, "right");
   text(d.number, W - M, H - 78, F.bold, 24, C.white, "right");
 
   // Who and when
@@ -69,7 +69,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   };
   const x2 = M + 180, x3 = M + 360;
   col(M, receipt ? "Received from" : "Bill to", [[d.to_name, F.med], [d.to_email, F.light]]);
-  col(x2, "From", [[d.pay.trading_name || "Mahi Man", F.med], [d.pay.legal_name ?? "", F.light], [d.pay.abn ? `ABN ${d.pay.abn}` : "", F.light]]);
+  col(x2, "From", [[d.pay.trading_name || "Mahi Man", F.med], [d.pay.legal_name ?? "", F.light], [d.pay.abn ? `ABN ${fmtAbn(d.pay.abn)}` : "", F.light]]);
   col(x3, receipt ? "Paid" : "Issued", receipt
     ? [[d.paid_on ?? "", F.med], [d.method ? `By ${d.method.toLowerCase()}` : "", F.light]]
     : [[d.issued, F.med]]);
@@ -96,7 +96,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   const more = () => {
     page = doc.addPage([W, H]); pages.push(page);
     page.drawRectangle({ x: 0, y: H - 6, width: W, height: 6, color: C.emerald });
-    text(`${receipt ? "Receipt" : "Tax invoice"} ${d.number}, continued`, M, H - 52, F.med, 12, C.ink);
+    text(`${receipt ? "Receipt" : d.pay.gst === "yes" ? "Tax invoice" : "Invoice"} ${d.number}, continued`, M, H - 52, F.med, 12, C.ink);
     y = H - 90;
   };
   heads();
@@ -113,20 +113,23 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   // Totals, right side, and the pay box: on a new page if they don't fit.
   const payRows = receipt ? 0 : [d.pay.payid, d.pay.bsb, d.pay.account, d.pay.account_name || d.pay.trading_name, d.number].filter(Boolean).length;
   if (y - 90 - (receipt ? 0 : 68 + payRows * 19) < 70) more();
-  const gst = Math.round(d.total_cents / 11);
+  const gstOn = d.pay.gst === "yes";
+  const gst = gstOn ? Math.round(d.total_cents / 11) : 0;
   const tx = W - M - 220, tr = W - M - 12;
   y -= 6;
   const trow = (k: string, v: string, f = F.light, size = 10.5, color = C.body) => { text(k, tx, y, f, size, color); text(v, tr, y, f === F.light ? F.reg : f, size, C.ink, "right"); y -= 20; };
-  trow("Subtotal (excluding GST)", money(d.total_cents - gst));
-  trow("GST", money(gst));
+  if (gstOn) {
+    trow("Subtotal (excluding GST)", money(d.total_cents - gst));
+    trow("GST", money(gst));
+  } else trow("GST", "Not charged");
   hr(y + 9, tx, W - M);
   y -= 4;
-  trow("Total (including GST)", money(d.total_cents), F.bold, 13, C.ink);
+  trow(gstOn ? "Total (including GST)" : "Total", money(d.total_cents), F.bold, 13, C.ink);
 
   // How to pay (invoice) / thanks (receipt)
   y -= 22;
   if (!receipt) {
-    const rows: [string, string | undefined][] = [["PayID", d.pay.payid], ["BSB", d.pay.bsb], ["Account", d.pay.account], ["Account name", d.pay.account_name || d.pay.trading_name], ["Reference", d.number]];
+    const rows: [string, string | undefined][] = [["PayID", d.pay.payid], ["BSB", fmtBsb(d.pay.bsb)], ["Account", d.pay.account], ["Account name", d.pay.account_name || d.pay.trading_name], ["Reference", d.number]];
     const shown = rows.filter(([, v]) => v);
     const bh = 46 + shown.length * 19;
     page.drawRectangle({ x: M, y: y - bh, width: W - 2 * M, height: bh, color: C.ground });
@@ -142,7 +145,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
     page = pg;
     hr(56);
     text(`Mahi Man · mahiman.app`, M, 38, F.reg, 8.5, C.muted);
-    text(`${receipt ? "Receipt" : "Tax invoice"} ${d.number} · Page ${i + 1} of ${pages.length}`, W - M, 38, F.light, 8.5, C.muted, "right");
+    text(`${receipt ? "Receipt" : d.pay.gst === "yes" ? "Tax invoice" : "Invoice"} ${d.number} · Page ${i + 1} of ${pages.length}`, W - M, 38, F.light, 8.5, C.muted, "right");
   });
   return await doc.save();
 }

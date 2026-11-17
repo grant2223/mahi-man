@@ -12,7 +12,7 @@ import { stripeFor } from "../customer/Cards";
 /* How customers pay Mahi Man: pay as you go (invoiced by bank transfer), a top-up balance, or Plus.
    Every number comes from the live settings through my_payments(). */
 
-export interface PayDetails { trading_name?: string; legal_name?: string; abn?: string; payid?: string; bsb?: string; account?: string; account_name?: string }
+export interface PayDetails { gst?: string; trading_name?: string; legal_name?: string; abn?: string; payid?: string; bsb?: string; account?: string; account_name?: string }
 interface Line { date: string; job: string; who: string; cents: number }
 interface InvoiceRow { id: number; number: string; total: number; status: "due" | "claimed" | "paid"; issued_at: string; due_at: string }
 interface TopupRow { id: number; reference: string; amount: number; status: "requested" | "claimed"; created_at: string }
@@ -338,11 +338,12 @@ export function InvoicePage({ id }: { id: number }) {
         </div>
       )}
       <div className="cp-sec iv-band" style={{ paddingBottom: 24 }}>
-        <span className="cp-title">Tax invoice</span>
+        <span className="cp-title">{pay.gst === "yes" ? "Tax invoice" : "Invoice"}</span>
         <span className="t14 light muted">{pay.legal_name}{pay.trading_name ? `, trading as ${pay.trading_name}` : ""}{pay.abn ? ` · ABN ${fmtAbn(pay.abn)}` : ""}<br />To {inv.to} · Issued {dayLong(inv.issued_at)}</span>
         <div style={{ marginTop: 10 }}>{inv.lines.map((l, i) => <div key={i} className="cp-row"><span>{dayShort(l.date)} · {l.job}{l.who ? ` · ${l.who}` : ""}</span><span>{money2(l.cents)}</span></div>)}</div>
         <div className="cp-total"><span>Total</span><span>{money2(inv.total)}</span></div>
-        <div className="cp-row"><span className="light muted">Includes GST</span><span className="light muted">{money2(inv.gst)}</span></div>
+        {pay.gst === "yes" ? <div className="cp-row"><span className="light muted">Includes GST</span><span className="light muted">{money2(inv.gst)}</span></div>
+          : <div className="cp-row"><span className="light muted">No GST charged</span><span /></div>}
       </div>
       <div style={{ flex: 1 }} />
       <ActionBar>
@@ -365,7 +366,7 @@ async function savePdf(inv: InvoiceDetail) {
   const doc = new jsPDF({ unit: "pt", format: "a4" });
   const L = 56, R = 539;
   let y = 70;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("Tax invoice", L, y);
+  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text(pay.gst === "yes" ? "Tax invoice" : "Invoice", L, y);
   doc.setFontSize(12); doc.text(inv.number, R, y, { align: "right" });
   y += 30; doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
   const from = [`${pay.legal_name ?? ""}${pay.trading_name ? `, trading as ${pay.trading_name}` : ""}`, pay.abn ? `ABN ${fmtAbn(pay.abn)}` : ""].filter(Boolean);
@@ -383,7 +384,7 @@ async function savePdf(inv: InvoiceDetail) {
   }
   doc.line(L, y, R, y); y += 20;
   doc.setFont("helvetica", "bold"); doc.text("Total", L, y); doc.text(money2(inv.total), R, y, { align: "right" }); y += 16;
-  doc.setFont("helvetica", "normal"); doc.text("Includes GST", L, y); doc.text(money2(inv.gst), R, y, { align: "right" }); y += 36;
+  doc.setFont("helvetica", "normal"); if (pay.gst === "yes") { doc.text("Includes GST", L, y); doc.text(money2(inv.gst), R, y, { align: "right" }); } else doc.text("No GST charged", L, y); y += 36;
   if (inv.status === "paid") { doc.setFont("helvetica", "bold"); doc.text(`Paid ${dayLong(inv.paid_at ?? inv.due_at)}`, L, y); }
   else {
     doc.setFont("helvetica", "bold"); doc.text("Pay by bank transfer", L, y); y += 18; doc.setFont("helvetica", "normal");
@@ -666,7 +667,7 @@ export function JobFeeSection({ fee }: { fee: JobFee }) {
       {title}
       {fee.from_balance_cents > 0 && <span className="t15 light">{money2(fee.from_balance_cents)} came off your balance. {money2(owed)} to pay.</span>}
       {p && <BankDetails pay={p.pay} reference={inv.number} />}
-      <span className="t14 light muted">Due {dayLong(inv.due_at)}. Your tax invoice is in You, Payments.</span>
+      <span className="t14 light muted">Due {dayLong(inv.due_at)}. Your invoice is in You, Payments.</span>
     </div>
   );
   if (!p) return null;

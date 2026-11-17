@@ -2,7 +2,7 @@
 // a short white body with a single clear button, and a plain footer. Invoices and receipts are PDFs attached to the
 // email; the email itself only says what's attached, what's owed and how to pay.
 
-export type Pay = { trading_name?: string; legal_name?: string; abn?: string; payid?: string; bsb?: string; account?: string; account_name?: string };
+export type Pay = { gst?: string; trading_name?: string; legal_name?: string; abn?: string; payid?: string; bsb?: string; account?: string; account_name?: string };
 export type Ctx = { site: string; pay: Pay; testflight?: string; play?: string; appStore?: string };
 
 const C = { emerald: "#0b6b4f", deep: "#064230", hi: "#1a9c72", lime: "#d2e34a", ink: "#2a2d32", body: "#4a4f4c", muted: "#6f7873", ground: "#edf1ef", line: "#e1e8e4" };
@@ -10,6 +10,9 @@ const FONT = `'Bricolage Grotesque',-apple-system,BlinkMacSystemFont,'Segoe UI',
 
 export const esc = (s: unknown) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 export const money = (c: number) => `$${(c / 100).toFixed(2)}`;
+// Bank details the way people read them: BSB 084-472, ABN 17 640 157 811.
+export const fmtBsb = (v?: string) => { const d = (v ?? "").replace(/\D/g, ""); return d.length === 6 ? `${d.slice(0, 3)}-${d.slice(3)}` : v; };
+export const fmtAbn = (v?: string) => { const d = (v ?? "").replace(/\D/g, ""); return d.length === 11 ? `${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 8)} ${d.slice(8)}` : v; };
 
 type Hero = { eyebrow?: string; title: string; sub?: string; mascot?: boolean };
 
@@ -63,7 +66,7 @@ const h2 = (t: string) => `<div style="margin:0 0 12px;font-size:19px;font-weigh
 const rows = (r: [string, string | undefined, boolean?][]) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${r.filter(([, v]) => v).map(([k, v, strong]) =>
   `<tr><td style="padding:9px 0;font-size:15px;font-weight:300;color:${C.muted};border-bottom:1px solid ${C.line}">${k}</td><td align="right" style="padding:9px 0;font-size:${strong ? 17 : 15}px;font-weight:${strong ? 600 : 400};color:${C.ink};border-bottom:1px solid ${C.line}">${esc(v)}</td></tr>`).join("")}</table>`;
 function payBlock(pay: Pay, ref: string) {
-  return h2("Pay by bank transfer") + rows([["PayID", pay.payid, true], ["BSB", pay.bsb], ["Account", pay.account], ["Account name", pay.account_name || pay.trading_name], ["Reference", ref, true]])
+  return h2("Pay by bank transfer") + rows([["PayID", pay.payid, true], ["BSB", fmtBsb(pay.bsb)], ["Account", pay.account], ["Account name", pay.account_name || pay.trading_name], ["Reference", ref, true]])
     + `<p style="margin:12px 0 0;font-size:14px;line-height:1.5;font-weight:300;color:${C.muted}">Use the reference so we can match your payment.</p>`;
 }
 const pdfNote = (name: string) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px"><tr>
@@ -102,7 +105,7 @@ ${ctx.play ? `<td class="stack" valign="top" width="50%" style="padding-left:6px
   if (kind === "invoice") {
     const total = Number(d.total_cents), n = (d.lines ?? []).length;
     const body = pdfNote(`Invoice ${d.number}.pdf`)
-      + p(`Hi ${first}, here are your connection fees for ${n} job${n === 1 ? "" : "s"}. The tax invoice is attached.`)
+      + p(`Hi ${first}, here are your connection fees for ${n} job${n === 1 ? "" : "s"}. Your invoice is attached.`)
       + `<div style="margin:4px 0 26px">${btn(`${site}/invoice/${d.id ?? ""}`, "View and pay")}</div>`
       + payBlock(ctx.pay, d.number);
     return { subject: `Invoice ${d.number}: ${money(total)} due ${d.due}`, html: layout(ctx, `${money(total)} due ${d.due}. Your invoice is attached.`, { eyebrow: `Invoice ${esc(d.number)}`, title: `${money(total)}<br><span style="color:${C.lime}">due ${esc(d.due)}</span>` }, body) };
