@@ -256,6 +256,8 @@ export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge,
 export type PublicWorker = { id: string; name: string; first: string; age: number | null; photo: string | null; verified: boolean; suburb: string | null; area: string | null;
   jobs: number; reviewed: number; recommended: number; turns_up: number | null; does: { name: string; icon: string }[] };
 export const SHARE_HOST = "mahiman.app";
+// The name on the card and the shared page: first name and initial, no full stop or comma ("Grant G").
+export const cardName = (n: string) => n.replace(/[.,\s]+$/, "").replace(/\.(?=\s|$)/g, "");
 
 const loadImg = (src: string) => new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => ok(i); i.onerror = no; i.src = src; });
 function cover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number, fy = 0.3) {
@@ -275,68 +277,90 @@ function green(ctx: CanvasRenderingContext2D, w: number, h: number) {
 }
 const FONT = '"Bricolage Grotesque", system-ui, sans-serif';
 
-// The services line, wrapped between items so it never runs off the card. Anything past the last line becomes "+N more".
-function serviceLines(ctx: CanvasRenderingContext2D, items: string[], maxW: number, maxLines: number): string[] {
-  const lines: string[] = [];
-  let cur = "";
-  for (let i = 0; i < items.length; i++) {
-    const next = cur ? `${cur} · ${items[i]}` : items[i];
-    if (ctx.measureText(next).width <= maxW || !cur) { cur = next; continue; }
-    if (lines.length === maxLines - 1) {
-      let last = cur, left = items.length - i;
-      while (ctx.measureText(`${last} +${left} more`).width > maxW && last.includes(" · ")) { last = last.slice(0, last.lastIndexOf(" · ")); left++; }
-      lines.push(`${last} +${left} more`); return lines;
-    }
-    lines.push(cur); cur = items[i];
-  }
-  if (cur) lines.push(cur);
-  return lines;
+// A category's line icon as an image, in gold, for drawing on the card.
+async function iconImg(name: string, color: string) {
+  const { renderToStaticMarkup } = await import("react-dom/server");
+  const svg = renderToStaticMarkup(<CatIcon name={name} size={96} color={color} />).replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+  return loadImg(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`);
 }
 
-// Draws the approved card as a PNG: "phone" (1080 x 1920, for socials) or "print" (1050 x 600, business card ratio).
+// What they do, one segment each: icon over name, in a grid. Past the last cell it reads "+N more".
+async function drawDoes(ctx: CanvasRenderingContext2D, does: { name: string; icon: string }[], x: number, y: number, colW: number, rowH: number, cols: number, rows: number, icon: number, font: number) {
+  const cells = cols * rows;
+  const shown = does.length > cells ? does.slice(0, cells - 1) : does;
+  const icons = await Promise.all(shown.map((d) => iconImg(d.icon, "#f5c518").catch(() => null)));
+  ctx.textBaseline = "middle"; ctx.font = `400 ${font}px ${FONT}`; ctx.fillStyle = "#fff";
+  shown.forEach((d, i) => {
+    const cx = x + (i % cols) * colW, cy = y + Math.floor(i / cols) * rowH;
+    const im = icons[i]; if (im) ctx.drawImage(im, cx, cy, icon, icon);
+    let label = d.name;
+    while (ctx.measureText(label).width > colW - icon - 26 && label.length > 4) label = label.slice(0, -2) + "…";
+    ctx.fillText(label, cx + icon + 14, cy + icon / 2);
+  });
+  if (does.length > cells) {
+    const i = cells - 1, cx = x + (i % cols) * colW, cy = y + Math.floor(i / cols) * rowH;
+    ctx.fillStyle = "#f5c518"; ctx.fillText(`+${does.length - shown.length} more`, cx, cy + icon / 2);
+  }
+  ctx.textBaseline = "alphabetic";
+}
+
+// Draws the card as a PNG: "phone" (1080 x 1920, for socials) or "print" (1050 x 600, business card ratio).
+// The photo runs full bleed, what they do sits in segments with icons, and the bottom has mahiman.app, the store badges and their QR code.
 export async function cardImage(w: PublicWorker, slug: string, kind: "phone" | "print"): Promise<string> {
   await document.fonts.ready;
   const link = `https://${SHARE_HOST}/w/${slug}`;
   const qr = await loadImg(await QRCode.toDataURL(link, { margin: 0, width: 600, color: { dark: "#073f2f", light: "#ffffff" } }));
-  const head = await loadImg("/mahi-head.png");
+  const [mascot, apple, google] = await Promise.all([loadImg("/mascot.png"), loadImg("/email/app-store.png"), loadImg("/email/google-play.png")]);
   const pic = avatarUrl(w.photo); const photo = pic ? await loadImg(pic).catch(() => null) : null;
-  const does = w.does.map((c) => c.name);
   const place = [w.suburb, w.area].filter(Boolean).join(", ");
   const c = document.createElement("canvas");
   const ctx = c.getContext("2d")!;
+  // The store badges side by side.
+  const badges = (x: number, y: number, h: number, gap: number) => {
+    const aw = apple.width * (h / apple.height), gw = google.width * (h / google.height);
+    ctx.drawImage(apple, x, y, aw, h); ctx.drawImage(google, x + aw + gap, y, gw, h);
+  };
   if (kind === "phone") {
     c.width = 1080; c.height = 1920; green(ctx, c.width, c.height);
-    ctx.drawImage(head, 66, 66, 110, 110);
-    ctx.fillStyle = "#fff"; ctx.font = `600 56px ${FONT}`; ctx.textBaseline = "middle"; ctx.fillText("Mahi Man", 200, 122);
-    const px = 66, py = 230, pw = 948, ph = 1130;
-    if (photo) cover(ctx, photo, px, py, pw, ph); else { ctx.fillStyle = "#0b4f3b"; ctx.fillRect(px, py, pw, ph); }
-    const sh = ctx.createLinearGradient(0, py + ph * 0.45, 0, py + ph);
-    sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0,0.6)"); ctx.fillStyle = sh; ctx.fillRect(px, py + ph * 0.45, pw, ph * 0.55);
-    ctx.textBaseline = "alphabetic"; ctx.fillStyle = "#fff";
-    ctx.font = `600 88px ${FONT}`; const nm = `${w.name},`; ctx.fillText(nm, px + 50, py + ph - 110);
-    let x = px + 50 + ctx.measureText(nm).width + 18;
-    if (w.age != null) { ctx.font = `300 88px ${FONT}`; ctx.fillText(String(w.age), x, py + ph - 110); x += ctx.measureText(String(w.age)).width + 22; }
-    if (w.verified) ros(ctx, x, py + ph - 180, 70);
-    ctx.font = `300 42px ${FONT}`; ctx.fillText(place, px + 50, py + ph - 45);
-    ctx.fillStyle = "#f5c518"; ctx.font = `400 46px ${FONT}`; serviceLines(ctx, does, 948, 2).forEach((l, i) => ctx.fillText(l, 66, py + ph + 90 + i * 55));
-    ctx.fillStyle = "#fff"; ctx.fillRect(1014 - 330, 1920 - 72 - 330, 330, 330); ctx.drawImage(qr, 1014 - 330 + 22, 1920 - 72 - 330 + 22, 286, 286);
-    ctx.font = `600 72px ${FONT}`; ctx.fillText("Book me on", 66, 1920 - 230); ctx.fillText("Mahi Man", 66, 1920 - 150);
-    ctx.font = `300 40px ${FONT}`; ctx.fillText(`${SHARE_HOST}/w/${slug}`, 66, 1920 - 80);
+    // Photo, full bleed from the top
+    const ph = 1180;
+    if (photo) cover(ctx, photo, 0, 0, 1080, ph, 0.2); else { ctx.fillStyle = "#0b4f3b"; ctx.fillRect(0, 0, 1080, ph); }
+    const sh = ctx.createLinearGradient(0, ph * 0.5, 0, ph); sh.addColorStop(0, "rgba(0,0,0,0)"); sh.addColorStop(1, "rgba(0,0,0,0.7)"); ctx.fillStyle = sh; ctx.fillRect(0, ph * 0.5, 1080, ph * 0.5);
+    ctx.fillStyle = "#fff"; ctx.textBaseline = "alphabetic";
+    ctx.font = `600 96px ${FONT}`; const nm = cardName(w.name); ctx.fillText(nm, 66, ph - 120);
+    if (w.verified) ros(ctx, 66 + ctx.measureText(nm).width + 22, ph - 194, 74);
+    ctx.font = `300 44px ${FONT}`; ctx.fillText(place, 66, ph - 52);
+    // Mahi Man, big and faded behind everything below the photo
+    ctx.save(); ctx.beginPath(); ctx.rect(0, ph, 1080, 1920 - ph); ctx.clip();
+    ctx.globalAlpha = 0.1; ctx.drawImage(mascot, 1080 - 760, ph + 20, 760, 775); ctx.restore();
+    await drawDoes(ctx, w.does, 66, ph + 70, 474, 104, 2, 2, 64, 44);
+    // Mahi Man in the background, bottom right
+    // Scan to book me: the QR code on the left; beside it the line, the website and the store badges, lined up top and bottom with the code
+    const qs = 330, qt = 1920 - 66 - qs, tx = 66 + qs + 44;
+    ctx.fillStyle = "#fff"; ctx.fillRect(66, qt, qs, qs); ctx.drawImage(qr, 66 + 20, qt + 20, qs - 40, qs - 40);
+    // "Scan to book me" level with the middle of the QR code; mahiman.app over the badges, which line up with its bottom
+    ctx.font = `600 56px ${FONT}`; ctx.textBaseline = "middle"; ctx.fillText("Scan to book me", tx, qt + qs / 2 - 30); ctx.textBaseline = "alphabetic";
+    ctx.font = `400 40px ${FONT}`; ctx.fillStyle = "#f5c518"; ctx.fillText(SHARE_HOST, tx, qt + qs - 70 - 22); ctx.fillStyle = "#fff";
+    badges(tx, qt + qs - 70, 70, 12);
   } else {
     c.width = 1050; c.height = 600; green(ctx, c.width, c.height);
-    if (photo) cover(ctx, photo, 0, 0, 412, 600); else { ctx.fillStyle = "#0b4f3b"; ctx.fillRect(0, 0, 412, 600); }
+    // Photo, full bleed top to bottom on the left
+    if (photo) cover(ctx, photo, 0, 0, 412, 600, 0.2); else { ctx.fillStyle = "#0b4f3b"; ctx.fillRect(0, 0, 412, 600); }
     const L = 452;
-    ctx.drawImage(head, L, 40, 56, 56);
-    ctx.fillStyle = "#fff"; ctx.font = `600 30px ${FONT}`; ctx.textBaseline = "middle"; ctx.fillText("Mahi Man", L + 70, 70);
-    ctx.textBaseline = "alphabetic"; ctx.font = `600 50px ${FONT}`; const nm = `${w.name},`; ctx.fillText(nm, L, 186);
-    let x = L + ctx.measureText(nm).width + 10;
-    if (w.age != null) { ctx.font = `300 50px ${FONT}`; ctx.fillText(String(w.age), x, 186); x += ctx.measureText(String(w.age)).width + 14; }
-    if (w.verified) ros(ctx, x, 146, 42);
-    ctx.font = `300 26px ${FONT}`; ctx.fillText(place, L, 230);
-    ctx.fillStyle = "#f5c518"; ctx.font = `400 28px ${FONT}`; serviceLines(ctx, does, 1050 - 40 - L, 3).forEach((l, i) => ctx.fillText(l, L, 282 + i * 38));
-    ctx.fillStyle = "#fff"; ctx.fillRect(1050 - 40 - 180, 600 - 40 - 180, 180, 180); ctx.drawImage(qr, 1050 - 40 - 168, 600 - 40 - 168, 156, 156);
-    ctx.font = `600 32px ${FONT}`; ctx.fillText("Book me on Mahi Man", L, 600 - 84);
-    ctx.font = `300 24px ${FONT}`; ctx.fillText(`${SHARE_HOST}/w/${slug}`, L, 600 - 46);
+    ctx.fillStyle = "#fff"; ctx.textBaseline = "alphabetic"; ctx.font = `600 52px ${FONT}`; const nm = cardName(w.name); ctx.fillText(nm, L, 102);
+    if (w.verified) ros(ctx, L + ctx.measureText(nm).width + 14, 60, 44);
+    ctx.font = `300 26px ${FONT}`; ctx.fillText(place, L, 144);
+    // Mahi Man, big and faded behind the right side
+    ctx.save(); ctx.beginPath(); ctx.rect(412, 0, 638, 600); ctx.clip();
+    ctx.globalAlpha = 0.1; ctx.drawImage(mascot, 1050 - 560, 40, 560, 571); ctx.restore();
+    await drawDoes(ctx, w.does, L, 176, 279, 54, 2, 2, 36, 25);
+    // Mahi Man in the background, bottom right
+    // Scan to book me: the QR code on the left; beside it the line, the website and the store badges, lined up top and bottom with the code
+    const qs = 222, qt = 600 - 40 - qs, tx = L + qs + 28;
+    ctx.fillStyle = "#fff"; ctx.fillRect(L, qt, qs, qs); ctx.drawImage(qr, L + 14, qt + 14, qs - 28, qs - 28);
+    ctx.font = `600 30px ${FONT}`; ctx.textBaseline = "middle"; ctx.fillText("Scan to book me", tx, qt + qs / 2 - 20); ctx.textBaseline = "alphabetic";
+    ctx.font = `400 22px ${FONT}`; ctx.fillStyle = "#f5c518"; ctx.fillText(SHARE_HOST, tx, qt + qs - 40 - 14); ctx.fillStyle = "#fff";
+    badges(tx, qt + qs - 40, 40, 8);
   }
   return c.toDataURL("image/png");
 }
@@ -380,12 +404,21 @@ export function ShareCard({ onBack }: { onBack: () => void }) {
       <button className="sc-back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button>
       {w && (
         <div className="sc-card">
-          <div className="sc-brand"><img src="/mahi-head.png" alt="" />Mahi Man</div>
           <div className="sc-pic" style={pic ? { backgroundImage: `url(${pic})` } : undefined}>
-            <div className="w"><div className="n">{w.name}{w.age != null && <>, <i>{w.age}</i></>}{w.verified && <GoldTick s={24} />}</div><div className="s">{[w.suburb, w.area].filter(Boolean).join(", ")}</div></div>
+            <div className="w"><div className="n">{cardName(w.name)}{w.verified && <GoldTick s={24} />}</div><div className="s">{[w.suburb, w.area].filter(Boolean).join(", ")}</div></div>
           </div>
-          <div className="sc-does">{w.does.map((c) => c.name).join(" · ")}</div>
-          <div className="sc-bot"><div className="t"><b>Book me on<br />Mahi Man</b><span>{SHARE_HOST}/w/{slug}</span></div><div className="q" dangerouslySetInnerHTML={{ __html: qr }} /></div>
+          <img className="sc-mascot" src="/mascot.png" alt="" />
+          <div className="sc-does">
+            {(w.does.length > 4 ? w.does.slice(0, 3) : w.does).map((c) => <span key={c.name}><CatIcon name={c.icon} size={24} color="var(--gold)" />{c.name}</span>)}
+            {w.does.length > 4 && <span className="more">+{w.does.length - 3} more</span>}
+          </div>
+          <div className="sc-scan">
+            <div className="q" dangerouslySetInnerHTML={{ __html: qr }} />
+            <div className="t">
+              <b>Scan to book me</b><span>{SHARE_HOST}</span>
+              <span className="sc-badges"><img src="/email/app-store.png" alt="Download on the App Store" /><img src="/email/google-play.png" alt="Get it on Google Play" /></span>
+            </div>
+          </div>
         </div>
       )}
       <div className="sc-acts">

@@ -659,6 +659,7 @@ table.rows tr.click:hover td { background: #f4f7f5; }
 
 /* iPhone: the status bar (clock, battery) gets a solid strip, so the page never shows through under it when scrolling. */
 body::after { content: ""; position: fixed; top: 0; left: 0; right: 0; height: var(--safe-top); background: #0d6f52; z-index: 100; pointer-events: none; }
+body:has(.sc)::after { display: none; }
 .area-pin { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; padding: 4px 0; color: #fff; font-size: 15px; cursor: pointer; }
 .area-pin:disabled { cursor: default; opacity: 1; }
 .area-subs { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -1929,20 +1930,27 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 /* Your card */
 .sc { background: linear-gradient(160deg, #1a9a70 0%, #0d6f52 45%, #073f2f 100%); color: #fff; display: flex; flex-direction: column; }
 .sc-back { position: absolute; top: calc(var(--safe-top) + 6px); left: 6px; z-index: 2; width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; }
-.sc-card { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: calc(var(--safe-top) + 56px) 24px 0; overflow: hidden; }
-.sc-brand { display: flex; align-items: center; gap: 10px; font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
-.sc-brand img { width: 40px; height: 40px; }
-.sc-pic { position: relative; flex: 1; min-height: 180px; margin-top: 18px; border-radius: 4px; background: #0b4f3b center 28% / cover no-repeat; }
-.sc-pic::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 55%; border-radius: 0 0 4px 4px; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.6)); }
-.sc-pic .w { position: absolute; left: 18px; right: 18px; bottom: 14px; z-index: 1; }
+.sc-card { flex: 1; min-height: 0; display: flex; flex-direction: column; padding: 0 0 0; overflow: hidden; }
+.sc-pic { position: relative; flex: 1; min-height: 220px; background: #0b4f3b center 22% / cover no-repeat; }
+.sc-pic::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: calc(var(--safe-top) + 70px); background: linear-gradient(180deg, rgba(0,0,0,.4), rgba(0,0,0,0)); }
+.sc-pic::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 55%; background: linear-gradient(180deg, rgba(0,0,0,0), rgba(0,0,0,.65)); }
+.sc-pic .w { position: absolute; left: 24px; right: 24px; bottom: 16px; z-index: 1; }
 .sc-pic .n { display: flex; align-items: center; gap: 8px; font-size: 30px; font-weight: 600; letter-spacing: -0.7px; line-height: 36px; } .sc-pic .n i { font-style: normal; font-weight: 300; }
 .sc-pic .s { font-size: 15px; font-weight: 300; }
-.sc-does { padding-top: 14px; font-size: 17px; color: var(--gold); }
-.sc-bot { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; padding: 16px 0 6px; }
-.sc-bot .t b { display: block; font-size: 24px; font-weight: 600; letter-spacing: -0.5px; line-height: 28px; }
-.sc-bot .t span { display: block; margin-top: 6px; font-size: 14px; font-weight: 300; opacity: .9; }
-.sc-bot .q { width: 104px; height: 104px; padding: 7px; background: #fff; border-radius: 4px; flex: none; box-sizing: border-box; }
-.sc-bot .q svg { display: block; width: 100%; height: 100%; }
+.sc-does { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; padding: 18px 24px 0; font-size: 17px; }
+.sc-does span { display: flex; align-items: center; gap: 10px; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sc-does .more { color: var(--gold); }
+.sc-card { position: relative; }
+.sc-card .sc-mascot { position: absolute; z-index: 0; right: -30px; bottom: -10px; width: 300px; height: auto; opacity: .1; pointer-events: none; }
+.sc-does, .sc-scan { position: relative; z-index: 1; }
+.sc-scan { display: flex; align-items: stretch; gap: 18px; padding: 20px 24px 0; }
+.sc-scan .q { width: 128px; height: 128px; padding: 8px; background: #fff; border-radius: 4px; box-sizing: border-box; flex: none; }
+.sc-scan .q svg { display: block; width: 100%; height: 100%; }
+.sc-scan .t { display: flex; flex-direction: column; min-width: 0; }
+.sc-scan b { margin: auto 0; font-size: 20px; font-weight: 600; letter-spacing: -0.4px; line-height: 1.15; white-space: nowrap; }
+.sc-scan .t > span:not(.sc-badges) { margin-bottom: 6px; font-size: 15px; font-weight: 400; color: var(--gold); }
+.sc-badges { display: flex; gap: 5px; }
+.sc-badges img { height: 29px; width: auto; }
 .sc-acts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; padding: 16px 24px calc(var(--safe-bottom) + 16px); }
 .sc-acts .btn { height: 52px; font-size: 16px; padding: 0 8px; }
 .sc-acts .btn.stone { background: rgba(255,255,255,.16); color: #fff; }
@@ -2405,3 +2413,5 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .pf-drive span { display: flex; align-items: center; gap: 6px; }
 .pf-drive .on { color: var(--emerald); font-weight: 500; }
 .pr-line b.pr-drv { display: flex; align-items: center; gap: 6px; color: var(--emerald); font-weight: 500; }
+.sc-card .sc-pic { z-index: 2; }
+.sc .sc-back { z-index: 3; }

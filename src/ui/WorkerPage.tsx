@@ -3,7 +3,7 @@ import { avatarUrl, rpc } from "../lib/supabase";
 import { go } from "../lib/router";
 import { Loading, Logo } from "./kit";
 import { GoldTick } from "../customer/Offers";
-import type { PublicWorker } from "./ProfileHome";
+import { cardName, type PublicWorker } from "./ProfileHome";
 
 /* What someone sees on the web when they scan a worker's card or open their link: who they are, and Book.
    On a phone with the app, the link opens the app instead and starts a job sent to this worker first. */
@@ -20,7 +20,7 @@ export function WorkerPage({ id }: { id: string }) {
         <div className="wp-none"><b>This link isn't working</b><span>The worker may have closed their account.</span><a className="btn primary" href="/get">Get Mahi Man</a></div>
       ) : (<>
         <section className="wp-hero" style={pic ? { backgroundImage: `url(${pic})` } : undefined}>
-          <div className="w"><div className="n">{w.name}{w.age != null && <>, <i>{w.age}</i></>}{w.verified && <GoldTick s={26} />}</div><div className="s">{[w.suburb, w.area].filter(Boolean).join(", ")}</div></div>
+          <div className="w"><div className="n">{cardName(w.name)}{w.verified && <GoldTick s={26} />}</div><div className="s">{[w.suburb, w.area].filter(Boolean).join(", ")}</div></div>
         </section>
         <section className="wp-st">
           <div><b>{w.jobs}</b><small>jobs done</small></div>
