@@ -4,6 +4,7 @@ import { CatIcon, Icon, Screen } from "./kit";
 import { GoldTick } from "../customer/Offers";
 import type { Scores } from "./Ratings";
 import { useSession } from "../lib/session";
+import { go } from "../lib/router";
 import { heart } from "../customer/People";
 
 interface Portfolio {
@@ -22,10 +23,15 @@ const yearsLine = (y: number | null) => y == null || y === 0 ? "" : y >= 10 ? "1
 // The same profile wherever a customer meets a worker: their offer, their card's link, Your people.
 // From the card or Your people it also has Save and Book (a job sent to them first).
 export function WorkerProfile({ workerId, category = null, onBack, onBook }: { workerId: string; category?: number | null; onBack: () => void; onBook?: () => void }) {
-  const { session } = useSession();
+  const { session, profile } = useSession();
+  const onPlus = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
   const [saved, setSaved] = useState(false);
   useEffect(() => { if (onBook && session) rpc<boolean>("is_saved_worker", { p_key: workerId }).then((v) => setSaved(!!v)).catch(() => {}); }, [workerId, session, onBook]);
-  const toggle = () => { setSaved(!saved); rpc(saved ? "unsave_worker" : "save_worker", { p_worker: workerId }).catch(() => setSaved(saved)); };
+  // Saving people is part of Plus: without it, the heart opens Plus.
+  const toggle = () => {
+    if (!saved && !onPlus) { go("/plus"); return; }
+    setSaved(!saved); rpc(saved ? "unsave_worker" : "save_worker", saved ? { p_worker: workerId } : { p_worker: workerId, p_heart: true }).catch(() => setSaved(saved));
+  };
   const [p, setP] = useState<Portfolio | null>(null);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");

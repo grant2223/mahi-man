@@ -29,7 +29,7 @@ interface Reused { path: string; kind: "photo" | "video" }
 interface Draft {
   categoryId: number | null; priceCents: number; suburbId: number | null; address: string; notes: string; details: string;
   asap: boolean; startAt: string; invited: string[]; openAfter: number | null; reuse: Reused[];
-  included: string[]; excluded: string[]; priceSet?: boolean; boost?: boolean; skills?: number[]; payMethod?: "cash" | "bank";
+  included: string[]; excluded: string[]; priceSet?: boolean; skills?: number[]; payMethod?: "cash" | "bank";
   budgetMin?: number | null; budgetMax?: number | null;
   // The job's name ("Backyard clean-up") and its other kinds of work besides the main one.
   title?: string; extraCats?: number[];
@@ -77,7 +77,6 @@ export function Book() {
   const verifySent = useRef(false);
   const [feePct, setFeePct] = useState(12);
   const [feeMax, setFeeMax] = useState(3000);
-  const [boostCents, setBoostCents] = useState(500);
   const [supply, setSupply] = useState<{ online_now: number; typical_minutes: number | null } | null>(null);
   const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...lastUsed(), ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
   const [media, setMedia] = useState<(DraftItem & { url: string })[]>([]);
@@ -88,8 +87,6 @@ export function Book() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [discard, setDiscard] = useState(false);
-  const [widen, setWiden] = useState(30);
-  const [urgentInfo, setUrgentInfo] = useState(false);
   const [pickMethod, setPickMethod] = useState(false);
   const [pickWho, setPickWho] = useState<null | "people" | "after">(null);
   const [pickRepeat, setPickRepeat] = useState(false);
@@ -102,11 +99,10 @@ export function Book() {
   useEffect(() => {
     sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
-    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_max_cents", "boost_cents", "fee_mode", "widen_after_minutes"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_max_cents", "fee_mode"]).then(({ data }) => {
       for (const r of data ?? []) {
         if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true"); if (r.key === "fee_mode") setFeeMode(r.value);
         if (r.key === "booking_fee_percent") setFeePct(Number(r.value)); if (r.key === "booking_fee_max_cents") setFeeMax(Number(r.value));
-        if (r.key === "boost_cents") setBoostCents(Number(r.value)); if (r.key === "widen_after_minutes") setWiden(Number(r.value));
       }
     });
     draftMedia.all().then((items) => setMedia(items.map((m) => ({ ...m, url: URL.createObjectURL(m.blob) }))));
@@ -146,8 +142,6 @@ export function Book() {
   }, [path, d.categoryId, d.suburbId]);
   const total = d.priceCents + Math.round((d.priceCents * fee) / 100);
   const isPlus = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
-  // Plus members' jobs are always urgent, at no charge.
-  const plusNow = isPlus;
   // Invoice mode: the connection fee is billed when the job goes ahead, at the rate their plan gives them.
   const { p: payInfo } = usePayments(feeMode === "invoice" && !!session);
   const invoiceFee = (() => {
@@ -278,7 +272,7 @@ export function Book() {
         p_included: (d.included ?? []).map((x) => x.trim()).filter(Boolean), p_excluded: (d.excluded ?? []).map((x) => x.trim()).filter(Boolean), p_skills: jobSkills.map((k) => k.id),
         p_title: d.title?.trim() || null, p_extra_categories: d.extraCats ?? [],
         p_budget_min_cents: null, p_budget_max_cents: null,
-        p_pay_method: isTrade ? null : d.payMethod ?? null, p_urgent: !isTrade && !!d.boost,
+        p_pay_method: isTrade ? null : d.payMethod ?? null,
       });
       // A repeat: set up now the job is posted. If it fails the job still stands; they can set it from Home.
       if (!isTrade && d.repeatWeeks) await rpc("repeat_set", { p_job: id, p_weeks: d.repeatWeeks }).catch(() => toast("Posted. The repeat didn't save, so post it again from Home to repeat it."));
@@ -339,7 +333,7 @@ export function Book() {
           const connPct = invoiceFee ? invoiceFee.pct : feePct;
           const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : Math.min(Math.round((d.priceCents * feePct) / 100), feeMax);
           const connCharged = !isTrade && (invoiceFee ? true : bookingFee > 0);
-          const totalCents = d.priceCents + (connCharged ? connCents : 0) + (d.boost && !plusNow ? boostCents : 0);
+          const totalCents = d.priceCents + (connCharged ? connCents : 0);
           return (<>
             {/* Where it is, on a map, the way Uber, DoorDash and TaskRabbit start their confirm screens. */}
             <div className="ck-map">
@@ -457,15 +451,6 @@ export function Book() {
                   <div className="ck-m ck-gh"><span>Owed to Mahi Man</span><b>{money(totalCents - d.priceCents)}</b></div>
                   <div className="ck-m ck-sub"><span>Connection fee, {connPct}%</span>
                     {connCharged ? <b>{money2(connCents)}</b> : <b><s>{money2(connCents)}</s> <em>Free</em></b>}</div>
-                  {/* Standard is the default; urgent is one switch, with the detail behind the info icon. */}
-                  <div className="ck-m ck-sub ck-urgent">
-                    <span className="l">Make it urgent
-                      <button className="ck-info" onClick={() => setUrgentInfo(true)} aria-label="What urgent does">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 11v6M12 7.5v.5" /></svg></button></span>
-                    {plusNow ? <span className="r"><b><em>Included with Plus</em></b></span> : (
-                    <span className="r"><b>+{money(boostCents)}</b>
-                      <button className={d.boost ? "switch on" : "switch"} onClick={() => setD({ ...d, boost: !d.boost })} aria-pressed={!!d.boost} aria-label="Make it urgent" /></span>)}
-                  </div>
                   <p className="ck-due">{bookingFee > 0 ? "Charged to your card when you choose a worker"
                     : invoiceFee?.from === "balance" ? "Taken from your balance when the job's done"
                     : invoiceFee?.from === "weekly" ? "On your weekly invoice. Pay by bank transfer"
@@ -517,20 +502,6 @@ export function Book() {
           onClose={() => setPickRepeat(false)} onChange={(v) => setD({ ...d, repeatWeeks: Number(v[0]) as Draft["repeatWeeks"] })} />}
         {pickMethod && <SearchPicker title="How will you pay?" value={d.payMethod ? [d.payMethod] : []} options={PAY_METHODS.map((m) => ({ id: m.id, label: m.label, hint: m.hint }))}
           onChange={(v) => setD({ ...d, payMethod: String(v[0]) as Draft["payMethod"] })} onClose={() => setPickMethod(false)} />}
-        {urgentInfo && (
-          <Screen title="Standard or urgent" onBack={() => setUrgentInfo(false)}>
-            <div className="ui-info">
-              <section><h2>Standard</h2><p className="tag">Included with every job</p>
-                <p>{cat?.name ?? "Workers"} workers who are online, and whose travel area covers {suburb?.name ?? "your suburb"}, get an alert straight away.</p>
-                <p>If no one's free after {widen} minutes, your job goes out to workers further away.</p></section>
-              <section><h2>Urgent</h2><p className="tag">{`${money(boostCents)}, added to your total`}</p>
-                <p>{cat?.name ?? "Workers"} workers further away, up to 50 km, get an alert straight away. No {widen} minute wait.</p>
-                <p>Your job shows first in their list of jobs.</p>
-                <p>Best when it can't wait: a tip run before the bins go out, a clean before an inspection.</p></section>
-              <button className="btn primary" onClick={() => { setD({ ...d, boost: true }); setUrgentInfo(false); }}>{d.boost ? "Keep it urgent" : "Make it urgent"}</button>
-            </div>
-          </Screen>
-        )}
         {verifyScreen && <VerifyFlow onClose={() => setVerifyScreen(false)} onSubmitted={() => { verifySent.current = true; setVerifyScreen(false); window.setTimeout(book, 300); }} />}
         {photoScreen && <PhotoStep note="Workers see it before they say they're available, so they know who they're meeting." saveLabel="Save and post" photoOnly
           onBack={() => setPhotoScreen(false)} onSaved={() => { photoAdded.current = true; setPhotoScreen(false); window.setTimeout(book, 300); }} />}
@@ -707,7 +678,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         {signedIn && !onPlus && (
           <button className="plus-band" onClick={() => go("/plus")}>
             <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#f5c518" /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
-            <span><span className="pw">PLUS</span><b>Your jobs go first</b><small>Top-rated workers, fix-it guarantee</small></span>
+            <span><span className="pw">PLUS</span><b>Reduced fees, faster help</b><small>For our loyal customers</small></span>
             <span className="go">Try it</span>
           </button>
         )}

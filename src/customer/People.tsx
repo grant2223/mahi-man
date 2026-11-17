@@ -1,3 +1,4 @@
+import { useSession } from "../lib/session";
 import { useEffect, useState } from "react";
 import { avatarUrl, rpc } from "../lib/supabase";
 import { go } from "../lib/router";
@@ -29,11 +30,15 @@ function Row({ p, onToggle }: { p: Person; onToggle: (p: Person) => void }) {
 }
 
 export function usePeople() {
+  const { profile } = useSession();
+  const onPlus = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
   const [list, setList] = useState<Person[] | null>(null);
   useEffect(() => { rpc<Person[]>("my_people").then(setList).catch(() => setList([])); }, []);
+  // Saving people is part of Plus: without it, the heart opens Plus.
   const toggle = (p: Person) => {
+    if (!p.saved && !onPlus) { go("/plus"); return; }
     setList((l) => (l ?? []).map((x) => (x.worker_id === p.worker_id ? { ...x, saved: !x.saved } : x)));
-    rpc(p.saved ? "unsave_worker" : "save_worker", { p_worker: p.worker_id }).catch(() => {});
+    rpc(p.saved ? "unsave_worker" : "save_worker", p.saved ? { p_worker: p.worker_id } : { p_worker: p.worker_id, p_heart: true }).catch(() => {});
   };
   return { list, toggle };
 }

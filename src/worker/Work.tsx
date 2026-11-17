@@ -269,7 +269,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
             {o.video_path && <span className="vid"><svg width="10" height="10" viewBox="0 0 24 24" fill="#fff" aria-hidden="true"><path d="M7 4l13 8-13 8z" /></svg>Video</span>}
           </span>
           <span className="t">
-            {o.invited_me ? <span className="ver" style={{ fontWeight: 500 }}>Sent to you</span> : o.urgent ? <span className="urg">Urgent</span> : null}
+            {o.invited_me ? <span className="ver" style={{ fontWeight: 500 }}>Sent to you</span> : null}
             <b>{o.job_name}</b>
             <span>{o.suburb}, {o.distance_km} km</span>
             <span>{startLabel(o)}{o.others_keen > 0 ? `, ${o.others_keen} other${o.others_keen === 1 ? "" : "s"} keen` : ""}</span>
@@ -370,7 +370,6 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
             {o.pay_method === "cash" ? "Paid to you in cash when it's done. You keep all of it."
               : o.pay_method === "bank" ? "Paid to you by bank transfer when it's done. You keep all of it."
               : pilot ? "Customer pays you directly when it's done. You keep all of it." : "Paid to your bank once the customer confirms. You keep all of it."}</span>
-          {o.urgent && <span className="urg" style={{ marginTop: 10 }}>Urgent: the customer wants someone now</span>}
         </div>
         <div className="stat3">
           <span><b>{o.distance_km} km</b><span>{o.suburb}</span></span>

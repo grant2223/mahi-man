@@ -1253,7 +1253,6 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "invoice_pause_days", label: "Posting pauses once overdue by", t: "num", unit: "days" },
     { k: "auto_topup_cents", label: "Automatic top-up adds", t: "num", unit: "$" },
     { k: "auto_topup_below_cents", label: "When the balance drops under", t: "num", unit: "$" },
-    { k: "boost_cents", label: "Urgent boost", t: "num", unit: "$" },
     { k: "fee_percent", label: "Fee when the card is held", hint: "Only used with pilot mode off.", t: "num", unit: "%" },
   ] },
   { title: "Payment details", text: "Shown on every invoice and top-up. Customers pay to this account with the invoice number as the reference.", fields: [
@@ -1267,7 +1266,7 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   ] },
   { title: "Jobs", text: "Timing rules for every job.", fields: [
     { k: "widen_after_minutes", label: "Show to workers further away after", t: "num", unit: "minutes" },
-    { k: "widen_max_km", label: "Furthest a widened or urgent job goes", t: "num", unit: "km" },
+    { k: "widen_max_km", label: "Furthest a widened job goes", t: "num", unit: "km" },
     { k: "auto_release_hours", label: "Close as done if the customer does nothing for", t: "num", unit: "hours" },
   ] },
   { title: "Cancellations", text: "What cancelling costs, and when. Fees paid by a customer go to the worker; fees paid by a worker become the customer's credit.", fields: [
@@ -1932,7 +1931,7 @@ function PartnerDetail({ p, onBack, onChanged }: { p: PartnerRow; onBack: () => 
 }
 
 // Every invoice in one place: customer connection fees, customer bank top-ups, tradie plans and partner months.
-// Match the reference on the bank statement, then mark it paid. "They say paid" means the customer pressed I've paid.
+// Match the reference on the bank statement, then mark it paid. "They say paid" means the customer confirmed they've paid.
 interface MoneyRow { kind: "invoice" | "topup" | "gift" | "plus" | "tradie" | "partner"; id: number; ref: string; who: string; what: string; item: string; amount: number; due: string; state: "due" | "late" | "claimed" | "paid"; paused: boolean; created: string; paid_at: string | null }
 interface MoneyData { rows: MoneyRow[]; due_week: number; due_week_n: number; late: number; late_n: number; paid_month: number; paid_month_n: number }
 const MONEY_VIEWS: [string, string][] = [["open", "To check and due"], ["late", "Overdue"], ["topups", "Top-ups, gift cards and Plus"], ["paid", "Paid"], ["all", "Everything"]];
@@ -1955,6 +1954,11 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
       else await rpc("admin_partner_paid", { p_invoice: r.id });
       toast(`${r.ref} marked paid`); load(); onChanged();
     } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
+  };
+  const notReceived = async (r: MoneyRow) => {
+    setBusy(`${r.kind}${r.id}`);
+    try { await rpc("admin_plus_not_received", { p_id: r.id }); toast(`${r.ref}: Plus switched off`); load(); onChanged(); }
+    catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   };
   const day = (iso: string) => new Date(iso).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }).replace(",", "");
   const month = new Date().toLocaleDateString("en-AU", { month: "long", timeZone: "Australia/Brisbane" });
@@ -1981,11 +1985,13 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
               <td className="w5">{money2(r.amount)}</td>
               <td className="light">{r.state === "paid" && r.paid_at ? `Paid ${day(r.paid_at)}` : day(r.due)}</td>
               <td>{badge(r)}</td>
-              <td style={{ textAlign: "right" }}>{r.state !== "paid" && <button className={`btn ${r.state === "claimed" ? "primary" : "stone"} small`} disabled={busy === `${r.kind}${r.id}`} onClick={() => paid(r)}>Mark paid</button>}</td>
+              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                {r.kind === "plus" && r.state === "claimed" && <button className="btn stone small" style={{ marginRight: 8 }} disabled={busy === `${r.kind}${r.id}`} onClick={() => notReceived(r)}>Not received</button>}
+                {r.state !== "paid" && <button className={`btn ${r.state === "claimed" ? "primary" : "stone"} small`} disabled={busy === `${r.kind}${r.id}`} onClick={() => paid(r)}>Mark paid</button>}</td>
             </tr>
           ))}</tbody></table></div>
       )}
-      <p className="light muted" style={{ marginTop: 14 }}>Match the reference on your bank statement to the invoice, then mark it paid. "They say paid" means the customer pressed I've paid. Top-ups are added to the customer's balance when you mark them paid. A gift card sends once it's marked paid. Plus switches on for a year once it's marked paid.</p>
+      <p className="light muted" style={{ marginTop: 14 }}>Match the reference on your bank statement to the invoice, then mark it paid. "They say paid" means the customer confirmed they've paid. Top-ups are added to the customer's balance when you mark them paid. A gift card sends once it's marked paid. Plus is on for 24 hours once they confirm, and for a year once you mark it paid. Not received switches it off.</p>
       {pick && <SearchPicker title="Show" placeholder="Search" options={MONEY_VIEWS.map(([id, label]) => ({ id, label }))} value={[view]} onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
     </>
   );

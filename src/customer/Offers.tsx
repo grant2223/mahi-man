@@ -33,8 +33,8 @@ const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minu
 // The customer's job while it's open: people who say they're available, and Yes or Ignore on each.
 const RAISE = 1000;
 
-export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt, searchingAt, boosted, feeDue = 0, onChosen, onCancel, onBoosted, trade }: {
-  jobId: string; title: string; price: string; priceCents?: number; asap: boolean; startAt: string; searchingAt: string; boosted: boolean; feeDue?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
+export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt, searchingAt, feeDue = 0, onChosen, onCancel, onBoosted, trade }: {
+  jobId: string; title: string; price: string; priceCents?: number; asap: boolean; startAt: string; searchingAt: string; feeDue?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
   trade?: boolean;
 }) {
   const { profile: me, reload } = useSession();
@@ -55,13 +55,10 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
   }, [jobId]);
 
   const shown = (offers ?? []).filter((o) => new Date(o.expires_at).getTime() > now);
-  const [boosting, setBoosting] = useState(false);
-  const [boostCents, setBoostCents] = useState<number | null>(null);
   const [widenMin, setWidenMin] = useState(30);
+  const onPlus = !!me?.plus_until && new Date(me.plus_until) > new Date();
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["boost_cents", "widen_after_minutes"]).then(({ data }) => (data ?? []).forEach((r) => {
-      if (r.key === "boost_cents") setBoostCents(Number(r.value)); else setWidenMin(Number(r.value));
-    }));
+    sb.from("settings").select("key,value").in("key", ["widen_after_minutes"]).then(({ data }) => (data ?? []).forEach((r) => setWidenMin(Number(r.value))));
   }, []);
   const [extras, setExtras] = useState<Record<string, Extra>>({});
   const [openCard, setOpenCard] = useState<string | null>(null);
@@ -223,12 +220,12 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
           <p>Workers near you are busy right now. Any one of these usually gets an answer in minutes.</p>
           <div className="rs-opt">
             <span className="t"><b>Pay {money(RAISE)} more</b><small>{money(priceCents + RAISE)} instead of {money(priceCents)}. Higher prices get taken faster.</small></span>
-            <button className="btn rs-gold" disabled={rescueBusy} onClick={() => rescue(() => rpc("raise_job_price", { p_job: jobId, p_add_cents: RAISE }), `Now ${money(priceCents + RAISE)}. Workers have been told again.`)}>Add {money(RAISE)}</button>
+            <button className="btn rs-gold" disabled={rescueBusy} onClick={() => rescue(() => rpc("raise_job_price", { p_job: jobId, p_add_cents: RAISE }), `Now ${money(priceCents + RAISE)}.`)}>Add {money(RAISE)}</button>
           </div>
-          {!boosted && (
+          {!onPlus && (
             <div className="rs-opt">
-              <span className="t"><b>Urgent boost</b><small>Every worker in your category gets an alert.{boostCents ? ` ${money(boostCents)}, free with Plus.` : ""}</small></span>
-              <button className="btn primary" disabled={rescueBusy} onClick={() => rescue(() => rpc("boost_job", { p_job: jobId }), "Boosted. Every worker in your category has been told.")}>Boost</button>
+              <span className="t"><b>Get help faster with Plus</b><small>Workers nearby are alerted the moment you post.</small></span>
+              <button className="btn rs-gold" onClick={() => go("/plus")}>See Plus</button>
             </div>
           )}
           {asap && (
@@ -246,23 +243,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
       {pickWhen === "day" && <SearchPicker title="Which day?" placeholder="Search" value={[]} options={days} onClose={() => setPickWhen(null)}
         onChange={(v) => { setDay(String(v[0])); setPickWhen("time"); }} />}
       {pickWhen === "time" && <SearchPicker title="What time?" placeholder="Search" value={[]} options={times(day)} onClose={() => setPickWhen(null)}
-        onChange={(v) => { setPickWhen(null); rescue(() => rpc("set_job_time", { p_job: jobId, p_start_at: new Date(`${day}T${v[0]}`).toISOString() }), "Time set. Workers have been told again."); }} />}
-      {!stuck && !boosted && !shown.length && (
-        <div className="boost-row">
-          <span className="stack" style={{ gap: 2, flex: 1 }}>
-            <b>Urgent boost</b>
-            <span>Every worker in your category gets an alert and your job goes to the top.{boostCents ? ` ${money(boostCents)}, added to what you owe Mahi Man. Free with Plus.` : ""}</span>
-          </span>
-          <button className="btn primary small" disabled={boosting} onClick={async () => {
-            setBoosting(true);
-            try { await rpc("boost_job", { p_job: jobId }); toast("Boosted. Every worker in your category has been told."); onBoosted(); }
-            catch (e) { toast(e instanceof Error ? e.message : String(e)); }
-            finally { setBoosting(false); }
-          }}>Boost</button>
-        </div>
-      )}
-      {boosted && !shown.length && <div className="cp-note">{Icon.clockLine("var(--muted)")}<span>Boosted. Every worker in your category has been told.</span></div>}
-
+        onChange={(v) => { setPickWhen(null); rescue(() => rpc("set_job_time", { p_job: jobId, p_start_at: new Date(`${day}T${v[0]}`).toISOString() }), "Time set."); }} />}
       {unverified && !shown.length && (
         <div className="boost-row">
           <span className="stack" style={{ gap: 2, flex: 1 }}>

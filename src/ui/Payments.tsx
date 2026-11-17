@@ -96,14 +96,19 @@ function PayRow({ k, v, sub, copy }: { k: string; v: string; sub?: string; copy?
   );
 }
 // PayID and reference, then BSB and account.
-export function BankDetails({ pay, reference }: { pay: PayDetails; reference: string }) {
-  const bank = pay.bsb && pay.account ? `${pay.bsb} · ${pay.account}` : "";
+// Bank details the way people read them: BSB 084-472, ABN 17 640 157 811.
+export const fmtBsb = (v?: string) => { const d = (v ?? "").replace(/\D/g, ""); return d.length === 6 ? `${d.slice(0, 3)}-${d.slice(3)}` : v ?? ""; };
+export const fmtAbn = (v?: string) => { const d = (v ?? "").replace(/\D/g, ""); return d.length === 11 ? `${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 8)} ${d.slice(8)}` : v ?? ""; };
+
+export function BankDetails({ pay, reference, owner = true }: { pay: PayDetails; reference: string; owner?: boolean }) {
+  const bank = pay.bsb && pay.account ? `${fmtBsb(pay.bsb)} · ${pay.account}` : "";
   if (!pay.payid && !bank) return <span className="t15 light muted">Our bank details are being set up. Pay this once they show here.</span>;
   return (
     <>
       {pay.payid && <PayRow k="PayID" v={pay.payid} />}
       <PayRow k="Reference" v={reference} />
       {bank && <PayRow k={pay.payid ? "Or BSB and account" : "BSB and account"} v={bank} sub={pay.account_name || pay.legal_name} copy={`BSB ${pay.bsb} Account ${pay.account} ${pay.account_name ?? ""}`.trim()} />}
+      {owner && pay.legal_name && <span className="t14 light muted" style={{ display: "block", marginTop: 4 }}>Mahi Man is owned and operated by {pay.legal_name}{pay.abn ? `, ABN ${fmtAbn(pay.abn)}` : ""}.</span>}
     </>
   );
 }
@@ -139,7 +144,7 @@ export function HowYouPay() {
           <div className="hp-row"><i>When</i><span>When the job's done, straight to them. It never goes through us.</span></div>
         </section>
         <section>
-          <h2>Mahi Man</h2><p className="amt">The connection fee, plus urgent if you chose it</p>
+          <h2>Mahi Man</h2><p className="amt">The connection fee</p>
           <div className="hp-row"><i>How</i><span>Pay as you go: an invoice, paid by bank transfer. Top-up or Plus: it comes off your balance.</span></div>
           <div className="hp-row"><i>When</i><span>Only if the job goes ahead. Within 3 days, or weekly or every 2 weeks on your payday. Set it in You, Payments.</span></div>
         </section>
@@ -150,13 +155,14 @@ export function HowYouPay() {
         <div className="pl-row"><span>Connection fee</span><b>{r.payg}%</b><b>{r.topup}%</b><b className="pl-plus">{r.plus}%</b></div>
         <div className="pl-row"><span>Fee cap</span><span>{dollars(r.payg_max)}</span><span>{dollars(r.topup_max)}</span><span className="pl-plus">{dollars(r.plus_max)}</span></div>
         <div className="pl-row"><span>To join</span><span>Free</span><span>Free</span><span className="pl-plus">{dollars(r.plus_year)} a year</span></div>
-        <div className="pl-row"><span>Priority and fix-it guarantee</span><span>—</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
+        <div className="pl-row"><span>Workers alerted when you post</span><span>—</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
+        <div className="pl-row"><span>Save your favourites</span><span>—</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
         <div className="pl-row pl-eg"><span>Weekly, 4 jobs of $80</span><b>{money2(eg(r.payg, r.payg_max))}</b><b>{money2(eg(r.topup, r.topup_max))}</b><b className="pl-plus">{money2(eg(r.plus, r.plus_max) + Math.round(r.plus_year / 12))}</b></div>
       </div>
       <div className="cp-sec" style={{ paddingBottom: Capacitor.isNativePlatform() ? 18 : "calc(var(--safe-bottom) + 32px)" }}>
         <Li b="Pay as you go" s="Nothing upfront. Pay the fee by bank transfer, after each job, weekly or every 2 weeks on your payday." />
         <Li b="Top-up" s="Add $25, $50 or $100 by card or bank. Fees come off your balance automatically." />
-        <Li b="Plus" s="For regulars. Your jobs go to the top, top-rated workers first, and if it's not done as listed we send someone to finish it." />
+        <Li b="Plus" s="For our loyal customers. Reduced fees, workers nearby alerted the moment you post, and your favourite workers saved to book again." />
       </div>
       {Capacitor.isNativePlatform() && (
         <ActionBar>
@@ -328,12 +334,12 @@ export function InvoicePage({ id }: { id: number }) {
       {(st === "due" || st === "late") && (
         <div className="iv-pay iv-band">
           <span className="cp-title" style={{ margin: 0 }}>Pay by bank transfer</span>
-          <BankDetails pay={pay} reference={inv.number} />
+          <BankDetails pay={pay} reference={inv.number} owner={false} />
         </div>
       )}
       <div className="cp-sec iv-band" style={{ paddingBottom: 24 }}>
         <span className="cp-title">Tax invoice</span>
-        <span className="t14 light muted">{pay.legal_name}{pay.trading_name ? `, trading as ${pay.trading_name}` : ""}{pay.abn ? ` · ABN ${pay.abn}` : ""}<br />To {inv.to} · Issued {dayLong(inv.issued_at)}</span>
+        <span className="t14 light muted">{pay.legal_name}{pay.trading_name ? `, trading as ${pay.trading_name}` : ""}{pay.abn ? ` · ABN ${fmtAbn(pay.abn)}` : ""}<br />To {inv.to} · Issued {dayLong(inv.issued_at)}</span>
         <div style={{ marginTop: 10 }}>{inv.lines.map((l, i) => <div key={i} className="cp-row"><span>{dayShort(l.date)} · {l.job}{l.who ? ` · ${l.who}` : ""}</span><span>{money2(l.cents)}</span></div>)}</div>
         <div className="cp-total"><span>Total</span><span>{money2(inv.total)}</span></div>
         <div className="cp-row"><span className="light muted">Includes GST</span><span className="light muted">{money2(inv.gst)}</span></div>
@@ -362,7 +368,7 @@ async function savePdf(inv: InvoiceDetail) {
   doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text("Tax invoice", L, y);
   doc.setFontSize(12); doc.text(inv.number, R, y, { align: "right" });
   y += 30; doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
-  const from = [`${pay.legal_name ?? ""}${pay.trading_name ? `, trading as ${pay.trading_name}` : ""}`, pay.abn ? `ABN ${pay.abn}` : ""].filter(Boolean);
+  const from = [`${pay.legal_name ?? ""}${pay.trading_name ? `, trading as ${pay.trading_name}` : ""}`, pay.abn ? `ABN ${fmtAbn(pay.abn)}` : ""].filter(Boolean);
   from.forEach((t) => { doc.text(t, L, y); y += 15; });
   y += 10;
   doc.text(`To: ${inv.to}`, L, y); y += 15;
@@ -381,7 +387,7 @@ async function savePdf(inv: InvoiceDetail) {
   if (inv.status === "paid") { doc.setFont("helvetica", "bold"); doc.text(`Paid ${dayLong(inv.paid_at ?? inv.due_at)}`, L, y); }
   else {
     doc.setFont("helvetica", "bold"); doc.text("Pay by bank transfer", L, y); y += 18; doc.setFont("helvetica", "normal");
-    [pay.payid ? `PayID: ${pay.payid}` : "", pay.bsb ? `BSB: ${pay.bsb}   Account: ${pay.account ?? ""}` : "", pay.account_name ? `Account name: ${pay.account_name}` : "", `Reference: ${inv.number}`]
+    [pay.payid ? `PayID: ${pay.payid}` : "", pay.bsb ? `BSB: ${fmtBsb(pay.bsb)}   Account: ${pay.account ?? ""}` : "", pay.account_name ? `Account name: ${pay.account_name}` : "", `Reference: ${inv.number}`]
       .filter(Boolean).forEach((t) => { doc.text(t, L, y); y += 15; });
   }
   const name = `Mahi-Man-${inv.number}.pdf`;
@@ -490,13 +496,14 @@ export function TopUpPage() {
 // Plus: one payment for a year. In beta it's a bank transfer; card payments switch on when Stripe is connected.
 export function PlusPage() {
   const toast = useToast();
+  const { profile } = useSession();
   const { p, reload: reloadP, failed } = usePayments();
   const [order, setOrder] = useState<(PlusOrder & { pay: PayDetails }) | null>(null);
   const [busy, setBusy] = useState(false);
+  const [agree, setAgree] = useState(false);
   if (!p) return <Page title="Mahi Man Plus" onBack={back("/payments")}><Waiting failed={failed} onRetry={reloadP} /></Page>;
   const plus = isPlus(p);
-  const year = p.rates.plus_year, monthly = p.rates.plus_cents;
-  const save = 12 * monthly - year;
+  const year = p.rates.plus_year;
   const until = p.plus_until ? new Date(p.plus_until).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ }) : "";
   const waiting = p.plus_order;
 
@@ -506,65 +513,97 @@ export function PlusPage() {
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
-  if (order) return (
-    <div className="app">
-      <div className="screen-head brand"><button className="back" onClick={() => setOrder(null)} aria-label="Back">{Icon.back("#fff")}</button><h3>Pay for Plus</h3></div>
-      <div className="pq-body">
-        <div className="pq-amt">{money(order.amount)}<small>A year of Plus, by bank transfer</small></div>
-        <div className="pq-rows"><BankDetails pay={order.pay} reference={order.reference} /></div>
-        <p className="pq-note">Use the reference so we can match it. Plus starts as soon as it lands, usually within a day.</p>
-        <div className="pq-go">
-          {order.status === "claimed"
-            ? <span className="pq-wait">{Icon.clock("var(--emerald)")}We're checking for your transfer</span>
-            : <button className="btn primary pq-btn" disabled={busy} onClick={async () => {
-                setBusy(true);
-                try { await rpc("plus_claim", { p_id: order.id }); setOrder({ ...order, status: "claimed" }); reloadP(); toast("Thanks. We'll switch Plus on when it lands."); }
-                catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
-              }}>I've paid</button>}
-        </div>
+  const copy = (v: string) => { navigator.clipboard?.writeText(v).then(() => toast("Copied")).catch(() => {}); };
+  if (order) {
+    const pay = order.pay;
+    const rows: [string, string | undefined][] = [["Account name", pay.account_name || pay.legal_name], ["BSB", fmtBsb(pay.bsb)], ["Account number", pay.account], ["Reference", order.reference]];
+    const done = order.status === "claimed";
+    return (
+      <div className="app pq">
+        <button className="back pq-back" onClick={() => setOrder(null)} aria-label="Back">{Icon.back("#fff")}</button>
+        {done ? <>
+          <div className="pq-card">
+            <img src="/mascot.png" alt="" /><i className="pq-sheen" />
+            <span className="pq-brand">MAHI MAN</span><span className="pq-word">Plus</span>
+            <span className="pq-name">{profile?.full_name || "Member"}</span><span className="pq-since">Member</span>
+          </div>
+          <h1 className="pq-pt">You're on <em>Plus.</em></h1>
+          <p className="pq-lead">Plus is on for the next 24 hours while we check your transfer. Once it lands, it's yours for the year.</p>
+          <div className="pq-steps">
+            <div><b className="pq-plus">+</b><span><b>Our team has been notified</b><small>We'll confirm your payment within 24 hours</small></span></div>
+            <div><b className="pq-plus">+</b><span><b>Use Plus straight away</b><small>Reduced fees, faster help and your favourites</small></span></div>
+          </div>
+          <div className="pq-foot"><button className="pq-gold" onClick={() => go("/")}><span>Post a job</span></button></div>
+        </> : <>
+          <div className="pq-sum">
+            <img src="/mahi-head.png" alt="" />
+            <span><b>Mahi Man Plus</b><small>12 months · {order.reference}</small></span>
+            <strong>{money2(order.amount)}</strong>
+          </div>
+          <h2 className="pq-sh">Pay by bank transfer</h2>
+          <div className="pq-tbl">
+            {rows.filter(([, v]) => v).map(([k, v]) => (
+              <div key={k} className={k === "Reference" ? "ref" : ""}>
+                <span>{k}</span><b>{v}</b>
+                <button onClick={() => copy(String(v))} aria-label={`Copy ${k}`}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="8" y="8" width="12" height="12" rx="2" /><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2" /></svg></button>
+              </div>
+            ))}
+          </div>
+          <p className="pq-trust">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z" /><path d="M8.5 12l2.5 2.5 4.5-5" /></svg>
+            <span>Mahi Man is owned and operated by {pay.legal_name || "Find Fit People Pty Ltd"}{pay.abn ? <>, <i>ABN {fmtAbn(pay.abn)}</i></> : ""}. Always include your reference.</span>
+          </p>
+          <div className="pq-foot">
+            <button className="pq-agree" role="checkbox" aria-checked={agree} onClick={() => setAgree(!agree)}>
+              <i className={agree ? "on" : ""}>{agree && Icon.tick("#1c1400", 16)}</i>
+              <span>I declare this payment has been sent. False confirmations may lead to account suspension.</span>
+            </button>
+            <button className="pq-gold" disabled={busy || !agree} onClick={async () => {
+              setBusy(true);
+              try { await rpc("plus_claim", { p_id: order.id }); setOrder({ ...order, status: "claimed" }); reloadP(); }
+              catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+            }}><span>{busy ? "One moment…" : "Confirm payment"}</span></button>
+          </div>
+        </>}
       </div>
-    </div>
-  );
+    );
+  }
 
-  const ic = (d: ReactNode) => <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flex: "none" }}>{d}</svg>;
+  const name = profile?.full_name ?? "";
   return (
-    <div className="app">
-      <div className="pq-hero">
-        <button className="back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
-        <div className="pq-title">
-          <svg width="56" height="56" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#f5c518" /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
-          <h1><small>MAHI MAN</small>Plus</h1>
-        </div>
-        <p>{plus ? `You're on Plus until ${until}.` : "For people who book help every week."}</p>
+    <div className="app pq">
+      <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
+
+      {/* The membership card: gold foil, a light sweep, Mahi Man pressed into it. */}
+      <div className="pq-card">
+        <img src="/mascot.png" alt="" />
+        <i className="pq-sheen" />
+        <span className="pq-brand">MAHI MAN</span>
+        <span className="pq-word">Plus</span>
+        <span className="pq-name">{name || "Member"}</span>
+        <span className="pq-since">{plus ? `Until ${until}` : "Member"}</span>
       </div>
-      <div className="pq-body">
-        <div className="pq-bn">
-          <div>{ic(<path d="M12 19V5M5 12l7-7 7 7" />)}Your jobs go out first</div>
-          <div>{ic(<path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2-5.5-2.9-5.5 2.9 1-6.2L3 9.6l6.2-.9z" />)}Top-rated workers see them first</div>
-          <div>{ic(<><path d="M14.7 6.3a4 4 0 0 0 5 5L12 19a2.1 2.1 0 0 1-3-3z" /><path d="M5 5l3 3" /></>)}Fix-it guarantee</div>
-          <div>{ic(<><path d="M19 5L5 19" /><circle cx="7" cy="7" r="2.5" /><circle cx="17" cy="17" r="2.5" /></>)}Lower connection fees</div>
-        </div>
+
+      <h1 className="pq-h">For our <em>loyal customers.</em></h1>
+
+      <div className="pq-perks">
+        <div><i className="pq-plus" aria-hidden="true">+</i><span><b>Reduced fees</b><small>{p.rates.plus}% instead of {p.rates.payg}% on every job</small></span></div>
+        <div><i className="pq-plus" aria-hidden="true">+</i><span><b>Get help faster</b><small>Workers nearby are alerted when you post</small></span></div>
+        <div><i className="pq-plus" aria-hidden="true">+</i><span><b>Save your favourites</b><small>Book the workers you like, again and again</small></span></div>
+      </div>
+
+      <div className="pq-foot">
         {waiting ? (
           <button className="pq-waiting" onClick={start}>
-            {Icon.clock("var(--emerald)")}
+            {Icon.clock("#f5c518")}
             <span><b>{waiting.status === "claimed" ? "We're checking for your transfer" : `Waiting for your ${money(waiting.amount)} transfer`}</b>
               <small>{waiting.reference}</small></span>
-            {Icon.chevron("var(--faint)")}
+            {Icon.chevron("rgba(255,255,255,.5)")}
           </button>
         ) : <>
-          <div className="pq-price"><b>{money(year)}</b><span>a year</span>{save > 0 && <em>Save {money(save)}</em>}</div>
-          <div className="pq-how">
-            <span className="on">{Icon.tick("#fff", 18)}Bank transfer</span>
-            <span className="off">Card · coming soon</span>
-          </div>
-          <div className="pq-beta"><b>BETA</b><span>We're in beta, so Plus is paid by bank transfer for now. Card payments are coming soon.</span></div>
+          <button className="pq-gold" disabled={busy} onClick={start}><span>{busy ? "One moment…" : plus ? `Add a year – ${money(year)}` : `Get Plus – ${money(year)} per year`}</span></button>
+          <span className="pq-small">About {money(Math.round(year / 52))} a week<br /><b>BETA</b>Bank transfer for now. No auto-renew.</span>
         </>}
-        {!waiting && (
-          <div className="pq-go">
-            <button className="pq-gold" disabled={busy} onClick={start}>{busy ? "One moment…" : plus ? `Add a year for ${money(year)}` : `Get Plus for ${money(year)}`}</button>
-            <span>One payment. No auto-renew.</span>
-          </div>
-        )}
       </div>
     </div>
   );

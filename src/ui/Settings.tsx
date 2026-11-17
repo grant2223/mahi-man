@@ -127,7 +127,7 @@ export function Settings() {
     { label: "Sign out", hint: "At the bottom of Settings", act: () => setSub("account") },
     { label: "Balance and history", hint: "Payments, invoices and receipts", act: () => go("/payments") },
     { label: "Top up", hint: "Add to your balance", act: () => go("/topup") },
-    { label: "Mahi Man Plus", hint: "Your jobs go first", act: () => go("/plus") },
+    { label: "Mahi Man Plus", hint: "Reduced fees, faster help", act: () => go("/plus") },
     { label: "Buy a gift card", hint: "Mahi Man help for someone else", act: () => go("/gift") },
     { label: "Redeem a gift card", hint: "Add a gift code", act: () => go("/gift-code") },
     { label: "How payment works", hint: "Who you pay and when", act: () => go("/pricing") },
@@ -212,7 +212,7 @@ export function PlusRow() {
   return (
     <button className="pr-plus" onClick={() => go("/plus")}>
       <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#f5c518" /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
-      <span><b>Mahi Man Plus</b><small>Your jobs go first</small></span>{Icon.chevron("var(--faint)")}
+      <span><b>Mahi Man Plus</b><small>Reduced fees, faster help</small></span>{Icon.chevron("var(--faint)")}
     </button>
   );
 }
