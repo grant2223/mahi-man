@@ -1099,7 +1099,7 @@ function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount,
               {Icon.down("var(--ink)")}
             </button>
             {chosen.some((k) => k.trade)
-              ? <span className="t15 em" style={{ lineHeight: 1.4 }}>A trade job. Tradies send you a fixed quote{needs.length ? `, and only those with a verified ${needs.map(lc).join(" and ")} can quote` : ""}.</span>
+              ? <span className="t15 em" style={{ lineHeight: 1.4 }}>A trade job. Tradies come to you and send a fixed quote{needs.length ? `, and only those with a verified ${needs.map(lc).join(" and ")} can quote` : ""}.</span>
               : needs.length > 0 && <span className="t15 em" style={{ lineHeight: 1.4 }}>Only workers with a verified {needs.map(lc).join(" and ")} can take this job.</span>}
           </div>
         )}

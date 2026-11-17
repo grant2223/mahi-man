@@ -117,8 +117,9 @@ const CAT_SVG: Record<string, string> = {
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge }: {
-  d: WorkerHomeData; onlineBusy: boolean; onOnline: () => void; onStep: (k: "profile") => void; onSkills: () => void; onBadge: () => void;
+export type TradeWork = { tradie: boolean; business: string | null; plan: "standard" | "premium" | null };
+export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge, trade }: {
+  d: WorkerHomeData; onlineBusy: boolean; onOnline: () => void; onStep: (k: "profile") => void; onSkills: () => void; onBadge: () => void; trade?: TradeWork | null;
 }) {
   const s = d.steps;
   const steps: [keyof typeof s, string][] = [["profile", "Profile"], ["online", "Go online"], ["job", "First job"], ["review", "First review"]];
@@ -159,6 +160,17 @@ export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge 
         <div><b>{recPct == null ? "New" : `${recPct}%`}</b><small>{recPct == null ? "no reviews yet" : "recommend"}</small></div>
         <div><b>{d.done}</b><small>jobs done</small></div>
         <div><b>{d.turns_up == null ? "New" : `${d.turns_up}%`}</b><small>turned up</small></div>
+      </section>
+    )}
+
+    {trade && (
+      <section className="pr-sec">
+        <h2>Trade work</h2>
+        {!trade.tradie ? <button className="btn tr-ask-go" onClick={() => go("/work/trade")}>Create Tradie Profile</button> : <>
+          <button className="pr-line" onClick={() => go("/work?trade=start")}><span><b>Trade jobs</b><small>{trade.plan ? "New jobs and your quotes" : "Select how you pay to start quoting"}</small></span>{Icon.chevron("var(--faint)")}</button>
+          <button className="pr-line" onClick={() => go(trade.plan ? "/work?trade=plan" : "/work?trade=join")}><span><b>How you pay</b><small>{trade.plan === "premium" ? "Monthly" : trade.plan ? "Per job" : "Not selected yet"}</small></span>{Icon.chevron("var(--faint)")}</button>
+          <button className="pr-line" onClick={() => go("/work/trade")}><span><b>Tradie profile</b><small>{trade.business ?? "Your business, services and licences"}</small></span>{Icon.chevron("var(--faint)")}</button>
+        </>}
       </section>
     )}
 
@@ -241,6 +253,24 @@ function green(ctx: CanvasRenderingContext2D, w: number, h: number) {
 }
 const FONT = '"Bricolage Grotesque", system-ui, sans-serif';
 
+// The services line, wrapped between items so it never runs off the card. Anything past the last line becomes "+N more".
+function serviceLines(ctx: CanvasRenderingContext2D, items: string[], maxW: number, maxLines: number): string[] {
+  const lines: string[] = [];
+  let cur = "";
+  for (let i = 0; i < items.length; i++) {
+    const next = cur ? `${cur} · ${items[i]}` : items[i];
+    if (ctx.measureText(next).width <= maxW || !cur) { cur = next; continue; }
+    if (lines.length === maxLines - 1) {
+      let last = cur, left = items.length - i;
+      while (ctx.measureText(`${last} +${left} more`).width > maxW && last.includes(" · ")) { last = last.slice(0, last.lastIndexOf(" · ")); left++; }
+      lines.push(`${last} +${left} more`); return lines;
+    }
+    lines.push(cur); cur = items[i];
+  }
+  if (cur) lines.push(cur);
+  return lines;
+}
+
 // Draws the approved card as a PNG: "phone" (1080 x 1920, for socials) or "print" (1050 x 600, business card ratio).
 export async function cardImage(w: PublicWorker, slug: string, kind: "phone" | "print"): Promise<string> {
   await document.fonts.ready;
@@ -248,7 +278,7 @@ export async function cardImage(w: PublicWorker, slug: string, kind: "phone" | "
   const qr = await loadImg(await QRCode.toDataURL(link, { margin: 0, width: 600, color: { dark: "#073f2f", light: "#ffffff" } }));
   const head = await loadImg("/mahi-head.png");
   const pic = avatarUrl(w.photo); const photo = pic ? await loadImg(pic).catch(() => null) : null;
-  const does = w.does.map((c) => c.name).join(" · ");
+  const does = w.does.map((c) => c.name);
   const place = [w.suburb, w.area].filter(Boolean).join(", ");
   const c = document.createElement("canvas");
   const ctx = c.getContext("2d")!;
@@ -266,7 +296,7 @@ export async function cardImage(w: PublicWorker, slug: string, kind: "phone" | "
     if (w.age != null) { ctx.font = `300 88px ${FONT}`; ctx.fillText(String(w.age), x, py + ph - 110); x += ctx.measureText(String(w.age)).width + 22; }
     if (w.verified) ros(ctx, x, py + ph - 180, 70);
     ctx.font = `300 42px ${FONT}`; ctx.fillText(place, px + 50, py + ph - 45);
-    ctx.fillStyle = "#f5c518"; ctx.font = `400 46px ${FONT}`; ctx.fillText(does, 66, py + ph + 100);
+    ctx.fillStyle = "#f5c518"; ctx.font = `400 46px ${FONT}`; serviceLines(ctx, does, 948, 2).forEach((l, i) => ctx.fillText(l, 66, py + ph + 90 + i * 55));
     ctx.fillStyle = "#fff"; ctx.fillRect(1014 - 330, 1920 - 72 - 330, 330, 330); ctx.drawImage(qr, 1014 - 330 + 22, 1920 - 72 - 330 + 22, 286, 286);
     ctx.font = `600 72px ${FONT}`; ctx.fillText("Book me on", 66, 1920 - 230); ctx.fillText("Mahi Man", 66, 1920 - 150);
     ctx.font = `300 40px ${FONT}`; ctx.fillText(`${SHARE_HOST}/w/${slug}`, 66, 1920 - 80);
@@ -281,7 +311,7 @@ export async function cardImage(w: PublicWorker, slug: string, kind: "phone" | "
     if (w.age != null) { ctx.font = `300 50px ${FONT}`; ctx.fillText(String(w.age), x, 186); x += ctx.measureText(String(w.age)).width + 14; }
     if (w.verified) ros(ctx, x, 146, 42);
     ctx.font = `300 26px ${FONT}`; ctx.fillText(place, L, 230);
-    ctx.fillStyle = "#f5c518"; ctx.font = `400 28px ${FONT}`; ctx.fillText(does, L, 282);
+    ctx.fillStyle = "#f5c518"; ctx.font = `400 28px ${FONT}`; serviceLines(ctx, does, 1050 - 40 - L, 3).forEach((l, i) => ctx.fillText(l, L, 282 + i * 38));
     ctx.fillStyle = "#fff"; ctx.fillRect(1050 - 40 - 180, 600 - 40 - 180, 180, 180); ctx.drawImage(qr, 1050 - 40 - 168, 600 - 40 - 168, 156, 156);
     ctx.font = `600 32px ${FONT}`; ctx.fillText("Book me on Mahi Man", L, 600 - 84);
     ctx.font = `300 24px ${FONT}`; ctx.fillText(`${SHARE_HOST}/w/${slug}`, L, 600 - 46);

@@ -771,11 +771,11 @@ function Skills() {
                 <td><input value={val(r, "name")} onChange={(e) => set(r.id, { name: e.target.value })} style={{ minWidth: 200 }} /></td>
                 <td><select value={val(r, "kind")} onChange={(e) => set(r.id, { kind: e.target.value as "skill" | "gear" })}><option value="skill">Skill</option><option value="gear">Gear</option></select></td>
                 <td>{val(r, "kind") === "skill" ? (
-                  <select style={{ minWidth: 104 }} value={val(r, "trade") ? "trade" : "normal"} onChange={(e) => set(r.id, { trade: e.target.value === "trade" })}>
-                    <option value="normal">Normal</option><option value="trade">Trade</option>
+                  <select style={{ minWidth: 176 }} value={val(r, "trade") ? "trade" : "normal"} onChange={(e) => set(r.id, { trade: e.target.value === "trade" })}>
+                    <option value="normal">Normal (workers)</option><option value="trade">Trade (quoted)</option>
                   </select>) : <span className="small muted">Gear</span>}</td>
                 <td>{val(r, "kind") === "skill" ? (
-                  <select value={String(val(r, "credential_type_id") ?? "")} onChange={(e) => set(r.id, { credential_type_id: e.target.value ? Number(e.target.value) : null })}>
+                  <select style={{ minWidth: 150 }} value={String(val(r, "credential_type_id") ?? "")} onChange={(e) => set(r.id, { credential_type_id: e.target.value ? Number(e.target.value) : null })}>
                     <option value="">Nothing</option>{creds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>) : <span className="small muted">Nothing</span>}</td>
                 <td>{val(r, "kind") === "skill" && val(r, "trade") ? (
@@ -796,7 +796,7 @@ function Skills() {
         </span>
         <button className="btn primary" disabled={!Object.keys(dirty).length} onClick={save}>Save</button>
       </div>
-      <p className="small muted">Job: a trade skill makes the job a trade job. Tradies with an ABN and insurance quote a fixed price, and the customer sets no budget. Normal jobs have a set price.</p>
+      <p className="small muted">Job: Normal (workers) jobs have the customer's price and workers say they're available. Trade (quoted) jobs go to tradies with a tradie profile, who quote a fixed price at the customer's place. Nothing switches by itself.</p>
       <p className="small muted">Needs: a licence the worker must always have. Over $3,300: quotes above $3,300 (labour, materials and GST) need a verified QBCC licence.</p>
     </>
   );

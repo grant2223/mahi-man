@@ -21,6 +21,17 @@ type Form = { name: NameParts; day: string; month: string; year: string; gender:
 type Sub = { id: number; name: string; area: string; state: string; lat: number; lng: number; km: number | null };
 const pad = (s: string) => (s.length === 1 ? `0${s}` : s);
 
+/* Date of birth: one field, typed as DD / MM / YYYY. The slashes go in as they type. */
+function DobField({ day, month, year, onChange }: { day: string; month: string; year: string; onChange: (x: { day: string; month: string; year: string }) => void }) {
+  const shown = [day, month, year].filter(Boolean).join(" / ");
+  return (
+    <label className="field pf-dob1"><span className="k">Date of birth</span>
+      <input inputMode="numeric" autoComplete="bday" value={shown} placeholder="DD / MM / YYYY"
+        onChange={(e) => { const d = e.target.value.replace(/\D/g, "").slice(0, 8); onChange({ day: d.slice(0, 2), month: d.slice(2, 4), year: d.slice(4) }); }} />
+    </label>
+  );
+}
+
 // The fields and the Continue/Save button. Used inside the sign-in screen and on its own screen.
 export function ProfileForm({ button, onSaved }: { button: string; onSaved: () => void }) {
   const { session, profile, reload } = useSession();
@@ -48,7 +59,6 @@ export function ProfileForm({ button, onSaved }: { button: string; onSaved: () =
   }, [session?.user.id, p?.id]); // eslint-disable-line react-hooks/exhaustive-deps
   if (!f) return null;
   const set = (x: Partial<Form>) => { setErr(""); setF({ ...f, ...x }); };
-  const num = (v: string, max: number) => v.replace(/\D/g, "").slice(0, max);
   const save = async () => {
     setErr("");
     if (!f.name.first.trim()) return setErr("Add your first name");
@@ -77,16 +87,13 @@ export function ProfileForm({ button, onSaved }: { button: string; onSaved: () =
   return (
     <>
       <NameFields value={f.name} onChange={(name) => set({ name })} />
-      <h4 className="pf-h">Date of birth</h4>
-      <div className="pf-dob">
-        <label className="field"><span className="k">Day</span><input inputMode="numeric" value={f.day} placeholder="DD" onChange={(e) => set({ day: num(e.target.value, 2) })} /></label>
-        <label className="field"><span className="k">Month</span><input inputMode="numeric" value={f.month} placeholder="MM" onChange={(e) => set({ month: num(e.target.value, 2) })} /></label>
-        <label className="field"><span className="k">Year</span><input inputMode="numeric" value={f.year} placeholder="YYYY" onChange={(e) => set({ year: num(e.target.value, 4) })} /></label>
-      </div>
       <h4 className="pf-h">About you</h4>
-      <div className="pf-grid">
+      <DobField day={f.day} month={f.month} year={f.year} onChange={set} />
+      <div className="pf-about">
         <button className="field sel" onClick={() => setPick("gender")}><span className="k">Gender</span><span className={f.gender ? "v" : "v ph"}>{GENDERS.find(([k]) => k === f.gender)?.[1] ?? "Select"}</span></button>
         <button className="field sel" onClick={() => setPick("nationality")}><span className="k">Nationality</span><span className={f.nationality ? "v" : "v ph"}>{f.nationality || "Select"}</span></button>
+      </div>
+      <div className="pf-about one">
         <button className="field sel" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={subName ? "v" : "v ph"}>{subName || "Select"}</span></button>
         <button className="field sel" onClick={() => setPick("heard")}><span className="k">Heard about us</span><span className={f.heard ? "v" : "v ph"}>{f.heard || "Select"}</span></button>
       </div>
@@ -180,7 +187,6 @@ export function AboutEdit({ onBack, onDone }: { onBack: () => void; onDone: () =
     });
   }, [session?.user.id]); // eslint-disable-line react-hooks/exhaustive-deps
   const set = (x: Partial<typeof f>) => { setErr(""); setF((v) => ({ ...v, ...x })); };
-  const num = (v: string, max: number) => v.replace(/\D/g, "").slice(0, max);
   const save = async () => {
     if (!d) return;
     const dd = Number(f.day), m = Number(f.month), y = Number(f.year);
@@ -200,11 +206,7 @@ export function AboutEdit({ onBack, onDone }: { onBack: () => void; onDone: () =
     <Screen title="About you" onBack={onBack}>
       <div className="screen-body pe-body">
         {d && (<>
-          <div className="pf-dob">
-            <label className="field"><span className="k">Day</span><input inputMode="numeric" value={f.day} placeholder="DD" onChange={(e) => set({ day: num(e.target.value, 2) })} /></label>
-            <label className="field"><span className="k">Month</span><input inputMode="numeric" value={f.month} placeholder="MM" onChange={(e) => set({ month: num(e.target.value, 2) })} /></label>
-            <label className="field"><span className="k">Year</span><input inputMode="numeric" value={f.year} placeholder="YYYY" onChange={(e) => set({ year: num(e.target.value, 4) })} /></label>
-          </div>
+          <DobField day={f.day} month={f.month} year={f.year} onChange={set} />
           <button className="field sel pe-gap" onClick={() => setPick("gender")}><span className="k">Gender</span><span className={f.gender ? "v" : "v ph"}>{GENDERS.find(([k]) => k === f.gender)?.[1] ?? "Select"}</span></button>
           <button className="field sel pe-gap" onClick={() => setPick("nationality")}><span className="k">Nationality</span><span className={f.nationality ? "v" : "v ph"}>{f.nationality || "Select"}</span></button>
           {err && <p className="err">{err}</p>}

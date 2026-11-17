@@ -15,7 +15,7 @@ import { PaymentMethods, cardLabel } from "../customer/Cards";
 import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
 import { isSoon, useArea } from "../lib/area";
 import { TabBar } from "./TabBar";
-import { ProfileHero, ShareCard, WorkerHome, type WorkerHomeData } from "./ProfileHome";
+import { ProfileHero, ShareCard, WorkerHome, type TradeWork, type WorkerHomeData } from "./ProfileHome";
 
 /* The You page. Each band shows how things stand right now (money, jobs, work), and tapping it opens the detail.
    Account details, area, alerts, card and blocked people live on their own Account page. */
@@ -73,6 +73,12 @@ export function Settings() {
   const [card, setCard] = useState<PersonCard | null>(null);
   const [place, setPlace] = useState<{ suburb: string; area: string }>({ suburb: "", area: "" });
   const [onlineBusy, setOnlineBusy] = useState(false);
+  // Trade work on their profile: Create Tradie Profile, or their trade jobs, how they pay and tradie profile.
+  const [tw, setTw] = useState<TradeWork | null>(null);
+  useEffect(() => {
+    if (profile?.is_worker) rpc<{ trades?: number[]; business_name: string | null; plan: { plan: "standard" | "premium"; premium: boolean } | null }>("trade_status")
+      .then((t) => setTw({ tradie: !!t?.trades?.length, business: t?.business_name ?? null, plan: t?.plan ? (t.plan.premium ? "premium" : "standard") : null })).catch(() => {});
+  }, [profile?.is_worker]);
 
   const load = () => rpc<Hub>("my_hub").then((h) => {
     setHub(h);
@@ -136,7 +142,7 @@ export function Settings() {
       <ProfileHero photo={profile.photo_path} name={card?.full_name ?? profile.full_name ?? ""} age={card?.age ?? null} verified={profile.id_status === "verified"}
         place={[place.suburb, place.area].filter(Boolean).join(", ")} onCard={worker ? () => setSub("card") : undefined} onCog={() => setSub("account")} />
 
-      {worker ? (wh ? <WorkerHome d={wh} onlineBusy={onlineBusy} onOnline={goOnline} onStep={finishProfile} onSkills={() => setSub("skills")} onBadge={() => setSub("creds")} /> : <div className="pr-sec"><p className="ac-none">Loading</p></div>) : (<>
+      {worker ? (wh ? <WorkerHome d={wh} onlineBusy={onlineBusy} onOnline={goOnline} onStep={finishProfile} onSkills={() => setSub("skills")} onBadge={() => setSub("creds")} trade={tw} /> : <div className="pr-sec"><p className="ac-none">Loading</p></div>) : (<>
         <section className="pr-sec pr-3">
           <div><b>{hub?.jobs_total ?? 0}</b><small>jobs posted</small></div>
           <div><b>{recPct == null ? "New" : `${recPct}%`}</b><small>{recPct == null ? "no reviews yet" : "recommend"}</small></div>

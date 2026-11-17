@@ -10,6 +10,7 @@ import { Icon, Loading, Logo, SearchPicker, Tile, useNow, useToast } from "../ui
 import { ReportScreen } from "../ui/Report";
 import { AbnStep, Signup, type Steps } from "./Signup";
 import { Credentials } from "./Skills";
+import { TradeSetup, TradieAsk } from "./TradeSetup";
 import { WorkerJob } from "./WorkerJob";
 import { ActionBar, reviewSkipped } from "../ui/Completion";
 import { AlertsAsk } from "../ui/AlertsAsk";
@@ -20,7 +21,7 @@ import { Standby } from "./Standby";
 import { Offline } from "./Offline";
 import { Feed } from "../customer/Feed";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
-import { joined, TradeFeed, TradeJob, TradeJoin, TradePlan, TradeStrip, TradeWaiting, useTrade } from "./Trade";
+import { joined, TradeFeed, TradeJob, TradeJoin, TradePlan, TradeWaiting, useTrade } from "./Trade";
 
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
@@ -87,6 +88,8 @@ export function Work() {
   }, []);
 
   const [setupOpen, setSetupOpen] = useState(false);
+  // Just signed up: ask once whether they're a trades person.
+  const [askTradie, setAskTradie] = useState(() => location.search.includes("asktradie"));
   if (!ready) return <div className="app"><section className="hero short"><span className="brand"><Logo /> Mahi Man</span></section><Loading /></div>;
 
   // Not a worker yet: straight into sign-up. The jobs feed already explains what's needed.
@@ -96,11 +99,14 @@ export function Work() {
         <AuthScreen title="Earn with Mahi Man" reason="Here's what you need to start:"
           need={["A clear photo of yourself", "Your passport or national ID. We verify you, usually within a few hours", "Your PayID or bank account, so customers can pay you"]}
           onBack={() => (history.length > 1 ? history.back() : go("/"))}
-          onDone={async () => { await rpc("become_worker"); await reload(); }} />
+          onDone={async () => { await rpc("become_worker"); setAskTradie(true); await reload(); }} />
       </div>
     );
   }
   if (!profile?.is_worker) return <BecomeWorker onDone={reload} />;
+  if (askTradie) return <div className="app"><TradieAsk onYes={() => { setAskTradie(false); go("/work/trade"); }} onNo={() => { setAskTradie(false); go("/work", true); }} /></div>;
+  // The tradie profile: from Are you a trades person? or Create Tradie Profile on their profile. Then how they pay, then trade jobs.
+  if (location.pathname === "/work/trade") return <div className="app"><TradeSetup onBack={() => (history.length > 1 ? history.back() : go("/work"))} onDone={() => go("/work?trade=start", true)} /></div>;
 
   if (!status || current === undefined) return <div className="app"><section className="hero short"><span className="brand"><Logo /> Mahi Man</span>{err && <p className="lede" style={{ marginTop: 16 }}>{err}</p>}</section>{!err && <Loading />}</div>;
   if (current) return <div className="app"><WorkerJob key={current.id} job={current} onChanged={refresh} onLeave={() => { hide(current.id); refresh(); }} /></div>;
@@ -152,6 +158,14 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const { trade, reload: reloadTrade } = useTrade();
   const isTradie = joined(trade);
   const [tradeScreen, setTradeScreen] = useState<null | "join" | "plan" | "feed">(null);
+  // Trade jobs aren't on Do work. They open from the profile page (Trade work) or a trade alert: /work?trade=feed, plan, join or start.
+  const [tradeAsk] = useState(() => new URLSearchParams(location.search).get("trade"));
+  const tradeLeave = () => { setTradeScreen(null); if (tradeAsk) { history.replaceState(null, "", "/work"); go("/settings"); } };
+  useEffect(() => {
+    if (!tradeAsk || !trade) return;
+    const t = tradeAsk === "start" ? (joined(trade) ? "feed" : "join") : tradeAsk;
+    if (t === "feed" || t === "plan" || t === "join") setTradeScreen(joined(trade) || t === "join" ? t : "join");
+  }, [tradeAsk, !!trade]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tradeCreds, setTradeCreds] = useState(false);
   const ready = { onChanged: reloadTrade, onAbn: () => setNeedPay("trade"), onCreds: () => setTradeCreds(true) };
   const [tradeOpen, setTradeOpen] = useState<Offer | null>(null);
@@ -226,8 +240,6 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         {!online && <button className="btn of-hero-go" onClick={toggle}>Go online</button>}
       </section>
 
-      <TradeStrip trade={trade} open={tradeJobs.length} onJoin={() => setTradeScreen("join")} onFeed={() => { reloadTrade(); setTradeScreen("feed"); }} onPlan={() => setTradeScreen("plan")} />
-
       {wrapups.length > 0 && (
         <div className="wrap-list">
           {wrapups.map((j) => (
@@ -239,11 +251,11 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         </div>
       )}
 
-      {mine.filter((m) => m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).length > 0 && (
+      {mine.filter((m) => !m.trade && m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).length > 0 && (
         <div className="wrap-list">
-          {mine.filter((m) => m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).map((m) => (
+          {mine.filter((m) => !m.trade && m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).map((m) => (
             <button key={m.job_id} className="wrap-row" onClick={() => setWaiting(m.job_id)}>
-              <span className="t"><b>Waiting for {m.customer_name}</b><span>{m.title}, {money(m.pay_cents)}, {m.trade ? "price sent" : `available until ${new Date(m.expires_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}`}</span></span>
+              <span className="t"><b>Waiting for {m.customer_name}</b><span>{m.title}, {money(m.pay_cents)}, {`available until ${new Date(m.expires_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}`}</span></span>
               {Icon.chevron("var(--faint)")}
             </button>
           ))}
@@ -276,20 +288,20 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       {open && <OfferScreen o={open} pilot={pilot} onBack={() => setOpen(null)}
         onPass={async () => { await rpc("pass_job", { p_job: open.id }); setOpen(null); poll(); }}
         onOffered={() => { const id = open.id; setOpen(null); setWaiting(id); poll(); }} onGone={() => { setOpen(null); poll(); }} />}
+      {ask && <AlertsAsk role="work" onDone={() => setAsk(false)} />}
+      {trade && tradeScreen === "join" && <TradeJoin trade={trade} onBack={() => (isTradie ? setTradeScreen("plan") : tradeLeave())}
+        onJoined={(plan) => { reloadTrade(); poll(); setTradeScreen(plan === "premium" ? "plan" : "feed"); }} onNeedPay={() => setNeedPay("trade")} ready={ready} />}
+      {needPay && <AbnStep onBack={() => setNeedPay(null)} onSaved={() => { const was = needPay; setNeedPay(null); toast("Saved"); reloadTrade(); if (was === "online") toggle(); }} />}
+      {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={tradeLeave} onChanged={reloadTrade} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
+      {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} quotes={mine.filter((m) => m.trade && m.status === "pending")} onQuote={setWaiting} covers={covers} onBack={tradeLeave} onOpen={setTradeOpen} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
+      {tradeOpen && trade && <TradeJob o={tradeOpen} trade={trade} onBack={() => setTradeOpen(null)}
+        onSent={() => { const id = tradeOpen.id; setTradeOpen(null); reloadTrade(); poll(); setWaiting(id); }} onGone={() => { setTradeOpen(null); poll(); }} onCreds={() => setTradeCreds(true)} />}
       {waiting && (() => {
         const m = mine.find((x) => x.job_id === waiting);
         if (m?.trade) return <TradeWaiting o={m} onWithdraw={async () => { await rpc("withdraw_offer", { p_job: m.job_id }); setWaiting(null); poll(); }} onClose={() => setWaiting(null)} />;
         return m ? <WaitingScreen o={m} onWithdraw={async () => { await rpc("withdraw_offer", { p_job: m.job_id }); setWaiting(null); poll(); }}
           onClose={() => setWaiting(null)} /> : null;
       })()}
-      {ask && <AlertsAsk role="work" onDone={() => setAsk(false)} />}
-      {trade && tradeScreen === "join" && <TradeJoin trade={trade} onBack={() => setTradeScreen(isTradie ? "plan" : null)}
-        onJoined={(plan) => { reloadTrade(); poll(); setTradeScreen(plan === "premium" ? "plan" : "feed"); }} onNeedPay={() => setNeedPay("trade")} ready={ready} />}
-      {needPay && <AbnStep onBack={() => setNeedPay(null)} onSaved={() => { const was = needPay; setNeedPay(null); toast("Saved"); reloadTrade(); if (was === "online") toggle(); }} />}
-      {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={() => setTradeScreen(null)} onChanged={reloadTrade} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
-      {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} covers={covers} onBack={() => setTradeScreen(null)} onOpen={setTradeOpen} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
-      {tradeOpen && trade && <TradeJob o={tradeOpen} trade={trade} onBack={() => setTradeOpen(null)}
-        onSent={() => { const id = tradeOpen.id; setTradeOpen(null); setTradeScreen(null); reloadTrade(); poll(); setWaiting(id); }} onGone={() => { setTradeOpen(null); poll(); }} onCreds={() => setTradeCreds(true)} />}
       {tradeCreds && <Credentials onBack={() => { setTradeCreds(false); reloadTrade(); }} />}
     </>
   );

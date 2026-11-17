@@ -25,7 +25,7 @@ export function latestCreds(rows: MyCred[]) {
 }
 const valid = (c?: MyCred) => !!c && c.status === "verified" && (!c.expiry || c.expiry >= today());
 
-function useCatalog() {
+export function useCatalog() {
   const [d, setD] = useState<{ types: (JobType & { cat: Category })[]; skills: Skill[]; creds: CredType[] } | null>(null);
   useEffect(() => {
     Promise.all([
@@ -40,7 +40,7 @@ function useCatalog() {
   return d;
 }
 
-function useMine() {
+export function useMine() {
   const [mine, setMine] = useState<{ types: { job_type_id: number; years: number | null }[]; skills: number[]; creds: MyCred[] } | null>(null);
   const load = useCallback(() => {
     myId().then((uid) => Promise.all([
@@ -299,7 +299,7 @@ export function Credentials({ onBack }: { onBack: () => void }) {
 // Add a licence: snap it, Claude reads it, the worker checks what was read, then it goes to admin to approve.
 // If it can't be read, the worker fills it in by hand. Nothing ever stops them sending it.
 interface Read { type_id: number | null; number: string; expiry: string; name: string | null; name_match: boolean; ai: boolean }
-function AddCredential({ types, initial, onBack, onSaved }: { types: CredType[]; initial: number | null; onBack: () => void; onSaved: () => void }) {
+export function AddCredential({ types, initial, onBack, onSaved }: { types: CredType[]; initial: number | null; onBack: () => void; onSaved: () => void }) {
   const { session } = useSession();
   const toast = useToast();
   const [stage, setStage] = useState<"snap" | "reading" | "check">("snap");

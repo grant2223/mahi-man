@@ -52,8 +52,9 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["What about jobs that need a licence?", "Electrical work, an RSA and similar jobs only go to workers whose licence we've checked and is in date."],
   ]],
   ["Trade jobs", [
-    ["What's a trade job?", "Work for a tradie: landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, handyman repairs, electrical, plumbing, gas and pest control. Tradies quote a fixed price. Small jobs like mowing or flat-pack assembly stay normal jobs with a set price."],
-    ["Who can quote?", "Tradies whose ABN and insurance we've checked. Licensed work like electrical or plumbing needs that licence too, and in Queensland any quote over $3,300 for building work needs a QBCC licence."],
+    ["What's a trade job?", "Work for a tradie at your place: landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, electrical, plumbing, gas, pest control, air conditioning, bond cleaning, carpet cleaning, pressure washing, window cleaning, a mobile mechanic, appliance repair and locksmiths. Tradies quote a fixed price and come to you."],
+    ["Which jobs stay normal jobs?", "Lawn mowing, yard tidy-ups, regular house cleaning, moving help, rubbish and tip runs, flat-pack assembly and small handyman jobs. You set the price and local workers take them."],
+    ["Who can quote?", "Tradies with a complete tradie profile, whose ABN and insurance we've checked. Licensed work like electrical, plumbing, air conditioning or locksmith work needs that licence too, and in Queensland any quote over $3,300 for building work needs a QBCC licence."],
     ["How do I get a quote?", "Post the job with photos. Tradies send you a fixed quote, what it includes and when they can come. Select one, or say no to all of them."],
     ["Can I ask the tradie questions first?", "Yes. Message any tradie from their quote before you select one. Your number is never shared."],
     ["What does it cost me?", "Nothing to Mahi Man. You pay the tradie their quote directly when the job's done."],

@@ -536,7 +536,11 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .list-ed .add .field input { font-size: 16px; font-weight: 400; }
 .list-ed .add .btn { width: 56px; padding: 0; display: flex; align-items: center; justify-content: center; }
 .field.sel { position: relative; padding-right: 44px; }
-.field.sel::after { content: ""; position: absolute; right: 16px; top: 50%; width: 9px; height: 9px; border-right: 2px solid var(--ink); border-bottom: 2px solid var(--ink); transform: translateY(-70%) rotate(45deg); }
+/* Dropdowns: the up-and-down chevron, in emerald, like a 2026 phone menu. */
+.field.sel::after { content: ""; position: absolute; right: 14px; top: 50%; width: 18px; height: 18px; transform: translateY(-50%); background: var(--emerald);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 9.5l5-5 5 5M7 14.5l5 5 5-5'/%3E%3C/svg%3E") center / contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 9.5l5-5 5 5M7 14.5l5 5 5-5'/%3E%3C/svg%3E") center / contain no-repeat; }
+.field.sel .v.ph { color: var(--emerald); font-weight: 400; }
 .btn.white { background: #fff; color: var(--emerald); box-shadow: 0 6px 16px rgba(0,0,0,0.18); }
 .hero .start-row { position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; margin-top: 18px; }
 .hero .start-row span { font-size: 14px; font-weight: 300; line-height: 1.4; max-width: 210px; color: rgba(255,255,255,0.85); }
@@ -2329,3 +2333,65 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .tr-t { flex: 1; font-size: 17px; font-weight: 400; }
 .tr-s { font-size: 15px; font-weight: 300; color: var(--muted); }
 .tr-note { margin: 0; font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.4; }
+
+/* Set up as a tradesperson */
+.ts-ok { display: flex; align-items: center; gap: 8px; font-size: 15px; color: var(--emerald); }
+.ts-opt { text-transform: none; letter-spacing: 0; font-weight: 300; }
+.ts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.ts-tile { position: relative; height: 150px; border-radius: 4px; background: var(--stone) center / cover; overflow: hidden; }
+.ts-tile::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.55)); }
+.ts-tile em { position: absolute; z-index: 1; left: 12px; bottom: 10px; font-style: normal; font-size: 18px; font-weight: 500; color: #fff; }
+.ts-tile button { position: absolute; z-index: 2; top: 6px; right: 6px; width: 30px; height: 30px; border: 0; border-radius: 3px; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.ts-grid.small { grid-template-columns: 1fr 1fr 1fr; padding: 0 16px; }
+.ts-grid.small .ts-tile { height: 100px; }
+.ts-grid.small .ts-tile em { font-size: 14px; left: 8px; bottom: 6px; }
+.ts-done { flex: 1; overflow: auto; }
+.ts-hero { position: relative; height: 330px; padding: 0 20px 22px; display: flex; flex-direction: column; justify-content: flex-end; background: #2a2d32 center / cover; color: #fff; }
+.ts-hero::before { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(0,0,0,0.05) 40%, rgba(0,0,0,0.65)); }
+.ts-name { position: relative; display: flex; align-items: center; gap: 8px; font-size: 30px; font-weight: 600; letter-spacing: -0.8px; }
+.ts-sub { position: relative; font-size: 16px; font-weight: 300; opacity: 0.9; }
+.ts-checks { display: flex; gap: 22px; padding: 18px 16px 20px; font-size: 17px; }
+.ts-checks span { display: flex; align-items: center; gap: 6px; }
+.ts-note { margin: 10px 16px 18px; font-size: 15px; font-weight: 300; color: var(--muted); line-height: 1.45; }
+.ts-form { gap: 30px; }
+.ts-phone { display: grid; grid-template-columns: 124px 1fr; gap: 8px; }
+.ts-phone .field.sel .v { white-space: nowrap; }
+.ts-two { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.ts-search { padding: 14px 16px 6px; background: var(--card); }
+.ts-cap { max-width: 260px; }
+.ts-need { font-size: 15px; color: #8a6d00; }
+.ts-doc { width: 100%; padding: 0; border: 0; background: none; text-align: left; font: inherit; color: inherit; cursor: pointer; display: grid; grid-template-columns: 76px 1fr auto; gap: 14px; align-items: center; }
+.ts-thumb { width: 76px; aspect-ratio: 176 / 140; border-radius: 4px; overflow: hidden; background: #f7f9f8; }
+.ts-dt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.ts-dt b { font-size: 17px; font-weight: 500; }
+.ts-dt span { font-size: 14px; font-weight: 300; color: var(--muted); }
+.ts-dt .ts-st { color: #8a6d00; font-weight: 400; }
+.ts-search .search { margin: 0; }
+.ts-svc { margin: 0 16px; font-size: 17px; font-weight: 300; }
+.ts-doc { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 56px; }
+.ts-up { display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--emerald); }
+.ts-doc .btn.small { gap: 8px; }
+
+/* Your profile: date of birth in one field, gender and nationality side by side, suburb on its own. */
+.pf-dob1 { margin-bottom: 8px; }
+.pf-dob1 input { letter-spacing: 0.5px; }
+.pf-about { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pf-about.one { grid-template-columns: 1fr; margin-top: 8px; }
+.pf-about .field { min-width: 0; }
+.pf-about .field .v { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* After sign-up: are you a trades person? */
+.ta { background: var(--card); }
+.ta-hero { position: relative; flex: 1; display: flex; flex-direction: column; justify-content: flex-start; padding-top: calc(70px + var(--safe-area-inset-top, 0px)); overflow: hidden; }
+.ta-hero h1 { position: relative; margin: 0; max-width: 260px; }
+.ta-hero .mascot { top: auto; bottom: 0; right: -20px; height: 330px; }
+.ta-go { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin-top: 24px; width: 270px; }
+.btn.ta-yes { background: var(--gold); color: #14211c; }
+.btn.ta-no { background: #fff; color: var(--emerald); }
+.btn.tr-ask-go { height: 50px; padding: 0 22px; font-size: 17px; background: var(--gold); color: #14211c; }
+.ts-bad { font-size: 15px; color: var(--danger); }
+.ts-err { flex: 1; margin: 0 12px 0 0; font-size: 14px; }
+.ts-wait { font-size: 15px; color: #8a6d00; }
+.ts-back { position: absolute; z-index: 2; top: calc(var(--safe-top, 0px) + 8px); left: 8px; width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; }
+.ts-hero:not([style]) { background: var(--emerald); }
+.tr-need { display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: 16px; }
