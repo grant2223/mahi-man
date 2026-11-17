@@ -157,7 +157,6 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         )}
         <div className="offers">
           {shown.map((o) => {
-            const first = o.full_name.split(" ")[0];
             const creds = (extras[o.worker_id]?.creds ?? []).filter((c) => c !== "Insured");
             const rec = recLine(o.scores, "customers");
             return (
