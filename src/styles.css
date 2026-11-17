@@ -2395,3 +2395,13 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .ts-back { position: absolute; z-index: 2; top: calc(var(--safe-top, 0px) + 8px); left: 8px; width: 44px; height: 44px; border: 0; background: none; display: flex; align-items: center; justify-content: center; }
 .ts-hero:not([style]) { background: var(--emerald); }
 .tr-need { display: flex; align-items: center; justify-content: space-between; gap: 14px; font-size: 16px; }
+/* Driver licence: the back of the card */
+.cs-backshot { display: flex; align-items: center; gap: 14px; width: 100%; padding: 10px; border: 0; border-radius: var(--r-control); background: var(--ground); text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.cs-backshot img, .cs-noback { flex: none; width: 92px; height: 58px; border-radius: 4px; object-fit: cover; }
+.cs-noback { display: flex; align-items: center; justify-content: center; background: var(--stone); }
+.cs-backshot b { display: block; font-size: 17px; font-weight: 500; } .cs-backshot small { display: block; font-size: 14px; font-weight: 300; color: var(--muted); }
+/* Licensed driver and vehicles on a worker's profile */
+.pf-drive { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 14px 16px 4px; font-size: 16px; color: var(--ink); }
+.pf-drive span { display: flex; align-items: center; gap: 6px; }
+.pf-drive .on { color: var(--emerald); font-weight: 500; }
+.pr-line b.pr-drv { display: flex; align-items: center; gap: 6px; color: var(--emerald); font-weight: 500; }

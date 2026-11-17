@@ -8,6 +8,8 @@ import { CatIcon, Icon, Screen, SearchPicker, useToast } from "../ui/kit";
 
 export interface Skill { id: number; category_id: number; kind: "skill" | "gear"; name: string; credential_type_id: number | null; sort: number }
 export interface CredType { id: number; name: string; short: string }
+export const DRIVER = "Driver licence";
+export const LICENCE_CLASSES: [string, string, string][] = [["C", "C, car", "Cars, utes and vans up to 4.5 tonnes"], ["LR", "LR, light rigid", "Trucks from 4.5 to 8 tonnes"], ["MR", "MR, medium rigid", "Trucks over 8 tonnes, two axles"], ["HR", "HR, heavy rigid", "Trucks with three or more axles"]];
 export interface MyCred { id: string; credential_type_id: number; number: string; expiry: string | null; status: "pending" | "verified" | "retake" | "rejected"; reason: string | null; created_at: string }
 
 const MAX_WORK = 6;
@@ -68,6 +70,9 @@ export function JobsAndSkills({ onBack }: { onBack: () => void }) {
   const myTypes = cat.types.filter((t) => mine.types.some((m) => m.job_type_id === t.id));
   const names = (catId: number, kind: "skill" | "gear") => cat.skills.filter((k) => k.category_id === catId && k.kind === kind && mine.skills.includes(k.id)).map((k) => k.name);
   const openType = cat.types.find((t) => t.id === open);
+  // Driving work needs a checked, in-date driver licence.
+  const driverId = cat.creds.find((c) => c.name === DRIVER)?.id;
+  const licensed = mine.creds.some((c) => c.credential_type_id === driverId && c.status === "verified" && (!c.expiry || c.expiry >= today()));
   async function addTypes(ids: number[]) {
     if (!ids.length || !session) return;
     const { error } = await sb.from("worker_job_types").upsert(ids.map((id) => ({ worker_id: session.user.id, job_type_id: id })), { onConflict: "worker_id,job_type_id", ignoreDuplicates: true });
@@ -89,6 +94,7 @@ export function JobsAndSkills({ onBack }: { onBack: () => void }) {
                 <b>{t.cat.name}</b>
                 <span style={{ color: sk.length ? "var(--ink)" : "var(--muted)", fontSize: 15 }}>{sk.length ? sk.join(", ") : "Add details, optional"}</span>
                 {sub && <span>{sub}</span>}
+                {t.needs_driver && !licensed && <span style={{ color: "#8a6d00" }}>Needs your driver licence</span>}
               </span>
               {Icon.chevron("var(--faint)")}
             </button>
@@ -99,7 +105,7 @@ export function JobsAndSkills({ onBack }: { onBack: () => void }) {
       </div>
       {adding && (
         <SearchPicker title="What will you do?" multi placeholder="Search" value={[]}
-          options={cat.types.filter((t) => !myTypes.includes(t)).map((t) => ({ id: t.id, label: t.cat.name }))}
+          options={cat.types.filter((t) => !myTypes.includes(t)).map((t) => ({ id: t.id, label: t.cat.name, hint: t.needs_driver ? "Needs your driver licence" : undefined }))}
           onClose={() => setAdding(false)} onChange={(v) => addTypes(v.map(Number))} />
       )}
       {openType && (
@@ -296,6 +302,14 @@ export function Credentials({ onBack }: { onBack: () => void }) {
   );
 }
 
+// Straight to adding their driver licence (from Driving on their profile).
+export function AddDriverLicence({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+  const cat = useCatalog();
+  const id = cat?.creds.find((c) => c.name === DRIVER)?.id;
+  if (!cat || id == null) return <Screen title="Driver licence" onBack={onBack}><div className="screen-body" /></Screen>;
+  return <AddCredential types={cat.creds} initial={id} onBack={onBack} onSaved={onSaved} />;
+}
+
 // Add a licence: snap it, Claude reads it, the worker checks what was read, then it goes to admin to approve.
 // If it can't be read, the worker fills it in by hand. Nothing ever stops them sending it.
 interface Read { type_id: number | null; number: string; expiry: string; name: string | null; name_match: boolean; ai: boolean }
@@ -307,11 +321,16 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
   const [url, setUrl] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [got, setGot] = useState<Read>({ type_id: initial, number: "", expiry: "", name: null, name_match: false, ai: false });
-  const [pick, setPick] = useState(false);
+  const [pick, setPick] = useState<false | "type" | "class">(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [unlocks, setUnlocks] = useState<string[]>([]);
+  // Driver licence: the back too, and the class.
+  const [back, setBack] = useState<File | null>(null);
+  const [backUrl, setBackUrl] = useState<string | null>(null);
+  const [cls, setCls] = useState<string | null>(null);
   const camera = useRef<HTMLInputElement>(null);
+  const backCam = useRef<HTMLInputElement>(null);
   const pdf = useRef<HTMLInputElement>(null);
   useEffect(() => {
     setUnlocks([]);
@@ -320,8 +339,10 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
       .then(({ data }) => setUnlocks(((data ?? []) as unknown as { name: string; cat: { name: string } | null }[]).map((r) => r.cat ? `${r.name.toLowerCase()} in ${r.cat.name}` : r.name.toLowerCase())));
   }, [got.type_id]);
   useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
+  useEffect(() => () => { if (backUrl) URL.revokeObjectURL(backUrl); }, [backUrl]);
   const t = types.find((x) => x.id === got.type_id);
   const insurance = t?.name === "Public liability insurance";
+  const driver = t?.name === DRIVER;
   const isPdf = file?.type === "application/pdf";
 
   async function read(f: File) {
@@ -343,6 +364,9 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
   async function send() {
     if (!session || got.type_id == null || !file) return;
     if (got.expiry && got.expiry < today()) return setErr("That one has expired");
+    if (driver && !back) return setErr("Add a photo of the back of your licence");
+    if (driver && !cls) return setErr("Select your licence class");
+    if (driver && !got.expiry) return setErr("Add the expiry date");
     setErr(""); setBusy(true);
     try {
       const blob = file.type.startsWith("image/") ? await shrinkImage(file, 1800) : file;
@@ -350,7 +374,13 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
       const path = `${session.user.id}/cred-${Date.now()}.${ext}`;
       const { error } = await sb.storage.from("insurance").upload(path, blob, { contentType: file.type.startsWith("image/") ? "image/jpeg" : file.type });
       if (error) throw error;
-      await rpc("submit_credential", { p_type: got.type_id, p_number: got.number.trim(), p_expiry: got.expiry || null, p_photo: path });
+      let backPath: string | null = null;
+      if (driver && back) {
+        backPath = `${session.user.id}/cred-${Date.now()}-back.jpg`;
+        const up = await sb.storage.from("insurance").upload(backPath, await shrinkImage(back, 1800), { contentType: "image/jpeg" });
+        if (up.error) throw up.error;
+      }
+      await rpc("submit_credential", { p_type: got.type_id, p_number: got.number.trim(), p_expiry: got.expiry || null, p_photo: path, p_back: backPath, p_class: driver ? cls : null });
       toast("Sent. We'll check it within a few hours."); onSaved();
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
@@ -358,6 +388,7 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
   const inputs = <>
     <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) read(f); }} />
     <input ref={pdf} type="file" accept="application/pdf,image/*" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) read(f); }} />
+    <input ref={backCam} type="file" accept="image/*" capture="environment" hidden onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; if (f) { setErr(""); setBack(f); setBackUrl(URL.createObjectURL(f)); } }} />
   </>;
   const shot = (w: number) => url ? <img className="cs-shot" src={url} alt="" style={{ width: w }} />
     : <span className="cs-doc" style={{ width: w }}>{Icon.doc("var(--emerald)")}<b>{file?.name ?? "Certificate"}</b></span>;
@@ -388,8 +419,15 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
           <div className="cs-pic"><div className="cs-tilt">{shot(220)}</div></div>
           <div className="cs-fields">
             {got.ai && <span className="fill-note">{Icon.spark("#8a6d00")}Read from your {isPdf ? "file" : "photo"}</span>}
-            <button className="field sel" onClick={() => setPick(true)}><span className="k">Which one</span><span className={t ? "v w4" : "v ph"}>{t?.name ?? "Select"}</span></button>
-            <label className="field"><span className="k">{insurance ? "Policy number" : "Number"}</span>
+            <button className="field sel" onClick={() => setPick("type")}><span className="k">Which one</span><span className={t ? "v w4" : "v ph"}>{t?.name ?? "Select"}</span></button>
+            {driver && <>
+              <button className="cs-backshot" onClick={() => backCam.current?.click()}>
+                {backUrl ? <img src={backUrl} alt="Back of your licence" /> : <span className="cs-noback">{Icon.camera("var(--emerald)")}</span>}
+                <span><b>Back of your licence</b><small>{backUrl ? "Tap to retake" : "Take a photo of the back"}</small></span>
+              </button>
+              <button className="field sel" onClick={() => setPick("class")}><span className="k">Class</span><span className={cls ? "v" : "v ph"}>{LICENCE_CLASSES.find(([c]) => c === cls)?.[1] ?? "Select"}</span></button>
+            </>}
+            <label className="field"><span className="k">{insurance ? "Policy number" : driver ? "Licence number" : "Number"}</span>
               <input value={got.number} onChange={(e) => setGot({ ...got, number: e.target.value })} autoCapitalize="characters" /></label>
             <label className="field date-field cs-exp">
               <span className="k">Expires</span>
@@ -402,7 +440,8 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
             {got.name && <div className="field"><span className="k">Name on {insurance ? "certificate" : "card"}</span>
               <span className="v row between" style={{ width: "100%" }}>{got.name.toLowerCase().replace(/(^|[\s'-])\p{L}/gu, (m) => m.toUpperCase())}
                 {got.name_match ? <span className="cs-ok">{Icon.tick("var(--emerald)", 18)}Matches you</span> : <span className="cs-bad">Not your name</span>}</span></div>}
-            {unlocks.length > 0 && <p className="t15 light muted" style={{ lineHeight: 1.45, margin: "4px 0 0" }}>Unlocks {unlocks.join(", ")}.</p>}
+            {driver ? <p className="t15 light muted" style={{ lineHeight: 1.45, margin: "4px 0 0" }}>Unlocks pick-up and delivery, moving and tip runs. It's separate from your ID check, and you can use the same licence for both.</p>
+              : unlocks.length > 0 && <p className="t15 light muted" style={{ lineHeight: 1.45, margin: "4px 0 0" }}>Unlocks {unlocks.join(", ")}.</p>}
             {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
           </div>
           <div className="cs-ft">
@@ -410,8 +449,10 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
             <button className="btn primary" disabled={busy || got.type_id == null || !file} onClick={send}>{busy ? "Sending…" : "Send for checking"}</button>
           </div>
         </div>
-        {pick && <SearchPicker title="Which one" placeholder="Search" value={got.type_id != null ? [got.type_id] : []}
+        {pick === "type" && <SearchPicker title="Which one" placeholder="Search" value={got.type_id != null ? [got.type_id] : []}
           options={types.map((x) => ({ id: x.id, label: x.name }))} onClose={() => setPick(false)} onChange={(v) => setGot({ ...got, type_id: Number(v[0]) })} />}
+        {pick === "class" && <SearchPicker title="Licence class" value={cls ? [cls] : []}
+          options={LICENCE_CLASSES.map(([id, label, hint]) => ({ id, label, hint }))} onClose={() => setPick(false)} onChange={(v) => setCls(String(v[0]))} />}
         {inputs}
       </Screen>
     );
@@ -420,7 +461,7 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
   return (
     <Screen title={t ? `Add ${lc(t.name)}` : "Add a licence"} onBack={onBack}>
       <div className="screen-body cs-snap">
-        <h2>Snap the {insurance ? "certificate" : "card"}</h2>
+        <h2>{driver ? "Snap the front of your licence" : `Snap the ${insurance ? "certificate" : "card"}`}</h2>
         <p>We read it for you.</p>
         <div className="cs-ex" aria-hidden="true">
           <i /><i /><i /><i />

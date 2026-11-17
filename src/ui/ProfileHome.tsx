@@ -111,15 +111,18 @@ const CAT_SVG: Record<string, string> = {
   moving: '<path d="M2 7h11v10H2z"/><path d="M13 10h4l3 3.5V17h-7"/><circle cx="6" cy="18" r="1.8"/><circle cx="16.5" cy="18" r="1.8"/>',
   rubbish: '<path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 14h10l1-14"/>',
   errands: '<path d="M5 8h14l-1 13H6z"/><path d="M9 10V6a3 3 0 0 1 6 0v4"/>',
+  delivery: '<path d="M3 7.5l9-4 9 4v9l-9 4-9-4z"/><path d="M3 7.5l9 4 9-4"/><path d="M12 11.5v9"/><path d="M7.5 5.5l9 4"/>',
   other: '<circle cx="12" cy="12" r="4"/>',
 };
 
 const DAYS = ["M", "T", "W", "T", "F", "S", "S"];
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
+export type Driving = { status: "verified" | "pending" | "retake" | "rejected" | "expired" | null; expiry: string | null; vehicles: string[] };
 export type TradeWork = { tradie: boolean; business: string | null; plan: "standard" | "premium" | null };
-export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge, trade }: {
+export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge, trade, drive, onLicence, onVehicles }: {
   d: WorkerHomeData; onlineBusy: boolean; onOnline: () => void; onStep: (k: "profile") => void; onSkills: () => void; onBadge: () => void; trade?: TradeWork | null;
+  drive?: Driving | null; onLicence?: () => void; onVehicles?: () => void;
 }) {
   const s = d.steps;
   const steps: [keyof typeof s, string][] = [["profile", "Profile"], ["online", "Go online"], ["job", "First job"], ["review", "First review"]];
@@ -171,6 +174,25 @@ export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge,
           <button className="pr-line" onClick={() => go(trade.plan ? "/work?trade=plan" : "/work?trade=join")}><span><b>How you pay</b><small>{trade.plan === "premium" ? "Monthly" : trade.plan ? "Per job" : "Not selected yet"}</small></span>{Icon.chevron("var(--faint)")}</button>
           <button className="pr-line" onClick={() => go("/work/trade")}><span><b>Tradie profile</b><small>{trade.business ?? "Your business, services and licences"}</small></span>{Icon.chevron("var(--faint)")}</button>
         </>}
+      </section>
+    )}
+
+    {drive && (
+      <section className="pr-sec">
+        <h2>Driving</h2>
+        <button className="pr-line" onClick={onLicence}>
+          <span><b className={drive.status === "verified" ? "pr-drv" : undefined}>{drive.status === "verified" ? <>{Icon.tick("var(--emerald)", 18)}Licensed driver</> : "Driver licence"}</b>
+            <small>{drive.status === "verified" ? `Valid to ${new Date(drive.expiry + "T00:00:00").toLocaleDateString("en-AU", { month: "short", year: "numeric" })}`
+              : drive.status === "pending" ? "Being checked, usually within a few hours"
+              : drive.status === "expired" ? "Expired. Add the new one to get driving jobs again"
+              : drive.status === "retake" || drive.status === "rejected" ? "Not approved. Tap to send it again"
+              : "Add it for deliveries, moving and tip runs"}</small></span>
+          {drive.status === "verified" || drive.status === "pending" ? Icon.chevron("var(--faint)") : <span className="btn primary small">Add</span>}
+        </button>
+        <button className="pr-line" onClick={onVehicles}>
+          <span><b>{drive.vehicles.length ? drive.vehicles.map((v) => `Has ${v.toLowerCase()}`).join(", ") : "No vehicle"}</b><small>Your vehicles</small></span>
+          {Icon.chevron("var(--faint)")}
+        </button>
       </section>
     )}
 

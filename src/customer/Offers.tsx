@@ -169,7 +169,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
                       <span style={{ fontSize: 26, fontWeight: 600, letterSpacing: -0.8 }}>{money(o.price_cents ?? 0)}</span>
                     </span>
                     <span className="row" style={{ gap: "2px 12px", flexWrap: "wrap" }}>
-                      {creds.map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c}</span>)}
+                      {creds.map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c === "Driver licence" ? "Licensed driver" : c}</span>)}
                       <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}Insured</span>
                     </span>
                     <span className="m">{o.business_name ? `${o.full_name}, ` : ""}{rec || (o.is_new ? "New to Mahi Man" : `${o.jobs_done} jobs`)}</span>
@@ -372,7 +372,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
               )}
               {(creds.length > 0 || o.turns_up != null) && (
                 <div className="ox-ver">
-                  {creds.map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c}</span>)}
+                  {creds.map((c) => <span key={c} className="badge-ver">{Icon.shieldTick("var(--emerald)")}{c === "Driver licence" ? "Licensed driver" : c}</span>)}
                   {o.turns_up != null && <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}Turns up {o.turns_up}%</span>}
                 </div>
               )}

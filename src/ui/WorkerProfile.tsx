@@ -9,6 +9,7 @@ interface Portfolio {
   jobs: number; scores: Scores | null; turns_up: number | null;
   sections: Work[];
   creds: { name: string; expiry: string | null }[];
+  driver?: boolean; vehicles?: string[];
 }
 
 const monthYear = (d: string) => new Date(d).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
@@ -47,6 +48,12 @@ export function WorkerProfile({ workerId, category = null, onBack }: { workerId:
             <div><b>{rec}</b><small>{p.scores?.reviewed ? "recommend" : "no reviews yet"}</small></div>
             <div><b>{p.turns_up != null ? `${p.turns_up}%` : "New"}</b><small>turn up on time</small></div>
           </div>
+          {(p.driver || (p.vehicles?.length ?? 0) > 0) && (
+            <div className="pf-drive">
+              {p.driver && <span className="on">{Icon.tick("var(--emerald)", 18)}Licensed driver</span>}
+              {(p.vehicles ?? []).map((v) => <span key={v}>Has {v.toLowerCase()}</span>)}
+            </div>
+          )}
           {p.sections.map((s, i) => {
             const kind = s.category.toLowerCase();
             const big = i === 0 || s.category_id === category;

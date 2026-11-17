@@ -15,6 +15,8 @@ import { useArea, useChangeArea } from "../lib/area";
 export interface Steps { photo: boolean; id_and_bank: boolean; abn: boolean; area: boolean; jobs: boolean }
 type StepKey = keyof Steps | "creds";
 
+export const VEHICLES = ["Ute", "Van", "Trailer", "Car"];
+
 const STEP_INFO: { key: keyof Steps; title: string; hint: string }[] = [
   { key: "photo", title: "Your photo", hint: "Customers see it before you arrive" },
   { key: "id_and_bank", title: "Verify your ID", hint: "Passport or national ID, plus a selfie" },
@@ -220,11 +222,11 @@ export function AbnStep({ onBack, onSaved }: { onBack: () => void; onSaved: () =
   );
 }
 
-function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
+export function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void }) {
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
   const [base, setBase] = useState<number | null>(null);
   const [radius, setRadius] = useState(15);
-  const [vehicle, setVehicle] = useState(false);
+  const [vehicles, setVehicles] = useState<string[]>([]);
   const [pick, setPick] = useState<null | "suburb" | "radius" | "vehicle">(null);
   const [err, setErr] = useState("");
   const { area } = useArea();
@@ -233,8 +235,8 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
     if (area) areaSuburbs<Suburb>(area.id, "id,name,area_id").then(setSuburbs).catch(() => {});
   }, [area?.id]);
   useEffect(() => {
-    myId().then((uid) => sb.from("workers").select("base_suburb_id,radius_km,has_vehicle").eq("id", uid).maybeSingle()).then(({ data }) => {
-      if (data) { setBase(data.base_suburb_id); setRadius(data.radius_km); setVehicle(data.has_vehicle); }
+    myId().then((uid) => sb.from("workers").select("base_suburb_id,radius_km,vehicles").eq("id", uid).maybeSingle()).then(({ data }) => {
+      if (data) { setBase(data.base_suburb_id); setRadius(data.radius_km); setVehicles((data.vehicles as string[] | null) ?? []); }
     });
   }, []);
   const radii = [5, 10, 15, 20, 30, 50];
@@ -244,20 +246,20 @@ function AreaStep({ onBack, onSaved }: { onBack: () => void; onSaved: () => void
         <div className="stack">
           <button className="field sel" onClick={() => setPick("suburb")}><span className="k">Your suburb</span><span className={base ? "v" : "v ph"}>{suburbs.find((s) => s.id === base)?.name ?? "Select your suburb"}</span></button>
           <button className="field sel" onClick={() => setPick("radius")}><span className="k">How far you'll travel</span><span className={radius ? "v" : "v ph"}>{radius ? `Up to ${radius} km` : "Select how far"}</span></button>
-          <button className="field sel" onClick={() => setPick("vehicle")}><span className="k">Ute or trailer</span><span className="v">{vehicle ? "Yes, I have one" : "No"}</span></button>
+          <button className="field sel" onClick={() => setPick("vehicle")}><span className="k">Your vehicles</span><span className={vehicles.length ? "v" : "v ph"}>{vehicles.length ? VEHICLES.filter((v) => vehicles.includes(v)).join(", ") : "Select all you have, or none"}</span></button>
         </div>
-        <p className="small light muted" style={{ lineHeight: 1.45 }}>Tip runs and mowing need a vehicle.</p>
+        <p className="small light muted" style={{ lineHeight: 1.45 }}>Deliveries, moving and tip runs need a vehicle.</p>
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
           <button className="btn primary" disabled={!base} onClick={async () => {
-            try { await api("worker_save", { base_suburb_id: base, radius_km: radius, has_vehicle: vehicle }); onSaved(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+            try { await api("worker_save", { base_suburb_id: base, radius_km: radius }); await rpc("set_vehicles", { p_vehicles: vehicles }); onSaved(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
           }}>Save</button>
         </div>
       </div>
       {changeArea.picker}
       {pick === "suburb" && <SearchPicker title="Your suburb" placeholder={`Search ${area?.name ?? ""} suburbs`} value={base ? [base] : []} options={[...(changeArea.option ? [changeArea.option] : []), ...suburbs.map((s) => ({ id: s.id, label: s.name }))]} onChange={(v) => setBase(Number(v[0]))} onClose={() => setPick(null)} />}
       {pick === "radius" && <SearchPicker title="How far you'll travel" value={[radius]} options={radii.map((r) => ({ id: r, label: `Up to ${r} km` }))} onChange={(v) => setRadius(Number(v[0]))} onClose={() => setPick(null)} />}
-      {pick === "vehicle" && <SearchPicker title="Ute or trailer" value={[vehicle ? 1 : 0]} options={[{ id: 1, label: "Yes, I have one" }, { id: 0, label: "No" }]} onChange={(v) => setVehicle(v[0] === 1)} onClose={() => setPick(null)} />}
+      {pick === "vehicle" && <SearchPicker title="Your vehicles" placeholder="Search" multi value={vehicles} options={VEHICLES.map((v) => ({ id: v, label: v }))} onChange={(v) => setVehicles(v.map(String))} onClose={() => setPick(null)} />}
     </Screen>
   );
 }

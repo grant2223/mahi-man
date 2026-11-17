@@ -128,6 +128,12 @@ export function Terms() {
         <li>If a gift card covers only part of a job, the customer pays the worker the rest directly.</li>
         <li>A gift card paid by bank transfer is sent once the money arrives. You can cancel it until then. After that, refunds are as required by Australian Consumer Law.</li>
       </ul>
+      <h2>Driving jobs</h2>
+      <ul>
+        <li>Pick-up and delivery, moving and tip runs only go to workers whose driver licence we have checked and is in date. A worker sends a photo of the front and back of their licence and its class (C, LR, MR or HR), and we check it. It's separate from the ID check, and the same licence can be used for both.</li>
+        <li>We remind the worker 30 days before their licence runs out. If it lapses, they stop getting driving jobs until the new one is checked.</li>
+        <li>Driving jobs are for goods only. Mahi Man doesn't offer passenger transport: no job on Mahi Man is for driving people anywhere.</li>
+      </ul>
       <h2>Trade jobs</h2>
       <ul>
         <li>A trade job is work done by a tradie at the customer's place, such as landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, electrical, plumbing and gas work, air conditioning, bond cleaning, carpet cleaning, pressure washing, window cleaning, a mobile mechanic, appliance repair and locksmithing. The tradie always comes to the customer. Mahi Man decides which kinds of work are trade jobs. Lawn mowing, yard tidy-ups, regular house cleaning, moving help, rubbish and tip runs, flat-pack assembly and small handyman jobs stay normal jobs: the customer sets the price and workers take them; tradies and businesses don't quote on them.</li>

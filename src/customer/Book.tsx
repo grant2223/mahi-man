@@ -313,7 +313,7 @@ export function Book() {
 
   if (path === "/book/details") {
     return <DetailsStep d={d} setD={setD} cats={cats} skillList={skillList} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null}
-      photoUrls={[...photos.map((m) => m.url), ...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean)]} photoCount={photoCount} addPhotos={addBlobs}
+      driving={!!jt?.needs_driver} photoUrls={[...photos.map((m) => m.url), ...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean)]} photoCount={photoCount} addPhotos={addBlobs}
       err={err} setErr={setErr} bar={bar} />;
   }
 
@@ -998,8 +998,8 @@ function StartStep({ d, setD, cats, skillList, suggest, addPhotos }: {
   );
 }
 
-function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount, addPhotos, err, setErr, bar }: {
-  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string; needs: string | null; trade: boolean }[]; suggest: (catId: number) => number | null;
+function DetailsStep({ d, setD, cats, skillList, suggest, driving = false, photoUrls, photoCount, addPhotos, err, setErr, bar }: {
+  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string; needs: string | null; trade: boolean }[]; suggest: (catId: number) => number | null; driving?: boolean;
   photoUrls: string[]; photoCount: number; addPhotos: (b: Blob[]) => Promise<void>;
   err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
 }) {
@@ -1101,6 +1101,7 @@ function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount,
             {chosen.some((k) => k.trade)
               ? <span className="t15 em" style={{ lineHeight: 1.4 }}>A trade job. Tradies come to you and send a fixed quote{needs.length ? `, and only those with a verified ${needs.map(lc).join(" and ")} can quote` : ""}.</span>
               : needs.length > 0 && <span className="t15 em" style={{ lineHeight: 1.4 }}>Only workers with a verified {needs.map(lc).join(" and ")} can take this job.</span>}
+            {driving && <span className="t15 em" style={{ lineHeight: 1.4 }}>Only licensed drivers can take this job. Goods only, no passengers.</span>}
           </div>
         )}
 

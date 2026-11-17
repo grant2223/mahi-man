@@ -9,13 +9,13 @@ import { go } from "../lib/router";
 import { money, shrinkImage } from "../lib/format";
 import { Icon, Screen, StepHero, useToast } from "./kit";
 import { VerifyFlow } from "./Verify";
-import { AbnStep } from "../worker/Signup";
-import { Credentials, JobsAndSkills } from "../worker/Skills";
+import { AbnStep, AreaStep } from "../worker/Signup";
+import { AddDriverLicence, Credentials, DRIVER, JobsAndSkills } from "../worker/Skills";
 import { PaymentMethods, cardLabel } from "../customer/Cards";
 import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
 import { isSoon, useArea } from "../lib/area";
 import { TabBar } from "./TabBar";
-import { ProfileHero, ShareCard, WorkerHome, type TradeWork, type WorkerHomeData } from "./ProfileHome";
+import { ProfileHero, ShareCard, WorkerHome, type Driving, type TradeWork, type WorkerHomeData } from "./ProfileHome";
 
 /* The You page. Each band shows how things stand right now (money, jobs, work), and tapping it opens the detail.
    Account details, area, alerts, card and blocked people live on their own Account page. */
@@ -31,7 +31,7 @@ interface Hub {
     licences: { n: number; pending: number; next: { name: string; expiry: string } | null } | null;
   };
 }
-type Sub = null | "account" | "card" | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability";
+type Sub = null | "account" | "card" | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability" | "licence" | "vehicles";
 
 const S = { fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, strokeWidth: 1.9 };
 const ic = (d: ReactNode, c = "var(--emerald)", z = 22) => <svg width={z} height={z} viewBox="0 0 24 24" {...S} stroke={c}>{d}</svg>;
@@ -73,6 +73,20 @@ export function Settings() {
   const [card, setCard] = useState<PersonCard | null>(null);
   const [place, setPlace] = useState<{ suburb: string; area: string }>({ suburb: "", area: "" });
   const [onlineBusy, setOnlineBusy] = useState(false);
+  // Driving on their profile: their driver licence and vehicles.
+  const [drive, setDrive] = useState<Driving | null>(null);
+  const loadDrive = () => {
+    if (!profile?.is_worker) return;
+    Promise.all([
+      sb.from("workers").select("vehicles").eq("id", profile.id).maybeSingle(),
+      sb.from("worker_credentials").select("status,expiry,created_at,credential_types!inner(name)").eq("worker_id", profile.id).eq("credential_types.name", DRIVER).order("created_at", { ascending: false }).limit(1),
+    ]).then(([w, c]) => {
+      const last = (c.data ?? [])[0] as { status: Driving["status"]; expiry: string | null } | undefined;
+      const expired = last?.status === "verified" && !!last.expiry && last.expiry < new Date().toISOString().slice(0, 10);
+      setDrive({ status: last ? (expired ? "expired" : last.status) : null, expiry: last?.expiry ?? null, vehicles: ((w.data?.vehicles as string[] | null) ?? []) });
+    });
+  };
+  useEffect(loadDrive, [profile?.is_worker]); // eslint-disable-line react-hooks/exhaustive-deps
   // Trade work on their profile: Create Tradie Profile, or their trade jobs, how they pay and tradie profile.
   const [tw, setTw] = useState<TradeWork | null>(null);
   useEffect(() => {
@@ -142,7 +156,7 @@ export function Settings() {
       <ProfileHero photo={profile.photo_path} name={card?.full_name ?? profile.full_name ?? ""} age={card?.age ?? null} verified={profile.id_status === "verified"}
         place={[place.suburb, place.area].filter(Boolean).join(", ")} onCard={worker ? () => setSub("card") : undefined} onCog={() => setSub("account")} />
 
-      {worker ? (wh ? <WorkerHome d={wh} onlineBusy={onlineBusy} onOnline={goOnline} onStep={finishProfile} onSkills={() => setSub("skills")} onBadge={() => setSub("creds")} trade={tw} /> : <div className="pr-sec"><p className="ac-none">Loading</p></div>) : (<>
+      {worker ? (wh ? <WorkerHome d={wh} onlineBusy={onlineBusy} onOnline={goOnline} onStep={finishProfile} onSkills={() => setSub("skills")} onBadge={() => setSub("creds")} trade={tw} drive={drive} onLicence={() => setSub(drive?.status === "verified" || drive?.status === "pending" ? "creds" : "licence")} onVehicles={() => setSub("vehicles")} /> : <div className="pr-sec"><p className="ac-none">Loading</p></div>) : (<>
         <section className="pr-sec pr-3">
           <div><b>{hub?.jobs_total ?? 0}</b><small>jobs posted</small></div>
           <div><b>{recPct == null ? "New" : `${recPct}%`}</b><small>{recPct == null ? "no reviews yet" : "recommend"}</small></div>
@@ -182,6 +196,8 @@ export function Settings() {
       {sub === "cards" && <PaymentMethods onBack={() => setSub(null)} />}
       {sub === "reliability" && <Reliability onBack={() => setSub(null)} />}
       {sub === "skills" && <JobsAndSkills onBack={() => { setSub(null); load(); loadWorker(); }} />}
+      {sub === "licence" && <AddDriverLicence onBack={() => setSub(null)} onSaved={() => { setSub(null); loadDrive(); }} />}
+      {sub === "vehicles" && <AreaStep onBack={() => setSub(null)} onSaved={() => { setSub(null); toast("Saved"); loadDrive(); loadWorker(); }} />}
       {sub === "creds" && <Credentials onBack={() => { setSub(null); load(); loadWorker(); }} />}
       {sub === "verify" && <VerifyFlow onClose={() => { setSub(null); reload(); loadWorker(); }} />}
     </div>

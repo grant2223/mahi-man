@@ -7,7 +7,6 @@ import { Icon, Screen, SearchPicker, useNow, useToast } from "../ui/kit";
 import { ActionBar, Note } from "../ui/Completion";
 import { ChatScreen } from "../ui/Chat";
 import type { Offer, MyOffer } from "./Work";
-import { lc } from "./Skills";
 
 /* Trade jobs for tradespeople. Two ways to pay: per job (free to join, a fee only when a customer picks your quote),
    or monthly/yearly (no fee per job, every new job first). A tradesperson is a tradesperson; only the timing and the fee differ. Customers don't set a budget; tradies quote their price. */
@@ -37,9 +36,7 @@ export const joined = (t: TradeStatus | null) => !!t?.plan;
 export const premium = (t: TradeStatus | null) => !!t?.plan?.premium;
 // What a tradie still needs before they can quote.
 export const missing = (t: TradeStatus) => [!t.trades?.length && "trades", !t.business_name?.trim() && "business name", !t.abn && "ABN", !t.insured && "insurance"].filter(Boolean) as string[];
-const qbcc = (t: TradeStatus) => dollars(t.prices.qbcc_over_cents ?? 330000);
 
-interface TradeSkill { id: number; name: string; credential_type_id: number | null; credential_types: { name: string; short: string } | null }
 
 /* Before they can quote: anything still missing from their tradie profile, with one way to fix it.
    The details themselves live in the tradie profile, so they're never asked twice. */
@@ -56,7 +53,7 @@ export function TradeReady({ trade }: { trade: TradeStatus; onChanged?: () => vo
 
 // Join: monthly as the offer, per job as the free option, the comparison behind a tap.
 type Ready = { onChanged: () => void; onAbn: () => void; onCreds: () => void };
-export function TradeJoin({ trade, onBack, onJoined, onNeedPay, ready }: { trade: TradeStatus; onBack: () => void; onJoined: (plan: "standard" | "premium") => void; onNeedPay?: () => void; ready: Ready }) {
+export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: TradeStatus; onBack: () => void; onJoined: (plan: "standard" | "premium") => void; onNeedPay?: () => void; ready: Ready }) {
   const toast = useToast();
   const p = trade.prices;
   const [year, setYear] = useState(false);
@@ -124,7 +121,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay, ready }: { trade
 }
 
 // How they pay: per job or monthly, anything to pay and how, and a way to change.
-export function TradePlan({ trade, onBack, onChanged, onUpgrade, ready }: { trade: TradeStatus; onBack: () => void; onChanged: () => void; onUpgrade: () => void; ready: Ready }) {
+export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: TradeStatus; onBack: () => void; onChanged: () => void; onUpgrade: () => void; ready: Ready }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const pl = trade.plan, o = trade.order, pay = trade.pay;
@@ -171,7 +168,7 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade, ready }: { trad
 const when = (o: Offer) => (o.asap ? "Today" : dayTime(o.start_at).replace(/^./, (c) => c.toUpperCase()));
 
 // Trade jobs: the photo first, the job, where and when, Send quote. Tradespeople paying per job also see the jobs others can quote on now, blurred.
-export function TradeFeed({ trade, jobs, quotes = [], onQuote, covers, onBack, onOpen, onUpgrade, ready }: { trade: TradeStatus; jobs: Offer[]; quotes?: MyOffer[]; onQuote?: (job: string) => void; covers: Record<string, string>; onBack: () => void; onOpen: (o: Offer) => void; onUpgrade: () => void; ready: Ready }) {
+export function TradeFeed({ trade, jobs, quotes = [], onQuote, covers, onBack, onOpen, onUpgrade }: { trade: TradeStatus; jobs: Offer[]; quotes?: MyOffer[]; onQuote?: (job: string) => void; covers: Record<string, string>; onBack: () => void; onOpen: (o: Offer) => void; onUpgrade: () => void; ready: Ready }) {
   const hidden = trade.premium_now;
   const [blur, setBlur] = useState<string[]>([]);
   useEffect(() => { if (hidden.photos.length) mediaUrls(hidden.photos).then((m) => setBlur(hidden.photos.map((p) => m[p]).filter(Boolean))).catch(() => {}); }, [hidden.photos.join()]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -327,28 +324,3 @@ export function TradeWaiting({ o, onWithdraw, onClose }: { o: MyOffer; onWithdra
   );
 }
 
-// The business name customers see on each quote. Sole traders can use their own name.
-function BusinessName({ value, onBack, onSaved }: { value: string; onBack: () => void; onSaved: () => void }) {
-  const toast = useToast();
-  const [v, setV] = useState(value);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  return (
-    <Screen title="Business name" onBack={onBack}>
-      <div className="screen-body" style={{ padding: 16, background: "var(--card)" }}>
-        <label className="field"><span className="k">Business or trading name</span>
-          <input value={v} maxLength={60} autoFocus onChange={(e) => { setV(e.target.value); setErr(""); }} placeholder="Taylor Landscaping" /></label>
-        <p className="small light muted" style={{ lineHeight: 1.45 }}>Customers see it on your quotes. A sole trader can use their own name.</p>
-        {err && <p className="err">{err}</p>}
-        <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
-          <button className="btn primary" disabled={busy} onClick={async () => {
-            if (v.trim().length < 2) return setErr("Add your business name.");
-            setBusy(true);
-            try { await rpc("trade_set_business", { p_name: v.trim() }); toast("Saved"); onSaved(); }
-            catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
-          }}>{busy ? "Saving…" : "Save"}</button>
-        </div>
-      </div>
-    </Screen>
-  );
-}

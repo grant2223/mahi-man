@@ -38,7 +38,7 @@ type Fee = { pct: number; max: number; plus: number; tu: number; pl: number; can
 const faq = (fee: Fee): [string, [string, string][]][] => [
   ["Getting help", [
     ["How fast can someone come?", "The moment you post, workers who are switched on near you get an alert. If nobody says they're keen within 10 minutes, workers further out can see your job too."],
-    ["What jobs can I post?", "Cleaning, moving, rubbish removal, garden, assembly, handyman, pets, errands, events, babysitting and tutoring, tech help, and anything else you need a hand with."],
+    ["What jobs can I post?", "Cleaning, moving, pick-up and delivery, rubbish removal, garden, assembly, handyman, pets, errands, events, babysitting and tutoring, tech help, and anything else you need a hand with. No passenger transport."],
     ["Who sets the price?", "You do. Your price covers what you list as included. Anything extra needs your OK in the app before it's done."],
     ["Do I get to choose who comes?", "Yes. People who are available say they're keen, and you see their photo, skills, verified licences, how often they turn up, and how past customers rated them before you choose one."],
     ["Can I post jobs and do work?", "Yes. One account does both. Switch between Get help and Do work any time."],
@@ -50,6 +50,7 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["How do I get paid?", "The customer pays you directly by bank transfer or cash when the job is finished. You keep 100% of the job price."],
     ["Can I choose when I work?", "Yes. Switch on when you're available, take only the jobs you want, and switch off when you're done."],
     ["What about jobs that need a licence?", "Electrical work, an RSA and similar jobs only go to workers whose licence we've checked and is in date."],
+    ["Can I do deliveries?", "Yes, once we've checked your driver licence. Pick-up and delivery, moving and tip runs only go to licensed drivers. Goods only, never passengers."],
   ]],
   ["Trade jobs", [
     ["What's a trade job?", "Work for a tradie at your place: landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, electrical, plumbing, gas, pest control, air conditioning, bond cleaning, carpet cleaning, pressure washing, window cleaning, a mobile mechanic, appliance repair and locksmiths. Tradies quote a fixed price and come to you."],

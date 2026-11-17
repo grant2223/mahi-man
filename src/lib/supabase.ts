@@ -52,7 +52,7 @@ export interface Dispute {
 
 export interface JobType {
   id: number; name: string; description: string; price_cents: number; max_hours: number;
-  needs_insurance: boolean; needs_vehicle: boolean; active: boolean; sort: number;
+  needs_insurance: boolean; needs_vehicle: boolean; needs_driver?: boolean; active: boolean; sort: number;
   category_id: number | null; photo_path: string | null; included: string[]; excluded: string[];
   custom_price: boolean; min_price_cents: number; max_price_cents: number;
 }

@@ -14,6 +14,7 @@ const CAT: Record<string, ReactNode> = {
   handyman: <><path d="M9.5 7.5L13 4l2 .5 4.5 4.5-2 2-1.5-1.5-3 3z" /><path d="M12.5 11L4.5 19a1.5 1.5 0 0 0 2 2l8-8" /></>,
   pets: <><ellipse cx="12" cy="16" rx="4.5" ry="3.8" /><circle cx="6" cy="10.5" r="1.8" /><circle cx="9.5" cy="6.5" r="1.8" /><circle cx="14.5" cy="6.5" r="1.8" /><circle cx="18" cy="10.5" r="1.8" /></>,
   errands: <><path d="M5 8h14l-1 13H6z" /><path d="M9 10V6a3 3 0 0 1 6 0v4" /></>,
+  delivery: <><path d="M3 7.5l9-4 9 4v9l-9 4-9-4z" /><path d="M3 7.5l9 4 9-4" /><path d="M12 11.5v9" /><path d="M7.5 5.5l9 4" /></>,
   car: <><path d="M3 16v-4l2.5-5h13L21 12v4z" /><path d="M3 12h18" /><circle cx="7.5" cy="16.5" r="1.8" /><circle cx="16.5" cy="16.5" r="1.8" /></>,
   pool: <><path d="M8 15V4.5a1.5 1.5 0 0 1 3 0M16 15V4.5a1.5 1.5 0 0 0-3 0" /><path d="M8 8h8M8 12h8" /><path d="M2 18c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5" /><path d="M2 21.5c2 0 2-1.5 4-1.5s2 1.5 4 1.5 2-1.5 4-1.5 2 1.5 4 1.5 2-1.5 4-1.5" /></>,
   rubbish: <><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 14h10l1-14" /><path d="M10 11v6M14 11v6" /></>,

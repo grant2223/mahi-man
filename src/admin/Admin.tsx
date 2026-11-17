@@ -9,7 +9,7 @@ import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit"
 import { UsersPage } from "./Users";
 import { BroadcastPage } from "./Broadcast";
 
-const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
+const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["delivery", "Parcel"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
 type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money" | "gifts" | "staff" | "broadcast";
 
@@ -636,9 +636,10 @@ function IdChecks({ onChanged }: { onChanged: () => void }) {
 }
 
 // ---------- Licences and certificates sent by workers ----------
-interface CredCheck { id: string; worker_id: string; number: string; expiry: string | null; photo_path: string; created_at: string;
+interface CredCheck { id: string; worker_id: string; number: string; expiry: string | null; photo_path: string; photo_back_path: string | null; class: string | null; created_at: string;
   credential_types: { name: string; short: string }; profiles: { full_name: string; photo_path: string | null; id_status: string } }
-const CRED_RETAKE = ["Photo is blurry", "Card is cut off", "Number doesn't match the card", "Expiry date doesn't match"];
+const LICENCE_CLASSES: [string, string][] = [["C", "C, car"], ["LR", "LR, light rigid"], ["MR", "MR, medium rigid"], ["HR", "HR, heavy rigid"]];
+const CRED_RETAKE = ["Back of the licence missing", "Photo is blurry", "Card is cut off", "Number doesn't match the card", "Expiry date doesn't match"];
 const CRED_REJECT = ["Name doesn't match their ID", "Expired", "Not on the register", "Wrong document"];
 
 function LicenceChecks({ onChanged }: { onChanged: () => void }) {
@@ -646,10 +647,11 @@ function LicenceChecks({ onChanged }: { onChanged: () => void }) {
   const [rows, setRows] = useState<CredCheck[]>([]);
   const [sel, setSel] = useState<string | null>(null);
   const [url, setUrl] = useState<string | null>(null);
+  const [backUrl, setBackUrl] = useState<string | null>(null);
   const [pick, setPick] = useState<null | "retake" | "rejected">(null);
   const [busy, setBusy] = useState(false);
   const load = useCallback(() => {
-    sb.from("worker_credentials").select("id,worker_id,number,expiry,photo_path,created_at,credential_types(name,short),profiles!worker_credentials_profile_fkey(full_name,photo_path,id_status)")
+    sb.from("worker_credentials").select("id,worker_id,number,expiry,photo_path,photo_back_path,class,created_at,credential_types(name,short),profiles!worker_credentials_profile_fkey(full_name,photo_path,id_status)")
       .eq("status", "pending").order("created_at").then(({ data }) => {
         const list = (data ?? []) as unknown as CredCheck[];
         setRows(list);
@@ -659,8 +661,9 @@ function LicenceChecks({ onChanged }: { onChanged: () => void }) {
   useEffect(() => { load(); }, [load]);
   const cur = rows.find((r) => r.id === sel) ?? null;
   useEffect(() => {
-    setUrl(null);
+    setUrl(null); setBackUrl(null);
     if (cur) sb.storage.from("insurance").createSignedUrl(cur.photo_path, 900).then(({ data }) => setUrl(data?.signedUrl ?? null));
+    if (cur?.photo_back_path) sb.storage.from("insurance").createSignedUrl(cur.photo_back_path, 900).then(({ data }) => setBackUrl(data?.signedUrl ?? null));
   }, [cur]);
   async function decide(decision: "verified" | "retake" | "rejected", reason = "") {
     if (!cur) return;
@@ -698,7 +701,10 @@ function LicenceChecks({ onChanged }: { onChanged: () => void }) {
             {url ? (isPdf ? <a className="btn stone" href={url} target="_blank" rel="noreferrer">Open the PDF</a>
               : <a href={url} target="_blank" rel="noreferrer"><img src={url} alt="" style={{ width: 460, maxWidth: "100%", height: 300, objectFit: "contain", background: "#1d211f", borderRadius: 4, display: "block" }} /></a>)
               : <span style={{ width: 460, maxWidth: "100%", height: 300, background: "var(--stone)", borderRadius: 4, display: "block" }} />}
+            {cur.photo_back_path && (backUrl ? <a href={backUrl} target="_blank" rel="noreferrer"><img src={backUrl} alt="Back" style={{ width: 460, maxWidth: "100%", height: 300, objectFit: "contain", background: "#1d211f", borderRadius: 4, display: "block" }} /></a>
+              : <span style={{ width: 460, maxWidth: "100%", height: 300, background: "var(--stone)", borderRadius: 4, display: "block" }} />)}
             <div className="stack" style={{ gap: 14 }}>
+              {cur.class && <span className="stack" style={{ gap: 2 }}><span className="small muted">Class</span><span className="t17">{LICENCE_CLASSES.find(([c]) => c === cur.class)?.[1] ?? cur.class}</span></span>}
               <span className="stack" style={{ gap: 2 }}><span className="small muted">Number</span><span className="t17">{cur.number || "Not given"}</span></span>
               <span className="stack" style={{ gap: 2 }}><span className="small muted">Expires</span><span className="t17">{cur.expiry ? new Date(cur.expiry + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "No expiry given"}</span></span>
               <span className="stack" style={{ gap: 2 }}><span className="small muted">Name on account</span><span className="t17">{cur.profiles.full_name}{cur.profiles.id_status === "verified" ? ", ID verified" : ", ID not verified yet"}</span></span>
@@ -1206,6 +1212,7 @@ function Types() {
                 <td className="stack" style={{ gap: 6 }}>
                   <select value={val(t, "needs_insurance") ? "1" : "0"} onChange={(e) => set(t.id, { needs_insurance: e.target.value === "1" })}><option value="0">No insurance</option><option value="1">Insurance</option></select>
                   <select value={val(t, "needs_vehicle") ? "1" : "0"} onChange={(e) => set(t.id, { needs_vehicle: e.target.value === "1" })}><option value="0">No vehicle</option><option value="1">Vehicle</option></select>
+                  <select value={val(t, "needs_driver") ? "1" : "0"} onChange={(e) => set(t.id, { needs_driver: e.target.value === "1" })}><option value="0">No licence</option><option value="1">Driver licence</option></select>
                 </td>
                 <td><select value={val(t, "active") ? "1" : "0"} onChange={(e) => set(t.id, { active: e.target.value === "1" })}><option value="1">Live</option><option value="0">Hidden</option></select></td>
               </tr>
