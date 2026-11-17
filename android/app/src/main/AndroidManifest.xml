@@ -27,6 +27,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
+            <!-- mahiman.app links open in the app: a worker's card (/w/...) and gift card links (/g/...) -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="mahiman.app" android:pathPrefix="/w/" />
+                <data android:scheme="https" android:host="mahiman.app" android:pathPrefix="/g/" />
+            </intent-filter>
+
         </activity>
 
         <provider

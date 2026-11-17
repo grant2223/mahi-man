@@ -111,10 +111,10 @@ export function Book() {
     });
     draftMedia.all().then((items) => setMedia(items.map((m) => ({ ...m, url: URL.createObjectURL(m.blob) }))));
   }, []);
-  // A scanned worker code (mahiman.app/w/ID): start a job sent to that worker. Once signed in, they're saved,
+  // Book on a worker's page (mahiman.app/w/ID, then Book): start a job sent to that worker. Once signed in, they're saved,
   // so they show under "People you've used" and the job can go to them first.
   // The link can carry their id or their card name (mahiman.app/w/grant-goes); a name is looked up first.
-  const scannedKey = path.match(/^\/w\/([A-Za-z0-9-]{2,60})$/)?.[1] ?? null;
+  const scannedKey = path.match(/^\/w\/([A-Za-z0-9-]{2,60})\/book$/)?.[1] ?? null;
   const [scanned, setScanned] = useState<string | null>(null);
   useEffect(() => {
     if (!scannedKey) return;

@@ -70,9 +70,10 @@ function Routes() {
   }
   if (path === "/pricing") return <HowYouPay />;
   if (path === "/partners") return <PartnerPage />;
-  // A worker's card or link, opened in a browser: who they are, and Book.
+  // A worker's card or link. Mahi Man is app only: with the app installed the link opens their page in the app
+  // (Book starts a job sent to them); in a browser it goes straight to the App Store or Google Play.
   const wk = path.match(/^\/w\/([A-Za-z0-9-]{2,60})$/);
-  if (wk && !Capacitor.isNativePlatform()) return <WorkerPage id={wk[1]} />;
+  if (wk) return Capacitor.isNativePlatform() ? <WorkerPage id={wk[1]} /> : <GetRedirect />;
   // Mahi Man is an app. The website is the landing page only; any app screen opened in a browser points to the app.
   if (!Capacitor.isNativePlatform()) return path === "/" ? <Landing /> : <GetAppPage />;
   if (path === "/settings") {
