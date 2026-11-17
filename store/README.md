@@ -50,7 +50,7 @@ Mahi Man gift cards are the same: they only pay for real-world jobs (the worker 
 
 ## 4. Submit
 
-- [x] **App Store:** version 1.0 submitted (now with build 40, waiting for review since 15 Nov 2026).
+- [x] **App Store:** version 1.0 submitted (now with build 45, waiting for review since 17 Nov 2026).
 - [x] **Google Play:** live in Australia and New Zealand.
 - [x] `play_store_url` and `testflight_url` are set in Admin → Settings, so the website shows Google Play and the iPhone beta. `app_store_url` stays empty until Apple approves 1.0.
 
@@ -64,6 +64,7 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 
 ## Building new versions
 
-- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 44 on 17 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 21 on 17 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
-- **Latest (17 Nov 2026, from c834400):** iOS build 44 is in TestFlight (Cairns pilot) and Android versionCode 21 is in Play review (Australia and New Zealand); they replace 43 and 20 from earlier the same day, which still said "odd jobs" in the invite text. Both add faster posting (snap it, say it or type it, then Check and post), repeat jobs every 1, 2 or 4 weeks, worker portfolios, more ways to get a worker fast when nobody is free, workers saying they're available instead of making offers on normal jobs, and a $25 lowest price.
+- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 46 on 17 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 23 on 17 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Latest (17 Nov 2026, from 51543aa):** iOS build 46 is in TestFlight (Cairns pilot) and Android versionCode 23 is in Play review (Australia and New Zealand). They add Mahi Man Plus for loyal customers (reduced fees, alerts to nearby workers, saved favourites; urgent is gone), no connection fee for customers 60 and over, bonus top-up credit ($50 gets $60, $100 gets $120, $250 gets $300), one bank transfer screen for Plus, top-ups, invoices and gift cards (receipt upload, declaration, thank-you tracker), how each connection fee was paid on the job screen, a Payments page (Coming up, full history with filters, receipts, statement), and every PDF on the branded template with "Invoice" and "No GST charged".
+- **Before that:** build 45 / versionCode 22 (17 Nov, eb5704a); 45 is the build in App Store review, 22 was never sent (replaced by 23). Build 44 / 21 (c834400) and 43 / 20 (07076c9).
