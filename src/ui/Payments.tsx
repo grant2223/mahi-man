@@ -82,36 +82,9 @@ function Waiting({ failed, onRetry }: { failed: boolean; onRetry: () => void }) 
   );
 }
 
-function useCopy() {
-  const toast = useToast();
-  return (t: string) => navigator.clipboard?.writeText(t).then(() => toast("Copied"), () => toast(t));
-}
-function PayRow({ k, v, sub, copy }: { k: string; v: string; sub?: string; copy?: string }) {
-  const doCopy = useCopy();
-  return (
-    <div className="iv-pay-row">
-      <span className="stack" style={{ gap: 2, flex: 1, minWidth: 0 }}><span className="k">{k}</span><span className="v">{v}</span>{sub && <span className="t14 light muted">{sub}</span>}</span>
-      <button className="btn stone small" onClick={() => doCopy(copy ?? v)}>Copy</button>
-    </div>
-  );
-}
-// PayID and reference, then BSB and account.
 // Bank details the way people read them: BSB 084-472, ABN 17 640 157 811.
 export const fmtBsb = (v?: string) => { const d = (v ?? "").replace(/\D/g, ""); return d.length === 6 ? `${d.slice(0, 3)}-${d.slice(3)}` : v ?? ""; };
 export const fmtAbn = (v?: string) => { const d = (v ?? "").replace(/\D/g, ""); return d.length === 11 ? `${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 8)} ${d.slice(8)}` : v ?? ""; };
-
-export function BankDetails({ pay, reference, owner = true }: { pay: PayDetails; reference: string; owner?: boolean }) {
-  const bank = pay.bsb && pay.account ? `${fmtBsb(pay.bsb)} · ${pay.account}` : "";
-  if (!pay.payid && !bank) return <span className="t15 light muted">Our bank details are being set up. Pay this once they show here.</span>;
-  return (
-    <>
-      {pay.payid && <PayRow k="PayID" v={pay.payid} />}
-      <PayRow k="Reference" v={reference} />
-      {bank && <PayRow k={pay.payid ? "Or BSB and account" : "BSB and account"} v={bank} sub={pay.account_name || pay.legal_name} copy={`BSB ${pay.bsb} Account ${pay.account} ${pay.account_name ?? ""}`.trim()} />}
-      {owner && pay.legal_name && <span className="t14 light muted" style={{ display: "block", marginTop: 4 }}>Mahi Man is owned and operated by {pay.legal_name}{pay.abn ? `, ABN ${fmtAbn(pay.abn)}` : ""}.</span>}
-    </>
-  );
-}
 
 const STATUS: Record<string, [string, string]> = { due: ["y", "To pay"], late: ["r", "Overdue"], claimed: ["", "Checking"], paid: ["g", "Paid"] };
 const invState = (i: { status: string; due_at: string }) => (i.status === "due" && new Date(i.due_at) < new Date() ? "late" : i.status);
@@ -171,7 +144,7 @@ export function HowYouPay() {
           <button className="btn primary" style={{ flex: 1 }} onClick={() => open("/plus")}>Get Plus</button>
         </ActionBar>
       )}
-      {auth && <AuthScreen title={auth === "/plus" ? "Get Plus" : "Top up"} reason="Sign in to add to your balance." onBack={() => setAuth(null)} onDone={() => { const to = auth; setAuth(null); go(to); }} />}
+      {auth && <AuthScreen title={auth === "/plus" ? "Get Plus" : "Top up"} reason="Sign in to prepay your connection fees." onBack={() => setAuth(null)} onDone={() => { const to = auth; setAuth(null); go(to); }} />}
     </div>
   );
 }
@@ -214,12 +187,12 @@ export function PaymentsPage() {
   return (
     <Page title="Payments">
       <div className="iv-hero">
-        <span className="t15 light">Your balance</span>
+        <span className="t15 light">Your credit</span>
         <span className="iv-big">{money2(p.balance)}</span>
         {p.gift_balance > 0 ? (
           <div className="gf-split">
             <span><b className="w5">{money2(p.gift_balance)}</b> gift{p.gift_from ? ` from ${p.gift_from}` : ""}<br /><span className="light muted">Pays jobs and fees</span></span>
-            {p.balance - p.gift_balance > 0 && <span><b className="w5">{money2(p.balance - p.gift_balance)}</b> top-up<br /><span className="light muted">Pays fees</span></span>}
+            {p.balance - p.gift_balance > 0 && <span><b className="w5">{money2(p.balance - p.gift_balance)}</b> top-up<br /><span className="light muted">Pays connection fees</span></span>}
           </div>
         ) : <span className="t15 light">{line}</span>}
         <div className="row" style={{ gap: 10, marginTop: 12, flexWrap: "wrap" }}>
@@ -288,7 +261,7 @@ export function PaymentsPage() {
       )}
 
       <div className="cp-sec iv-band" style={{ gap: 8, paddingBottom: "calc(var(--safe-bottom) + 28px)" }}>
-        <span className="cp-title" style={{ margin: 0 }}>If your balance runs out</span>
+        <span className="cp-title" style={{ margin: 0 }}>If your credit runs out</span>
         <span className="t14 light muted" style={{ marginBottom: 4 }}>Fees are invoiced and paid by bank transfer. One transfer covers all your jobs.</span>
         <button className="cp-select" onClick={() => setPick("plan")}><span>{PLAN_OPTS.find((o) => o.id === plan)?.label}</span>{Icon.chevron("var(--muted)")}</button>
         {plan !== "now" && <button className="cp-select" onClick={() => setPick("payday")}><span>Payday: {DAYS[payday]}</span>{Icon.chevron("var(--muted)")}</button>}
@@ -317,14 +290,33 @@ interface InvoiceDetail { id: number; number: string; total: number; gst: number
 
 export function InvoicePage({ id }: { id: number }) {
   const toast = useToast();
+  const { profile } = useSession();
+  const [showInv, setShowInv] = useState(false);
+  const [thanks, setThanks] = useState(false);
   const [inv, setInv] = useState<InvoiceDetail | null>(null);
   const [failed, setFailed] = useState(false);
-  const [busy, setBusy] = useState(false);
   const load = useCallback(() => { setFailed(false); return rpc<InvoiceDetail | null>("invoice_detail", { p_id: id }).then((d) => { if (d) setInv(d); else setFailed(true); }).catch(() => setFailed(true)); }, [id]);
   useEffect(() => { load(); }, [load]);
   if (!inv) return <Page title="Invoice" onBack={back("/payments")}><Waiting failed={failed} onRetry={load} /></Page>;
   const st = invState(inv);
   const pay = inv.pay ?? {};
+  const n = inv.lines.length;
+  if (thanks) return (
+    <div className="app pq">
+      <button className="back pq-back" onClick={() => setThanks(false)} aria-label="Back">{Icon.back("#fff")}</button>
+      <PaidThanks first={profile?.full_name?.split(" ")[0]} amount={inv.total} reference={inv.number} what={`${n} connection fee${n === 1 ? "" : "s"}`} last="Invoice marked paid" />
+      <div className="pq-foot"><button className="pq-gold" onClick={() => go("/payments", true)}><span>Done</span></button></div>
+    </div>
+  );
+  if ((st === "due" || st === "late") && !showInv) return (
+    <div className="app pq">
+      <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
+      <BankPay title={`Invoice ${inv.number}`} sub={`${n} connection fee${n === 1 ? "" : "s"} · ${st === "late" ? "was due" : "due"} ${dayShort(inv.due_at)}`} amount={inv.total} pay={pay} reference={inv.number}
+        note="We confirm your payment within 24 hours, usually faster."
+        onConfirm={async (proof) => { await rpc("invoice_claim_paid", { p_id: inv.id, p_proof: proof }); setThanks(true); await load(); }}
+        onCancel={() => setShowInv(true)} cancelLabel="See the invoice" />
+    </div>
+  );
   return (
     <Page title={`Invoice ${inv.number}`} onBack={back("/payments")}>
       <div className="iv-hero">
@@ -333,12 +325,6 @@ export function InvoicePage({ id }: { id: number }) {
         <Badge s={st} />
         {st === "claimed" && <span className="t15 light" style={{ marginTop: 6 }}>Thanks. We'll mark it paid as soon as it arrives.</span>}
       </div>
-      {(st === "due" || st === "late") && (
-        <div className="iv-pay iv-band">
-          <span className="cp-title" style={{ margin: 0 }}>Pay by bank transfer</span>
-          <BankDetails pay={pay} reference={inv.number} owner={false} />
-        </div>
-      )}
       <div className="cp-sec iv-band" style={{ paddingBottom: 24 }}>
         <span className="cp-title">{pay.gst === "yes" ? "Tax invoice" : "Invoice"}</span>
         <span className="t14 light muted">{pay.legal_name}{pay.trading_name ? `, trading as ${pay.trading_name}` : ""}{pay.abn ? ` · ABN ${fmtAbn(pay.abn)}` : ""}<br />To {inv.to} · Issued {dayLong(inv.issued_at)}</span>
@@ -351,11 +337,7 @@ export function InvoicePage({ id }: { id: number }) {
       <ActionBar>
         <button className="btn stone" style={{ flex: 1 }} onClick={() => savePdf(inv).catch(() => toast("Couldn't save the PDF"))}>Save PDF</button>
         {(st === "due" || st === "late") && (
-          <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={async () => {
-            setBusy(true);
-            try { await rpc("invoice_claim_paid", { p_id: inv.id }); toast("Thanks. We'll match it up."); await load(); }
-            catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
-          }}>{busy ? "Saving…" : "I've paid"}</button>
+          <button className="btn primary" style={{ flex: 1 }} onClick={() => setShowInv(false)}>Pay</button>
         )}
       </ActionBar>
     </Page>
@@ -498,7 +480,7 @@ export function TopUpPage() {
         {p.card_live && <button className="pq-field" onClick={() => setPick("via")}><small>Pay with</small><b>{how === "card" ? p.card : "Bank transfer"}</b>{Icon.chevron("#f5c518")}</button>}
         {how === "card" && (
           <div className="row between" style={{ marginTop: 6, alignItems: "center", gap: 14 }}>
-            <span className="stack" style={{ gap: 2 }}><span className="w5">Top up automatically</span><span className="t14 light" style={{ color: "rgba(255,255,255,.7)" }}>Add {money(p.rates.auto_topup)} when your balance drops under {money(p.rates.auto_below)}</span></span>
+            <span className="stack" style={{ gap: 2 }}><span className="w5">Top up automatically</span><span className="t14 light" style={{ color: "rgba(255,255,255,.7)" }}>Add {money(p.rates.auto_topup)} when your credit drops under {money(p.rates.auto_below)}</span></span>
             <button className={`toggle ${autoOn ? "on" : ""}`} aria-pressed={autoOn} aria-label="Top up automatically" onClick={() => setAuto(!autoOn)} />
           </div>
         )}
@@ -516,8 +498,8 @@ export function TopUpPage() {
 /* ---------- Pay by bank transfer ----------
    One screen for every bank transfer (Plus, top-ups): what it's for and the amount, the details in the order banks ask
    for them, who Mahi Man is, a note, then the declaration and Confirm payment. */
-export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, onCancel }: {
-  title: string; sub: string; amount: number; pay: PayDetails; reference: string; note?: string; onConfirm: (proof: string) => Promise<void>; onCancel?: () => void;
+export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, onCancel, cancelLabel = "Cancel" }: {
+  title: string; sub: string; amount: number; pay: PayDetails; reference: string; note?: string; onConfirm: (proof: string) => Promise<void>; onCancel?: () => void; cancelLabel?: string;
 }) {
   const toast = useToast();
   const [agree, setAgree] = useState(false);
@@ -574,7 +556,7 @@ export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, o
         setBusy(true);
         try { await onConfirm(proof!.path); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
       }}><span>{busy ? "One moment…" : "Confirm payment"}</span></button>
-      {onCancel && <button className="pq-cancel" onClick={onCancel}>Cancel</button>}
+      {onCancel && <button className="pq-cancel" onClick={onCancel}>{cancelLabel}</button>}
     </div>
   </>;
 }
@@ -737,14 +719,14 @@ export function JobFeeSection({ fee }: { fee: JobFee }) {
   const title = (
     <div className="iv-fee-top"><span className="cp-title" style={{ margin: 0 }}>Mahi Man connection fee</span><span className="iv-amt">{money2(fee.amount_cents)}</span></div>
   );
-  if (owed <= 0) return <div className="iv-fee">{title}<span className="t15 light">Paid from your balance{p ? `. ${money2(p.balance)} left.` : "."}</span></div>;
+  if (owed <= 0) return <div className="iv-fee">{title}<span className="t15 light">Paid from your credit{p ? `. ${money2(p.balance)} left.` : "."}</span></div>;
   if (inv && inv.status !== "due") return <div className="iv-fee">{title}<span className="t15 light">{inv.status === "paid" ? "Paid" : "We're checking your transfer"}, invoice {inv.number}.</span></div>;
   if (inv) return (
     <div className="iv-fee">
       {title}
-      {fee.from_balance_cents > 0 && <span className="t15 light">{money2(fee.from_balance_cents)} came off your balance. {money2(owed)} to pay.</span>}
-      {p && <BankDetails pay={p.pay} reference={inv.number} />}
-      <span className="t14 light muted">Due {dayLong(inv.due_at)}. Your invoice is in You, Payments.</span>
+      {fee.from_balance_cents > 0 && <span className="t15 light">{money2(fee.from_balance_cents)} came off your credit. {money2(owed)} to pay.</span>}
+      <span className="t14 light muted">Invoice {inv.number}, due {dayLong(inv.due_at)}.</span>
+      {fee.invoice_id && <button className="btn primary" style={{ marginTop: 10 }} onClick={() => go(`/invoice/${fee.invoice_id}`)}>Pay {money2(owed)}</button>}
     </div>
   );
   if (!p) return null;

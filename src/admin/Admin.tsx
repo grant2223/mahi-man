@@ -1997,7 +1997,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
               <td className="light">{r.state === "paid" && r.paid_at ? `Paid ${day(r.paid_at)}` : day(r.due)}</td>
               <td>{badge(r)}</td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                {(r.kind === "plus" || r.kind === "topup") && r.state === "claimed" && <button className="btn stone small" style={{ marginRight: 8 }} onClick={() => receipt(r)}>Receipt</button>}
+                {["plus", "topup", "invoice", "gift"].includes(r.kind) && r.state === "claimed" && <button className="btn stone small" style={{ marginRight: 8 }} onClick={() => receipt(r)}>Receipt</button>}
                 {r.kind === "plus" && r.state === "claimed" && <button className="btn stone small" style={{ marginRight: 8 }} disabled={busy === `${r.kind}${r.id}`} onClick={() => notReceived(r)}>Not received</button>}
                 {r.state !== "paid" && <button className={`btn ${r.state === "claimed" ? "primary" : "stone"} small`} disabled={busy === `${r.kind}${r.id}`} onClick={() => paid(r)}>Mark paid</button>}</td>
             </tr>

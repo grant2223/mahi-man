@@ -354,7 +354,7 @@ export function Track({ id }: { id: string }) {
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 4 }}>
               <span className="row between"><span className="t17 w5">Connection fee</span><span className="t17 w5">{money2(jobFee.amount_cents)}</span></span>
               <span className="small light muted" style={{ lineHeight: 1.45 }}>
-                {jobFee.amount_cents <= jobFee.from_balance_cents ? "Paid from your balance."
+                {jobFee.amount_cents <= jobFee.from_balance_cents ? "Paid from your credit."
                   : jobFee.customer_invoices ? `${jobFee.customer_invoices.status === "paid" ? "Paid" : "To pay"} on invoice ${jobFee.customer_invoices.number}. It's in You, Payments.`
                   : "On your next invoice. It's in You, Payments."}
               </span>

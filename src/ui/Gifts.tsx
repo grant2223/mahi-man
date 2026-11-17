@@ -9,7 +9,7 @@ import { Icon, Loading, SearchPicker, useToast } from "./kit";
 import { ActionBar } from "./Completion";
 import { AuthScreen } from "./Auth";
 import { stripeFor } from "../customer/Cards";
-import { BankDetails, dayLong, usePayments, type PayDetails } from "./Payments";
+import { BankPay, PaidThanks, dayLong, usePayments, type PayDetails } from "./Payments";
 
 /* Mahi Man gift cards: buy help for someone else. The gift lands in their wallet and pays the worker and the fee. */
 
@@ -123,7 +123,7 @@ export function GiveHelpPage() {
         value={[sendBy]} onClose={() => setPick(null)} onChange={(v) => { setSendBy(v[0] as "text" | "email"); setDest(""); }} />}
       {pick === "on" && <SearchPicker title="Send on" options={dates} value={[sendOn]} onClose={() => setPick(null)} onChange={(v) => setSendOn(String(v[0]))} />}
       {pick === "via" && <SearchPicker title="Pay with" options={[...(p?.card_live ? [{ id: "card", label: p.card ?? "Add a card first", disabled: !p.card }] : []),
-        { id: "bank", label: "Bank transfer", hint: "PayID or BSB and account. It sends once the money arrives." }]} value={[how]} onClose={() => setPick(null)} onChange={(v) => setVia(v[0] as "card" | "bank")} />}
+        { id: "bank", label: "Bank transfer", hint: "It sends once your payment is confirmed" }]} value={[how]} onClose={() => setPick(null)} onChange={(v) => setVia(v[0] as "card" | "bank")} />}
     </Page>
   );
 }
@@ -135,11 +135,29 @@ interface GiftDetail { id: number; reference: string; code: string; link: string
 
 export function GiftPage({ id }: { id: number }) {
   const toast = useToast();
+  const { profile } = useSession();
+  const [thanks, setThanks] = useState(false);
   const [g, setG] = useState<GiftDetail | null>(null);
-  const [busy, setBusy] = useState(false);
   const load = useCallback(() => rpc<GiftDetail | null>("gift_detail", { p_id: id }).then(setG).catch(() => {}), [id]);
   useEffect(() => { load(); }, [load]);
   if (!g) return <Page title="Gift card" onBack={back("/payments")}><Loading /></Page>;
+  if (thanks) return (
+    <div className="app pq">
+      <button className="back pq-back" onClick={() => setThanks(false)} aria-label="Back">{Icon.back("#fff")}</button>
+      <PaidThanks first={profile?.full_name?.split(" ")[0]} amount={g.amount} reference={g.reference} what={`Gift card for ${g.to}`} last={g.send_by === "text" ? `Ready for you to text to ${g.to}` : `Emailed to ${g.to} ${g.send_on <= todayIso() ? "straight away" : `on ${dayLong(g.send_on + "T12:00:00")}`}`} />
+      <div className="pq-foot"><button className="pq-gold" onClick={() => setThanks(false)}><span>Done</span></button></div>
+    </div>
+  );
+  // Paying for it: the same trusted bank transfer screen as everything else.
+  if (g.status === "requested") return (
+    <div className="app pq">
+      <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
+      <BankPay title="Mahi Man gift card" sub={`For ${g.to} · ${g.reference}`} amount={g.amount} pay={g.pay} reference={g.reference}
+        note="It sends once your payment is confirmed, within 24 hours and usually faster."
+        onConfirm={async (proof) => { await rpc("gift_claim_paid", { p_id: g.id, p_proof: proof }); setThanks(true); await load(); }}
+        onCancel={async () => { try { await rpc("gift_cancel", { p_id: g.id }); toast("Gift card cancelled"); go("/payments", true); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } }} />
+    </div>
+  );
   const due = g.send_on <= todayIso();
   const text = `${g.message ? `${g.message} ` : ""}I've sent you ${money(g.amount)} of help on Mahi Man for any job around the house. Open this to add it to your wallet:`;
   const sendText = async () => {
@@ -151,14 +169,9 @@ export function GiftPage({ id }: { id: number }) {
     }
     rpc("gift_mark_sent", { p_id: g.id }).then(load).catch(() => {});
   };
-  const act = (fn: () => Promise<unknown>, ok: string) => async () => {
-    setBusy(true); try { await fn(); toast(ok); await load(); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
-  };
 
   let status: ReactNode;
-  if (g.status === "requested") status = <><span className="cp-title" style={{ margin: 0 }}>Pay {money(g.amount)} by bank transfer</span><BankDetails pay={g.pay} reference={g.reference} />
-    <span className="t14 light muted">It sends once the money arrives, usually within a day.</span></>;
-  else if (g.status === "claimed") status = <><span className="cp-title" style={{ margin: 0 }}>We're checking for your transfer</span><span className="t15 light">{`It sends once the money arrives, usually within a day. Reference ${g.reference}.`}</span></>;
+  if (g.status === "claimed") status = <><span className="cp-title" style={{ margin: 0 }}>We're checking for your transfer</span><span className="t15 light">{`It sends once the money arrives, usually within a day. Reference ${g.reference}.`}</span></>;
   else if (g.redeemed) status = <><span className="cp-title" style={{ margin: 0 }}>{`${g.to} has it`}</span><span className="t15 light">{`Added to their Mahi Man wallet${g.redeemed_at ? ` on ${dayLong(g.redeemed_at)}` : ""}.`}</span></>;
   else if (g.send_by === "email") status = <><span className="cp-title" style={{ margin: 0 }}>{g.sent_at ? "Emailed" : `Sends ${dayLong(noon(g.send_on))}`}</span>
     <span className="t15 light">{g.sent_at ? `We emailed it to ${g.send_to} on ${dayLong(g.sent_at)}. It goes into their wallet when they sign up with that email.` : `We email it to ${g.send_to} that morning.`}</span></>;
@@ -171,12 +184,6 @@ export function GiftPage({ id }: { id: number }) {
       <div className="iv-pay">{status}</div>
       {g.status === "paid" && <div className="cp-sec"><span className="t14 light muted">{`Gift code ${g.code}${g.expires_at ? ` · lasts until ${new Date(g.expires_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ })}` : ""}`}</span></div>}
       <div style={{ flex: 1 }} />
-      {g.status === "requested" && (
-        <ActionBar>
-          <button className="btn stone" style={{ flex: 1 }} disabled={busy} onClick={act(() => rpc("gift_cancel", { p_id: g.id }), "Gift card cancelled")}>Cancel it</button>
-          <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={act(() => rpc("gift_claim_paid", { p_id: g.id }), "Thanks. It sends once it arrives.")}>I've paid</button>
-        </ActionBar>
-      )}
       {g.status === "paid" && !g.redeemed && g.send_by === "text" && (
         <ActionBar>
           <button className="btn stone" style={{ flex: 1 }} onClick={async () => { const r = await shareLink(text, g.link); if (r === "copied") toast("Link copied"); }}>Share another way</button>

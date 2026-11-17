@@ -903,9 +903,6 @@ body:has(.sc)::after { display: none; }
 .iv-fee { border-top: 8px solid var(--ground); }
 .iv-fee-top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .iv-amt { font-size: 20px; font-weight: 500; }
-.iv-pay-row { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 14px; background: var(--ground); border-radius: var(--r-control); }
-.iv-pay-row .k { font-size: 14px; font-weight: 300; color: var(--muted); }
-.iv-pay-row .v { font-size: 18px; font-weight: 500; word-break: break-all; }
 .iv-next-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 6px 0 8px; }
 .iv-past { display: flex; align-items: center; gap: 12px; width: 100%; padding: 14px 0; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: var(--ink); cursor: pointer; }
 .iv-past:last-child { border-bottom: 0; }

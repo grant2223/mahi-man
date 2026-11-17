@@ -111,7 +111,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   }
 
   // Totals, right side, and the pay box: on a new page if they don't fit.
-  const payRows = receipt ? 0 : [d.pay.payid, d.pay.bsb, d.pay.account, d.pay.account_name || d.pay.trading_name, d.number].filter(Boolean).length;
+  const payRows = receipt ? 0 : [d.pay.bsb, d.pay.account, d.pay.account_name || d.pay.trading_name, d.number].filter(Boolean).length;
   if (y - 90 - (receipt ? 0 : 68 + payRows * 19) < 70) more();
   const gstOn = d.pay.gst === "yes";
   const gst = gstOn ? Math.round(d.total_cents / 11) : 0;
@@ -129,7 +129,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   // How to pay (invoice) / thanks (receipt)
   y -= 22;
   if (!receipt) {
-    const rows: [string, string | undefined][] = [["PayID", d.pay.payid], ["BSB", fmtBsb(d.pay.bsb)], ["Account", d.pay.account], ["Account name", d.pay.account_name || d.pay.trading_name], ["Reference", d.number]];
+    const rows: [string, string | undefined][] = [["Account name", d.pay.account_name || d.pay.trading_name], ["BSB", fmtBsb(d.pay.bsb)], ["Account number", d.pay.account], ["Reference", d.number]];
     const shown = rows.filter(([, v]) => v);
     const bh = 46 + shown.length * 19;
     page.drawRectangle({ x: M, y: y - bh, width: W - 2 * M, height: bh, color: C.ground });
@@ -137,7 +137,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
     text("How to pay", M + 18, py, F.bold, 12.5, C.ink);
     text("By bank transfer. Use the reference so we can match your payment.", M + 120, py, F.light, 9.5, C.body);
     py -= 24;
-    for (const [k, v] of shown) { text(k, M + 18, py, F.light, 10.5, C.muted); text(v!, M + 120, py, k === "Reference" || k === "PayID" ? F.bold : F.reg, 10.5, C.ink); py -= 19; }
+    for (const [k, v] of shown) { text(k, M + 18, py, F.light, 10.5, C.muted); text(v!, M + 120, py, k === "Reference" ? F.bold : F.reg, 10.5, C.ink); py -= 19; }
   }
 
   // Footer on every page

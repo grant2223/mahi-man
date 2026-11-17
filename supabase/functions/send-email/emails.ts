@@ -66,7 +66,7 @@ const h2 = (t: string) => `<div style="margin:0 0 12px;font-size:19px;font-weigh
 const rows = (r: [string, string | undefined, boolean?][]) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${r.filter(([, v]) => v).map(([k, v, strong]) =>
   `<tr><td style="padding:9px 0;font-size:15px;font-weight:300;color:${C.muted};border-bottom:1px solid ${C.line}">${k}</td><td align="right" style="padding:9px 0;font-size:${strong ? 17 : 15}px;font-weight:${strong ? 600 : 400};color:${C.ink};border-bottom:1px solid ${C.line}">${esc(v)}</td></tr>`).join("")}</table>`;
 function payBlock(pay: Pay, ref: string) {
-  return h2("Pay by bank transfer") + rows([["PayID", pay.payid, true], ["BSB", fmtBsb(pay.bsb)], ["Account", pay.account], ["Account name", pay.account_name || pay.trading_name], ["Reference", ref, true]])
+  return h2("Pay by bank transfer") + rows([["Account name", pay.account_name || pay.trading_name], ["BSB", fmtBsb(pay.bsb)], ["Account number", pay.account], ["Reference", ref, true]])
     + `<p style="margin:12px 0 0;font-size:14px;line-height:1.5;font-weight:300;color:${C.muted}">Use the reference so we can match your payment.</p>`;
 }
 const pdfNote = (name: string) => `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 0 22px"><tr>
@@ -116,7 +116,7 @@ ${ctx.play ? `<td class="stack" valign="top" width="50%" style="padding-left:6px
     const body = pdfNote(`Invoice ${d.number}.pdf`)
       + p(`Hi ${first}, we haven't seen this payment yet. Pay by <b style="font-weight:500;color:${C.ink}">${esc(d.pause)}</b> to keep booking jobs on Mahi Man.`)
       + `<div style="margin:4px 0 8px">${btn(`${site}/invoice/${d.id ?? ""}`, "Pay now")}</div>`
-      + `<p style="margin:0 0 26px;font-size:14px;line-height:1.5;font-weight:300;color:${C.muted}">Already paid? Tap I've paid on the invoice and we'll match it up.</p>`
+      + `<p style="margin:0 0 26px;font-size:14px;line-height:1.5;font-weight:300;color:${C.muted}">Already paid? Open the invoice, add your transfer receipt and confirm. We check it within 24 hours.</p>`
       + payBlock(ctx.pay, d.number);
     return { subject: `Reminder: ${money(total)} for invoice ${d.number}`, html: layout(ctx, `Pay by ${d.pause} to keep booking jobs.`, { eyebrow: "Payment reminder", title: `${money(total)} is still owing`, sub: `Invoice ${esc(d.number)} was due ${esc(d.due)}.` }, body) };
   }

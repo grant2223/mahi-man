@@ -299,7 +299,8 @@ Deno.serve(async (req) => {
       // ---------- Top up the balance with the saved card ----------
       case "topup_card": {
         const amount = Number(body.amount);
-        if (![2500, 5000, 10000].includes(amount)) return fail("Pick $25, $50 or $100");
+        const { data: amountOk } = await admin.rpc("topup_amount_ok", { p_amount: amount });
+        if (amountOk !== true) return fail("Select one of the top-up amounts");
         if (!me?.card_pm || !me.stripe_customer_id) return fail("Add a card first");
         try {
           const pi = await stripe().paymentIntents.create({
@@ -424,7 +425,7 @@ Deno.serve(async (req) => {
         if (body.confirm !== "DELETE") return fail("Type DELETE to confirm");
         const uid = user.id;
         if (me?.stripe_customer_id) await stripe().customers.del(me.stripe_customer_id).catch(() => {});
-        for (const bucket of ["avatars", "ids", "job-media", "insurance"]) {
+        for (const bucket of ["avatars", "ids", "job-media", "insurance", "receipts"]) {
           const { data: files } = await admin.storage.from(bucket).list(uid, { limit: 1000 });
           const paths = (files ?? []).map((f) => `${uid}/${f.name}`);
           if (paths.length) await admin.storage.from(bucket).remove(paths);
