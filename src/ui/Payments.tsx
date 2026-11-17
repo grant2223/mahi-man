@@ -719,12 +719,15 @@ export function JobFeeSection({ fee }: { fee: JobFee }) {
   const title = (
     <div className="iv-fee-top"><span className="cp-title" style={{ margin: 0 }}>Mahi Man connection fee</span><span className="iv-amt">{money2(fee.amount_cents)}</span></div>
   );
-  if (owed <= 0) return <div className="iv-fee">{title}<span className="t15 light">Paid from your credit{p ? `. ${money2(p.balance)} left.` : "."}</span></div>;
-  if (inv && inv.status !== "due") return <div className="iv-fee">{title}<span className="t15 light">{inv.status === "paid" ? "Paid" : "We're checking your transfer"}, invoice {inv.number}.</span></div>;
+  // Fees come off credit first; whatever credit didn't cover goes on an invoice. Say plainly which happened.
+  const used = fee.from_balance_cents;
+  const hadCredit = !!p && (p.balance > 0 || p.log.some((l) => l.delta > 0));
+  if (owed <= 0) return <div className="iv-fee">{title}<span className="t15 light">Taken from your credit{p ? `. ${money2(p.balance)} left.` : "."}</span></div>;
+  if (inv && inv.status !== "due") return <div className="iv-fee">{title}<span className="t15 light">{used > 0 ? `${money2(used)} from your credit, ${money2(owed)} ` : ""}{inv.status === "paid" ? "paid" : "we're checking your transfer"} on invoice {inv.number}.</span></div>;
   if (inv) return (
     <div className="iv-fee">
       {title}
-      {fee.from_balance_cents > 0 && <span className="t15 light">{money2(fee.from_balance_cents)} came off your credit. {money2(owed)} to pay.</span>}
+      {(used > 0 || hadCredit) && <span className="t15 light">{used > 0 ? `${money2(used)} came off your credit. ${money2(owed)} left to pay.` : "Your credit is $0, so this one's on an invoice."}</span>}
       <span className="t14 light muted">Invoice {inv.number}, due {dayLong(inv.due_at)}.</span>
       {fee.invoice_id && <button className="btn primary" style={{ marginTop: 10 }} onClick={() => go(`/invoice/${fee.invoice_id}`)}>Pay {money2(owed)}</button>}
     </div>
