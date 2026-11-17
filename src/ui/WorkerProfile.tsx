@@ -29,7 +29,7 @@ export function WorkerProfile({ workerId, category = null, onBack }: { workerId:
   }, [workerId, category]);
   const first = p?.name.split(" ")[0] ?? "";
   const face = avatarUrl(p?.photo);
-  const rec = p?.scores?.reviewed ? `${p.scores.recommended} of ${p.scores.reviewed}` : "New";
+  const rec = p?.scores?.reviewed ? `${p.scores.recommended}` : "New";
 
   return (
     <Screen title={p ? `${first}'s work` : "Their work"} onBack={onBack}>
@@ -44,7 +44,7 @@ export function WorkerProfile({ workerId, category = null, onBack }: { workerId:
           </div>
           <div className="pf-all">
             <div><b>{p.jobs}</b><small>jobs done</small></div>
-            <div><b>{rec}</b><small>{p.scores?.reviewed ? "would hire again" : "no reviews yet"}</small></div>
+            <div><b>{rec}</b><small>{p.scores?.reviewed ? "recommend" : "no reviews yet"}</small></div>
             <div><b>{p.turns_up != null ? `${p.turns_up}%` : "New"}</b><small>turn up on time</small></div>
           </div>
           {p.sections.map((s, i) => {
@@ -54,7 +54,7 @@ export function WorkerProfile({ workerId, category = null, onBack }: { workerId:
             const own = pics.length > 0 && pics.every((x) => x.src === "work");
             const line = [
               s.jobs ? `${s.jobs} job${s.jobs === 1 ? "" : "s"}` : "No Mahi Man jobs yet",
-              s.reviewed ? (s.recommended === s.reviewed ? (s.reviewed === 1 ? "would hire again" : "all would hire again") : `${s.recommended} would hire again`) : "",
+              s.recommended ? `${s.recommended} recommend` : "",
             ].filter(Boolean).join(", ") + (s.years != null ? `. ${yearsLine(s.years, kind)}` : "");
             return (
               <section key={s.category_id} className={big ? "pf-sec" : "pf-sec small"}>

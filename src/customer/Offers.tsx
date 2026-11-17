@@ -64,6 +64,10 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
     }));
   }, []);
   const [extras, setExtras] = useState<Record<string, Extra>>({});
+  const [openCard, setOpenCard] = useState<string | null>(null);
+  // How the customer wants the list: soonest there, closest, most recommended or most jobs. The top 10 show; ignoring one brings in the next.
+  const [sortBy, setSortBy] = useState<SortKey>("soon");
+  const [pickSort, setPickSort] = useState(false);
   const [profile, setProfile] = useState<string | null>(null);
   const ids = (offers ?? []).map((o) => o.worker_id).join(",");
   useEffect(() => {
@@ -201,9 +205,8 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         </div>
         {shown.length ? (
           <>
-            <span className="label" style={{ marginTop: 18 }}>Who's available</span>
-            <span className="big lime">{shown.length}</span>
-            <span className="sub" style={{ marginTop: 6 }}>Select who you want. Each one stays for 15 minutes.</span>
+            <div className="av-line"><b>{shown.length} available</b>
+              {!trade && shown.length > 1 && <button className="av-sort" onClick={() => setPickSort(true)}>{SORTS.find((x) => x.id === sortBy)!.label}{Icon.down("#fff")}</button>}</div>
           </>
         ) : (
           <>
@@ -277,7 +280,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         </div>
       )}
       <div className="offers">
-        {shown.map((o) => {
+        {sortOffers(shown, sortBy, work).slice(0, 10).map((o) => {
           const left = Math.max(0, Math.ceil((new Date(o.expires_at).getTime() - now) / 60000));
           const at = asap ? clock(new Date(Date.now() + o.eta_minutes * 60000)) : clock(new Date(startAt));
           const photo = avatarUrl(o.photo_path);
@@ -296,10 +299,41 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
           const lcFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
           const stats: [string, string][] = jobs > 0
             ? [[String(jobs), `${kind} job${jobs === 1 ? "" : "s"} on Mahi Man`],
-               [w!.reviewed ? `${w!.recommended} of ${w!.reviewed}` : "New", w!.reviewed ? `would hire ${first} again` : "no reviews yet"],
+               [w!.reviewed ? `${w!.recommended}` : "New", w!.reviewed ? "recommend" : "no reviews yet"],
                [yrs ?? `${o.jobs_done}`, yrs ? `${kind} experience` : "jobs done in all"]]
             : [["New", "first Mahi Man job"], [yrs ?? "–", `${kind} experience`], [o.id_verified ? "ID" : "No ID", o.id_verified ? "checked by Mahi Man" : "not checked yet"]];
           const creds = ex?.creds ?? [];
+          // Everyone side by side first: their work, face, record and when they can be there. Tap to see the full card.
+          if (openCard !== o.worker_id) {
+            const line = jobs > 0
+              ? `${jobs} ${kind} job${jobs === 1 ? "" : "s"}${w!.recommended ? ` · ${w!.recommended} recommend` : ""}`
+              : `New to Mahi Man${yrs ? ` · ${yrs} ${kind} experience` : ""}`;
+            return (
+              <section key={o.worker_id} className="cr">
+                <button className={`cr-ph n${Math.min(pics.length, 3)}`} onClick={() => setOpenCard(o.worker_id)} aria-label={`${first}'s work`}>
+                  {pics.slice(0, 3).map((x) => (
+                    <i key={x.path} style={{ backgroundImage: `url("${workUrls[x.path]}")` }}><em>{x.src === "work" ? "Before Mahi Man" : x.suburb}</em></i>
+                  ))}
+                  {!pics.length && <i className="ini">{o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</i>}
+                  <span className={`ox-left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
+                </button>
+                <div className="cr-b">
+                  <button className="cr-main" onClick={() => setOpenCard(o.worker_id)}>
+                    <span className="cr-f" style={photo ? { backgroundImage: `url(${photo})` } : undefined}>{!photo && o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>
+                    <span className="cr-t">
+                      <b>{o.full_name}{o.age != null && <i>{o.age}</i>}{o.id_verified && <GoldTick s={20} />}</b>
+                      <span className="g">{line}</span>
+                      <span>Can be there {at}{o.distance_km != null ? ` · ${o.distance_km} km` : ""}</span>
+                    </span>
+                  </button>
+                </div>
+                <div className="cr-btns">
+                  <button className="btn stone" onClick={() => ignore(o)} disabled={!!busy}>Ignore</button>
+                  <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Select ${first}`}</button>
+                </div>
+              </section>
+            );
+          }
           return (
             <section key={o.worker_id} className="ox">
               {/* Their work in this kind of job comes first: photos from finished jobs, or their own past work, clearly marked. */}
@@ -372,8 +406,26 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         <button className="link quiet" onClick={onCancel}>Cancel this job</button>
       </div>
       {verifying && <VerifyFlow onClose={() => { setVerifying(false); reload(); }} />}
+      {pickSort && <SearchPicker title="Sort by" value={[sortBy]} options={SORTS.map((x) => ({ id: x.id, label: x.label, hint: x.hint }))}
+        onClose={() => setPickSort(false)} onChange={(v) => { setSortBy(v[0] as SortKey); setOpenCard(null); }} />}
       {profile && <WorkerProfile workerId={profile} category={work[profile]?.category_id ?? null} onBack={() => setProfile(null)} />}
       {needCard && <AddCardScreen onBack={() => setNeedCard(null)} onSaved={() => { const o = needCard; setNeedCard(null); window.setTimeout(() => choose(o), 200); }} />}
     </div>
   );
+}
+
+type SortKey = "soon" | "near" | "rec" | "jobs";
+const SORTS: { id: SortKey; label: string; hint: string }[] = [
+  { id: "soon", label: "Soonest", hint: "Who can be there first" },
+  { id: "near", label: "Closest", hint: "Who's nearest to you" },
+  { id: "rec", label: "Most recommended", hint: "Most people recommend them" },
+  { id: "jobs", label: "Most jobs", hint: "Most of this kind of job done" },
+];
+function sortOffers<T extends { worker_id: string; eta_minutes: number; distance_km: number | null; can_come_at?: string | null }>(list: T[], by: SortKey, work: Record<string, Work | undefined>): T[] {
+  const eta = (o: T) => (o.can_come_at ? new Date(o.can_come_at).getTime() : Date.now() + o.eta_minutes * 60000);
+  const km = (o: T) => o.distance_km ?? 999;
+  const rec = (o: T) => work[o.worker_id]?.recommended ?? 0;
+  const jobs = (o: T) => work[o.worker_id]?.jobs ?? 0;
+  const by2 = (a: T, b: T) => (by === "soon" ? eta(a) - eta(b) : by === "near" ? km(a) - km(b) : by === "rec" ? rec(b) - rec(a) || jobs(b) - jobs(a) : jobs(b) - jobs(a) || rec(b) - rec(a)) || eta(a) - eta(b);
+  return [...list].sort(by2);
 }
