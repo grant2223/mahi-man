@@ -15,6 +15,7 @@ import { PaymentMethods, cardLabel } from "../customer/Cards";
 import { alertsState, pushSupported, signOut, turnOnAlerts } from "../lib/push";
 import { isSoon, useArea } from "../lib/area";
 import { TabBar } from "./TabBar";
+import { PeopleScreen, YourPeople } from "../customer/People";
 import { ProfileHero, ShareCard, WorkerHome, type Driving, type TradeWork, type WorkerHomeData } from "./ProfileHome";
 
 /* The You page. Each band shows how things stand right now (money, jobs, work), and tapping it opens the detail.
@@ -31,7 +32,7 @@ interface Hub {
     licences: { n: number; pending: number; next: { name: string; expiry: string } | null } | null;
   };
 }
-type Sub = null | "account" | "card" | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability" | "licence" | "vehicles";
+type Sub = null | "account" | "card" | "verify" | "payid" | "skills" | "creds" | "cards" | "reliability" | "licence" | "vehicles" | "people";
 
 const S = { fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const, strokeWidth: 1.9 };
 const ic = (d: ReactNode, c = "var(--emerald)", z = 22) => <svg width={z} height={z} viewBox="0 0 24 24" {...S} stroke={c}>{d}</svg>;
@@ -166,6 +167,7 @@ export function Settings() {
           <section className="pr-sec pr-tight"><button className="pr-line" onClick={() => setSub("verify")}><span><b>Verify your ID</b><small>{profile.id_status === "pending" ? "We're checking it now" : "Passport or national ID, plus a selfie"}</small></span>{Icon.chevron("var(--faint)")}</button></section>
         )}
         {!plus && <section className="pr-sec pr-tight"><PlusRow /></section>}
+        <YourPeople onAll={() => setSub("people")} />
         <section className="pr-sec">
           <h2>Your jobs{(hub?.jobs_total ?? 0) > 0 && <button onClick={() => go("/jobs")}>All {hub!.jobs_total}</button>}</h2>
           {hub && hub.jobs.length > 0 ? (
@@ -196,6 +198,7 @@ export function Settings() {
       {sub === "cards" && <PaymentMethods onBack={() => setSub(null)} />}
       {sub === "reliability" && <Reliability onBack={() => setSub(null)} />}
       {sub === "skills" && <JobsAndSkills onBack={() => { setSub(null); load(); loadWorker(); }} />}
+      {sub === "people" && <PeopleScreen onBack={() => setSub(null)} />}
       {sub === "licence" && <AddDriverLicence onBack={() => setSub(null)} onSaved={() => { setSub(null); loadDrive(); }} />}
       {sub === "vehicles" && <AreaStep onBack={() => setSub(null)} onSaved={() => { setSub(null); toast("Saved"); loadDrive(); loadWorker(); }} />}
       {sub === "creds" && <Credentials onBack={() => { setSub(null); load(); loadWorker(); }} />}

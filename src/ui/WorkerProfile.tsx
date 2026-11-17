@@ -3,21 +3,29 @@ import { avatarUrl, rpc, type Work, workPhotoUrls } from "../lib/supabase";
 import { CatIcon, Icon, Screen } from "./kit";
 import { GoldTick } from "../customer/Offers";
 import type { Scores } from "./Ratings";
+import { useSession } from "../lib/session";
+import { heart } from "../customer/People";
 
 interface Portfolio {
   name: string; age: number | null; photo: string | null; verified: boolean; since: string; suburb: string | null;
   jobs: number; scores: Scores | null; turns_up: number | null;
   sections: Work[];
   creds: { name: string; expiry: string | null }[];
-  driver?: boolean; vehicles?: string[];
+  driver?: boolean; licence_class?: string | null; vehicles?: string[]; online?: boolean;
 }
 
 const monthYear = (d: string) => new Date(d).toLocaleDateString("en-AU", { month: "short", year: "numeric" });
 const lcFirst = (t: string) => t.charAt(0).toLowerCase() + t.slice(1);
-const yearsLine = (y: number | null, kind: string) => y == null ? "" : y >= 10 ? `10+ years doing ${kind}` : y === 0 ? `New to ${kind}` : `${y} year${y === 1 ? "" : "s"} doing ${kind}`;
+const yearsLine = (y: number | null) => y == null || y === 0 ? "" : y >= 10 ? "10+ yrs" : `${y} yr${y === 1 ? "" : "s"}`;
 
 // A worker's work, built from their finished jobs: the kind of work in the customer's job first.
-export function WorkerProfile({ workerId, category = null, onBack }: { workerId: string; category?: number | null; onBack: () => void }) {
+// The same profile wherever a customer meets a worker: their offer, their card's link, Your people.
+// From the card or Your people it also has Save and Book (a job sent to them first).
+export function WorkerProfile({ workerId, category = null, onBack, onBook }: { workerId: string; category?: number | null; onBack: () => void; onBook?: () => void }) {
+  const { session } = useSession();
+  const [saved, setSaved] = useState(false);
+  useEffect(() => { if (onBook && session) rpc<boolean>("is_saved_worker", { p_key: workerId }).then((v) => setSaved(!!v)).catch(() => {}); }, [workerId, session, onBook]);
+  const toggle = () => { setSaved(!saved); rpc(saved ? "unsave_worker" : "save_worker", { p_worker: workerId }).catch(() => setSaved(saved)); };
   const [p, setP] = useState<Portfolio | null>(null);
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [err, setErr] = useState("");
@@ -33,36 +41,32 @@ export function WorkerProfile({ workerId, category = null, onBack }: { workerId:
   const rec = p?.scores?.reviewed ? `${p.scores.recommended}` : "New";
 
   return (
-    <Screen title={p ? `${first}'s work` : "Their work"} onBack={onBack}>
+    <Screen title={p ? `${first}'s work` : "Their work"} onBack={onBack}
+      right={onBook && session ? <button className={saved ? "pf-save on" : "pf-save"} onClick={toggle}>{heart(saved, "var(--gold)")}{saved ? "Saved" : "Save"}</button> : undefined}>
       <div className="screen-body pf">
         {err && <p className="t15 muted" style={{ padding: 16 }}>{err}</p>}
         {p && <>
           <div className={face ? "pf-top" : "pf-top noface"} style={face ? { backgroundImage: `url(${face})` } : { background: "var(--hero)" }}>
             <div className="w">
               <div className="n"><span>{p.name}{p.age != null && <i>, {p.age}</i>}</span>{p.verified && <GoldTick s={26} />}</div>
-              <div className="s">{[p.suburb, `On Mahi Man since ${monthYear(p.since)}`].filter(Boolean).join(". ")}</div>
+              <div className="s">{[p.suburb, `Since ${monthYear(p.since)}`].filter(Boolean).join(" · ")}</div>
             </div>
           </div>
+          {onBook && <div className={p.online ? "wp-now on" : "wp-now"}>{p.online ? <><i />Available now</> : "Offline · book for later"}</div>}
           <div className="pf-all">
-            <div><b>{p.jobs}</b><small>jobs done</small></div>
-            <div><b>{rec}</b><small>{p.scores?.reviewed ? "recommend" : "no reviews yet"}</small></div>
-            <div><b>{p.turns_up != null ? `${p.turns_up}%` : "New"}</b><small>turn up on time</small></div>
+            <div><b>{p.jobs}</b><small>Jobs</small></div>
+            <div><b>{rec}</b><small>{p.scores?.reviewed ? "Thumbs up" : "No reviews"}</small></div>
+            <div><b>{p.turns_up != null ? `${p.turns_up}%` : "New"}</b><small>On time</small></div>
           </div>
-          {(p.driver || (p.vehicles?.length ?? 0) > 0) && (
-            <div className="pf-drive">
-              {p.driver && <span className="on">{Icon.tick("var(--emerald)", 18)}Licensed driver</span>}
-              {(p.vehicles ?? []).map((v) => <span key={v}>Has {v.toLowerCase()}</span>)}
-            </div>
-          )}
           {p.sections.map((s, i) => {
-            const kind = s.category.toLowerCase();
             const big = i === 0 || s.category_id === category;
             const pics = s.photos.filter((x) => urls[x.path]);
             const own = pics.length > 0 && pics.every((x) => x.src === "work");
             const line = [
-              s.jobs ? `${s.jobs} job${s.jobs === 1 ? "" : "s"}` : "No Mahi Man jobs yet",
-              s.recommended ? `${s.recommended} recommend` : "",
-            ].filter(Boolean).join(", ") + (s.years != null ? `. ${yearsLine(s.years, kind)}` : "");
+              s.jobs ? `${s.jobs} job${s.jobs === 1 ? "" : "s"}` : "New here",
+              s.recommended ? `${s.recommended} thumbs up` : "",
+              yearsLine(s.years),
+            ].filter(Boolean).join(" · ");
             return (
               <section key={s.category_id} className={big ? "pf-sec" : "pf-sec small"}>
                 <h2><CatIcon name={s.icon} size={big ? 24 : 22} color="var(--emerald)" />{s.category}{s.category_id === category && <em>Your job</em>}</h2>
@@ -93,6 +97,7 @@ export function WorkerProfile({ workerId, category = null, onBack }: { workerId:
           <div style={{ height: "calc(var(--safe-bottom) + 24px)" }} />
         </>}
       </div>
+      {onBook && p && <div className="bottombar pf-book"><button className="btn primary" onClick={onBook}>Book {first}</button></div>}
     </Screen>
   );
 }

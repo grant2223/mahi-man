@@ -49,7 +49,7 @@ function rememberLast(d: Draft) {
 }
 const MAX_VIDEO_SECONDS = 60;
 
-export interface PastWorker { worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_for_me: number; last_job: string | null }
+export interface PastWorker { worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_for_me: number; last_job: string | null; online?: boolean }
 
 export function Book() {
   const path = usePath().split("?")[0];
@@ -390,7 +390,9 @@ export function Book() {
                 {(() => {
                   const first = chosen[0];
                   const ph = first ? avatarUrl(first.photo_path) : null;
-                  const after = d.openAfter == null ? "Only them" : `Then anyone after ${afterLabel(d.openAfter)}`;
+                  // A job wanted now never waits on one person: it opens to everyone nearby if they don't take it.
+                  const openAfter = d.asap && d.openAfter == null ? 10 : d.openAfter;
+                  const after = openAfter == null ? "Only them" : `Then anyone after ${afterLabel(openAfter)}`;
                   return past.length ? (
                     <button className="ck-method ck-who2" onClick={() => setPickWho("people")}>
                       {first ? <>{ph ? <i style={{ backgroundImage: `url("${ph}")` }} /> : <i className="no">{first.full_name.charAt(0)}</i>}
@@ -399,6 +401,14 @@ export function Book() {
                       {Icon.down("var(--muted)")}
                     </button>
                   ) : <div className="ck-method"><span className="k">Who</span><span className="v">Anyone nearby</span></div>;
+                })()}
+                {(() => {
+                  const off = chosen.filter((p) => !p.online);
+                  if (!off.length) return null;
+                  const names = off.map((p) => p.full_name.split(" ")[0]).join(" and ");
+                  return <p className="ck-off">{names} {off.length === 1 ? "isn't" : "aren't"} working right now. {d.asap
+                    ? `They'll get an alert. If they don't take it in 10 minutes, it opens to everyone nearby.`
+                    : `They'll get an alert and can take it when they're back.`}</p>;
                 })()}
                 <button className={d.repeatWeeks ? "ck-method rp-on" : "ck-method"} onClick={() => setPickRepeat(true)}>
                   {Icon.repeat("#c99a06")}<span className="k">Repeat</span><span className="v">{REPEATS.find((r) => r.v === (d.repeatWeeks ?? 0))!.label}</span>{Icon.down("var(--muted)")}
@@ -500,7 +510,7 @@ export function Book() {
           options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: p.jobs_for_me ? `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` : "Saved from their code" }))}
           onClose={() => setPickWho(null)} onChange={(v) => { setD({ ...d, invited: v.map(String) }); if (v.length) window.setTimeout(() => setPickWho("after"), 0); }} />}
         {pickWho === "after" && <SearchPicker title="If they can't take it" value={[OPEN_AFTER.find((o) => o.v === d.openAfter)?.id ?? "10"]}
-          options={OPEN_AFTER.map((o) => ({ id: o.id, label: o.label }))}
+          options={OPEN_AFTER.filter((o) => !d.asap || o.v != null).map((o) => ({ id: o.id, label: o.label }))}
           onClose={() => setPickWho(null)} onChange={(v) => setD({ ...d, openAfter: OPEN_AFTER.find((o) => o.id === v[0])?.v ?? null })} />}
         {pickRepeat && <SearchPicker title="Repeat" value={[d.repeatWeeks ?? 0]}
           options={REPEATS.map((r) => ({ id: r.v, label: r.label, hint: repeatHint(d, r.v) }))}
@@ -1355,7 +1365,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
       )}
       {pick === "after" && (
         <SearchPicker title="If they can't take it" value={[OPEN_AFTER.find((o) => o.v === d.openAfter)?.id ?? "30"]}
-          options={OPEN_AFTER.map((o) => ({ id: o.id, label: o.label }))}
+          options={OPEN_AFTER.filter((o) => !d.asap || o.v != null).map((o) => ({ id: o.id, label: o.label }))}
           onClose={() => setPick(null)} onChange={(v) => setD({ ...d, openAfter: OPEN_AFTER.find((o) => o.id === v[0])?.v ?? null })} />
       )}
     </div>

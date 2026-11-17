@@ -254,7 +254,7 @@ export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge,
 
 /* ---------- The share card ---------- */
 export type PublicWorker = { id: string; name: string; first: string; age: number | null; photo: string | null; verified: boolean; suburb: string | null; area: string | null;
-  jobs: number; reviewed: number; recommended: number; turns_up: number | null; does: { name: string; icon: string }[] };
+  jobs: number; reviewed: number; recommended: number; turns_up: number | null; does: { name: string; icon: string }[]; online?: boolean };
 export const SHARE_HOST = "mahiman.app";
 // The name on the card and the shared page: first name and initial, no full stop or comma ("Grant G").
 export const cardName = (n: string) => n.replace(/[.,\s]+$/, "").replace(/\.(?=\s|$)/g, "");

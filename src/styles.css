@@ -2189,7 +2189,7 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .pf-top .n i { font-style: normal; font-weight: 300; }
 .pf-top .s { font-size: 15px; font-weight: 300; }
 .pf-top.noface { height: 140px; }
-.pf-all { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 20px 20px 22px; background: var(--card); }
+.pf-all { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; padding: 20px 20px 22px; background: var(--card); text-align: center; }
 .pf-all b { display: block; font-size: 28px; font-weight: 600; letter-spacing: -0.6px; line-height: 1; }
 .pf-all small { display: block; margin-top: 4px; font-size: 13px; font-weight: 300; color: var(--muted); }
 .pf-sec { margin-top: 8px; padding: 22px 20px; background: var(--card); }
@@ -2210,7 +2210,6 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .pf-added { display: inline-flex; align-items: center; gap: 6px; margin-top: 12px; padding: 4px 8px; border-radius: 3px; background: var(--stone-2); font-size: 13px; font-weight: 500; }
 .tick-item.pf-ok.on span:last-child { color: var(--ink); }
 .pf-all b, .ox .ox-st b { white-space: nowrap; }
-.pf-all { grid-template-columns: 0.8fr 1.3fr 1fr; }
 .ox .ox-st { grid-template-columns: 0.9fr 1.2fr 1fr; }
 .kw-auto svg { flex: none; }
 
@@ -2409,9 +2408,32 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .cs-noback { display: flex; align-items: center; justify-content: center; background: var(--stone); }
 .cs-backshot b { display: block; font-size: 17px; font-weight: 500; } .cs-backshot small { display: block; font-size: 14px; font-weight: 300; color: var(--muted); }
 /* Licensed driver and vehicles on a worker's profile */
-.pf-drive { display: flex; flex-wrap: wrap; gap: 8px 18px; padding: 14px 16px 4px; font-size: 16px; color: var(--ink); }
-.pf-drive span { display: flex; align-items: center; gap: 6px; }
+.pf-drive { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px 28px; padding: 4px 20px 20px; background: var(--card); font-size: 16px; color: var(--ink); }
+.pf-drive span { display: flex; align-items: center; gap: 8px; }
 .pf-drive .on { color: var(--emerald); font-weight: 500; }
 .pr-line b.pr-drv { display: flex; align-items: center; gap: 6px; color: var(--emerald); font-weight: 500; }
 .sc-card .sc-pic { z-index: 2; }
 .sc .sc-back { z-index: 3; }
+
+/* Your people: saved workers, then everyone who's done a job for them */
+.yp-row { display: grid; grid-template-columns: 56px minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 8px 0; }
+.yp-pic { width: 56px; height: 56px; border: 0; border-radius: 4px; background: var(--stone) center / cover; color: var(--ink); font-size: 22px; font-weight: 600; cursor: pointer; }
+.yp-who { min-width: 0; border: 0; background: none; padding: 0; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.yp-who b { display: flex; align-items: center; gap: 6px; font-size: 17px; font-weight: 500; }
+.yp-who span { display: block; font-size: 14px; font-weight: 300; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.yp-save { border: 0; background: none; padding: 4px; color: var(--muted); cursor: pointer; display: flex; }
+.yp { padding: 0 16px 24px; background: var(--card); }
+.yp h2 { margin: 22px 0 6px; font-size: 20px; font-weight: 600; }
+.wp-top { justify-content: space-between; }
+.wp-save { display: flex; align-items: center; gap: 6px; border: 0; background: none; font: inherit; font-size: 16px; font-weight: 500; color: var(--ink); cursor: pointer; }
+.wp-save.on { color: #8a6d00; }
+
+/* Is the worker working right now? */
+.wp-now { display: flex; align-items: center; gap: 8px; padding: 14px 20px 0; font-size: 15px; font-weight: 300; color: var(--muted); }
+.wp-now.on { color: var(--emerald); font-weight: 500; }
+.wp-now i { width: 9px; height: 9px; border-radius: 50%; background: var(--emerald); }
+.yp-who em { font-style: normal; color: var(--emerald); font-weight: 500; }
+.ck-off { margin: 8px 2px 0; font-size: 15px; font-weight: 300; line-height: 1.45; color: #8a6d00; }
+.pf-save { display: flex; align-items: center; gap: 6px; margin-left: auto; border: 0; background: none; color: #fff; font: inherit; font-size: 16px; font-weight: 500; cursor: pointer; }
+.pf-book { justify-content: stretch; } .pf-book .btn { flex: 1; }
+.pf .wp-now { justify-content: center; background: var(--card); padding: 16px 20px 0; }
