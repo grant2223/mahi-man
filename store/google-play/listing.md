@@ -42,7 +42,7 @@ One account does both. Switch between Get help and Do work whenever you like.
 **Graphics**
 - App icon: `icon-512.png` (512 × 512)
 - Feature graphic: `feature-graphic.png` (1024 × 500): "Mahi Man" with the splash slogan "Get the help you need within minutes."
-- Phone screenshots: `screenshots/01-home.png` to `04-earn.png` (1320 × 2640)
+- Phone screenshots: `screenshots/01-home.png` to `08-paid.png` (1320 × 2640)
 
 **Category**: Lifestyle (or House & Home). **Tags**: Home services, Local services, Jobs.
 **Contact email**: hello@mahiman.app. **Website**: https://mahiman.app.
