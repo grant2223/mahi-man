@@ -35,7 +35,7 @@ const day = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("en-AU",
 export const joined = (t: TradeStatus | null) => !!t?.plan;
 export const premium = (t: TradeStatus | null) => !!t?.plan?.premium;
 // What a tradie still needs before they can quote.
-export const missing = (t: TradeStatus) => [!t.trades?.length && "trades", !t.abn && "ABN", !t.insured && "insurance"].filter(Boolean) as string[];
+export const missing = (t: TradeStatus) => [!t.trades?.length && "trades", !t.business_name?.trim() && "business name", !t.abn && "ABN", !t.insured && "insurance"].filter(Boolean) as string[];
 const qbcc = (t: TradeStatus) => dollars(t.prices.qbcc_over_cents ?? 330000);
 
 interface TradeSkill { id: number; name: string; credential_type_id: number | null; credential_types: { name: string; short: string } | null }
@@ -45,6 +45,7 @@ export function TradeReady({ trade, onChanged, onAbn, onCreds }: { trade: TradeS
   const toast = useToast();
   const [all, setAll] = useState<TradeSkill[]>([]);
   const [pick, setPick] = useState(false);
+  const [biz, setBiz] = useState<string | null>(null);
   useEffect(() => {
     sb.from("skills").select("id,name,credential_type_id,credential_types(name,short)").eq("trade", true).eq("active", true).eq("kind", "skill").order("name")
       .then(({ data }) => setAll((data ?? []) as unknown as TradeSkill[]));
@@ -58,7 +59,7 @@ export function TradeReady({ trade, onChanged, onAbn, onCreds }: { trade: TradeS
     <div className="tr-row" key={label}>
       <span className="tr-i">{done ? Icon.tick("var(--emerald)", 22) : <i />}</span>
       <span className="tr-t">{label}</span>
-      {state ? <span className="tr-s">{state}</span> : <button className="btn stone small" onClick={onAdd}>Add</button>}
+      {state === "Edit" ? <button className="link" onClick={onAdd}>Edit</button> : state ? <span className="tr-s">{state}</span> : <button className="btn stone small" onClick={onAdd}>Add</button>}
     </div>
   );
   return (
@@ -69,12 +70,14 @@ export function TradeReady({ trade, onChanged, onAbn, onCreds }: { trade: TradeS
         <span className={mine.length ? "v" : "v ph"}>{mine.length ? mine.map((k) => k.name).join(", ") : "Select your trades"}</span>
       </button>
       <div className="tr-list">
+        {row(!!trade.business_name?.trim(), trade.business_name?.trim() || "Business name", trade.business_name?.trim() ? "Edit" : null, () => setBiz(trade.business_name ?? ""))}
         {row(trade.abn, "ABN", trade.abn ? "Added" : null, onAbn)}
         {row(trade.insured, "Public liability insurance", trade.insured ? "Checked" : null, onCreds)}
         {licences.map((c) => row(trade.licences.includes(c.short), c.name,
           trade.licences.includes(c.short) ? "Checked" : trade.pending_licences.includes(c.short) ? "Being checked" : null, onCreds))}
       </div>
-      <p className="tr-note">A QBCC licence is only needed to quote over {qbcc(trade)}.</p>
+      <p className="tr-note">Add all of these before you quote. A QBCC licence is only needed to quote over {qbcc(trade)}.</p>
+      {biz != null && <BusinessName value={biz} onBack={() => setBiz(null)} onSaved={() => { setBiz(null); onChanged(); }} />}
       {pick && <SearchPicker title="Your trades" multi placeholder="Search trades" value={trade.trades}
         options={all.map((k) => ({ id: k.id, label: k.name, hint: k.credential_types ? `Needs your ${lc(k.credential_types.name)}` : undefined }))}
         onClose={() => setPick(false)} onChange={(v) => save(v.map(Number))} />}
@@ -368,5 +371,31 @@ export function TradeWaiting({ o, onWithdraw, onClose }: { o: MyOffer; onWithdra
       </ActionBar>
       {chat && session && <ChatScreen jobId={o.job_id} me={session.user.id} workerId={session.user.id} otherName={o.customer_name} sub={`${money(o.pay_cents)}, ${o.title}`} onBack={() => setChat(false)} />}
     </div>
+  );
+}
+
+// The business name customers see on each quote. Sole traders can use their own name.
+function BusinessName({ value, onBack, onSaved }: { value: string; onBack: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [v, setV] = useState(value);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState("");
+  return (
+    <Screen title="Business name" onBack={onBack}>
+      <div className="screen-body" style={{ padding: 16, background: "var(--card)" }}>
+        <label className="field"><span className="k">Business or trading name</span>
+          <input value={v} maxLength={60} autoFocus onChange={(e) => { setV(e.target.value); setErr(""); }} placeholder="Taylor Landscaping" /></label>
+        <p className="small light muted" style={{ lineHeight: 1.45 }}>Customers see it on your quotes. A sole trader can use their own name.</p>
+        {err && <p className="err">{err}</p>}
+        <div className="row" style={{ justifyContent: "flex-end", marginTop: 12 }}>
+          <button className="btn primary" disabled={busy} onClick={async () => {
+            if (v.trim().length < 2) return setErr("Add your business name.");
+            setBusy(true);
+            try { await rpc("trade_set_business", { p_name: v.trim() }); toast("Saved"); onSaved(); }
+            catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+          }}>{busy ? "Saving…" : "Save"}</button>
+        </div>
+      </div>
+    </Screen>
   );
 }
