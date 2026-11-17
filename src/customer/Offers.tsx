@@ -2,7 +2,7 @@ import { recLine, type Scores } from "../ui/Ratings";
 import { useEffect, useState } from "react";
 import { avatarUrl, rpc, sb, type Work, workPhotoUrls } from "../lib/supabase";
 import { elapsed } from "../lib/format";
-import { CatIcon, Icon, Logo, SearchPicker, StepHero, useNow, useToast } from "../ui/kit";
+import { CatIcon, Icon, Logo, Screen, SearchPicker, StepHero, useNow, useToast } from "../ui/kit";
 import { Note } from "../ui/Completion";
 import { ChatScreen } from "../ui/Chat";
 import { dayTime, money } from "../lib/format";
@@ -20,7 +20,7 @@ export interface Offer {
   jobs_for_me: number; eta_minutes: number; distance_km: number | null; expires_at: string; is_new: boolean;
   category: string | null; cat_rating: number | null; cat_jobs: number; local_customers: number; suburb: string;
   turns_up: number | null; scores: Scores | null;
-  price_cents: number | null; included: string | null; can_come_at: string | null; business_name: string | null; age?: number | null;
+  price_cents: number | null; included: string | null; can_come_at: string | null; business_name: string | null; age?: number | null; gender?: string | null;
 }
 
 interface Extra { worker_id: string; skills: string[]; years: number | null; gear: string[]; creds: string[] }
@@ -67,7 +67,9 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
   const [openCard, setOpenCard] = useState<string | null>(null);
   // How the customer wants the list: soonest there, closest, most recommended or most jobs. The top 10 show; ignoring one brings in the next.
   const [sortBy, setSortBy] = useState<SortKey>("soon");
+  const [gender, setGender] = useState<GenderKey>("any");
   const [pickSort, setPickSort] = useState(false);
+  const picked = gender === "any" ? shown : shown.filter((o) => o.gender === gender);
   const [profile, setProfile] = useState<string | null>(null);
   const ids = (offers ?? []).map((o) => o.worker_id).join(",");
   useEffect(() => {
@@ -178,7 +180,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
                 </div>
                 <div className="row" style={{ gap: 10 }}>
                   <button className="btn stone" style={{ flex: 1 }} onClick={() => setChat(o)} disabled={!!busy}>{Icon.msg("var(--ink)")} Message</button>
-                  <button className="btn primary" style={{ flex: 1 }} onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Select ${first}`}</button>
+                  <button className="btn primary" style={{ flex: 1 }} onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : "Select"}</button>
                 </div>
               </div>
             );
@@ -205,8 +207,8 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         </div>
         {shown.length ? (
           <>
-            <div className="av-line"><b>{shown.length} available</b>
-              {!trade && shown.length > 1 && <button className="av-sort" onClick={() => setPickSort(true)}>{SORTS.find((x) => x.id === sortBy)!.label}{Icon.down("#fff")}</button>}</div>
+            <div className="av-line"><b>{picked.length} available</b>
+              {!trade && shown.length > 1 && <button className="av-sort" onClick={() => setPickSort(true)}>{Icon.filter("#fff")}Filter{gender !== "any" && <i className="av-dot" />}</button>}</div>
           </>
         ) : (
           <>
@@ -280,8 +282,10 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         </div>
       )}
       <div className="offers">
-        {sortOffers(shown, sortBy, work).slice(0, 10).map((o) => {
-          const left = Math.max(0, Math.ceil((new Date(o.expires_at).getTime() - now) / 60000));
+        {shown.length > 0 && !picked.length && (
+          <div className="av-none"><span>Nobody available matches.</span><button className="btn stone small" onClick={() => setGender("any")}>Show everyone</button></div>
+        )}
+        {sortOffers(picked, sortBy, work).slice(0, 10).map((o) => {
           const at = asap ? clock(new Date(Date.now() + o.eta_minutes * 60000)) : clock(new Date(startAt));
           const photo = avatarUrl(o.photo_path);
           const first = o.full_name.split(" ")[0];
@@ -315,7 +319,6 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
                     <i key={x.path} style={{ backgroundImage: `url("${workUrls[x.path]}")` }}><em>{x.src === "work" ? "Before Mahi Man" : x.suburb}</em></i>
                   ))}
                   {!pics.length && <i className="ini">{o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</i>}
-                  <span className={`ox-left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
                 </button>
                 <div className="cr-b">
                   <button className="cr-main" onClick={() => setOpenCard(o.worker_id)}>
@@ -329,7 +332,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
                 </div>
                 <div className="cr-btns">
                   <button className="btn stone" onClick={() => ignore(o)} disabled={!!busy}>Ignore</button>
-                  <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Select ${first}`}</button>
+                  <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : "Select"}</button>
                 </div>
               </section>
             );
@@ -339,7 +342,6 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
               {/* Their work in this kind of job comes first: photos from finished jobs, or their own past work, clearly marked. */}
               {pics.length > 0 ? (
                 <button className={`ow${pics.length === 1 ? " one" : pics.length === 2 ? " two" : ""}`} onClick={() => setProfile(o.worker_id)} aria-label={`${first}'s work`}>
-                  <span className={`ox-left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
                   {pics.slice(0, 3).map((x, i) => (
                     <span key={x.path} className={i === 0 ? "p a" : "p"} style={{ backgroundImage: `url("${workUrls[x.path]}")` }}>
                       {i === 0 && <span>{x.src === "work" ? `${w!.category}, before Mahi Man` : x.suburb}</span>}
@@ -350,7 +352,6 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
               ) : (
                 <button className="ox-pic" onClick={() => setProfile(o.worker_id)} style={photo ? { backgroundImage: `url(${photo})` } : undefined} aria-label={`${first}'s work`}>
                   {!photo && <span className="ox-ini">{o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>}
-                  <span className={`ox-left${left <= 3 ? " soon" : ""}`}>{left} min left</span>
                 </button>
               )}
               {ownOnly && <span className="ox-added">{Icon.camera("var(--ink)")}Photos added by {first}. Not Mahi Man jobs yet</span>}
@@ -379,7 +380,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
               <div className="ox-eta">Can be there <b>{at}</b></div>
               <div className="ox-btns">
                 <button className="btn stone" onClick={() => ignore(o)} disabled={!!busy}>Ignore</button>
-                <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : `Select ${first}`}</button>
+                <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : "Select"}</button>
               </div>
               <button className="ox-see" onClick={() => setProfile(o.worker_id)}>See all of {first}'s work{Icon.chevron("var(--emerald)")}</button>
             </section>
@@ -406,26 +407,53 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         <button className="link quiet" onClick={onCancel}>Cancel this job</button>
       </div>
       {verifying && <VerifyFlow onClose={() => { setVerifying(false); reload(); }} />}
-      {pickSort && <SearchPicker title="Sort by" value={[sortBy]} options={SORTS.map((x) => ({ id: x.id, label: x.label, hint: x.hint }))}
-        onClose={() => setPickSort(false)} onChange={(v) => { setSortBy(v[0] as SortKey); setOpenCard(null); }} />}
+      {pickSort && <FilterScreen sortBy={sortBy} gender={gender} onClose={() => setPickSort(false)}
+        onSave={(sb, g) => { setSortBy(sb); setGender(g); setOpenCard(null); setPickSort(false); }} />}
       {profile && <WorkerProfile workerId={profile} category={work[profile]?.category_id ?? null} onBack={() => setProfile(null)} />}
       {needCard && <AddCardScreen onBack={() => setNeedCard(null)} onSaved={() => { const o = needCard; setNeedCard(null); window.setTimeout(() => choose(o), 200); }} />}
     </div>
   );
 }
 
-type SortKey = "soon" | "near" | "rec" | "jobs";
-const SORTS: { id: SortKey; label: string; hint: string }[] = [
-  { id: "soon", label: "Soonest", hint: "Who can be there first" },
-  { id: "near", label: "Closest", hint: "Who's nearest to you" },
-  { id: "rec", label: "Most recommended", hint: "Most people recommend them" },
-  { id: "jobs", label: "Most jobs", hint: "Most of this kind of job done" },
+type SortKey = "soon" | "near" | "rate";
+type GenderKey = "any" | "woman" | "man";
+const SORTS: { id: SortKey; label: string }[] = [
+  { id: "soon", label: "Arrival time" },
+  { id: "near", label: "Distance" },
+  { id: "rate", label: "Rating" },
 ];
-function sortOffers<T extends { worker_id: string; eta_minutes: number; distance_km: number | null; can_come_at?: string | null }>(list: T[], by: SortKey, work: Record<string, Work | undefined>): T[] {
+const GENDER_OPTS: { id: GenderKey; label: string }[] = [
+  { id: "any", label: "Any" },
+  { id: "woman", label: "Women" },
+  { id: "man", label: "Men" },
+];
+// Filter: how to order the list and who to show. Nothing changes until Save.
+function FilterScreen(props: { sortBy: SortKey; gender: GenderKey; onClose: () => void; onSave: (s: SortKey, g: GenderKey) => void }) {
+  const [sb, setSb] = useState(props.sortBy);
+  const [g, setG] = useState(props.gender);
+  const row = (on: boolean, label: string, pick: () => void) => (
+    <button key={label} className="opt" onClick={pick}>
+      <b>{label}</b>
+      <span className="on" style={{ width: 22, display: "flex" }}>{on && Icon.tick("var(--emerald)")}</span>
+    </button>
+  );
+  return (
+    <Screen title="Filter" onBack={props.onClose} right={<button className="btn primary small" onClick={() => props.onSave(sb, g)}>Save</button>}>
+      <div className="screen-body fl" style={{ background: "var(--card)" }}>
+        <h4 className="fl-h">Sort by</h4>
+        {SORTS.map((x) => row(sb === x.id, x.label, () => setSb(x.id)))}
+        <h4 className="fl-h">Gender</h4>
+        {GENDER_OPTS.map((x) => row(g === x.id, x.label, () => setG(x.id)))}
+      </div>
+    </Screen>
+  );
+}
+function sortOffers<T extends { worker_id: string; eta_minutes: number; distance_km: number | null; can_come_at?: string | null; rating: number | null; cat_rating: number | null }>(list: T[], by: SortKey, work: Record<string, Work | undefined>): T[] {
   const eta = (o: T) => (o.can_come_at ? new Date(o.can_come_at).getTime() : Date.now() + o.eta_minutes * 60000);
   const km = (o: T) => o.distance_km ?? 999;
   const rec = (o: T) => work[o.worker_id]?.recommended ?? 0;
   const jobs = (o: T) => work[o.worker_id]?.jobs ?? 0;
-  const by2 = (a: T, b: T) => (by === "soon" ? eta(a) - eta(b) : by === "near" ? km(a) - km(b) : by === "rec" ? rec(b) - rec(a) || jobs(b) - jobs(a) : jobs(b) - jobs(a) || rec(b) - rec(a)) || eta(a) - eta(b);
+  const rate = (o: T) => o.cat_rating ?? o.rating ?? 0;
+  const by2 = (a: T, b: T) => (by === "soon" ? eta(a) - eta(b) : by === "near" ? km(a) - km(b) : rate(b) - rate(a) || rec(b) - rec(a) || jobs(b) - jobs(a)) || eta(a) - eta(b);
   return [...list].sort(by2);
 }

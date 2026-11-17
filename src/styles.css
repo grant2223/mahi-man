@@ -2290,6 +2290,12 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 /* Who's available: one short line, then everyone side by side */
 .av-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; color: #fff; }
 .av-sort { display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px 0 14px; border: 0; border-radius: 4px; background: rgba(255,255,255,0.16); color: #fff; font: inherit; font-size: 15px; font-weight: 500; cursor: pointer; }
+.av-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--gold, #f5c518); margin-left: 2px; }
+.av-none { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 20px; font-size: 16px; font-weight: 300; }
+.fl { padding-bottom: 24px; }
+.fl .opt { border-bottom: 0; padding: 14px 20px; }
+.fl .opt b { font-weight: 400; font-size: 17px; }
+.fl-h { margin: 22px 20px 4px; font-size: 20px; font-weight: 600; letter-spacing: -0.3px; }
 .av-line b { font-size: 24px; font-weight: 600; letter-spacing: -0.4px; color: var(--lime); }
 .av-line span { font-size: 15px; font-weight: 300; opacity: 0.85; }
 .cr { background: var(--card); margin-bottom: 10px; }
@@ -2303,6 +2309,7 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .cr-b { display: flex; align-items: center; gap: 12px; padding: 12px 16px 0; }
 .cr-btns { display: flex; justify-content: flex-end; gap: 10px; padding: 10px 16px 14px; }
 .cr-btns .btn { height: 44px; padding: 0 18px; font-size: 16px; }
+.cr-btns .btn { width: 120px; }
 .cr-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: 12px; padding: 0; border: 0; background: none; text-align: left; color: var(--ink); font: inherit; cursor: pointer; }
 .cr-f { width: 52px; height: 52px; flex: none; border-radius: 4px; background: var(--stone-2) center 20% / cover no-repeat; display: flex; align-items: center; justify-content: center; font-weight: 600; color: var(--muted); }
 .cr-t { flex: 1; min-width: 0; }
