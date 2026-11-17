@@ -1279,15 +1279,15 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   ] },
   { title: "Trade jobs", text: "Jobs with a trade skill (set per skill in Skills). Tradies send a fixed price; customers pay Mahi Man nothing.", fields: [
     { k: "qbcc_over_cents", label: "QBCC licence needed over", hint: "Quotes above this need a verified QBCC licence.", t: "num", unit: "$" },
-    { k: "trade_win_fee_cents", label: "Standard, per job won", t: "num", unit: "$" },
-    { k: "trade_premium_month_cents", label: "Premium, per month", t: "num", unit: "$" },
-    { k: "trade_premium_year_cents", label: "Premium, per year", t: "num", unit: "$" },
-    { k: "trade_first_quotes", label: "Quotes a job takes at first", hint: "Premium tradies quote first.", t: "num", unit: "tradies" },
+    { k: "trade_win_fee_cents", label: "Per job won", t: "num", unit: "$" },
+    { k: "trade_premium_month_cents", label: "Monthly", t: "num", unit: "$" },
+    { k: "trade_premium_year_cents", label: "Yearly", t: "num", unit: "$" },
+    { k: "trade_first_quotes", label: "Quotes a job takes at first", hint: "Tradespeople paying monthly quote first.", t: "num", unit: "tradies" },
     { k: "trade_more_quotes", label: "More quotes that open", t: "num", unit: "tradies" },
     { k: "trade_more_every_minutes", label: "More quotes open every", hint: "Until the customer selects one.", t: "num", unit: "minutes" },
     { k: "trade_max_quotes", label: "Most quotes on a job", t: "num", unit: "tradies" },
-    { k: "trade_standard_after_minutes", label: "Standard tradies see new jobs after", t: "num", unit: "minutes" },
-    { k: "trade_standard_early_minutes", label: "Or after, if no Premium tradie has quoted", t: "num", unit: "minutes" },
+    { k: "trade_standard_after_minutes", label: "Paying per job, they see new jobs after", t: "num", unit: "minutes" },
+    { k: "trade_standard_early_minutes", label: "Or after, if no one paying monthly has quoted", t: "num", unit: "minutes" },
     { k: "trade_quiet_hours", label: "A quote stays open for", t: "num", unit: "hours" },
   ] },
   { title: "Partners", text: "Local businesses that pay monthly to show one offer in the app.", fields: [
@@ -1666,7 +1666,7 @@ function Reviews() {
   );
 }
 
-// ---------- Tradies: what they owe (Premium and jobs won) to mark paid, and every tradie ----------
+// ---------- Tradies: what they owe (monthly and jobs won) to mark paid, and every tradie ----------
 interface TradeSummary { orders_waiting: number; waiting_cents: number; premium: number; standard: number; paid_30_cents: number; trade_jobs_30: number; no_quote_jobs: number }
 interface TradeOrder { id: number; created_at: string; worker_id: string; worker_name: string; business_name: string | null; email: string | null; kind: "plan" | "win"; billing: "month" | "year" | null; job: string | null; amount_cents: number; status: string; renewal: boolean; paid_at: string | null; note: string | null }
 interface Tradie { worker_id: string; full_name: string; business_name: string | null; licences: string[]; plan: "standard" | "premium" | null; premium: boolean; billing: "month" | "year" | null; renews_at: string | null; quotes_30: number; won_30: number; owed_cents: number; paid_cents: number }
@@ -1686,14 +1686,14 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
   }, [view, toast]);
   useEffect(() => { load(); }, [load]);
   const act = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); toast(msg); load(); onChanged(); } catch (e) { toast((e as Error).message); } };
-  const what = (o: TradeOrder) => o.kind === "plan" ? `Premium, ${o.billing === "year" ? "yearly" : "monthly"}${o.renewal ? ", renewal" : ""}` : `Job won${o.job ? `: ${o.job}` : ""}`;
-  const plan = (t: Tradie) => t.premium ? `Premium, ${t.billing === "year" ? "yearly" : "monthly"}` : t.plan ? "Standard" : "Not joined";
+  const what = (o: TradeOrder) => o.kind === "plan" ? `${o.billing === "year" ? "Yearly" : "Monthly"}${o.renewal ? ", renewal" : ""}` : `Job won${o.job ? `: ${o.job}` : ""}`;
+  const plan = (t: Tradie) => t.premium ? (t.billing === "year" ? "Yearly" : "Monthly") : t.plan ? "Per job" : "Not joined";
   return (
     <>
       {sum && (
         <div className="stats">
           <Stat n={money2(sum.waiting_cents)} l={`${sum.orders_waiting} to be paid`} />
-          <Stat n={sum.premium} l={`Premium tradies, ${sum.standard} on Standard`} />
+          <Stat n={sum.premium} l={`Paying monthly, ${sum.standard} paying per job`} />
           <Stat n={money2(sum.paid_30_cents)} l="Paid, 30 days" />
           <Stat n={sum.trade_jobs_30} l="Trade jobs posted, 30 days" />
         </div>
@@ -1733,13 +1733,13 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
                 {o.status === "requested" && <>
                   <button className="btn stone small" onClick={() => act(() => rpc("admin_trade_order_cancel", { p_id: o.id }), "Cancelled")}>Cancel</button>{" "}
-                  <button className="btn primary small" onClick={() => act(() => rpc("admin_trade_order_paid", { p_id: o.id }), o.kind === "plan" ? "Paid. Premium is on." : "Paid")}>Mark paid</button>
+                  <button className="btn primary small" onClick={() => act(() => rpc("admin_trade_order_paid", { p_id: o.id }), o.kind === "plan" ? "Paid. Monthly is on." : "Paid")}>Mark paid</button>
                 </>}
               </td>
             </tr>))}</tbody>
         </table></div>
       )}
-      {view === "requested" && orders && orders.length > 0 && <p className="light muted" style={{ marginTop: 14 }}>Tradies see what they owe, your bank details and the reference in Your trade plan. Mark it paid when the money arrives. Premium starts as soon as it's marked paid.</p>}
+      {view === "requested" && orders && orders.length > 0 && <p className="light muted" style={{ marginTop: 14 }}>Tradies see what they owe, your bank details and the reference in How you pay. Mark it paid when the money arrives. Monthly starts as soon as it's marked paid.</p>}
       {pick && <SearchPicker title="Show" placeholder="Search" options={TRADE_VIEWS.map(([id, label]) => ({ id, label }))} value={[view]}
         onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
     </>

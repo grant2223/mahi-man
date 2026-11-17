@@ -57,7 +57,7 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["How do I get a quote?", "Post the job with photos. Tradies send you a fixed quote, what it includes and when they can come. Select one, or say no to all of them."],
     ["Can I ask the tradie questions first?", "Yes. Message any tradie from their quote before you select one. Your number is never shared."],
     ["What does it cost me?", "Nothing to Mahi Man. You pay the tradie their quote directly when the job's done."],
-    ["I'm a tradie. How does it work?", `Join Standard free and pay ${money(fee.twin)} only when a customer selects your quote. Or go Premium, ${money(fee.tmonth)} a month: unlimited jobs, no fee when you win, and you see every new job first. You keep 100% of the job.`],
+    ["I'm a tradie. How does it work?", `Join free and pay ${money(fee.twin)} only when a customer selects your quote. Or pay ${money(fee.tmonth)} a month: no fee when you win, and you see every new job first. You keep 100% of the job.`],
     ["What if the customer goes quiet?", `Your quote stays open for ${fee.tquiet} hours. Sending a quote is free, so there's nothing to get back. No contract.`],
   ]],
   ["Cancelling: customers", [

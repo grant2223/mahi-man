@@ -8,8 +8,8 @@ import { ChatScreen } from "../ui/Chat";
 import type { Offer, MyOffer } from "./Work";
 import { lc } from "./Skills";
 
-/* Trade jobs for licensed tradies. Standard: free to join, a fee only when a customer picks your quote.
-   Premium: monthly or yearly, unlimited, and every new job first. Customers don't set a budget; tradies quote their price. */
+/* Trade jobs for tradespeople. Two ways to pay: per job (free to join, a fee only when a customer picks your quote),
+   or monthly/yearly (no fee per job, every new job first). A tradesperson is a tradesperson; only the timing and the fee differ. Customers don't set a budget; tradies quote their price. */
 
 interface Prices { win_fee_cents: number; month_cents: number; year_cents: number; standard_after_minutes: number; standard_early_minutes: number;
   first_quotes: number; more_quotes: number; more_every_minutes: number; max_quotes: number; quiet_hours: number; qbcc_over_cents?: number }
@@ -100,18 +100,18 @@ export function TradeStrip({ trade, open, onJoin, onFeed, onPlan }: { trade: Tra
   return (
     <div className="wrap-list">
       <button className="wrap-row" onClick={onFeed}>
-        <span className="t"><b>Trade jobs{open ? `, ${open} open` : ""}</b><span>{missing(trade).length ? `Add your ${missing(trade).join(" and ")} to quote` : premium(trade) ? "Premium: you see every job first" : `${dollars(trade.prices.win_fee_cents)} only when you win`}</span></span>
+        <span className="t"><b>Trade jobs{open ? `, ${open} open` : ""}</b><span>{missing(trade).length ? `Add your ${missing(trade).join(" and ")} to quote` : premium(trade) ? "You see every job first" : `${dollars(trade.prices.win_fee_cents)} only when you win`}</span></span>
         {Icon.chevron("var(--faint)")}
       </button>
       <button className="wrap-row" onClick={onPlan}>
-        <span className="t"><b>Your trade plan</b><span>{premium(trade) ? "Premium" : trade.order ? "Standard, Premium invoice sent" : "Standard"}{owed ? `, ${dollars(owed)} to pay` : ""}</span></span>
+        <span className="t"><b>How you pay</b><span>{premium(trade) ? "Monthly, $0 per job" : trade.order ? `${dollars(trade.prices.win_fee_cents)} per job, monthly invoice sent` : `${dollars(trade.prices.win_fee_cents)} per job you win`}{owed ? `, ${dollars(owed)} to pay` : ""}</span></span>
         {Icon.chevron("var(--faint)")}
       </button>
     </div>
   );
 }
 
-// Join: Premium as the offer, Standard as the free option, the comparison behind a tap.
+// Join: monthly as the offer, per job as the free option, the comparison behind a tap.
 type Ready = { onChanged: () => void; onAbn: () => void; onCreds: () => void };
 export function TradeJoin({ trade, onBack, onJoined, onNeedPay, ready }: { trade: TradeStatus; onBack: () => void; onJoined: (plan: "standard" | "premium") => void; onNeedPay?: () => void; ready: Ready }) {
   const toast = useToast();
@@ -134,7 +134,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay, ready }: { trade
     setBusy(true);
     try {
       await rpc("trade_join", { p_plan: plan, p_billing: year ? "year" : "month", p_business: null });
-      toast(plan === "premium" ? "Invoice on its way. Premium starts once it's paid." : "You're in. Trade jobs near you show on your jobs page.");
+      toast(plan === "premium" ? "Invoice on its way. Monthly starts once it's paid." : "You're in. Trade jobs near you show on your jobs page.");
       onJoined(plan);
     } catch (e) {
       setBusy(false);
@@ -146,7 +146,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay, ready }: { trade
       <div className="screen-body">
         <section className="hx">
           <div className="top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button></div>
-          <span className="hx-tag">Premium for tradies</span>
+          <span className="hx-tag">For tradespeople</span>
           <h1>Every local trade job, first.</h1>
           <span className="hx-price">{year ? dollars(p.year_cents) : dollars(p.month_cents)}<small>{year ? " a year" : " a month"}</small></span>
           <div className="hx-term">
@@ -154,23 +154,23 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay, ready }: { trade
             <button className={year ? "on" : ""} onClick={() => setYear(true)}>Yearly{freeMonths ? `, ${freeMonths} months free` : ""}</button>
           </div>
           <span className="hx-li">{Icon.tick("var(--gold)", 20)} Unlimited jobs, $0 when you win</span>
-          <span className="hx-li">{Icon.tick("var(--gold)", 20)} See new jobs {after === "1 hour" ? "an hour" : after} before Standard</span>
+          <span className="hx-li">{Icon.tick("var(--gold)", 20)} See new jobs {after === "1 hour" ? "an hour" : after} earlier</span>
           <span className="hx-li">{Icon.tick("var(--gold)", 20)} Win a job a week for {dollars(premMonth)} a month, not {dollars(weekly)}</span>
-          <button className="btn hx-go" disabled={busy} onClick={() => join("premium")}>Start Premium {Icon.arrow("#2a2d32")}</button>
+          <button className="btn hx-go" disabled={busy} onClick={() => join("premium")}>Go monthly {Icon.arrow("#2a2d32")}</button>
         </section>
         <section className="tj-sec"><TradeReady trade={trade} {...ready} /></section>
         <section className="tj-sec last">
           <div className="hx-std">
-            <span className="t"><b>Or join Standard, free</b><span>{dollars(p.win_fee_cents)} only when a customer picks you. See new jobs after {after}.</span></span>
+            <span className="t"><b>Or pay per job, free to join</b><span>{dollars(p.win_fee_cents)} only when a customer picks you. See new jobs after {after}.</span></span>
             <button className="btn stone" disabled={busy} onClick={() => join("standard")}>Select</button>
           </div>
           <button className="cmp-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
-            <span>Compare Standard and Premium</span>
+            <span>Compare per job and monthly</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ transform: open ? "rotate(180deg)" : undefined }}><path d="M6 9l6 6 6-6" /></svg>
           </button>
           {open && (
             <div className="tj-table cmp">
-              <span /><span className="tj-col"><b>Standard</b></span><span className="tj-col on"><b>Premium</b></span>
+              <span /><span className="tj-col"><b>Per job</b></span><span className="tj-col on"><b>Monthly</b></span>
               {rows.map(([k, a, b]) => [<span key={k + "k"} className="tj-k">{k}</span>, <span key={k + "a"} className="tj-v">{a}</span>, <span key={k + "b"} className="tj-v on">{b}</span>])}
             </div>
           )}
@@ -180,7 +180,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay, ready }: { trade
   );
 }
 
-// Their plan: Standard or Premium, anything to pay and how, and a way to change.
+// How they pay: per job or monthly, anything to pay and how, and a way to change.
 export function TradePlan({ trade, onBack, onChanged, onUpgrade, ready }: { trade: TradeStatus; onBack: () => void; onChanged: () => void; onUpgrade: () => void; ready: Ready }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
@@ -192,34 +192,34 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade, ready }: { trad
   };
   const payRows = ([["PayID", pay.payid], ["BSB", pay.bsb], ["Account", pay.account], ["Account name", pay.account_name || pay.trading_name]] as [string, string | undefined][]).filter(([, v]) => v);
   return (
-    <Screen title="Your trade plan" onBack={onBack}>
+    <Screen title="How you pay" onBack={onBack}>
       <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
         <div className="cp-sec">
-          <span className="cp-title">{pl?.premium ? "Premium" : "Standard"}</span>
+          <span className="cp-title">{pl?.premium ? "Monthly" : "Per job"}</span>
           {pl?.premium
-            ? <span className="t15 light muted">{pl.status === "stopped" ? `Stopped. Premium runs until ${day(pl.renews_at!)}, then you're on Standard.` : `${pl.billing === "year" ? "Yearly" : "Monthly"}. Renews ${day(pl.renews_at!)}.`}</span>
+            ? <span className="t15 light muted">{pl.status === "stopped" ? `Stopped. Monthly runs until ${day(pl.renews_at!)}, then you pay per job.` : `${pl.billing === "year" ? "Yearly" : "Monthly"}. Renews ${day(pl.renews_at!)}.`}</span>
             : <span className="t15 light muted">{dollars(trade.prices.win_fee_cents)} when a customer picks your quote. {trade.won_this_month ? `${trade.won_this_month} won this month.` : ""}</span>}
         </div>
         {(o || owed > 0) && (
           <div className="cp-sec">
             <span className="cp-title">To pay</span>
-            {o && <div className="row between" style={{ padding: "6px 0" }}><span className="t16">Premium, {o.billing === "year" ? "yearly" : "monthly"}{o.renewal ? ", renewal" : ""}</span><span className="t17 w5">{money(o.amount_cents)}</span></div>}
+            {o && <div className="row between" style={{ padding: "6px 0" }}><span className="t16">{o.billing === "year" ? "Yearly" : "Monthly"}{o.renewal ? ", renewal" : ""}</span><span className="t17 w5">{money(o.amount_cents)}</span></div>}
             {trade.owed.map((x) => <div key={x.id} className="row between" style={{ padding: "6px 0" }}><span className="t16">{x.job} <span className="light muted">{x.reference}</span></span><span className="t17 w5">{money(x.amount_cents)}</span></div>)}
             {payRows.length > 0 && <div className="tp-pay">
               <span className="t15 light muted">By bank transfer. Use the reference so we can match it.</span>
               {payRows.map(([k, v]) => <div key={k} className="row between"><span className="t15 light">{k}</span><span className="t16 w5">{v}</span></div>)}
               {o && <div className="row between"><span className="t15 light">Reference</span><span className="t16 w5">TR-{o.id}</span></div>}
             </div>}
-            {o && !o.renewal && <button className="link quiet" style={{ padding: 0, alignSelf: "flex-start" }} disabled={busy} onClick={() => run("trade_order_cancel", "Premium invoice cancelled")}>Cancel the Premium invoice</button>}
+            {o && !o.renewal && <button className="link quiet" style={{ padding: 0, alignSelf: "flex-start" }} disabled={busy} onClick={() => run("trade_order_cancel", "Invoice cancelled")}>Cancel the monthly invoice</button>}
           </div>
         )}
         <div className="cp-sec"><TradeReady trade={trade} {...ready} /></div>
-        <Note icon="clock">{pl?.premium ? "You see every new trade job first. Standard tradies see it after the first hour." : `Premium tradies see new jobs first. Win a job a week and Premium costs less.`}</Note>
+        <Note icon="clock">{pl?.premium ? "You see every new trade job first." : `Monthly gets you new jobs first and $0 per job. Win a job a week and it costs less.`}</Note>
         <div style={{ flex: 1 }} />
         {pl?.premium && pl.status === "active" && (
-          <div style={{ padding: "0 16px 12px" }}><button className="link quiet" style={{ padding: 0 }} disabled={busy} onClick={() => run("trade_stop", "Premium won't renew")}>Stop Premium</button></div>
+          <div style={{ padding: "0 16px 12px" }}><button className="link quiet" style={{ padding: 0 }} disabled={busy} onClick={() => run("trade_stop", "Monthly won't renew")}>Stop monthly</button></div>
         )}
-        {!pl?.premium && !o && <ActionBar><button className="btn hx-go" style={{ flex: 1 }} onClick={onUpgrade}>Start Premium</button></ActionBar>}
+        {!pl?.premium && !o && <ActionBar><button className="btn hx-go" style={{ flex: 1 }} onClick={onUpgrade}>Go monthly</button></ActionBar>}
       </div>
     </Screen>
   );
@@ -227,7 +227,7 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade, ready }: { trad
 
 const when = (o: Offer) => (o.asap ? "Today" : dayTime(o.start_at).replace(/^./, (c) => c.toUpperCase()));
 
-// Trade jobs: the photo first, the job, where and when, Send quote. Standard tradies also see the jobs Premium tradies are quoting now, blurred.
+// Trade jobs: the photo first, the job, where and when, Send quote. Tradespeople paying per job also see the jobs others can quote on now, blurred.
 export function TradeFeed({ trade, jobs, covers, onBack, onOpen, onUpgrade, ready }: { trade: TradeStatus; jobs: Offer[]; covers: Record<string, string>; onBack: () => void; onOpen: (o: Offer) => void; onUpgrade: () => void; ready: Ready }) {
   const hidden = trade.premium_now;
   const [blur, setBlur] = useState<string[]>([]);
@@ -236,14 +236,14 @@ export function TradeFeed({ trade, jobs, covers, onBack, onOpen, onUpgrade, read
     <div className="screen tj" role="dialog" aria-label="Trade jobs">
       <div className="screen-body" style={{ background: "var(--ground)" }}>
         <section className="step-hero" style={{ paddingBottom: 22 }}>
-          <div className="top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button>{premium(trade) ? <span className="hx-tag" style={{ margin: 0 }}>Premium</span> : <span className="count">Standard</span>}</div>
+          <div className="top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button></div>
           <h1>Trade jobs</h1>
         </section>
         {missing(trade).length > 0 && <div className="tj-sec" style={{ background: "var(--card)" }}><TradeReady trade={trade} {...ready} /></div>}
         {!premium(trade) && hidden.n > 0 && (
           <button className="fu-blur" onClick={onUpgrade}>
             <span className="fu-pics">{(blur.length ? blur : [null, null, null].slice(0, Math.min(3, hidden.n))).map((u, i) => <i key={i} style={u ? { backgroundImage: `url("${u}")` } : undefined} />)}</span>
-            <span className="fu-txt"><b>{hidden.n} more job{hidden.n === 1 ? "" : "s"} near you</b><span>Premium tradies are quoting now</span></span>
+            <span className="fu-txt"><b>{hidden.n} more job{hidden.n === 1 ? "" : "s"} near you</b><span>Monthly gets you these now</span></span>
             <span className="fu-go">See them</span>
           </button>
         )}
@@ -304,7 +304,7 @@ export function TradeJob({ o, trade, onBack, onSent, onGone, onCreds }: { o: Off
       toast(`Quote sent to ${o.customer_name.split(" ")[0]}`); onSent();
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
-      if (/taken|not available|all the quotes|quoting on this job first/i.test(m)) { toast(m); onGone(); } else setErr(m);
+      if (/taken|not available|all the quotes|opens to you soon/i.test(m)) { toast(m); onGone(); } else setErr(m);
     } finally { setBusy(false); }
   }
   return (
