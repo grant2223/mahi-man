@@ -1244,8 +1244,8 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
 
     { k: "booking_fee_percent", label: "Pay as you go", hint: "Invoiced after each job, weekly or every 2 weeks.", t: "num", unit: "%" },
     { k: "booking_fee_max_cents", label: "Pay as you go cap", t: "num", unit: "$" },
-    { k: "topup_fee_percent", label: "Top-up", hint: "When their balance covers the fee.", t: "num", unit: "%" },
-    { k: "topup_fee_max_cents", label: "Top-up cap", t: "num", unit: "$" },
+    { k: "topup_bonus_percent", label: "Top-up bonus credit", hint: "Pay $100, get $120 at 20%. Fees come off credit at the normal rate.", t: "num", unit: "%" },
+    { k: "topup_amounts", label: "Top-up amounts", hint: "In cents, separated by commas, e.g. 5000,10000,25000.", t: "text", ph: "5000,10000,25000" },
     { k: "plus_fee_percent", label: "Plus", t: "num", unit: "%" },
     { k: "plus_fee_max_cents", label: "Plus cap", t: "num", unit: "$" },
     { k: "plus_year_cents", label: "Plus, per year", hint: "One payment, by bank transfer in beta.", t: "num", unit: "$" },
@@ -1957,6 +1957,15 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
       toast(`${r.ref} marked paid`); load(); onChanged();
     } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   };
+  const receipt = async (r: MoneyRow) => {
+    try {
+      const path = await rpc<string | null>("admin_receipt", { p_kind: r.kind, p_id: r.id });
+      if (!path) { toast("No receipt was added"); return; }
+      const { data, error } = await sb.storage.from("receipts").createSignedUrl(path, 600);
+      if (error || !data) throw error ?? new Error("Couldn't open the receipt");
+      window.open(data.signedUrl, "_blank");
+    } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  };
   const notReceived = async (r: MoneyRow) => {
     setBusy(`${r.kind}${r.id}`);
     try { await rpc("admin_plus_not_received", { p_id: r.id }); toast(`${r.ref}: Plus switched off`); load(); onChanged(); }
@@ -1988,6 +1997,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
               <td className="light">{r.state === "paid" && r.paid_at ? `Paid ${day(r.paid_at)}` : day(r.due)}</td>
               <td>{badge(r)}</td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
+                {(r.kind === "plus" || r.kind === "topup") && r.state === "claimed" && <button className="btn stone small" style={{ marginRight: 8 }} onClick={() => receipt(r)}>Receipt</button>}
                 {r.kind === "plus" && r.state === "claimed" && <button className="btn stone small" style={{ marginRight: 8 }} disabled={busy === `${r.kind}${r.id}`} onClick={() => notReceived(r)}>Not received</button>}
                 {r.state !== "paid" && <button className={`btn ${r.state === "claimed" ? "primary" : "stone"} small`} disabled={busy === `${r.kind}${r.id}`} onClick={() => paid(r)}>Mark paid</button>}</td>
             </tr>

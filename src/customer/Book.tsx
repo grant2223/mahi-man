@@ -148,9 +148,14 @@ export function Book() {
     if (feeMode !== "invoice" || isTrade) return null;
     const r = payInfo?.rates ?? { payg: feePct, payg_max: feeMax, topup: 0, topup_max: 0, plus: 0, plus_max: 0 };
     const amt = (pct: number, max: number) => Math.min(Math.round((d.priceCents * pct) / 100), max);
-    if (payInfo && payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) return { cents: amt(r.plus, r.plus_max), pct: r.plus, from: "balance" as const };
+    const plan = (payInfo?.plan ?? "now") as "now" | "weekly" | "fortnightly";
+    if (payInfo?.senior) return { cents: 0, pct: 0, from: "senior" as const };
+    if (payInfo && payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) {
+      const c = amt(r.plus, r.plus_max);
+      return { cents: c, pct: r.plus, from: payInfo.balance >= c ? "balance" as const : plan };
+    }
     if (payInfo && r.topup && payInfo.balance >= amt(r.topup, r.topup_max)) return { cents: amt(r.topup, r.topup_max), pct: r.topup, from: "balance" as const };
-    return { cents: amt(r.payg, r.payg_max), pct: r.payg, from: (payInfo?.plan ?? "now") as "now" | "weekly" | "fortnightly" };
+    return { cents: amt(r.payg, r.payg_max), pct: r.payg, from: plan };
   })();
   const bookingFee = feeMode === "on_choose" && !isPlus && !isTrade ? Math.min(Math.round((d.priceCents * feePct) / 100), feeMax) : 0;
   const photos = media.filter((m) => m.kind === "photo");
@@ -449,10 +454,11 @@ export function Book() {
                 </div>
                 <div className="ck-grp">
                   <div className="ck-m ck-gh"><span>Owed to Mahi Man</span><b>{money(totalCents - d.priceCents)}</b></div>
-                  <div className="ck-m ck-sub"><span>Connection fee, {connPct}%</span>
-                    {connCharged ? <b>{money2(connCents)}</b> : <b><s>{money2(connCents)}</s> <em>Free</em></b>}</div>
-                  <p className="ck-due">{bookingFee > 0 ? "Charged to your card when you choose a worker"
-                    : invoiceFee?.from === "balance" ? "Taken from your balance when the job's done"
+                  <div className="ck-m ck-sub"><span>{invoiceFee?.from === "senior" ? "Connection fee" : `Connection fee, ${connPct}%`}</span>
+                    {invoiceFee?.from === "senior" ? <b><em>Free</em></b> : connCharged ? <b>{money2(connCents)}</b> : <b><s>{money2(connCents)}</s> <em>Free</em></b>}</div>
+                  <p className="ck-due">{invoiceFee?.from === "senior" ? "No connection fee for customers 60 and over"
+                    : bookingFee > 0 ? "Charged to your card when you choose a worker"
+                    : invoiceFee?.from === "balance" ? "Taken from your credit when the job's done"
                     : invoiceFee?.from === "weekly" ? "On your weekly invoice. Pay by bank transfer"
                     : invoiceFee?.from === "fortnightly" ? "On your fortnightly invoice. Pay by bank transfer"
                     : "Invoiced when the job's done. Pay by bank transfer"}</p>
