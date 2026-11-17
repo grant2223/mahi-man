@@ -439,11 +439,11 @@ export function GetAppPage() {
 const HOW = {
   help: { tab: "Get help", line: "Post a job, select help, job done.", cta: ["Post a job, free", "/post"], steps: [
     ["Post a job", "Add a photo, say what needs doing and set your price.", "/how/post.jpg"],
-    ["Select help", "People who are available say so. See their photo, reviews and skills, and choose.", "/how/choose.jpg"],
+    ["Select help", "People who are free say they're available. See photos of their past work, reviews and ID check, then select.", "/how/choose.jpg"],
     ["Job done", "Check the after photos and pay when you're happy.", "/how/done.jpg"]] },
   work: { tab: "Do work", line: "See the work, accept the job, get paid.", cta: ["See jobs near you", "/find"], steps: [
     ["See the work", "Switch on when you're available and see the jobs near you.", "/how/find.jpg"],
-    ["Accept the job", "Say you're keen on the ones you want. The customer picks who goes.", "/how/keen.jpg"],
+    ["Accept the job", "Say you're available for the ones you want. The customer selects who goes.", "/how/keen.jpg"],
     ["Get paid", "Do the job, add the after photos, and get paid to your bank.", "/how/paid.jpg"]] },
 } as const;
 type Side = keyof typeof HOW;

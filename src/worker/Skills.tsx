@@ -289,7 +289,7 @@ export function Credentials({ onBack }: { onBack: () => void }) {
         })}
         {!latest.length && <p className="t17 light" style={{ padding: "20px 16px 0", margin: 0, lineHeight: 1.4 }}>Insurance, RSA, Blue Card, trade licences. Each one unlocks the jobs that need it.</p>}
         <div style={{ padding: 16 }}><button className="btn primary" onClick={() => setAdd("new")}>{Icon.plus("#fff")} Add one</button></div>
-        {latest.length > 0 && <p className="t15 light muted" style={{ padding: "0 16px", margin: 0, lineHeight: 1.45 }}>Customers see each verified one on your offers. We remind you 30 days before one runs out.</p>}
+        {latest.length > 0 && <p className="t15 light muted" style={{ padding: "0 16px", margin: 0, lineHeight: 1.45 }}>Customers see each verified one when you say you're available. We remind you 30 days before one runs out.</p>}
       </div>
       {add != null && <AddCredential types={cat.creds} initial={add === "new" ? null : add} onBack={() => setAdd(null)} onSaved={() => { setAdd(null); load(); }} />}
     </Screen>

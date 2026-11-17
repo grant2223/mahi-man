@@ -262,7 +262,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
       {unverified && !shown.length && (
         <div className="boost-row">
           <span className="stack" style={{ gap: 2, flex: 1 }}>
-            <b>Get offers faster</b>
+            <b>Get help faster</b>
             <span>Workers pick verified customers first. It takes about 2 minutes.</span>
           </span>
           <button className="btn primary small" onClick={() => setVerifying(true)}>Verify</button>

@@ -400,7 +400,7 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
               <button className="link" onClick={() => setEta(true)}>Change</button>
             </div>
           )}
-          <p className="small light muted" style={{ margin: 0, lineHeight: 1.45 }}>{o.customer_name.split(" ")[0]} sees your profile, scores and this time, and chooses who they want. Your offer lasts 15 minutes. The street address shows once you're chosen.</p>
+          <p className="small light muted" style={{ margin: 0, lineHeight: 1.45 }}>{o.customer_name.split(" ")[0]} sees your profile, scores and this time, and chooses who they want. You stay available for 15 minutes. The street address shows once you're chosen.</p>
           <button className="link quiet" style={{ alignSelf: "flex-start" }} onClick={() => setReport(true)}>{Icon.flag()} Report this job</button>
         </div>
       </div>
@@ -430,14 +430,14 @@ function WaitingScreen({ o, onWithdraw, onClose }: { o: MyOffer; onWithdraw: () 
         </div>
         <span className="label" style={{ marginTop: 18 }}>Waiting for {o.customer_name} to choose</span>
         <span className="big lime" style={{ fontVariantNumeric: "tabular-nums" }}>{mm}:{String(ss).padStart(2, "0")}</span>
-        <span className="sub" style={{ marginTop: 6 }}>Your offer runs out when this hits zero.</span>
+        <span className="sub" style={{ marginTop: 6 }}>You're available until this hits zero.</span>
       </section>
       <div className="cp-sec">
         <span className="cp-title" style={{ marginBottom: 2 }}>What happens next</span>
         <span className="t15 light muted" style={{ lineHeight: 1.5 }}>If {o.customer_name} picks you, the job and your chat with them open straight away. If they pick someone else, or time runs out, you're free for the next one.</span>
       </div>
       <div className="cp-sec">
-        <span className="t17 w5">Your offer</span>
+        <span className="t17 w5">You said</span>
         <span className="t15 light muted">Can be there in {o.eta_minutes} minutes, {money(o.pay_cents)}</span>
       </div>
       <div style={{ flex: 1 }} />
