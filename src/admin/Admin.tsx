@@ -722,7 +722,7 @@ function LicenceChecks({ onChanged }: { onChanged: () => void }) {
 }
 
 // ---------- Skills and gear for each category, and which licence a skill needs ----------
-interface SkillRow { id: number; category_id: number; kind: "skill" | "gear"; name: string; credential_type_id: number | null; sort: number; active: boolean }
+interface SkillRow { id: number; category_id: number; kind: "skill" | "gear"; name: string; credential_type_id: number | null; sort: number; active: boolean; trade: boolean; qbcc_over: boolean }
 function Skills() {
   const toast = useToast();
   const [cats, setCats] = useState<Category[]>([]);
@@ -764,15 +764,23 @@ function Skills() {
       </div>
       <div className="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>Type</th><th>Needs</th><th>Order</th><th>Live</th></tr></thead>
+          <thead><tr><th>Name</th><th>Type</th><th>Job</th><th>Needs</th><th>Over $3,300</th><th>Order</th><th>Live</th></tr></thead>
           <tbody>
             {rows.map((r) => (
               <tr key={r.id}>
-                <td><input value={val(r, "name")} onChange={(e) => set(r.id, { name: e.target.value })} style={{ minWidth: 240 }} /></td>
+                <td><input value={val(r, "name")} onChange={(e) => set(r.id, { name: e.target.value })} style={{ minWidth: 200 }} /></td>
                 <td><select value={val(r, "kind")} onChange={(e) => set(r.id, { kind: e.target.value as "skill" | "gear" })}><option value="skill">Skill</option><option value="gear">Gear</option></select></td>
+                <td>{val(r, "kind") === "skill" ? (
+                  <select style={{ minWidth: 104 }} value={val(r, "trade") ? "trade" : "normal"} onChange={(e) => set(r.id, { trade: e.target.value === "trade" })}>
+                    <option value="normal">Normal</option><option value="trade">Trade</option>
+                  </select>) : <span className="small muted">Gear</span>}</td>
                 <td>{val(r, "kind") === "skill" ? (
                   <select value={String(val(r, "credential_type_id") ?? "")} onChange={(e) => set(r.id, { credential_type_id: e.target.value ? Number(e.target.value) : null })}>
                     <option value="">Nothing</option>{creds.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>) : <span className="small muted">Nothing</span>}</td>
+                <td>{val(r, "kind") === "skill" && val(r, "trade") ? (
+                  <select style={{ minWidth: 104 }} value={val(r, "qbcc_over") ? "1" : "0"} onChange={(e) => set(r.id, { qbcc_over: e.target.value === "1" })}>
+                    <option value="0">Nothing</option><option value="1">QBCC</option>
                   </select>) : <span className="small muted">Nothing</span>}</td>
                 <td><input inputMode="numeric" value={String(val(r, "sort"))} onChange={(e) => set(r.id, { sort: Number(e.target.value || 0) })} style={{ width: 70 }} /></td>
                 <td><select value={val(r, "active") ? "1" : "0"} onChange={(e) => set(r.id, { active: e.target.value === "1" })}><option value="1">Live</option><option value="0">Hidden</option></select></td>
@@ -788,7 +796,8 @@ function Skills() {
         </span>
         <button className="btn primary" disabled={!Object.keys(dirty).length} onClick={save}>Save</button>
       </div>
-      <p className="small muted">A skill that needs a licence only shows on workers who have that licence verified. Jobs asking for it only go to those workers.</p>
+      <p className="small muted">Job: a trade skill makes the job a trade job. Tradies with an ABN and insurance quote a fixed price, and the customer sets no budget. Normal jobs have a set price.</p>
+      <p className="small muted">Needs: a licence the worker must always have. Over $3,300: quotes above $3,300 (labour, materials and GST) need a verified QBCC licence.</p>
     </>
   );
 }
@@ -1268,7 +1277,8 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "offline_days", label: "Offline for", t: "num", unit: "days" },
     { k: "strikes_review_90", label: "Account reviewed after", hint: "Strikes in 90 days.", t: "num", unit: "strikes" },
   ] },
-  { title: "Trade jobs", text: "Jobs that need a trade licence. Tradies pay for jobs upfront and send a fixed price; customers pay Mahi Man nothing.", fields: [
+  { title: "Trade jobs", text: "Jobs with a trade skill (set per skill in Skills). Tradies send a fixed price; customers pay Mahi Man nothing.", fields: [
+    { k: "qbcc_over_cents", label: "QBCC licence needed over", hint: "Quotes above this need a verified QBCC licence.", t: "num", unit: "$" },
     { k: "trade_win_fee_cents", label: "Standard, per job won", t: "num", unit: "$" },
     { k: "trade_premium_month_cents", label: "Premium, per month", t: "num", unit: "$" },
     { k: "trade_premium_year_cents", label: "Premium, per year", t: "num", unit: "$" },
@@ -1694,7 +1704,7 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
         </button>
       </div>
       {view === "tradies" ? (
-        !tradies ? <Loading /> : !tradies.length ? <AdmEmpty text="No tradies yet. They show here once a trade licence is sent in." /> : (
+        !tradies ? <Loading /> : !tradies.length ? <AdmEmpty text="No tradies yet. They show here once they join or send in a trade licence." /> : (
           <div className="table-wrap"><table className="rows">
             <thead><tr><th>Tradie</th><th>Licences</th><th>Plan</th><th>Quotes, 30 days</th><th>Won</th><th>To pay</th><th>Paid in total</th></tr></thead>
             <tbody>{tradies.map((t) => (

@@ -130,7 +130,8 @@ export function Terms() {
       </ul>
       <h2>Trade jobs</h2>
       <ul>
-        <li>A job that needs a trade licence, such as electrical, plumbing or gas work, is a trade job. Only tradies whose licence and public liability insurance we have checked can see it.</li>
+        <li>A trade job is work done by a tradie, such as landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, handyman repairs, electrical, plumbing and gas work. Mahi Man decides which kinds of work are trade jobs, and small jobs like mowing, a quick tidy-up or flat-pack assembly stay normal jobs.</li>
+        <li>Only tradies whose ABN and public liability insurance we have checked can quote on a trade job. Work that always needs a licence, such as electrical, plumbing or gas work, also needs that licence checked. In Queensland, a quote over $3,300 for building work, including labour, materials and GST, needs a QBCC licence; under $3,300, an ABN and insurance are enough.</li>
         <li>The customer describes the job and adds photos. Tradies each send a fixed quote, what it includes and when they can come. The quote the customer selects becomes the job's fixed price, and the customer pays the tradie directly. Customers pay Mahi Man nothing for trade jobs.</li>
         <li>Tradies join on Standard or Premium. Standard is free to join, and sending a quote is free. When a customer selects a Standard tradie's quote, a fee for the job won goes on the tradie's invoice. Premium is paid monthly or yearly, with no fee on jobs won.</li>
         <li>Premium tradies see new trade jobs first. A job takes a set number of quotes at first, and more open over time until the customer selects one. Standard tradies can quote after a set time, or sooner if no Premium tradie has quoted. The current fees and times are shown in the app.</li>

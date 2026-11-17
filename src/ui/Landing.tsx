@@ -52,8 +52,9 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["What about jobs that need a licence?", "Electrical work, an RSA and similar jobs only go to workers whose licence we've checked and is in date."],
   ]],
   ["Trade jobs", [
-    ["What's a trade job?", "Work that needs a trade licence: electrical, plumbing, gas fitting, building work over $3,300, pest control and pool safety inspections. Only tradies whose licence and insurance we've checked can take them."],
-    ["How do I get a quote?", "Post the job with photos. Licensed tradies send you a fixed quote, what it includes and when they can come. Select one, or say no to all of them."],
+    ["What's a trade job?", "Work for a tradie: landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, handyman repairs, electrical, plumbing, gas and pest control. Tradies quote a fixed price. Small jobs like mowing or flat-pack assembly stay normal jobs with a set price."],
+    ["Who can quote?", "Tradies whose ABN and insurance we've checked. Licensed work like electrical or plumbing needs that licence too, and in Queensland any quote over $3,300 for building work needs a QBCC licence."],
+    ["How do I get a quote?", "Post the job with photos. Tradies send you a fixed quote, what it includes and when they can come. Select one, or say no to all of them."],
     ["Can I ask the tradie questions first?", "Yes. Message any tradie from their quote before you select one. Your number is never shared."],
     ["What does it cost me?", "Nothing to Mahi Man. You pay the tradie their quote directly when the job's done."],
     ["I'm a tradie. How does it work?", `Join Standard free and pay ${money(fee.twin)} only when a customer selects your quote. Or go Premium, ${money(fee.tmonth)} a month: unlimited jobs, no fee when you win, and you see every new job first. You keep 100% of the job.`],
@@ -147,7 +148,7 @@ export function Landing() {
 
       <section className="ld-trust">
         <div className="ld-wrap ld-trust-in">
-          {[["ID checked by hand", "Every worker, before their first job."], ["Licensed where it counts", "Trade jobs only go to people with the licence."],
+          {[["ID checked by hand", "Every worker, before their first job."], ["Licensed where it counts", "Licensed work only goes to people with the licence."],
             ["Pay when you're happy", "Straight to them by bank transfer or cash."], ["Reviewed by locals", "Only people who booked them can review."]].map(([b, t]) => (
             <div key={b} className="ld-trust-item">{Icon.shieldTick("var(--emerald)")}<span><b>{b}</b><span>{t}</span></span></div>
           ))}

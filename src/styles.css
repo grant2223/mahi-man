@@ -2318,3 +2318,14 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .cr-t > span { display: block; font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.35; }
 .cr-t > span.g { color: var(--emerald); font-weight: 400; }
 .cr-b > .btn { height: 44px; padding: 0 18px; font-size: 16px; flex: none; }
+
+/* Trade jobs: ready to quote. Trades first (a searchable list), then what's checked. */
+.tr { display: flex; flex-direction: column; gap: 12px; }
+.tr-h { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.4px; }
+.tr-list { display: flex; flex-direction: column; }
+.tr-row { display: flex; align-items: center; gap: 12px; min-height: 52px; }
+.tr-i { width: 24px; display: flex; justify-content: center; }
+.tr-i i { width: 10px; height: 10px; border-radius: 50%; background: var(--gold); }
+.tr-t { flex: 1; font-size: 17px; font-weight: 400; }
+.tr-s { font-size: 15px; font-weight: 300; color: var(--muted); }
+.tr-note { margin: 0; font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.4; }

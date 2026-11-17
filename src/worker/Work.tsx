@@ -9,6 +9,7 @@ import { AuthScreen } from "../ui/Auth";
 import { Icon, Loading, Logo, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen } from "../ui/Report";
 import { AbnStep, Signup, type Steps } from "./Signup";
+import { Credentials } from "./Skills";
 import { WorkerJob } from "./WorkerJob";
 import { ActionBar, reviewSkipped } from "../ui/Completion";
 import { AlertsAsk } from "../ui/AlertsAsk";
@@ -151,6 +152,8 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const { trade, reload: reloadTrade } = useTrade();
   const isTradie = joined(trade);
   const [tradeScreen, setTradeScreen] = useState<null | "join" | "plan" | "feed">(null);
+  const [tradeCreds, setTradeCreds] = useState(false);
+  const ready = { onChanged: reloadTrade, onAbn: () => setNeedPay("trade"), onCreds: () => setTradeCreds(true) };
   const [tradeOpen, setTradeOpen] = useState<Offer | null>(null);
   const tradeJobs = offers.filter((o) => o.trade);
   const feedOffer = useFeedOffer(online);
@@ -281,12 +284,13 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       })()}
       {ask && <AlertsAsk role="work" onDone={() => setAsk(false)} />}
       {trade && tradeScreen === "join" && <TradeJoin trade={trade} onBack={() => setTradeScreen(isTradie ? "plan" : null)}
-        onJoined={(plan) => { reloadTrade(); poll(); setTradeScreen(plan === "premium" ? "plan" : "feed"); }} onNeedPay={() => setNeedPay("trade")} />}
-      {needPay && <AbnStep onBack={() => setNeedPay(null)} onSaved={() => { const was = needPay; setNeedPay(null); toast("Saved"); if (was === "online") toggle(); }} />}
-      {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={() => setTradeScreen(null)} onChanged={reloadTrade} onUpgrade={() => setTradeScreen("join")} />}
-      {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} covers={covers} onBack={() => setTradeScreen(null)} onOpen={setTradeOpen} onUpgrade={() => setTradeScreen("join")} />}
+        onJoined={(plan) => { reloadTrade(); poll(); setTradeScreen(plan === "premium" ? "plan" : "feed"); }} onNeedPay={() => setNeedPay("trade")} ready={ready} />}
+      {needPay && <AbnStep onBack={() => setNeedPay(null)} onSaved={() => { const was = needPay; setNeedPay(null); toast("Saved"); reloadTrade(); if (was === "online") toggle(); }} />}
+      {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={() => setTradeScreen(null)} onChanged={reloadTrade} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
+      {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} covers={covers} onBack={() => setTradeScreen(null)} onOpen={setTradeOpen} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
       {tradeOpen && trade && <TradeJob o={tradeOpen} trade={trade} onBack={() => setTradeOpen(null)}
-        onSent={() => { const id = tradeOpen.id; setTradeOpen(null); setTradeScreen(null); reloadTrade(); poll(); setWaiting(id); }} onGone={() => { setTradeOpen(null); poll(); }} />}
+        onSent={() => { const id = tradeOpen.id; setTradeOpen(null); setTradeScreen(null); reloadTrade(); poll(); setWaiting(id); }} onGone={() => { setTradeOpen(null); poll(); }} onCreds={() => setTradeCreds(true)} />}
+      {tradeCreds && <Credentials onBack={() => { setTradeCreds(false); reloadTrade(); }} />}
     </>
   );
 }

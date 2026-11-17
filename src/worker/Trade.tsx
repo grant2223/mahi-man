@@ -6,15 +6,17 @@ import { Icon, Screen, SearchPicker, useNow, useToast } from "../ui/kit";
 import { ActionBar, Note } from "../ui/Completion";
 import { ChatScreen } from "../ui/Chat";
 import type { Offer, MyOffer } from "./Work";
+import { lc } from "./Skills";
 
 /* Trade jobs for licensed tradies. Standard: free to join, a fee only when a customer picks your quote.
    Premium: monthly or yearly, unlimited, and every new job first. Customers don't set a budget; tradies quote their price. */
 
 interface Prices { win_fee_cents: number; month_cents: number; year_cents: number; standard_after_minutes: number; standard_early_minutes: number;
-  first_quotes: number; more_quotes: number; more_every_minutes: number; max_quotes: number; quiet_hours: number }
+  first_quotes: number; more_quotes: number; more_every_minutes: number; max_quotes: number; quiet_hours: number; qbcc_over_cents?: number }
 interface Pay { payid?: string; bsb?: string; account?: string; account_name?: string; trading_name?: string }
 export interface TradeStatus {
   prices: Prices; licences: string[]; pending_licences: string[]; insured: boolean; abn: boolean; business_name: string | null;
+  trades: number[]; can_trade: boolean;
   plan: { plan: "standard" | "premium"; status: "active" | "stopped"; billing: "month" | "year" | null; renews_at: string | null; premium: boolean } | null;
   order: { id: number; billing: "month" | "year"; amount_cents: number; renewal: boolean; created_at: string } | null;
   owed: { id: number; reference: string; amount_cents: number; job: string; created_at: string }[];
@@ -32,10 +34,57 @@ const dollars = (c: number) => "$" + Math.round(c / 100).toLocaleString("en-AU")
 const day = (d: string) => new Date(d + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
 export const joined = (t: TradeStatus | null) => !!t?.plan;
 export const premium = (t: TradeStatus | null) => !!t?.plan?.premium;
+// What a tradie still needs before they can quote.
+export const missing = (t: TradeStatus) => [!t.trades?.length && "trades", !t.abn && "ABN", !t.insured && "insurance"].filter(Boolean) as string[];
+const qbcc = (t: TradeStatus) => dollars(t.prices.qbcc_over_cents ?? 330000);
+
+interface TradeSkill { id: number; name: string; credential_type_id: number | null; credential_types: { name: string; short: string } | null }
+
+/* Ready to quote: the trades they quote on (a searchable list), then their ABN, insurance and any licence those trades need. */
+export function TradeReady({ trade, onChanged, onAbn, onCreds }: { trade: TradeStatus; onChanged: () => void; onAbn: () => void; onCreds: () => void }) {
+  const toast = useToast();
+  const [all, setAll] = useState<TradeSkill[]>([]);
+  const [pick, setPick] = useState(false);
+  useEffect(() => {
+    sb.from("skills").select("id,name,credential_type_id,credential_types(name,short)").eq("trade", true).eq("active", true).eq("kind", "skill").order("name")
+      .then(({ data }) => setAll((data ?? []) as unknown as TradeSkill[]));
+  }, []);
+  const mine = all.filter((k) => trade.trades.includes(k.id));
+  const licences = [...new Map(mine.filter((k) => k.credential_types).map((k) => [k.credential_types!.short, k.credential_types!])).values()];
+  const save = async (ids: number[]) => {
+    try { await rpc("trade_set_trades", { p_skills: ids }); toast("Saved"); onChanged(); } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
+  };
+  const row = (done: boolean, label: string, state: string | null, onAdd: () => void) => (
+    <div className="tr-row" key={label}>
+      <span className="tr-i">{done ? Icon.tick("var(--emerald)", 22) : <i />}</span>
+      <span className="tr-t">{label}</span>
+      {state ? <span className="tr-s">{state}</span> : <button className="btn stone small" onClick={onAdd}>Add</button>}
+    </div>
+  );
+  return (
+    <div className="tr">
+      <h2 className="tr-h">Your trades</h2>
+      <button className="field sel" onClick={() => setPick(true)}>
+        <span className="k">Trades you quote on</span>
+        <span className={mine.length ? "v" : "v ph"}>{mine.length ? mine.map((k) => k.name).join(", ") : "Select your trades"}</span>
+      </button>
+      <div className="tr-list">
+        {row(trade.abn, "ABN", trade.abn ? "Added" : null, onAbn)}
+        {row(trade.insured, "Public liability insurance", trade.insured ? "Checked" : null, onCreds)}
+        {licences.map((c) => row(trade.licences.includes(c.short), c.name,
+          trade.licences.includes(c.short) ? "Checked" : trade.pending_licences.includes(c.short) ? "Being checked" : null, onCreds))}
+      </div>
+      <p className="tr-note">A QBCC licence is only needed to quote over {qbcc(trade)}.</p>
+      {pick && <SearchPicker title="Your trades" multi placeholder="Search trades" value={trade.trades}
+        options={all.map((k) => ({ id: k.id, label: k.name, hint: k.credential_types ? `Needs your ${lc(k.credential_types.name)}` : undefined }))}
+        onClose={() => setPick(false)} onChange={(v) => save(v.map(Number))} />}
+    </div>
+  );
+}
 
 // The line on the jobs page: a way in for licensed tradies, then their trade jobs and plan.
 export function TradeStrip({ trade, open, onJoin, onFeed, onPlan }: { trade: TradeStatus | null; open: number; onJoin: () => void; onFeed: () => void; onPlan: () => void }) {
-  if (!trade || (!trade.licences.length && !trade.plan)) return null;
+  if (!trade || (!trade.licences.length && !trade.plan && !trade.can_trade && !trade.trades?.length)) return null;
   if (!trade.plan) {
     return (
       <div className="wrap-list"><button className="wrap-row" onClick={onJoin}>
@@ -48,7 +97,7 @@ export function TradeStrip({ trade, open, onJoin, onFeed, onPlan }: { trade: Tra
   return (
     <div className="wrap-list">
       <button className="wrap-row" onClick={onFeed}>
-        <span className="t"><b>Trade jobs{open ? `, ${open} open` : ""}</b><span>{premium(trade) ? "Premium: you see every job first" : `${dollars(trade.prices.win_fee_cents)} only when you win`}</span></span>
+        <span className="t"><b>Trade jobs{open ? `, ${open} open` : ""}</b><span>{missing(trade).length ? `Add your ${missing(trade).join(" and ")} to quote` : premium(trade) ? "Premium: you see every job first" : `${dollars(trade.prices.win_fee_cents)} only when you win`}</span></span>
         {Icon.chevron("var(--faint)")}
       </button>
       <button className="wrap-row" onClick={onPlan}>
@@ -60,7 +109,8 @@ export function TradeStrip({ trade, open, onJoin, onFeed, onPlan }: { trade: Tra
 }
 
 // Join: Premium as the offer, Standard as the free option, the comparison behind a tap.
-export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: TradeStatus; onBack: () => void; onJoined: (plan: "standard" | "premium") => void; onNeedPay?: () => void }) {
+type Ready = { onChanged: () => void; onAbn: () => void; onCreds: () => void };
+export function TradeJoin({ trade, onBack, onJoined, onNeedPay, ready }: { trade: TradeStatus; onBack: () => void; onJoined: (plan: "standard" | "premium") => void; onNeedPay?: () => void; ready: Ready }) {
   const toast = useToast();
   const p = trade.prices;
   const [year, setYear] = useState(false);
@@ -77,6 +127,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
     ["Win 1 job a week", `${dollars(weekly)} a month`, `${dollars(premMonth)} a month`],
   ];
   const join = async (plan: "standard" | "premium") => {
+    if (!trade.trades.length) { toast("Select your trades first"); document.querySelector(".tr")?.scrollIntoView({ behavior: "smooth" }); return; }
     setBusy(true);
     try {
       await rpc("trade_join", { p_plan: plan, p_billing: year ? "year" : "month", p_business: null });
@@ -104,6 +155,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
           <span className="hx-li">{Icon.tick("var(--gold)", 20)} Win a job a week for {dollars(premMonth)} a month, not {dollars(weekly)}</span>
           <button className="btn hx-go" disabled={busy} onClick={() => join("premium")}>Start Premium {Icon.arrow("#2a2d32")}</button>
         </section>
+        <section className="tj-sec"><TradeReady trade={trade} {...ready} /></section>
         <section className="tj-sec last">
           <div className="hx-std">
             <span className="t"><b>Or join Standard, free</b><span>{dollars(p.win_fee_cents)} only when a customer picks you. See new jobs after {after}.</span></span>
@@ -119,7 +171,6 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
               {rows.map(([k, a, b]) => [<span key={k + "k"} className="tj-k">{k}</span>, <span key={k + "a"} className="tj-v">{a}</span>, <span key={k + "b"} className="tj-v on">{b}</span>])}
             </div>
           )}
-          <p className="tj-need">You'll need your trade licence, ABN and public liability insurance. We check them before your first job.</p>
         </section>
       </div>
     </div>
@@ -127,7 +178,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
 }
 
 // Their plan: Standard or Premium, anything to pay and how, and a way to change.
-export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: TradeStatus; onBack: () => void; onChanged: () => void; onUpgrade: () => void }) {
+export function TradePlan({ trade, onBack, onChanged, onUpgrade, ready }: { trade: TradeStatus; onBack: () => void; onChanged: () => void; onUpgrade: () => void; ready: Ready }) {
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const pl = trade.plan, o = trade.order, pay = trade.pay;
@@ -159,6 +210,7 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: Trad
             {o && !o.renewal && <button className="link quiet" style={{ padding: 0, alignSelf: "flex-start" }} disabled={busy} onClick={() => run("trade_order_cancel", "Premium invoice cancelled")}>Cancel the Premium invoice</button>}
           </div>
         )}
+        <div className="cp-sec"><TradeReady trade={trade} {...ready} /></div>
         <Note icon="clock">{pl?.premium ? "You see every new trade job first. Standard tradies see it after the first hour." : `Premium tradies see new jobs first. Win a job a week and Premium costs less.`}</Note>
         <div style={{ flex: 1 }} />
         {pl?.premium && pl.status === "active" && (
@@ -173,7 +225,7 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: Trad
 const when = (o: Offer) => (o.asap ? "Today" : dayTime(o.start_at).replace(/^./, (c) => c.toUpperCase()));
 
 // Trade jobs: the photo first, the job, where and when, Send quote. Standard tradies also see the jobs Premium tradies are quoting now, blurred.
-export function TradeFeed({ trade, jobs, covers, onBack, onOpen, onUpgrade }: { trade: TradeStatus; jobs: Offer[]; covers: Record<string, string>; onBack: () => void; onOpen: (o: Offer) => void; onUpgrade: () => void }) {
+export function TradeFeed({ trade, jobs, covers, onBack, onOpen, onUpgrade, ready }: { trade: TradeStatus; jobs: Offer[]; covers: Record<string, string>; onBack: () => void; onOpen: (o: Offer) => void; onUpgrade: () => void; ready: Ready }) {
   const hidden = trade.premium_now;
   const [blur, setBlur] = useState<string[]>([]);
   useEffect(() => { if (hidden.photos.length) mediaUrls(hidden.photos).then((m) => setBlur(hidden.photos.map((p) => m[p]).filter(Boolean))).catch(() => {}); }, [hidden.photos.join()]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -184,6 +236,7 @@ export function TradeFeed({ trade, jobs, covers, onBack, onOpen, onUpgrade }: { 
           <div className="top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button>{premium(trade) ? <span className="hx-tag" style={{ margin: 0 }}>Premium</span> : <span className="count">Standard</span>}</div>
           <h1>Trade jobs</h1>
         </section>
+        {missing(trade).length > 0 && <div className="tj-sec" style={{ background: "var(--card)" }}><TradeReady trade={trade} {...ready} /></div>}
         {!premium(trade) && hidden.n > 0 && (
           <button className="fu-blur" onClick={onUpgrade}>
             <span className="fu-pics">{(blur.length ? blur : [null, null, null].slice(0, Math.min(3, hidden.n))).map((u, i) => <i key={i} style={u ? { backgroundImage: `url("${u}")` } : undefined} />)}</span>
@@ -201,7 +254,7 @@ export function TradeFeed({ trade, jobs, covers, onBack, onOpen, onUpgrade }: { 
             </div>
           </div>
         ))}
-        {!jobs.length && <p className="t17 light" style={{ padding: "24px 16px", margin: 0, lineHeight: 1.45 }}>No trade jobs near you right now. You'll get an alert when one comes in.</p>}
+        {!jobs.length && !missing(trade).length && <p className="t17 light" style={{ padding: "24px 16px", margin: 0, lineHeight: 1.45 }}>No trade jobs near you right now. You'll get an alert when one comes in.</p>}
       </div>
     </div>
   );
@@ -219,7 +272,7 @@ function comeTimes() {
 }
 
 // Send a quote: the job's photos first, the job, then the quote.
-export function TradeJob({ o, trade, onBack, onSent, onGone }: { o: Offer; trade: TradeStatus; onBack: () => void; onSent: () => void; onGone: () => void }) {
+export function TradeJob({ o, trade, onBack, onSent, onGone, onCreds }: { o: Offer; trade: TradeStatus; onBack: () => void; onSent: () => void; onGone: () => void; onCreds: () => void }) {
   const toast = useToast();
   const [pics, setPics] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
@@ -274,6 +327,7 @@ export function TradeJob({ o, trade, onBack, onSent, onGone }: { o: Offer; trade
           <label className="field" style={{ marginTop: 10, minHeight: 84, justifyContent: "flex-start" }}><span className="k">What's included</span>
             <textarea value={inc} rows={2} maxLength={200} placeholder="Parts and labour" onChange={(e) => { setInc(e.target.value); setErr(""); }} /></label>
           {err && <p className="err" style={{ margin: "10px 0 0" }}>{err}</p>}
+          {/QBCC|insurance/i.test(err) && <button className="btn stone small" style={{ marginTop: 10, alignSelf: "flex-start" }} onClick={onCreds}>Add your {/QBCC/.test(err) ? "QBCC licence" : "insurance"}</button>}
         </div>
       </div>
       <div className="bottombar">

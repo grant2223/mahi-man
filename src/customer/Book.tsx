@@ -57,11 +57,11 @@ export function Book() {
   const toast = useToast();
   const [types, setTypes] = useState<JobType[]>([]);
   const [cats, setCats] = useState<Category[]>([]);
-  const [skillList, setSkillList] = useState<{ id: number; category_id: number; name: string; needs: string | null; trade: boolean }[]>([]);
+  const [skillList, setSkillList] = useState<{ id: number; category_id: number; name: string; needs: string | null; licence: string | null; trade: boolean }[]>([]);
   useEffect(() => {
-    sb.from("skills").select("id,category_id,name,sort,credential_types(name,trade)").eq("kind", "skill").eq("active", true).order("sort")
-      .then(({ data }) => setSkillList(((data ?? []) as unknown as { id: number; category_id: number; name: string; credential_types: { name: string; trade: boolean } | null }[])
-        .map((k) => ({ id: k.id, category_id: k.category_id, name: k.name, needs: k.credential_types?.name ?? null, trade: !!k.credential_types?.trade }))));
+    sb.from("skills").select("id,category_id,name,sort,trade,credential_types(name,trade)").eq("kind", "skill").eq("active", true).order("sort")
+      .then(({ data }) => setSkillList(((data ?? []) as unknown as { id: number; category_id: number; name: string; trade: boolean; credential_types: { name: string; trade: boolean } | null }[])
+        .map((k) => ({ id: k.id, category_id: k.category_id, name: k.name, needs: k.credential_types?.name ?? null, licence: k.credential_types?.trade ? k.credential_types.name : null, trade: !!k.trade }))));
   }, []);
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
   const [fee, setFee] = useState(15);
@@ -134,10 +134,10 @@ export function Book() {
   const cat = cats.find((c) => c.id === d.categoryId) ?? null;
   const jt = types.find((t) => t.category_id === d.categoryId) ?? null;
   const suburb = suburbs.find((s) => s.id === d.suburbId) ?? null;
-  // A job that needs a trade licence (electrical, plumbing, gas...) is a trade job: licensed tradies send a fixed quote.
+  // A job with a trade in it (set per skill in Admin: landscaping, carpentry, electrical...) is a trade job: tradies send a fixed quote.
   const typeIds = [d.categoryId, ...(d.extraCats ?? [])].filter((x): x is number => x != null);
   const jobSkills = skillList.filter((k) => typeIds.includes(k.category_id) && (d.skills ?? []).includes(k.id));
-  const tradeSkill = jobSkills.find((k) => k.trade) ?? null;
+  const tradeSkill = jobSkills.find((k) => k.trade && k.licence) ?? jobSkills.find((k) => k.trade) ?? null;
   const isTrade = !!tradeSkill;
   useEffect(() => {
     if (path !== "/book/check" || !d.categoryId || !d.suburbId) return;
@@ -424,7 +424,7 @@ export function Book() {
             <section className="ck-money">
               {isTrade ? (<>
                 <div className="ck-m"><span>Connection fee</span><b>$0</b></div>
-                <p>Licensed tradies send you a fixed quote. Select one and pay the tradie directly.</p>
+                <p>Tradies send you a fixed quote. Select one and pay the tradie directly.</p>
               </>) : (<>
                 {/* Two people get paid, so two groups: your worker, then Mahi Man. */}
                 <div className="ck-grp">
@@ -475,7 +475,7 @@ export function Book() {
               {jobSkills.length ? <div className="ck-list"><h3>Skills needed</h3><span className="plain">{jobSkills.map((k) => k.name).join(", ")}</span></div> : null}
               {d.notes ? <div className="ck-list"><h3>Notes for your worker</h3><span className="plain">{d.notes}</span></div> : null}
               {isTrade && <div className="ck-list"><h3>Who can take it</h3>
-                <button className="ck-who" onClick={() => go("/book/details")}>{`Licensed tradies, ${lc(tradeSkill!.needs ?? "licence")} checked`}</button></div>}
+                <button className="ck-who" onClick={() => go("/book/details")}>{tradeSkill!.licence ? `Licensed tradies, ${lc(tradeSkill!.licence)} checked` : "Tradies with an ABN and insurance, checked"}</button></div>}
             </section>
           </>);
         })()}
@@ -999,7 +999,7 @@ function StartStep({ d, setD, cats, skillList, suggest, addPhotos }: {
 }
 
 function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount, addPhotos, err, setErr, bar }: {
-  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string; needs: string | null }[]; suggest: (catId: number) => number | null;
+  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string; needs: string | null; trade: boolean }[]; suggest: (catId: number) => number | null;
   photoUrls: string[]; photoCount: number; addPhotos: (b: Blob[]) => Promise<void>;
   err: string; setErr: (s: string) => void; bar: (label: string, onNext: () => void, disabled?: boolean, nextName?: string) => ReactNode;
 }) {
@@ -1098,7 +1098,9 @@ function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount,
               <span className={chosen.length ? "" : "ph"}>{chosen.length ? chosen.map((k) => k.name).join(", ") : "Select any that apply"}</span>
               {Icon.down("var(--ink)")}
             </button>
-            {needs.length > 0 && <span className="t15 em" style={{ lineHeight: 1.4 }}>Only workers with a verified {needs.map(lc).join(" and ")} can take this job.</span>}
+            {chosen.some((k) => k.trade)
+              ? <span className="t15 em" style={{ lineHeight: 1.4 }}>A trade job. Tradies send you a fixed quote{needs.length ? `, and only those with a verified ${needs.map(lc).join(" and ")} can quote` : ""}.</span>
+              : needs.length > 0 && <span className="t15 em" style={{ lineHeight: 1.4 }}>Only workers with a verified {needs.map(lc).join(" and ")} can take this job.</span>}
           </div>
         )}
 
@@ -1118,7 +1120,7 @@ function DetailsStep({ d, setD, cats, skillList, suggest, photoUrls, photoCount,
         options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
         onChange={(v) => { const ids = v.map(Number); setTypes([...typeIds.filter((x) => ids.includes(x)), ...ids.filter((x) => !typeIds.includes(x))].slice(0, 4)); }} />}
       {pickSkills && <SearchPicker title="Skills needed" multi placeholder="Search skills" value={chosen.map((k) => k.id)}
-        options={catSkills.map((k) => ({ id: k.id, label: k.name, hint: k.needs ? `Only workers with a verified ${lc(k.needs)}` : undefined }))}
+        options={catSkills.map((k) => ({ id: k.id, label: k.name, hint: k.trade ? (k.needs ? `Trade job, quoted. ${k.needs} checked` : "Trade job, quoted by tradies") : k.needs ? `Only workers with a verified ${lc(k.needs)}` : undefined }))}
         onClose={() => setPickSkills(false)} onChange={(v) => setD({ ...d, skills: v.map(Number) })} />}
       {voice && <VoiceScreen jobName={types[0]?.name ?? "Job"} onBack={() => setVoice(false)}
         raw onDone={(text) => { setVoice(false); fill(d.details.trim() ? `${d.details.trim()} ${text}` : text); }} />}
