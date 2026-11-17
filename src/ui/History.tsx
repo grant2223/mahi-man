@@ -1,11 +1,9 @@
 // Payment history: one list of everything money-related, newest first, the way banks and Airtasker show it.
 // Fees taken from credit, top-ups and their bonus, invoices, Plus and gift cards, each with its status and a receipt.
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { rpc } from "../lib/supabase";
+import { rpc, sb } from "../lib/supabase";
 import { go } from "../lib/router";
 import { money2 } from "../lib/format";
-import { useSession } from "../lib/session";
-import { usePayments, fmtAbn } from "./Payments";
 import { Icon, Loading, SearchPicker, useToast } from "./kit";
 import { ActionBar } from "./Completion";
 
@@ -19,7 +17,6 @@ export interface HistRow {
 
 const TZ = "Australia/Brisbane";
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: TZ }).replace(",", "");
-const dayY = (iso: string) => new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ });
 const month = (iso: string) => new Date(iso).toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: TZ });
 
 export const KINDS: { id: "all" | HistKind; label: string }[] = [
@@ -38,46 +35,23 @@ const viaText = { credit: "From credit", bank: "Bank transfer", card: "Card", gi
 const tag = (s: HistStatus) => s === "checking" ? <span className="ph-tag">Checking</span> : s === "waiting" ? <span className="ph-tag">Not paid yet</span>
   : s === "due" ? <span className="ph-tag">Due</span> : s === "late" ? <span className="ph-tag late">Overdue</span> : null;
 
-// Saves a PDF: the share sheet on the phone, a download on the web.
-export async function savePdfDoc(doc: { output: (t: "datauristring") => string; save: (n: string) => void }, name: string) {
+// Every PDF comes from the server's branded template (the same one the emailed invoices use), then is shared or downloaded.
+export async function saveDocument(body: Record<string, unknown>) {
+  const { data, error } = await sb.functions.invoke("documents", { body });
+  if (error || !data?.pdf) throw new Error(data?.error ?? "Couldn't make the PDF");
   const { Capacitor } = await import("@capacitor/core");
+  const name = String(data.name ?? "Mahi-Man.pdf");
   if (Capacitor.isNativePlatform()) {
     const { Filesystem, Directory } = await import("@capacitor/filesystem");
     const { Share } = await import("@capacitor/share");
-    const data = doc.output("datauristring").split(",")[1];
-    const f = await Filesystem.writeFile({ path: name, data, directory: Directory.Cache });
+    const f = await Filesystem.writeFile({ path: name, data: data.pdf, directory: Directory.Cache });
     await Share.share({ files: [f.uri], dialogTitle: "Save PDF" });
-  } else doc.save(name);
-}
-type PdfPay = { legal_name?: string; trading_name?: string; abn?: string };
-async function pdfHead(title: string, pay: PdfPay, to: string) {
-  const { jsPDF } = await import("jspdf");
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const L = 56, R = 539;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text(title, L, 70);
-  doc.setFontSize(12); doc.text("Mahi Man", R, 70, { align: "right" });
-  doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
-  let y = 100;
-  [`${pay.legal_name ?? ""}${pay.trading_name ? `, trading as ${pay.trading_name}` : ""}`, pay.abn ? `ABN ${fmtAbn(pay.abn)}` : "", "", `To: ${to}`]
-    .forEach((t) => { if (t) doc.text(t, L, y); y += 15; });
-  return { doc, L, R, y: y + 10 };
-}
-const signed = (r: HistRow) => `${r.flow === "in" ? "+" : r.flow === "out" ? "-" : ""}${money2(r.amount)}`;
-async function statementPdf(rows: HistRow[], show: string, period: string, pay: PdfPay, to: string) {
-  const h = await pdfHead("Statement", pay, to);
-  const { doc, L, R } = h; let y = h.y;
-  doc.text(`${show} · ${period} · made ${dayY(new Date().toISOString())}`, L, y); y += 26;
-  doc.setFont("helvetica", "bold"); doc.text("Date", L, y); doc.text("What", L + 90, y); doc.text("Amount", R, y, { align: "right" }); y += 8;
-  doc.setDrawColor(220); doc.line(L, y, R, y); y += 18; doc.setFont("helvetica", "normal");
-  for (const r of rows) {
-    if (y > 780) { doc.addPage(); y = 70; }
-    const what = doc.splitTextToSize(`${r.title} · ${r.note ?? viaText[r.via]}${r.status === "checking" ? " (checking)" : ""}`, 330) as string[];
-    doc.text(dayY(r.at), L, y); doc.text(what, L + 90, y); doc.text(signed(r), R, y, { align: "right" }); y += 15 * what.length + 6;
+  } else {
+    const bytes = Uint8Array.from(atob(data.pdf), (c) => c.charCodeAt(0));
+    const url = URL.createObjectURL(new Blob([bytes], { type: "application/pdf" }));
+    const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
   }
-  if (!rows.length) doc.text("Nothing in this period.", L, y);
-  y += 10; doc.line(L, y, R, y); y += 18;
-  doc.setFontSize(9); doc.text("+ adds to your connection fee credit. - is taken from your credit. Other amounts are payments you made to Mahi Man.", L, y);
-  await savePdfDoc(doc, `Mahi-Man-statement.pdf`);
 }
 
 export function openRow(r: HistRow) {
@@ -118,8 +92,7 @@ export function useHistory(kind: string, period: string, limit: number) {
 /* ---------- All of it, with a filter and a statement ---------- */
 export function HistoryPage() {
   const toast = useToast();
-  const { profile } = useSession();
-  const { p } = usePayments();
+  const [saving, setSaving] = useState(false);
   const [kind, setKind] = useState<string>("all");
   const [period, setPeriod] = useState("90");
   const [pick, setPick] = useState<"kind" | "period" | null>(null);
@@ -135,8 +108,11 @@ export function HistoryPage() {
         {!rows ? <Loading /> : rows.length ? <HistList rows={rows} /> : <p className="ph-none">Nothing here yet</p>}
       </div>
       <div style={{ flex: 1 }} />
-      <ActionBar><button className="btn stone" style={{ flex: 1 }} disabled={!rows} onClick={() => statementPdf(rows ?? [], KINDS.find((k) => k.id === kind)?.label ?? "", PERIODS.find((k) => k.id === period)?.label ?? "", p?.pay ?? {}, profile?.full_name ?? "")
-          .catch(() => toast("Couldn't save the statement"))}>Download statement</button></ActionBar>
+      <ActionBar><button className="btn stone" style={{ flex: 1 }} disabled={!rows || saving} onClick={async () => {
+          setSaving(true);
+          try { await saveDocument({ doc: "statement", kind, period, label: `${KINDS.find((k) => k.id === kind)?.label}, ${PERIODS.find((k) => k.id === period)?.label.toLowerCase()}`, period_label: PERIODS.find((k) => k.id === period)?.label }); }
+          catch { toast("Couldn't save the statement"); } finally { setSaving(false); }
+        }}>{saving ? "Making your statement…" : "Download statement"}</button></ActionBar>
       {pick === "kind" && <SearchPicker title="Show" options={KINDS} value={[kind]} onClose={() => setPick(null)} onChange={(v) => setKind(String(v[0]))} />}
       {pick === "period" && <SearchPicker title="Period" options={PERIODS} value={[period]} onClose={() => setPick(null)} onChange={(v) => setPeriod(String(v[0]))} />}
     </div>
@@ -149,18 +125,7 @@ interface Receipt { kind: HistKind; title: string; amount: number; at: string; s
 
 export function ReceiptPage({ kind, id }: { kind: string; id: string }) {
   const toast = useToast();
-  const { profile } = useSession();
-  const { p } = usePayments();
-  const save = async (r: Receipt) => {
-    const h = await pdfHead("Receipt", p?.pay ?? {}, profile?.full_name ?? "");
-    const { doc, L, R } = h; let y = h.y + 6;
-    doc.setFont("helvetica", "bold"); doc.setFontSize(14); doc.text(r.title, L, y); doc.text(money2(r.amount), R, y, { align: "right" }); y += 26;
-    doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
-    const rows = [[r.status === "done" ? "Confirmed" : "Sent", dayY(r.confirmed_at ?? r.at)], ...r.lines.map((l) => [l.k, l.v]), ["Paid by", viaText[r.via]], ...(r.ref ? [["Reference", r.ref]] : [])];
-    for (const [k, v] of rows) { doc.text(k, L, y); doc.text(v, R, y, { align: "right" }); y += 18; }
-    y += 10; doc.text(p?.pay?.gst === "yes" ? "Includes GST" : "No GST charged", L, y);
-    await savePdfDoc(doc, `Mahi-Man-receipt${r.ref ? `-${r.ref}` : ""}.pdf`);
-  };
+  const [saving, setSaving] = useState(false);
   const [r, setR] = useState<Receipt | null>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => { rpc<Receipt>("payment_receipt", { p_kind: kind, p_id: id }).then(setR).catch(() => setFailed(true)); }, [kind, id]);
@@ -180,7 +145,7 @@ export function ReceiptPage({ kind, id }: { kind: string; id: string }) {
           {r.ref && <div className="ph-rc-row"><span>Reference</span><span>{r.ref}</span></div>}
         </div>
         <div style={{ flex: 1 }} />
-        <ActionBar><button className="btn stone" style={{ flex: 1 }} onClick={() => save(r).catch(() => toast("Couldn't save the PDF"))}>Save PDF</button></ActionBar>
+        <ActionBar><button className="btn stone" style={{ flex: 1 }} disabled={saving} onClick={async () => { setSaving(true); try { await saveDocument({ doc: "receipt", kind, id }); } catch { toast("Couldn't save the PDF"); } finally { setSaving(false); } }}>{saving ? "Making your PDF…" : "Save PDF"}</button></ActionBar>
       </>}
     </div>
   );

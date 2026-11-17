@@ -2,12 +2,17 @@
 // Once pay_gst is "yes" it meets the ATO's tax invoice rules: the words "Tax invoice", seller name and ABN, issue date, what was sold, and the GST.
 import { PDFDocument, StandardFonts, rgb, type PDFFont, type PDFPage, type PDFImage } from "npm:pdf-lib@1.17.1";
 import fontkit from "npm:@pdf-lib/fontkit@1.1.1";
-import { fmtAbn, fmtBsb, type Pay } from "./emails.ts";
+// Kept identical in send-email/pdf.ts and documents/pdf.ts: one branded template for every Mahi Man document.
+export type Pay = { gst?: string; trading_name?: string; legal_name?: string; abn?: string; payid?: string; bsb?: string; account?: string; account_name?: string };
+const fmtBsb = (v?: string) => { const d = (v ?? "").replace(/\D/g, ""); return d.length === 6 ? `${d.slice(0, 3)}-${d.slice(3)}` : v; };
+const fmtAbn = (v?: string) => { const d = (v ?? "").replace(/\D/g, ""); return d.length === 11 ? `${d.slice(0, 2)} ${d.slice(2, 5)} ${d.slice(5, 8)} ${d.slice(8)}` : v; };
 
 export type Assets = { fonts: Record<"300" | "400" | "500" | "600", Uint8Array> | null; head: Uint8Array };
-export type Line = { date: string; job: string; who?: string; cents: number };
+export type Line = { date: string; job: string; who?: string; cents: number; amt?: string };
 export type DocData = {
-  kind: "invoice" | "receipt";
+  // invoice and receipt (for an invoice), payment (a receipt for a top-up, Plus or a fee from credit), statement (payment history).
+  kind: "invoice" | "receipt" | "payment" | "statement";
+  title?: string; rows?: [string, string][]; heads?: { job: string; who: string }; credit_cents?: number; note?: string;
   number: string; issued: string; due?: string; paid_on?: string; method?: string;
   to_name: string; to_email: string; lines: Line[]; total_cents: number; pay: Pay;
 };
@@ -30,8 +35,9 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
     med: await doc.embedFont(StandardFonts.HelveticaBold), bold: await doc.embedFont(StandardFonts.HelveticaBold),
   };
   const head = await doc.embedPng(a.head);
-  const receipt = d.kind === "receipt";
-  doc.setTitle(`${receipt ? "Receipt" : d.pay.gst === "yes" ? "Tax invoice" : "Invoice"} ${d.number}`);
+  const receipt = d.kind === "receipt" || d.kind === "payment", stmt = d.kind === "statement";
+  const label = stmt ? "Statement" : receipt ? "Receipt" : d.pay.gst === "yes" ? "Tax invoice" : "Invoice";
+  doc.setTitle(`${label} ${d.number}`);
   doc.setAuthor("Mahi Man");
   doc.setCreator("Mahi Man");
 
@@ -57,7 +63,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   drawHead(page, head, M, H - 62, 30);
   text("Mahi Man", M + 38, H - 54, F.bold, 17, C.white);
   text("Get the help you need within minutes.", M + 38, H - 70, F.light, 9.5, hex("#cfe3da"));
-  text(receipt ? "Receipt" : d.pay.gst === "yes" ? "Tax invoice" : "Invoice", W - M, H - 50, F.med, 12, C.lime, "right");
+  text(label, W - M, H - 50, F.med, 12, C.lime, "right");
   text(d.number, W - M, H - 78, F.bold, 24, C.white, "right");
 
   // Who and when
@@ -68,35 +74,35 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
     for (const [s, f, sz] of rows) { if (s) { text(fit(s, f, sz ?? 10.5, 150), x, yy, f, sz ?? 10.5, C.ink); yy -= 14.5; } }
   };
   const x2 = M + 180, x3 = M + 360;
-  col(M, receipt ? "Received from" : "Bill to", [[d.to_name, F.med], [d.to_email, F.light]]);
+  col(M, receipt ? "Received from" : stmt ? "For" : "Bill to", [[d.to_name, F.med], [d.to_email, F.light]]);
   col(x2, "From", [[d.pay.trading_name || "Mahi Man", F.med], [d.pay.legal_name ?? "", F.light], [d.pay.abn ? `ABN ${fmtAbn(d.pay.abn)}` : "", F.light]]);
-  col(x3, receipt ? "Paid" : "Issued", receipt
+  col(x3, receipt ? "Paid" : stmt ? "Made" : "Issued", receipt
     ? [[d.paid_on ?? "", F.med], [d.method ? `By ${d.method.toLowerCase()}` : "", F.light]]
     : [[d.issued, F.med]]);
 
   // The amount, big
   y -= 92;
-  const big = money(d.total_cents);
+  const big = money(stmt ? d.credit_cents ?? 0 : d.total_cents);
   const bw = text(big, M, y, F.bold, 34, C.ink);
-  text(receipt ? "paid in full" : `due ${d.due}`, M + bw + 12, y + 2, F.med, 17, C.emerald);
+  text(stmt ? "credit now" : receipt ? "paid in full" : `due ${d.due}`, M + bw + 12, y + 2, F.med, 17, C.emerald);
   y -= 18;
-  text(receipt ? "Thank you. This receipt is for the invoice below." : "Connection fees for jobs booked on Mahi Man.", M, y, F.light, 10.5, C.body);
+  text(stmt ? `${d.title ?? "Your payments"}. Newest first.` : d.kind === "payment" ? `Thank you. ${d.title ?? ""}.` : receipt ? "Thank you. This receipt is for the invoice below." : "Connection fees for jobs booked on Mahi Man.", M, y, F.light, 10.5, C.body);
 
   // Lines. Long invoices carry on to more pages, each with the column headings again.
   y -= 34;
-  const cx = { date: M + 12, job: M + 100, who: M + 340, amt: W - M - 12 };
+  const cx = { date: M + 12, job: M + 100, who: stmt ? M + 280 : M + 340, amt: W - M - 12 };
   const heads = () => {
     page.drawRectangle({ x: M, y: y - 9, width: W - 2 * M, height: 26, color: C.ground });
     text("Date", cx.date, y, F.med, 9, C.muted);
-    text("Job", cx.job, y, F.med, 9, C.muted);
-    text("Worker", cx.who, y, F.med, 9, C.muted);
+    text(d.heads?.job ?? "Job", cx.job, y, F.med, 9, C.muted);
+    text(d.heads?.who ?? "Worker", cx.who, y, F.med, 9, C.muted);
     text("Amount", cx.amt, y, F.med, 9, C.muted, "right");
     y -= 30;
   };
   const more = () => {
     page = doc.addPage([W, H]); pages.push(page);
     page.drawRectangle({ x: 0, y: H - 6, width: W, height: 6, color: C.emerald });
-    text(`${receipt ? "Receipt" : d.pay.gst === "yes" ? "Tax invoice" : "Invoice"} ${d.number}, continued`, M, H - 52, F.med, 12, C.ink);
+    text(`${label} ${d.number}, continued`, M, H - 52, F.med, 12, C.ink);
     y = H - 90;
   };
   heads();
@@ -104,40 +110,48 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
     if (y < 90) { more(); heads(); }
     text(l.date, cx.date, y, F.light, 10.5, C.body);
     text(fit(l.job, F.reg, 10.5, cx.who - cx.job - 14), cx.job, y, F.reg, 10.5, C.ink);
-    text(l.who || "—", cx.who, y, F.light, 10.5, C.body);
-    text(money(l.cents), cx.amt, y, F.reg, 10.5, C.ink, "right");
+    text(fit(l.who || "—", F.light, 10.5, cx.amt - cx.who - 70), cx.who, y, F.light, 10.5, C.body);
+    text(l.amt ?? money(l.cents), cx.amt, y, F.reg, 10.5, l.amt?.startsWith("+") ? C.emerald : C.ink, "right");
     hr(y - 11);
     y -= 28;
   }
 
-  // Totals, right side, and the pay box: on a new page if they don't fit.
-  const payRows = receipt ? 0 : [d.pay.bsb, d.pay.account, d.pay.account_name || d.pay.trading_name, d.number].filter(Boolean).length;
-  if (y - 90 - (receipt ? 0 : 68 + payRows * 19) < 70) more();
-  const gstOn = d.pay.gst === "yes";
-  const gst = gstOn ? Math.round(d.total_cents / 11) : 0;
-  const tx = W - M - 220, tr = W - M - 12;
-  y -= 6;
-  const trow = (k: string, v: string, f = F.light, size = 10.5, color = C.body) => { text(k, tx, y, f, size, color); text(v, tr, y, f === F.light ? F.reg : f, size, C.ink, "right"); y -= 20; };
-  if (gstOn) {
-    trow("Subtotal (excluding GST)", money(d.total_cents - gst));
-    trow("GST", money(gst));
-  } else trow("GST", "Not charged");
-  hr(y + 9, tx, W - M);
-  y -= 4;
-  trow(gstOn ? "Total (including GST)" : "Total", money(d.total_cents), F.bold, 13, C.ink);
+  // A statement ends with what the signs mean; everything else gets totals and a box (how to pay, or the details).
+  const box: [string, string | undefined][] = d.kind === "invoice"
+    ? [["Account name", d.pay.account_name || d.pay.trading_name], ["BSB", fmtBsb(d.pay.bsb)], ["Account number", d.pay.account], ["Reference", d.number]]
+    : d.kind === "payment" ? (d.rows ?? []) : [];
+  const shown = box.filter(([, v]) => v);
+  if (stmt) {
+    if (!d.lines.length) { text("Nothing in this period.", M, y, F.light, 10.5, C.body); y -= 24; }
+    if (y < 110) more();
+    y -= 8;
+    if (d.note) text(fit(d.note, F.light, 9.5, W - 2 * M), M, y, F.light, 9.5, C.muted);
+  } else {
+    if (y - 90 - (shown.length ? 68 + shown.length * 19 : 0) < 70) more();
+    const gstOn = d.pay.gst === "yes";
+    const gst = gstOn ? Math.round(d.total_cents / 11) : 0;
+    const tx = W - M - 220, tr = W - M - 12;
+    y -= 6;
+    const trow = (k: string, v: string, f = F.light, size = 10.5, color = C.body) => { text(k, tx, y, f, size, color); text(v, tr, y, f === F.light ? F.reg : f, size, C.ink, "right"); y -= 20; };
+    if (gstOn) {
+      trow("Subtotal (excluding GST)", money(d.total_cents - gst));
+      trow("GST", money(gst));
+    } else trow("GST", "Not charged");
+    hr(y + 9, tx, W - M);
+    y -= 4;
+    trow(gstOn ? "Total (including GST)" : "Total", money(d.total_cents), F.bold, 13, C.ink);
 
-  // How to pay (invoice) / thanks (receipt)
-  y -= 22;
-  if (!receipt) {
-    const rows: [string, string | undefined][] = [["Account name", d.pay.account_name || d.pay.trading_name], ["BSB", fmtBsb(d.pay.bsb)], ["Account number", d.pay.account], ["Reference", d.number]];
-    const shown = rows.filter(([, v]) => v);
-    const bh = 46 + shown.length * 19;
-    page.drawRectangle({ x: M, y: y - bh, width: W - 2 * M, height: bh, color: C.ground });
-    let py = y - 26;
-    text("How to pay", M + 18, py, F.bold, 12.5, C.ink);
-    text("By bank transfer. Use the reference so we can match your payment.", M + 120, py, F.light, 9.5, C.body);
-    py -= 24;
-    for (const [k, v] of shown) { text(k, M + 18, py, F.light, 10.5, C.muted); text(v!, M + 120, py, k === "Reference" ? F.bold : F.reg, 10.5, C.ink); py -= 19; }
+    // How to pay (invoice) / the details (payment receipt)
+    y -= 22;
+    if (shown.length) {
+      const bh = 46 + shown.length * 19;
+      page.drawRectangle({ x: M, y: y - bh, width: W - 2 * M, height: bh, color: C.ground });
+      let py = y - 26;
+      text(d.kind === "invoice" ? "How to pay" : "Details", M + 18, py, F.bold, 12.5, C.ink);
+      if (d.kind === "invoice") text("By bank transfer. Use the reference so we can match your payment.", M + 120, py, F.light, 9.5, C.body);
+      py -= 24;
+      for (const [k, v] of shown) { text(k, M + 18, py, F.light, 10.5, C.muted); text(v!, M + 120, py, k === "Reference" ? F.bold : F.reg, 10.5, C.ink); py -= 19; }
+    }
   }
 
   // Footer on every page
@@ -145,7 +159,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
     page = pg;
     hr(56);
     text(`Mahi Man · mahiman.app`, M, 38, F.reg, 8.5, C.muted);
-    text(`${receipt ? "Receipt" : d.pay.gst === "yes" ? "Tax invoice" : "Invoice"} ${d.number} · Page ${i + 1} of ${pages.length}`, W - M, 38, F.light, 8.5, C.muted, "right");
+    text(`${label} ${d.number} · Page ${i + 1} of ${pages.length}`, W - M, 38, F.light, 8.5, C.muted, "right");
   });
   return await doc.save();
 }

@@ -7,7 +7,7 @@ import { money, money2 } from "../lib/format";
 import { Icon, Loading, SearchPicker, StepHero, useToast } from "./kit";
 import { ActionBar } from "./Completion";
 import { AuthScreen } from "./Auth";
-import { HistList, glyph, savePdfDoc, useHistory } from "./History";
+import { HistList, glyph, saveDocument, useHistory } from "./History";
 import { stripeFor } from "../customer/Cards";
 
 /* How customers pay Mahi Man: pay as you go (invoiced by bank transfer), a top-up balance, or Plus.
@@ -321,39 +321,7 @@ export function InvoicePage({ id }: { id: number }) {
   );
 }
 
-async function savePdf(inv: InvoiceDetail) {
-  const { jsPDF } = await import("jspdf");
-  const pay = inv.pay ?? {};
-  const doc = new jsPDF({ unit: "pt", format: "a4" });
-  const L = 56, R = 539;
-  let y = 70;
-  doc.setFont("helvetica", "bold"); doc.setFontSize(22); doc.text(pay.gst === "yes" ? "Tax invoice" : "Invoice", L, y);
-  doc.setFontSize(12); doc.text(inv.number, R, y, { align: "right" });
-  y += 30; doc.setFont("helvetica", "normal"); doc.setFontSize(10.5);
-  const from = [`${pay.legal_name ?? ""}${pay.trading_name ? `, trading as ${pay.trading_name}` : ""}`, pay.abn ? `ABN ${fmtAbn(pay.abn)}` : ""].filter(Boolean);
-  from.forEach((t) => { doc.text(t, L, y); y += 15; });
-  y += 10;
-  doc.text(`To: ${inv.to}`, L, y); y += 15;
-  doc.text(`Issued: ${dayLong(inv.issued_at)}`, L, y); y += 15;
-  doc.text(`Due: ${dayLong(inv.due_at)}`, L, y); y += 30;
-  doc.setFont("helvetica", "bold"); doc.text("Mahi Man connection fees", L, y); y += 8;
-  doc.setDrawColor(220); doc.line(L, y, R, y); y += 18;
-  doc.setFont("helvetica", "normal");
-  for (const l of inv.lines) {
-    const t = doc.splitTextToSize(`${dayShort(l.date)} · ${l.job}${l.who ? ` · ${l.who}` : ""}`, 380) as string[];
-    doc.text(t, L, y); doc.text(money2(l.cents), R, y, { align: "right" }); y += 15 * t.length + 4;
-  }
-  doc.line(L, y, R, y); y += 20;
-  doc.setFont("helvetica", "bold"); doc.text("Total", L, y); doc.text(money2(inv.total), R, y, { align: "right" }); y += 16;
-  doc.setFont("helvetica", "normal"); if (pay.gst === "yes") { doc.text("Includes GST", L, y); doc.text(money2(inv.gst), R, y, { align: "right" }); } else doc.text("No GST charged", L, y); y += 36;
-  if (inv.status === "paid") { doc.setFont("helvetica", "bold"); doc.text(`Paid ${dayLong(inv.paid_at ?? inv.due_at)}`, L, y); }
-  else {
-    doc.setFont("helvetica", "bold"); doc.text("Pay by bank transfer", L, y); y += 18; doc.setFont("helvetica", "normal");
-    [pay.account_name ? `Account name: ${pay.account_name}` : "", pay.bsb ? `BSB: ${fmtBsb(pay.bsb)}` : "", pay.account ? `Account number: ${pay.account}` : "", `Reference: ${inv.number}`]
-      .filter(Boolean).forEach((t) => { doc.text(t, L, y); y += 15; });
-  }
-  await savePdfDoc(doc, `Mahi-Man-${inv.number}.pdf`);
-}
+const savePdf = (inv: InvoiceDetail) => saveDocument({ doc: "invoice", id: inv.id });
 
 /* ---------- Top up ---------- */
 const AMOUNTS = [5000, 10000, 25000]; // shown until the topup_amounts setting loads
