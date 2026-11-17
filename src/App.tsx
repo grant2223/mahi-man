@@ -19,6 +19,7 @@ import { Settings } from "./ui/Settings";
 import { VerifyPage } from "./ui/Verify";
 import { PayoutsDone, Privacy, Support, Terms } from "./ui/Legal";
 import { AddCodePage, ClaimPage, GiftPage, GiveHelpPage } from "./ui/Gifts";
+import { HistoryPage, ReceiptPage } from "./ui/History";
 import { HowYouPay, InvoicePage, PaymentsPage, PlusPage, TopUpPage } from "./ui/Payments";
 import { lastSide } from "./ui/SideSwitch";
 import { GetAppPage, Landing } from "./ui/Landing";
@@ -81,6 +82,12 @@ function Routes() {
     return <Settings />;
   }
   // Paying Mahi Man: balance, invoices, top-up and Plus. Invoice links come from alerts and emails.
+  const rc = path.match(/^\/payments\/receipt\/([a-z_]+)\/([\w-]+)$/);
+  if (path === "/payments/history" || rc) {
+    if (ready && !session) { go("/", true); return null; }
+    if (!session) return null;
+    return rc ? <ReceiptPage kind={rc[1]} id={rc[2]} /> : <HistoryPage />;
+  }
   const inv = path.match(/^\/invoice\/(\d+)$/);
   if (path === "/payments" || path === "/topup" || path === "/plus" || inv) {
     if (ready && !session) { go("/", true); return null; }

@@ -7,6 +7,7 @@ import { money, money2 } from "../lib/format";
 import { Icon, Loading, SearchPicker, StepHero, useToast } from "./kit";
 import { ActionBar } from "./Completion";
 import { AuthScreen } from "./Auth";
+import { HistList, glyph, savePdfDoc, useHistory } from "./History";
 import { stripeFor } from "../customer/Cards";
 
 /* How customers pay Mahi Man: pay as you go (invoiced by bank transfer), a top-up balance, or Plus.
@@ -166,12 +167,13 @@ export function PaymentsPage() {
   const [pick, setPick] = useState<"plan" | "payday" | "anchor" | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (p) { setPlan(p.plan); setPayday(p.payday); setAnchor(p.anchor); } }, [p]);
+  const histRows = useHistory("all", "all", 6);
   if (!p) return <Page title="Payments"><Waiting failed={failed} onRetry={reload} /></Page>;
 
   const plus = isPlus(p);
   const line = p.senior ? "Plus · no connection fee, as you're 60 or over"
     : plus ? `Plus · fees are ${p.rates.plus}%${p.plus_renew ? `, renews ${dayShort(p.plus_until!)}` : `, ends ${dayShort(p.plus_until!)}`}`
-    : p.balance > 0 ? `Credit · fees come off your ${money2(p.balance)} credit` : `Pay as you go · fees are ${p.rates.payg}%`;
+    : p.balance > 0 ? "Connection fees come off your credit first" : `Pay as you go · fees are ${p.rates.payg}%`;
   // Fortnightly needs to know which week: the next two of that weekday.
   const anchorOpts = [7, 14].map((n) => { const t = brisDate(); const d = new Date(t.getTime() + 86400_000 * (((payday - t.getUTCDay() + 7) % 7) || 7)); return new Date(d.getTime() + (n - 7) * 86400_000); });
   const dirty = plan !== p.plan || (plan !== "now" && payday !== p.payday) || (plan === "fortnightly" && anchor !== p.anchor);
@@ -182,6 +184,21 @@ export function PaymentsPage() {
     try { await rpc("set_payment_plan", { p_plan: plan, p_payday: payday, p_anchor: plan === "fortnightly" ? anchor : null }); toast("Saved"); reload(); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
+  const hist = histRows;
+  const tagC = <span className="ph-tag">Checking</span>, tagW = <span className="ph-tag">Not paid yet</span>;
+  const soon: { key: string; icon: ReactNode; title: string; sub: string; amount: number; tag: ReactNode; open?: () => void }[] = [
+    ...p.invoices.filter((i) => i.status !== "paid").map((i) => { const st = invState(i); return { key: `i${i.id}`, icon: Icon.doc("var(--ink)"), title: `Invoice ${i.number}`,
+      sub: st === "claimed" ? "We're checking your transfer" : `${st === "late" ? "Was due" : "Due"} ${dayShort(i.due_at)}`, amount: i.total,
+      tag: st === "claimed" ? tagC : st === "late" ? <span className="ph-tag late">Overdue</span> : <span className="ph-tag">Due</span>, open: () => go(`/invoice/${i.id}`) }; }),
+    ...p.topups.map((t) => ({ key: `t${t.id}`, icon: Icon.plus("var(--ink)"), title: "Top-up", sub: t.status === "claimed" ? "We're checking your transfer" : `Waiting for your transfer · ${t.reference}`,
+      amount: t.amount, tag: t.status === "claimed" ? tagC : tagW, open: () => go(`/topup?id=${t.id}`) })),
+    ...(p.plus_order && p.plus_order.status !== undefined ? [{ key: "plus", icon: Icon.star("var(--ink)"), title: "Mahi Man Plus", sub: p.plus_order.status === "claimed" ? "We're checking your transfer" : `Waiting for your transfer · ${p.plus_order.reference}`,
+      amount: p.plus_order.amount, tag: p.plus_order.status === "claimed" ? tagC : tagW, open: () => go("/plus") }] : []),
+    ...p.gifts.filter((g) => g.status === "requested" || g.status === "claimed").map((g) => ({ key: `g${g.id}`, icon: glyph("gift", "var(--ink)"), title: `Gift card for ${g.to}`,
+      sub: g.status === "claimed" ? "We're checking your transfer" : "Waiting for your transfer", amount: g.amount, tag: g.status === "claimed" ? tagC : tagW, open: () => go(`/gifts/${g.id}`) })),
+    ...(p.next.total > 0 ? [{ key: "next", icon: Icon.clock("var(--ink)"), title: "Next invoice", sub: `${p.next.lines.length} job${p.next.lines.length === 1 ? "" : "s"}${pd ? ` · ready ${dayShort(noonIso(new Date(pd.getTime() - 86400_000)))}` : ""}`,
+      amount: p.next.total, tag: null }] : []),
+  ];
   const stopPlus = async () => { try { await rpc("plus_stop"); toast("Plus won't renew"); reload(); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } };
 
   return (
@@ -197,68 +214,28 @@ export function PaymentsPage() {
         ) : <span className="t15 light">{line}</span>}
         <div className="row" style={{ gap: 10, marginTop: 12, flexWrap: "wrap" }}>
           <button className="btn primary small" onClick={() => go("/topup")}>Top up</button>
-          <button className="btn stone small" onClick={() => go("/gift")}>Buy a gift card</button>
-          <button className="btn stone small" onClick={() => go("/gift-code")}>Redeem a gift card</button>
           {plus && !p.senior && (p.plus_renew ? <button className="btn stone small" onClick={stopPlus}>Stop Plus</button>
             : <button className="btn stone small" onClick={() => go("/plus")}>Keep Plus</button>)}
         </div>
       </div>
 
-      {p.topups.map((t) => (
-        <button key={t.id} className="iv-wait" onClick={() => go(`/topup?id=${t.id}`)}>
-          <span className="stack" style={{ gap: 2, flex: 1, textAlign: "left" }}><span className="w5">{money(t.amount)} top-up</span>
-            <span className="t14 light muted">{t.status === "claimed" ? "Checking your transfer" : `Waiting for your transfer · ${t.reference}`}</span></span>
-          {Icon.chevron("var(--faint)")}
-        </button>
-      ))}
-
-      {p.gifts.length > 0 && (
-        <div className="cp-sec iv-band" style={{ gap: 0 }}>
-          <span className="cp-title">Gifts you've given</span>
-          {p.gifts.map((g) => (
-            <button key={g.id} className="iv-past" onClick={() => go(`/gifts/${g.id}`)}>
-              <span className="stack" style={{ gap: 2, flex: 1, textAlign: "left" }}><span className="w5">{money(g.amount)} for {g.to}</span>
-                <span className="t14 light muted">{g.redeemed ? "In their wallet" : g.status === "requested" ? "Waiting for your transfer" : g.status === "claimed" ? "Checking your transfer"
-                  : g.sent_at ? (g.send_by === "email" ? "Emailed" : "Sent") : `Sends ${dayShort(`${g.send_on}T02:00:00Z`)}`}</span></span>
-              {Icon.chevron("var(--faint)")}
+      {soon.length > 0 && (
+        <div className="cp-sec iv-band ph-sec">
+          <span className="cp-title">Coming up</span>
+          {soon.map((u) => (
+            <button key={u.key} className="ph-row" onClick={u.open} disabled={!u.open}>
+              <span className="ph-ic">{u.icon}</span>
+              <span className="ph-t"><span className="ph-name">{u.title}</span><span className="ph-sub">{u.sub}</span></span>
+              <span className="ph-r"><span className="ph-amt">{money2(u.amount)}</span>{u.tag}</span>
             </button>
           ))}
         </div>
       )}
 
-      {p.log.length > 0 && (
-        <div className="cp-sec iv-band" style={{ gap: 0 }}>
-          <span className="cp-title">Recent</span>
-          {p.log.slice(0, 5).map((l, i) => (
-            <div key={i} className="iv-past" style={{ cursor: "default" }}>
-              <span className="stack" style={{ gap: 2, flex: 1, textAlign: "left" }}><span>{l.kind === "gift_job" ? `${l.note}, paid to your worker` : l.kind === "fee" ? `${l.note}, fee` : l.note}</span><span className="t14 light muted">{dayShort(l.at)}</span></span>
-              <span className={l.delta > 0 ? "w5 em" : "w5"}>{l.delta > 0 ? "+" : "−"}{money2(Math.abs(l.delta))}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {p.next.total > 0 && (
-        <div className="cp-sec iv-band">
-          <span className="cp-title" style={{ margin: 0 }}>Next invoice</span>
-          <div className="iv-next-top"><span className="iv-big">{money2(p.next.total)}</span>
-            {pd && <span className="t15 light" style={{ textAlign: "right" }}>Ready {dayLong(noonIso(new Date(pd.getTime() - 86400_000)))}<br />Due {dayLong(noonIso(pd))}</span>}
-          </div>
-          {p.next.lines.map((l, i) => <div key={i} className="cp-row"><span>{dayShort(l.date)} · {l.job}{l.who ? ` · ${l.who}` : ""}</span><span>{money2(l.cents)}</span></div>)}
-        </div>
-      )}
-
-      {p.invoices.length > 0 && (
-        <div className="cp-sec iv-band" style={{ gap: 0 }}>
-          <span className="cp-title">Invoices</span>
-          {p.invoices.map((i) => (
-            <button key={i.id} className="iv-past" onClick={() => go(`/invoice/${i.id}`)}>
-              <span className="stack" style={{ gap: 2, flex: 1, textAlign: "left" }}><span className="w5">{money2(i.total)}</span><span className="t14 light muted">{i.status === "paid" ? `Issued ${dayShort(i.issued_at)}` : `Due ${dayShort(i.due_at)}`} · {i.number}</span></span>
-              <Badge s={invState(i)} />{Icon.chevron("var(--faint)")}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className="cp-sec iv-band ph-sec">
+        <div className="ph-head"><span className="cp-title" style={{ margin: 0 }}>History</span>{(hist?.length ?? 0) > 0 && <button className="ph-all" onClick={() => go("/payments/history")}>See all</button>}</div>
+        {!hist ? <Loading /> : hist.length ? <HistList rows={hist} /> : <p className="ph-none">Your payments will show here</p>}
+      </div>
 
       <div className="cp-sec iv-band" style={{ gap: 8, paddingBottom: "calc(var(--safe-bottom) + 28px)" }}>
         <span className="cp-title" style={{ margin: 0 }}>If your credit runs out</span>
@@ -372,17 +349,10 @@ async function savePdf(inv: InvoiceDetail) {
   if (inv.status === "paid") { doc.setFont("helvetica", "bold"); doc.text(`Paid ${dayLong(inv.paid_at ?? inv.due_at)}`, L, y); }
   else {
     doc.setFont("helvetica", "bold"); doc.text("Pay by bank transfer", L, y); y += 18; doc.setFont("helvetica", "normal");
-    [pay.payid ? `PayID: ${pay.payid}` : "", pay.bsb ? `BSB: ${fmtBsb(pay.bsb)}   Account: ${pay.account ?? ""}` : "", pay.account_name ? `Account name: ${pay.account_name}` : "", `Reference: ${inv.number}`]
+    [pay.account_name ? `Account name: ${pay.account_name}` : "", pay.bsb ? `BSB: ${fmtBsb(pay.bsb)}` : "", pay.account ? `Account number: ${pay.account}` : "", `Reference: ${inv.number}`]
       .filter(Boolean).forEach((t) => { doc.text(t, L, y); y += 15; });
   }
-  const name = `Mahi-Man-${inv.number}.pdf`;
-  if (Capacitor.isNativePlatform()) {
-    const { Filesystem, Directory } = await import("@capacitor/filesystem");
-    const { Share } = await import("@capacitor/share");
-    const data = doc.output("datauristring").split(",")[1];
-    const f = await Filesystem.writeFile({ path: name, data, directory: Directory.Cache });
-    await Share.share({ files: [f.uri], dialogTitle: "Save PDF" });
-  } else doc.save(name);
+  await savePdfDoc(doc, `Mahi-Man-${inv.number}.pdf`);
 }
 
 /* ---------- Top up ---------- */
