@@ -34,8 +34,8 @@ const USES: [string, string, string][] = [
 ];
 
 // Every answer here is how the platform actually works (the terms and privacy policy say the same). Fees and windows come from the live settings.
-type Fee = { pct: number; max: number; plus: number; tu: number; pl: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number; twin: number; tmonth: number; tquiet: number };
-const faq = (fee: Fee): [string, [string, string][]][] => [
+type Fee = { pct: number; max: number; plus: number; tu: number; pl: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number; twin: number; tmonth: number; tyear: number; tafter: number; tquiet: number };
+const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
   ["Getting help", [
     ["How fast can someone come?", "The moment you post, workers who are switched on near you get an alert. If nobody says they're keen within 10 minutes, workers further out can see your job too."],
     ["What jobs can I post?", "Cleaning, moving, pick-up and delivery, rubbish removal, garden, assembly, handyman, pets, errands, events, babysitting and tutoring, tech help, and anything else you need a hand with. No passenger transport."],
@@ -59,7 +59,9 @@ const faq = (fee: Fee): [string, [string, string][]][] => [
     ["How do I get a quote?", "Post the job with photos. Tradies send you a fixed quote, what it includes and when they can come. Select one, or say no to all of them."],
     ["Can I ask the tradie questions first?", "Yes. Message any tradie from their quote before you select one. Your number is never shared."],
     ["What does it cost me?", "Nothing to Mahi Man. You pay the tradie their quote directly when the job's done."],
-    ["I'm a tradie. How does it work?", `Join free and pay ${money(fee.twin)} only when a customer selects your quote. Or pay ${money(fee.tmonth)} a month: no fee when you win, and you see every new job first. You keep 100% of the job.`],
+    ["I'm a tradie. How does it work?", <>Join free and get job alerts on your phone. You pay {money(fee.twin)} only when a customer selects your quote, and no commission ever.
+      Or go Premium for {money(fee.tmonth)} a month or {money(fee.tyear)} a year: instant alerts and no job fees. Free members get new jobs up to {fee.tafter === 60 ? "1 hour" : `${fee.tafter} minutes`} later.{" "}
+      <a href="/tradies" onClick={(e) => { e.preventDefault(); go("/tradies"); }} style={{ color: "var(--emerald)", fontWeight: 500 }}>See the tradie page</a></>],
     ["What if the customer goes quiet?", `Your quote stays open for ${fee.tquiet} hours. Sending a quote is free, so there's nothing to get back. No contract.`],
   ]],
   ["Cancelling: customers", [
@@ -107,16 +109,16 @@ export function Landing() {
   useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
   // The connection fee customers pay from launch, from the live settings.
-  const [fee, setFee] = useState<Fee>({ pct: 12, max: 3000, plus: 9900, tu: 20, pl: 6, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, twin: 9900, tmonth: 24900, tquiet: 48 });
+  const [fee, setFee] = useState<Fee>({ pct: 12, max: 3000, plus: 9900, tu: 20, pl: 6, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, twin: 9900, tmonth: 24900, tyear: 249900, tafter: 60, tquiet: 48 });
   useEffect(() => {
     sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "plus_year_cents", "topup_bonus_percent", "plus_fee_percent", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
       "noshow_wait_minutes", "worker_cancel_window_minutes", "strikes_offline_30", "offline_days", "strikes_review_90", "customer_late_cancels_30",
-      "trade_win_fee_cents", "trade_premium_month_cents", "trade_quiet_hours"]).then(({ data }) => {
+      "trade_win_fee_cents", "trade_premium_month_cents", "trade_premium_year_cents", "trade_standard_after_minutes", "trade_quiet_hours"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
       setFee((f) => ({ pct: m.booking_fee_percent || f.pct, max: m.booking_fee_max_cents || f.max, plus: m.plus_year_cents || f.plus, tu: m.topup_bonus_percent || f.tu, pl: m.plus_fee_percent || f.pl,
         cancel: m.cancel_fee_cents || f.cancel, soon: m.worker_late_cancel_cents || f.soon, late: m.late_minutes || f.late, wait: m.noshow_wait_minutes || f.wait,
         window: m.worker_cancel_window_minutes || f.window, s30: m.strikes_offline_30 || f.s30, off: m.offline_days || f.off, s90: m.strikes_review_90 || f.s90,
-        lc30: m.customer_late_cancels_30 || f.lc30, twin: m.trade_win_fee_cents || f.twin, tmonth: m.trade_premium_month_cents || f.tmonth, tquiet: m.trade_quiet_hours || f.tquiet }));
+        lc30: m.customer_late_cancels_30 || f.lc30, twin: m.trade_win_fee_cents || f.twin, tmonth: m.trade_premium_month_cents || f.tmonth, tyear: m.trade_premium_year_cents || f.tyear, tafter: m.trade_standard_after_minutes || f.tafter, tquiet: m.trade_quiet_hours || f.tquiet }));
     });
   }, []);
   const [open, setOpen] = useState<{ id: string; job_name: string; category: string | null; icon: string; suburb: string; asap: boolean; pay_cents: number }[]>([]);
@@ -232,14 +234,15 @@ export function Landing() {
   );
 }
 
-function LdLinks() {
+export function LdLinks({ cta }: { cta?: React.ReactNode }) {
   const urls = useStores();
   return (
     <>
-      <nav className="ld-links"><a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a></nav>
-      {urls && STORES.some(([, k]) => urls[k])
+      <nav className="ld-links"><a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a>
+        {location.pathname !== "/tradies" && <a className="ld-tr" href="/tradies" onClick={(e) => { e.preventDefault(); go("/tradies"); }}>For tradies</a>}</nav>
+      {cta ?? (urls && STORES.some(([, k]) => urls[k])
         ? <StoreBadges small />
-        : <a className="btn small ld-nav-cta" href="#app" onClick={(e) => { e.preventDefault(); if (document.getElementById("app")) toApp(); }}>Join the launch</a>}
+        : <a className="btn small ld-nav-cta" href="#app" onClick={(e) => { e.preventDefault(); if (document.getElementById("app")) toApp(); }}>Join the launch</a>)}
     </>
   );
 }
@@ -303,8 +306,6 @@ const APPLE_ICON = (
     <path d="M16.37 12.6c-.02-2.3 1.88-3.4 1.97-3.46-1.07-1.57-2.74-1.78-3.33-1.8-1.42-.14-2.77.83-3.49.83-.72 0-1.83-.81-3.01-.79-1.55.02-2.98.9-3.78 2.29-1.61 2.8-.41 6.94 1.16 9.21.77 1.11 1.68 2.36 2.88 2.31 1.16-.05 1.59-.75 2.99-.75 1.4 0 1.79.75 3.01.72 1.24-.02 2.03-1.13 2.79-2.25.88-1.29 1.24-2.53 1.26-2.6-.03-.01-2.42-.93-2.45-3.71zM14.08 5.85c.64-.77 1.07-1.85.95-2.92-.92.04-2.03.61-2.69 1.38-.59.68-1.11 1.77-.97 2.82 1.03.08 2.07-.52 2.71-1.28z" />
   </svg>
 );
-const isIos = () => /iPhone|iPad|iPod/.test(navigator.userAgent);
-const isAndroid = () => /Android/.test(navigator.userAgent);
 
 export function StoreBadges({ small, stack }: { small?: boolean; stack?: boolean }) {
   const urls = useStores();
@@ -312,13 +313,13 @@ export function StoreBadges({ small, stack }: { small?: boolean; stack?: boolean
   const apple = urls.app_store_url ? { href: urls.app_store_url, top: "Download on the", name: "App Store" }
     : urls.testflight_url ? { href: urls.testflight_url, top: "iPhone beta on", name: "TestFlight" } : null;
   const play = urls.play_store_url ? { href: urls.play_store_url, top: "Get it on", name: "Google Play" } : null;
-  // Phones see their own store first; in the small header version, only that one.
-  const showPlay = play && !(small && isIos());
-  const showApple = apple && !(small && isAndroid());
+  // Both stores always show, Google Play first. In the header on a phone they shrink to the store logos.
+  const showPlay = play;
+  const showApple = apple;
   return (
     <span className={`ld-badges${small ? " small" : ""}${stack ? " stack" : ""}`}>
-      {showPlay && <a className="ld-badge" href={play.href} target="_blank" rel="noopener">{PLAY_ICON}<span><small>{play.top}</small><b>{play.name}</b></span></a>}
-      {showApple && <a className="ld-badge" href={apple.href} target="_blank" rel="noopener">{APPLE_ICON}<span><small>{apple.top}</small><b>{apple.name}</b></span></a>}
+      {showPlay && <a className="ld-badge" href={play.href} target="_blank" rel="noopener" aria-label={`${play.top} ${play.name}`}>{PLAY_ICON}<span><small>{play.top}</small><b>{play.name}</b></span></a>}
+      {showApple && <a className="ld-badge" href={apple.href} target="_blank" rel="noopener" aria-label={`${apple.top} ${apple.name}`}>{APPLE_ICON}<span><small>{apple.top}</small><b>{apple.name}</b></span></a>}
     </span>
   );
 }
@@ -337,6 +338,7 @@ export function SiteFooter() {
         <nav className="ld-foot-col">
           <b>Mahi Man</b>
           <a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a>
+          <a href="/tradies" onClick={nav("/tradies")}>For tradies</a>
           <a href="/partners" onClick={nav("/partners")}>Partner with us</a>
           <a href="/gift" onClick={nav("/gift")}>Buy a gift card</a>
           <a href="/support" onClick={nav("/support")}>Help</a>

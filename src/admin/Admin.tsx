@@ -1233,7 +1233,7 @@ function Types() {
 const FEE_LABEL: Record<string, string> = { paid: "paid", refunded: "refunded", due: "due", invoice: "when it goes ahead", invoiced: "invoiced" };
 
 // Settings in groups, each with a plain explanation. Money is shown in dollars; nothing saves until Save.
-type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" | "jobs" | "tradies" | "km" } | { t: "text"; ph: string });
+type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" | "jobs" | "tradies" | "km" | "seats" } | { t: "text"; ph: string });
 const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   { title: "Payments", text: "Customers pay workers directly. The connection fee is billed when a job goes ahead, and paid by bank transfer on an invoice or from their balance.", fields: [
     { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash, and Mahi Man fees are invoiced. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
@@ -1290,6 +1290,9 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "trade_win_fee_cents", label: "Per job won", t: "num", unit: "$" },
     { k: "trade_premium_month_cents", label: "Monthly", t: "num", unit: "$" },
     { k: "trade_premium_year_cents", label: "Yearly", t: "num", unit: "$" },
+    { k: "trade_lifetime_cents", label: "Lifetime, launch offer", hint: "Pay once, Premium for life. Shown on mahiman.app/tradies.", t: "num", unit: "$" },
+    { k: "trade_lifetime_seats", label: "Lifetime seats", t: "num", unit: "seats" },
+    { k: "trade_lifetime_sold", label: "Lifetime seats sold", hint: "The tradie page shows the seats left and hides the offer once they're all sold.", t: "num", unit: "seats" },
     { k: "trade_first_quotes", label: "Quotes a job takes at first", hint: "Tradespeople paying monthly quote first.", t: "num", unit: "tradies" },
     { k: "trade_more_quotes", label: "More quotes that open", t: "num", unit: "tradies" },
     { k: "trade_more_every_minutes", label: "More quotes open every", hint: "Until the customer selects one.", t: "num", unit: "minutes" },
