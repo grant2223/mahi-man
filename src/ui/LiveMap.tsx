@@ -26,7 +26,11 @@ export function loadMapKit(): Promise<MK | null> {
     const mk = window.mapkit!;
     mk.init({ authorizationCallback: (done: (t: string) => void) => { api<{ token: string | null }>("map_token").then((x) => x.token && done(x.token)); }, language: "en-AU" });
     return mk;
-  })().catch(() => null);
+  })().catch(() => null).then((mk) => {
+    // A failed load (no signal, token not ready) isn't remembered, so the next map tries again.
+    if (!mk) window.__mkReady = undefined;
+    return mk;
+  });
   return window.__mkReady;
 }
 

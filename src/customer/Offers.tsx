@@ -14,7 +14,7 @@ import { useSession } from "../lib/session";
 import { api } from "../lib/supabase";
 import { money2 } from "../lib/format";
 import { VerifyFlow } from "../ui/Verify";
-import { PostedView } from "./Posted";
+import { JobLine, PostedView, postedAgo, useJobLook } from "./Posted";
 
 export interface Offer {
   worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_done: number;
@@ -58,6 +58,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
   const shown = (offers ?? []).filter((o) => new Date(o.expires_at).getTime() > now);
   const [widenMin, setWidenMin] = useState(30);
   const onPlus = !!me?.plus_until && new Date(me.plus_until) > new Date();
+  const look = useJobLook(jobId);
   useEffect(() => {
     sb.from("settings").select("key,value").in("key", ["widen_after_minutes"]).then(({ data }) => (data ?? []).forEach((r) => setWidenMin(Number(r.value))));
   }, []);
@@ -202,6 +203,63 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
       {verifying && <VerifyFlow onClose={() => { setVerifying(false); reload(); }} />}
     </>
   );
+
+  // Nobody free after 10 minutes: the same look as the posted screen, ways to get it taken faster, and Share, Cancel, Home. No clock.
+  if (!shown.length && stuck) {
+    const shareJob = async () => {
+      const r = await shareLink(`Paid job on Mahi Man: ${title}, ${price}. Workers keep 100%.`, `${SITE}/work`);
+      if (r === "copied") toast("Link copied. Paste it in a message.");
+    };
+    return (
+      <div className="app ps cx" style={{ background: "var(--card)" }}>
+        <section className="hero ps-hero">
+          <div className="hero-top"><button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button></div>
+          <h1 className="ps-h">Nobody's free yet.</h1>
+          <JobLine photo={look.photo} title={title} parts={[price, look.suburb, asap ? "As soon as possible" : startAt ? dayTime(startAt) : ""]} />
+          <span className="cx-when">{postedAgo(searchingAt)}</span>
+        </section>
+        <div className="rs">
+          <h2>Get it taken faster</h2>
+          <p>Workers near you are busy right now. Any one of these usually gets an answer in minutes.</p>
+          <div className="rs-opt">
+            <span className="t"><b>Pay {money(RAISE)} more</b><small>{money(priceCents + RAISE)} instead of {money(priceCents)}. Higher prices get taken faster.</small></span>
+            <button className="btn rs-gold" disabled={rescueBusy} onClick={() => rescue(() => rpc("raise_job_price", { p_job: jobId, p_add_cents: RAISE }), `Now ${money(priceCents + RAISE)}.`)}>Add {money(RAISE)}</button>
+          </div>
+          {asap && (
+            <div className="rs-opt">
+              <span className="t"><b>Pick a time instead</b><small>More people are free later today or tomorrow.</small></span>
+              <button className="btn stone" disabled={rescueBusy} onClick={() => setPickWhen("day")}>Pick a time</button>
+            </div>
+          )}
+          {!onPlus && (
+            <div className="rs-opt">
+              <span className="t"><b>Join Plus</b><small>This job goes to workers nearby straight away, and every job after.</small></span>
+              <button className="btn stone" onClick={() => go("/plus")}>See Plus</button>
+            </div>
+          )}
+          {unverified && (
+            <div className="rs-opt">
+              <span className="t"><b>Verify your ID</b><small>Workers pick verified customers first. It takes about 2 minutes.</small></span>
+              <button className="btn stone" onClick={() => setVerifying(true)}>Verify</button>
+            </div>
+          )}
+        </div>
+        <div style={{ flex: 1 }} />
+        <div className="ps-foot">
+          <div className="ps-btns three">
+            <button className="btn stone" onClick={shareJob}>{Icon.share("currentColor")}Share</button>
+            <button className="btn out" onClick={onCancel}>{Icon.cancel("currentColor")}Cancel</button>
+            <button className="btn primary" onClick={() => go("/", true)}>{Icon.home("currentColor")}Home</button>
+          </div>
+        </div>
+        {pickWhen === "day" && <SearchPicker title="Which day?" placeholder="Search" value={[]} options={days} onClose={() => setPickWhen(null)}
+          onChange={(v) => { setDay(String(v[0])); setPickWhen("time"); }} />}
+        {pickWhen === "time" && <SearchPicker title="What time?" placeholder="Search" value={[]} options={times(day)} onClose={() => setPickWhen(null)}
+          onChange={(v) => { setPickWhen(null); rescue(() => rpc("set_job_time", { p_job: jobId, p_start_at: new Date(`${day}T${v[0]}`).toISOString() }), "Time set."); }} />}
+        {verifying && <VerifyFlow onClose={() => { setVerifying(false); reload(); }} />}
+      </div>
+    );
+  }
 
   return (
     <div className="app" style={{ background: "var(--card)" }}>

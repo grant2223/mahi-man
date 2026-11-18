@@ -184,7 +184,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     <>
       <section className="hero" style={{ paddingBottom: j.status === "accepted" && (onWay || j.arrived_at) ? 24 : 96 }}>
         <div className="hero-top">
-          <span className="t17 w5">{jobName}</span>
+          <span className="row" style={{ gap: 10, minWidth: 0 }}><button className="cx-back" onClick={onLeave} aria-label="Back to jobs">{Icon.back("#fff")}</button><span className="t17 w5">{jobName}</span></span>
           {/* Safety, the way Uber does it: a quiet shield, not a red button. It opens Call 000. */}
           <button className="wj-safety" onClick={() => setScreen("emergency")} aria-label="Safety">{Icon.shield("#fff")}<span>Safety</span></button>
         </div>
@@ -470,7 +470,8 @@ function CodeScreen({ jobId, name, onBack, onDone }: { jobId: string; name: stri
         {err && <p className="err">{err}</p>}
         <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>
           <button className="btn primary" disabled={code.length !== 4} onClick={async () => {
-            try { await rpc("start_job", { p_job: jobId, p_code: code }); onDone(); } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
+            // A wrong code comes back as a message (and counts towards the 5-try lockout); "ok" means started.
+            try { const r = await rpc<string>("start_job_code", { p_job: jobId, p_code: code }); if (r === "ok") onDone(); else { setErr(r); setCode(""); } } catch (e) { setErr(e instanceof Error ? e.message : String(e)); }
           }}>Start job</button>
         </div>
       </div>

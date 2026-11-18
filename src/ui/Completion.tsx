@@ -15,7 +15,7 @@ export function DoneHero({ jobName, label, big, lime, sub, step }: { jobName: st
   return (
     <section className="hero cp-hero">
       <div className="hero-top cp-top">
-        <span className="brand"><Logo /> Mahi Man</span>
+        <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
         <span className="jn">{jobName}</span>
       </div>
       <span className="label" style={{ marginTop: 18 }}>{label}</span>
@@ -279,7 +279,7 @@ export function DisputeView({ job, jobName, otherName, isWorker, onChanged, foot
     <div className="app">
       <section className="hero cp-hero">
         <div className="hero-top cp-top">
-          <span className="brand"><Logo /> Mahi Man</span>
+          <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
           <span className="jn">{jobName}</span>
         </div>
         <span className="label" style={{ marginTop: 18 }}>{d.resolved ? "Decided" : "We're looking into it"}</span>

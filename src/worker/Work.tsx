@@ -440,7 +440,7 @@ function WaitingScreen({ o, onWithdraw, onClose }: { o: MyOffer; onWithdraw: () 
     <div className="screen" role="dialog" aria-label="Waiting to be chosen" style={{ background: "var(--card)" }}>
       <section className="hero cp-hero" style={{ paddingBottom: 26 }}>
         <div className="hero-top cp-top">
-          <span className="brand"><Logo /> Mahi Man</span>
+          <button className="brand" onClick={onClose}><Logo /> Mahi Man</button>
           <span className="jn">{o.title}, {money(o.pay_cents)}</span>
         </div>
         <span className="label" style={{ marginTop: 18 }}>Waiting for {o.customer_name} to choose</span>

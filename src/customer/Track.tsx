@@ -6,7 +6,7 @@ import { useRules } from "../lib/rules";
 import { go } from "../lib/router";
 import { elapsed, firstName, initials, money, money2 } from "../lib/format";
 import { Icon, Loading, Logo, Perf, Screen, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
-import { JobLine, useJobLook } from "./Posted";
+import { JobLine, postedAgo, useJobLook } from "./Posted";
 import { ReportScreen as ReportUser } from "../ui/Report";
 import { ChatScreen } from "../ui/Chat";
 import { PayScreen } from "./Pay";
@@ -503,12 +503,6 @@ const hm = (d: string | null | undefined) => d ? new Date(d).toLocaleTimeString(
 // Free cancels are counted: too many in 30 days pauses posting (Admin sets both numbers).
 const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 const longWhen = (d: string) => `${hm(d)}, ${new Date(d).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}`;
-const ago = (d: string) => {
-  const m = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 60000));
-  const today = new Date(d).toDateString() === new Date().toDateString();
-  const span = m < 1 ? "just now" : m < 60 ? `${m} minute${m === 1 ? "" : "s"} ago` : m < 1440 ? `${Math.round(m / 60)} hour${Math.round(m / 60) === 1 ? "" : "s"} ago` : `${Math.round(m / 1440)} days ago`;
-  return `Posted ${hm(d)}${today ? " today" : `, ${new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}`} · ${span}`;
-};
 interface CancelDone { cancelled_at: string; reason: string; charged: number; cancels_30: number; cancel_limit: number; paused_until: string | null; told: string | null }
 
 function CancelScreen({ job, title, onBack, onDone }: { job: Job; title: string; onBack: () => void; onDone: () => void }) {
@@ -614,7 +608,7 @@ function CancelScreen({ job, title, onBack, onDone }: { job: Job; title: string;
           <div className="hero-top"><button className="cx-back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button></div>
           <h1 className="ps-h">Cancel this job?</h1>
           {line}
-          {t.posted_at && <span className="cx-when">{ago(t.posted_at)}</span>}
+          {t.posted_at && <span className="cx-when">{postedAgo(t.posted_at)}</span>}
         </section>
         <div className="cx-sec">
           <h2>What happens</h2>
