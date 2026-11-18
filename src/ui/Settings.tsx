@@ -57,7 +57,7 @@ function jobLine(j: HubJob): string {
     case "accepted": return j.on_way ? `${w} is on the way` : `${w} is booked`;
     case "in_progress": return `${w} is there now`;
     case "finished": return "Done, check and confirm";
-    case "confirmed": return `Done · ${money(j.total)}`;
+    case "confirmed": return `Done, ${money(j.total)}`;
     case "disputed": return "Being sorted";
     case "refunded": return "Refunded";
     default: return "";
@@ -183,7 +183,7 @@ export function Settings() {
         </section>
         <section className="pr-sec">
           <h2>Your money<button onClick={() => go("/payments")}>History</button></h2>
-          <div className="pr-bal"><b>{money(bal)}</b><small>{gift > 0 ? `credit · gift card ${money(gift)}` : "credit"}</small></div>
+          <div className="pr-bal"><b>{money(bal)}</b><small>{gift > 0 ? `credit, gift card ${money(gift)}` : "credit"}</small></div>
           <button className="pr-line" onClick={() => go("/topup")}>{I.plus()}<span><b>Top up</b></span></button>
           <button className="pr-line" onClick={() => go("/gift")}>{I.gift()}<span><b>Buy a gift card</b></span></button>
           <button className="pr-line" onClick={() => go("/gift-code")}>{I.ticket()}<span><b>Redeem a gift card</b></span></button>

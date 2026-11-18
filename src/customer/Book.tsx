@@ -351,7 +351,7 @@ export function Book() {
 
             {/* The job and when. */}
             <button className="ck-head" onClick={() => go("/book/details")}>
-              <span className="k">{typeNames} · Check and post</span>
+              <span className="k">{typeNames}, Check and post</span>
               <b>{jobName}</b>
               <span className="w">{when}</span>
             </button>

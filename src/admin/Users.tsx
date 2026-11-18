@@ -139,9 +139,9 @@ export function UsersPage({ detail }: { detail: (row: UserRow, back: () => void,
     <div className="ov">
       <div className="ov-top"><h1>Users</h1>
         {tab !== "all" && <div className="mu-when">
-          <button className="mu-drop" onClick={() => setPick("period")}><span className="k">Showing</span><span className="v">{pLabel}<span className="rg"> · {rangeLabel(range)}</span></span></button>
+          <button className="mu-drop" onClick={() => setPick("period")}><span className="k">Showing</span><span className="v">{pLabel}<span className="rg">, {rangeLabel(range)}</span></span></button>
           {tab !== "who" && <button className="mu-drop" onClick={() => setPick("compare")} disabled={period === "all"}><span className="k">Compared to</span>
-            <span className="v">{cmp ? `${COMPARES.find(([k]) => k === cmpId)![1]} · ${rangeLabel(cmp)}` : "Nothing"}</span></button>}
+            <span className="v">{cmp ? `${COMPARES.find(([k]) => k === cmpId)![1]}, ${rangeLabel(cmp)}` : "Nothing"}</span></button>}
         </div>}
       </div>
       <div className="mu-tabs">
@@ -198,14 +198,14 @@ function Summary({ rep, pLabel, cmpOn, cmpLabel }: { rep: Report | null; pLabel:
           <div><b>{n.online}</b><span>Workers online</span><small>of {n.approved} approved</small></div>
           <div><b>{n.in_app}</b><span>Customers in the app</span><small>Opened in the last 15 min</small></div>
           <div><b>{n.waiting}</b><span>Jobs waiting for a worker</span><small>{n.waiting ? `Longest ${n.longest} min` : "No one waiting"}</small></div>
-          <div><b>{n.today_c + n.today_w}</b><span>Signed up today</span><small>{n.today_c} customers · {n.today_w} workers</small></div>
+          <div><b>{n.today_c + n.today_w}</b><span>Signed up today</span><small>{n.today_c} customers, {n.today_w} workers</small></div>
         </div>
       </section>
 
       <section className="ov-sec ov-first">
         <div className="ov-h"><h2>{pLabel}</h2><span>{cmpOn ? `Compared to ${cmpLabel}` : ""}</span></div>
         <div className="mu-kpis">
-          <div className="mu-kpi"><span className="t">Sign-ups</span><b>{fmt(c.signups)}</b><Delta cur={c.signups} prev={k("signups")} /><DeltaShort cur={c.signups} prev={k("signups")} /><small>{c.signups_c} customers · {c.signups_w} workers</small></div>
+          <div className="mu-kpi"><span className="t">Sign-ups</span><b>{fmt(c.signups)}</b><Delta cur={c.signups} prev={k("signups")} /><DeltaShort cur={c.signups} prev={k("signups")} /><small>{c.signups_c} customers, {c.signups_w} workers</small></div>
           <div className="mu-kpi"><span className="t">Opened the app</span><b>{fmt(c.opened)}</b><Delta cur={c.opened} prev={k("opened")} /><DeltaShort cur={c.opened} prev={k("opened")} /><small>Different people, at least once</small></div>
           <div className="mu-kpi"><span className="t">Opened it most days</span><b>{c.most_days == null ? "—" : `${c.most_days}%`}</b><Delta cur={c.most_days} prev={k("most_days")} pct /><DeltaShort cur={c.most_days} prev={k("most_days")} /><small>Daily users out of all users</small></div>
           <div className="mu-kpi"><span className="t">Booked a job</span><b>{fmt(c.booked)}</b><Delta cur={c.booked} prev={k("booked")} /><DeltaShort cur={c.booked} prev={k("booked")} /><small>Customers who posted and got a worker</small></div>
@@ -236,9 +236,9 @@ function Summary({ rep, pLabel, cmpOn, cmpLabel }: { rep: Report | null; pLabel:
       <section className="ov-sec">
         <div className="ov-h"><h2>From download to first job</h2><span>{pLabel}</span></div>
         <div className="mu-fun">
-          {([["Opened the app", f.opened, f.opened >= f.signed && f.opened ? `${f.ios} iPhone · ${f.android} Android` : "App opens are counted from this update on"],
+          {([["Opened the app", f.opened, f.opened >= f.signed && f.opened ? `${f.ios} iPhone, ${f.android} Android` : "App opens are counted from this update on"],
              ["Signed up", f.signed, f.opened >= f.signed && f.opened ? `${Math.round((f.signed / f.opened) * 100)}% of people who opened it` : ""],
-             ["Account complete", f.complete, f.signed ? `Photo and ID done · ${Math.round((f.complete / f.signed) * 100)}%` : "Photo and ID done"],
+             ["Account complete", f.complete, f.signed ? `Photo and ID done, ${Math.round((f.complete / f.signed) * 100)}%` : "Photo and ID done"],
              ["Booked or worked a job", f.used, f.complete ? `${Math.round((f.used / f.complete) * 100)}% of complete accounts` : ""]] as [string, number, string][]).map(([l, v, s2]) => {
             const top = Math.max(f.opened, f.signed, 1);
             return <div key={l} className="mu-fr"><span className="l">{l}</span><span className="track"><i style={{ width: `${Math.max((v / top) * 100, v ? 4 : 0)}%`, padding: v ? undefined : 0 }}>{v > 0 && <b>{v}</b>}</i>{v === 0 && <b className="zero">0</b>}</span><small>{s2}</small></div>;

@@ -18,11 +18,11 @@ export const heart = (on: boolean, c = "var(--gold)") => (
 
 function Row({ p, onToggle }: { p: Person; onToggle: (p: Person) => void }) {
   const pic = avatarUrl(p.photo_path);
-  const sub = [p.jobs_for_me ? `${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` : null, p.does.slice(0, 2).join(", ")].filter(Boolean).join(" · ");
+  const sub = [p.jobs_for_me ? `${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` : null, p.does.slice(0, 2).join(", ")].filter(Boolean).join(", ");
   return (
     <div className="yp-row">
       <button className="yp-pic" style={pic ? { backgroundImage: `url("${pic}")` } : undefined} onClick={() => go(`/w/${p.worker_id}`)} aria-label={`${p.name}'s page`}>{!pic && p.first.charAt(0)}</button>
-      <button className="yp-who" onClick={() => go(`/w/${p.worker_id}`)}><b>{cardName(p.name)}{p.verified && <GoldTick s={18} />}</b><span>{p.online && <em>Available now</em>}{p.online && sub ? " · " : ""}{sub}</span></button>
+      <button className="yp-who" onClick={() => go(`/w/${p.worker_id}`)}><b>{cardName(p.name)}{p.verified && <GoldTick s={18} />}</b><span>{p.online && <em>Available now</em>}{p.online && sub ? ", " : ""}{sub}</span></button>
       <button className={p.saved ? "yp-save on" : "yp-save"} onClick={() => onToggle(p)} aria-label={p.saved ? "Remove from saved" : "Save"}>{heart(p.saved)}</button>
       <button className="btn primary small" onClick={() => go(`/w/${p.worker_id}/book`)}>Book</button>
     </div>

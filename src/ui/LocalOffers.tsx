@@ -23,7 +23,7 @@ export const TagIcon = ({ c = "#fff", s = 26 }: { c?: string; s?: number }) => (
   <svg width={s} height={s} viewBox="0 0 24 24" {...S} stroke={c} aria-hidden="true"><path d="M3 12V4h8l10 10-8 8z" /><circle cx="7.5" cy="8.5" r="1.4" /></svg>
 );
 
-const where = (o: PartnerOffer) => [o.business, o.km != null ? `${o.km} km` : o.suburb].filter(Boolean).join(" · ");
+const where = (o: PartnerOffer) => [o.business, o.km != null ? `${o.km} km` : o.suburb].filter(Boolean).join(", ");
 const Pic = ({ o, w, h }: { o: PartnerOffer; w: number | string; h: number }) => {
   const url = brandUrl(o.photo);
   return url ? <img src={url} alt="" style={{ width: w, height: h, objectFit: "cover", display: "block", borderRadius: 4, flex: "none" }} />
@@ -112,7 +112,7 @@ export function OfferDetail({ id }: { id: number }) {
       <Pic o={o} w="100%" h={190} />
       <div className="cp-sec">
         <span style={{ fontSize: 28, fontWeight: 600, letterSpacing: -0.8, lineHeight: 1.1 }}>{o.title}</span>
-        <span className="t15 light muted">{[o.type, [o.address, o.suburb].filter(Boolean).join(", "), o.km != null ? `${o.km} km` : null].filter(Boolean).join(" · ")}</span>
+        <span className="t15 light muted">{[o.type, [o.address, o.suburb].filter(Boolean).join(", "), o.km != null ? `${o.km} km` : null].filter(Boolean).join(", ")}</span>
       </div>
       {o.code && (
         <button className="cp-sec" onClick={() => { used(); navigator.clipboard?.writeText(o.code!).then(() => toast("Code copied"), () => {}); }}

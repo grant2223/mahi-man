@@ -202,7 +202,7 @@ export function TradeFeed({ trade, jobs, quotes = [], onQuote, covers, onBack, o
             <div className="fa-pic" style={o.cover_path && covers[o.cover_path] ? { backgroundImage: `url("${covers[o.cover_path]}")` } : undefined} />
             <div className="fa-body">
               <b>{o.job_name}</b>
-              <span className="fa-meta">{o.suburb}, {o.distance_km} km · {when(o)}</span>
+              <span className="fa-meta">{o.suburb}, {o.distance_km} km, {when(o)}</span>
               <div className="fa-foot"><span /><button className="btn primary small" onClick={(e) => { e.stopPropagation(); onOpen(o); }}>Send quote</button></div>
             </div>
           </div>
@@ -266,7 +266,7 @@ export function TradeJob({ o, trade, onBack, onSent, onGone, onCreds }: { o: Off
         </div>
         <div className="fq-body">
           <h1 className="fq-t">{o.job_name}</h1>
-          <span className="fa-meta">{o.suburb}, {o.distance_km} km · {when(o)}</span>
+          <span className="fa-meta">{o.suburb}, {o.distance_km} km, {when(o)}</span>
           <p className="fq-d">{o.details}</p>
           {o.customer_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}{o.customer_name}, ID verified</span> : <span className="t15 light muted">{o.customer_name}</span>}
         </div>

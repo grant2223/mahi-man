@@ -66,7 +66,7 @@ export function HistRowView({ r }: { r: HistRow }) {
     <button className="ph-row" onClick={() => openRow(r)}>
       <span className="ph-ic">{glyph(r.kind, r.flow === "in" ? "var(--emerald)" : "var(--ink)")}</span>
       <span className="ph-t"><span className="ph-name">{r.title}</span>
-        <span className="ph-sub">{day(r.at)} · {r.note ?? viaText[r.via]}</span></span>
+        <span className="ph-sub">{day(r.at)}, {r.note ?? viaText[r.via]}</span></span>
       <span className="ph-r"><span className={r.flow === "in" ? "ph-amt in" : "ph-amt"}>{amt}</span>{tag(r.status)}</span>
     </button>
   );

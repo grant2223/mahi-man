@@ -90,7 +90,7 @@ function NewBroadcast({ onSent }: { onSent: () => void }) {
       const v = f[k as keyof F]; if (v != null && v !== "" && !(Array.isArray(v) && !v.length) && v !== false) parts.push(k === "booked" ? `Booked ${name(k).toLowerCase()}` : k === "last_in" ? `In the app ${name(k).toLowerCase()}` : k === "signed" ? `Signed up ${name(k).toLowerCase()}` : name(k));
     });
     if (kind === "offer") parts.push("Offers on");
-    return parts.join(" · ");
+    return parts.join(", ");
   }, [f, kind, areas, suburbs, skills]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const opts = (k: Key): Option[] => {
@@ -166,7 +166,7 @@ function NewBroadcast({ onSent }: { onSent: () => void }) {
           </div>
           <div className="mb-reach">
             <b>{count ? `${fmt(count.sendable)} ${count.sendable === 1 ? "person" : "people"}` : "…"}</b>
-            <span>{count ? [`${count.push} get an alert on their phone`, email && count.email ? `${count.email} by email only` : "", !email && count.none ? `${count.none} only see it in the app` : "", count.skipped ? `${count.skipped} skipped` : ""].filter(Boolean).join(" · ") : "Counting"}</span>
+            <span>{count ? [`${count.push} get an alert on their phone`, email && count.email ? `${count.email} by email only` : "", !email && count.none ? `${count.none} only see it in the app` : "", count.skipped ? `${count.skipped} skipped` : ""].filter(Boolean).join(", ") : "Counting"}</span>
             {!!count?.sendable && <button className="btn stone small" onClick={() => setSeeWho(true)}>See who</button>}
           </div>
         </section>
@@ -182,8 +182,8 @@ function NewBroadcast({ onSent }: { onSent: () => void }) {
         <section className="mb-step">
           <div className="row between"><h2>The message</h2><button className="btn stone small" disabled={!title.trim() || !body.trim()} onClick={() => setNaming("template")}>Save as a template</button></div>
           {tpl.length > 0 && <button className="field sel" onClick={() => setPick("template")}><span className="k">Start from a template</span><span className="v">Pick one</span></button>}
-          <label className="field"><span className="k">Title · {title.length} of 50</span><input value={title} maxLength={50} onChange={(e) => setTitle(e.target.value)} placeholder="Rain's cleared. Lawns booked today" /></label>
-          <label className="field mb-body"><span className="k">Message · {body.length} of 150</span><textarea value={body} maxLength={150} onChange={(e) => setBody(e.target.value)} placeholder="Book a mow by 9am and a local worker will have it done this afternoon." /></label>
+          <label className="field"><span className="k">Title, {title.length} of 50</span><input value={title} maxLength={50} onChange={(e) => setTitle(e.target.value)} placeholder="Rain's cleared. Lawns booked today" /></label>
+          <label className="field mb-body"><span className="k">Message, {body.length} of 150</span><textarea value={body} maxLength={150} onChange={(e) => setBody(e.target.value)} placeholder="Book a mow by 9am and a local worker will have it done this afternoon." /></label>
           <div className="mb-fields two">
             <button className="field sel" onClick={() => setPick("opens")}><span className="k">Tapping it opens</span><span className="v">{OPENS.find(([u]) => u === url)?.[1]}</span></button>
             <label className="field mb-photo"><span className="k">Photo, if you want one</span><span className="v">{photo ? "Change photo" : "Add a photo"}</span>
@@ -330,8 +330,8 @@ function Results({ tabs }: { tabs: React.ReactNode }) {
     <>
       <div className="ov-top"><h1>Broadcast</h1>
         <div className="mu-when">
-          <button className="mu-drop" onClick={() => setPick("period")}><span className="k">Showing</span><span className="v">{pLabel} · {rangeLabel(range)}</span></button>
-          <button className="mu-drop" onClick={() => setPick("compare")} disabled={period === "all"}><span className="k">Compared to</span><span className="v">{cmp ? `${COMPARES.find(([k]) => k === cmpId)![1]} · ${rangeLabel(cmp)}` : "Nothing"}</span></button>
+          <button className="mu-drop" onClick={() => setPick("period")}><span className="k">Showing</span><span className="v">{pLabel}, {rangeLabel(range)}</span></button>
+          <button className="mu-drop" onClick={() => setPick("compare")} disabled={period === "all"}><span className="k">Compared to</span><span className="v">{cmp ? `${COMPARES.find(([k]) => k === cmpId)![1]}, ${rangeLabel(cmp)}` : "Nothing"}</span></button>
         </div>
       </div>
       {tabs}
@@ -339,9 +339,9 @@ function Results({ tabs }: { tabs: React.ReactNode }) {
         <div className="ov-h"><h2>{pLabel}</h2><span>{cmp ? `Compared to ${COMPARES.find(([k]) => k === cmpId)![1].toLowerCase()}` : ""}</span></div>
         <div className="mu-kpis">
           <div className="mu-kpi"><span className="t">Broadcasts sent</span><b>{fmt(c?.sent ?? 0)}</b>{p !== undefined && <Delta cur={c?.sent ?? 0} prev={p?.sent ?? 0} />}<small>{c?.scheduled ? `${c.scheduled} scheduled` : "None scheduled"}</small></div>
-          <div className="mu-kpi"><span className="t">People reached</span><b>{fmt(c?.reached ?? 0)}</b>{p !== undefined && <Delta cur={c?.reached ?? 0} prev={p?.reached ?? 0} />}<small>{fmt(c?.by_push ?? 0)} by phone · {fmt(c?.by_email ?? 0)} by email</small></div>
+          <div className="mu-kpi"><span className="t">People reached</span><b>{fmt(c?.reached ?? 0)}</b>{p !== undefined && <Delta cur={c?.reached ?? 0} prev={p?.reached ?? 0} />}<small>{fmt(c?.by_push ?? 0)} by phone, {fmt(c?.by_email ?? 0)} by email</small></div>
           <div className="mu-kpi"><span className="t">Opened</span><b>{pct(c) == null ? "—" : `${pct(c)}%`}</b>{p !== undefined && <Delta cur={pct(c)} prev={pct(p)} pct />}<small>Tapped the alert on their phone or in the app</small></div>
-          <div className="mu-kpi"><span className="t">Jobs booked after</span><b>{fmt(c?.jobs ?? 0)}</b>{p !== undefined && <Delta cur={c?.jobs ?? 0} prev={p?.jobs ?? 0} />}<small>Within 2 days · {dollars(c?.gmv ?? 0)} through Mahi Man</small></div>
+          <div className="mu-kpi"><span className="t">Jobs booked after</span><b>{fmt(c?.jobs ?? 0)}</b>{p !== undefined && <Delta cur={c?.jobs ?? 0} prev={p?.jobs ?? 0} />}<small>Within 2 days, {dollars(c?.gmv ?? 0)} through Mahi Man</small></div>
         </div>
       </section>
       <section className="ov-sec">
@@ -355,7 +355,7 @@ function Results({ tabs }: { tabs: React.ReactNode }) {
                   <td className="light">{when(r.at)}</td><td className="w5">{r.title}</td><td className="light">{r.audience}</td>
                   <td className="light">{r.status === "sent" ? fmt(r.reached) : "—"}</td>
                   <td className="light">{r.status === "sent" && r.reached ? `${Math.round((r.opened / r.reached) * 100)}%` : "—"}</td>
-                  <td className="light">{r.status !== "sent" ? "—" : r.workers ? `${r.went_online} went online` : `${r.jobs} ${r.jobs === 1 ? "job" : "jobs"} · ${dollars(r.gmv)}`}</td>
+                  <td className="light">{r.status !== "sent" ? "—" : r.workers ? `${r.went_online} went online` : `${r.jobs} ${r.jobs === 1 ? "job" : "jobs"}, ${dollars(r.gmv)}`}</td>
                   <td><span className={r.status === "sent" ? "badge g" : r.status === "scheduled" ? "badge y" : "badge"}>{r.status === "sent" ? "Sent" : r.status === "scheduled" ? "Scheduled" : "Sending"}</span></td>
                 </tr>
               ))}
@@ -389,7 +389,7 @@ function BroadcastDetail({ id, onClose, onChanged }: { id: number; onClose: () =
       <div className="screen-body" style={{ padding: "20px 16px" }}>
         {d && <>
           <p className="t15 light" style={{ margin: "0 0 6px" }}>{d.b.body}</p>
-          <p className="t14 muted" style={{ margin: "0 0 18px" }}>{d.b.audience} · {d.b.status === "sent" ? `Sent ${when(d.b.sent_at!)}` : `Goes out ${when(d.b.send_at)}`}</p>
+          <p className="t14 muted" style={{ margin: "0 0 18px" }}>{d.b.audience}, {d.b.status === "sent" ? `Sent ${when(d.b.sent_at!)}` : `Goes out ${when(d.b.send_at)}`}</p>
           {d.b.status === "scheduled" && <button className="btn stone" style={{ marginBottom: 20 }} onClick={async () => {
             try { await rpc("admin_broadcast_cancel", { p_id: id }); toast("Cancelled. It won't go out."); onChanged(); } catch (e) { toast((e as Error).message); }
           }}>Cancel it</button>}

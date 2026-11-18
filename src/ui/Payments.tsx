@@ -171,9 +171,9 @@ export function PaymentsPage() {
   if (!p) return <Page title="Payments"><Waiting failed={failed} onRetry={reload} /></Page>;
 
   const plus = isPlus(p);
-  const line = p.senior ? "Plus · no connection fee, as you're 60 or over"
-    : plus ? `Plus · fees are ${p.rates.plus}%${p.plus_renew ? `, renews ${dayShort(p.plus_until!)}` : `, ends ${dayShort(p.plus_until!)}`}`
-    : p.balance > 0 ? "Connection fees come off your credit first" : `Pay as you go · fees are ${p.rates.payg}%`;
+  const line = p.senior ? "Plus, no connection fee, as you're 60 or over"
+    : plus ? `Plus, fees are ${p.rates.plus}%${p.plus_renew ? `, renews ${dayShort(p.plus_until!)}` : `, ends ${dayShort(p.plus_until!)}`}`
+    : p.balance > 0 ? "Connection fees come off your credit first" : `Pay as you go, fees are ${p.rates.payg}%`;
   // Fortnightly needs to know which week: the next two of that weekday.
   const anchorOpts = [7, 14].map((n) => { const t = brisDate(); const d = new Date(t.getTime() + 86400_000 * (((payday - t.getUTCDay() + 7) % 7) || 7)); return new Date(d.getTime() + (n - 7) * 86400_000); });
   const dirty = plan !== p.plan || (plan !== "now" && payday !== p.payday) || (plan === "fortnightly" && anchor !== p.anchor);
@@ -190,13 +190,13 @@ export function PaymentsPage() {
     ...p.invoices.filter((i) => i.status !== "paid").map((i) => { const st = invState(i); return { key: `i${i.id}`, icon: Icon.doc("var(--ink)"), title: `Invoice ${i.number}`,
       sub: st === "claimed" ? "We're checking your transfer" : `${st === "late" ? "Was due" : "Due"} ${dayShort(i.due_at)}`, amount: i.total,
       tag: st === "claimed" ? tagC : st === "late" ? <span className="ph-tag late">Overdue</span> : <span className="ph-tag">Due</span>, open: () => go(`/invoice/${i.id}`) }; }),
-    ...p.topups.map((t) => ({ key: `t${t.id}`, icon: Icon.plus("var(--ink)"), title: "Top-up", sub: t.status === "claimed" ? "We're checking your transfer" : `Waiting for your transfer · ${t.reference}`,
+    ...p.topups.map((t) => ({ key: `t${t.id}`, icon: Icon.plus("var(--ink)"), title: "Top-up", sub: t.status === "claimed" ? "We're checking your transfer" : `Waiting for your transfer, ${t.reference}`,
       amount: t.amount, tag: t.status === "claimed" ? tagC : tagW, open: () => go(`/topup?id=${t.id}`) })),
-    ...(p.plus_order && p.plus_order.status !== undefined ? [{ key: "plus", icon: Icon.star("var(--ink)"), title: "Mahi Man Plus", sub: p.plus_order.status === "claimed" ? "We're checking your transfer" : `Waiting for your transfer · ${p.plus_order.reference}`,
+    ...(p.plus_order && p.plus_order.status !== undefined ? [{ key: "plus", icon: Icon.star("var(--ink)"), title: "Mahi Man Plus", sub: p.plus_order.status === "claimed" ? "We're checking your transfer" : `Waiting for your transfer, ${p.plus_order.reference}`,
       amount: p.plus_order.amount, tag: p.plus_order.status === "claimed" ? tagC : tagW, open: () => go("/plus") }] : []),
     ...p.gifts.filter((g) => g.status === "requested" || g.status === "claimed").map((g) => ({ key: `g${g.id}`, icon: glyph("gift", "var(--ink)"), title: `Gift card for ${g.to}`,
       sub: g.status === "claimed" ? "We're checking your transfer" : "Waiting for your transfer", amount: g.amount, tag: g.status === "claimed" ? tagC : tagW, open: () => go(`/gifts/${g.id}`) })),
-    ...(p.next.total > 0 ? [{ key: "next", icon: Icon.clock("var(--ink)"), title: "Next invoice", sub: `${p.next.lines.length} job${p.next.lines.length === 1 ? "" : "s"}${pd ? ` · ready ${dayShort(noonIso(new Date(pd.getTime() - 86400_000)))}` : ""}`,
+    ...(p.next.total > 0 ? [{ key: "next", icon: Icon.clock("var(--ink)"), title: "Next invoice", sub: `${p.next.lines.length} job${p.next.lines.length === 1 ? "" : "s"}${pd ? `, ready ${dayShort(noonIso(new Date(pd.getTime() - 86400_000)))}` : ""}`,
       amount: p.next.total, tag: null }] : []),
   ];
   const stopPlus = async () => { try { await rpc("plus_stop"); toast("Plus won't renew"); reload(); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } };
@@ -288,7 +288,7 @@ export function InvoicePage({ id }: { id: number }) {
   if ((st === "due" || st === "late") && !showInv) return (
     <div className="app pq">
       <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
-      <BankPay title={`Invoice ${inv.number}`} sub={`${n} connection fee${n === 1 ? "" : "s"} · ${st === "late" ? "was due" : "due"} ${dayShort(inv.due_at)}`} amount={inv.total} pay={pay} reference={inv.number}
+      <BankPay title={`Invoice ${inv.number}`} sub={`${n} connection fee${n === 1 ? "" : "s"}, ${st === "late" ? "was due" : "due"} ${dayShort(inv.due_at)}`} amount={inv.total} pay={pay} reference={inv.number}
         note="We confirm your payment within 24 hours, usually faster."
         onConfirm={async (c) => { await rpc("invoice_claim_paid", { p_id: inv.id, ...claimArgs(c) }); setThanks(true); await load(); }}
         onCancel={() => setShowInv(true)} cancelLabel="See the invoice" />
@@ -304,8 +304,8 @@ export function InvoicePage({ id }: { id: number }) {
       </div>
       <div className="cp-sec iv-band" style={{ paddingBottom: 24 }}>
         <span className="cp-title">{pay.gst === "yes" ? "Tax invoice" : "Invoice"}</span>
-        <span className="t14 light muted">{pay.legal_name}{pay.trading_name ? `, trading as ${pay.trading_name}` : ""}{pay.abn ? ` · ABN ${fmtAbn(pay.abn)}` : ""}<br />To {inv.to} · Issued {dayLong(inv.issued_at)}</span>
-        <div style={{ marginTop: 10 }}>{inv.lines.map((l, i) => <div key={i} className="cp-row"><span>{dayShort(l.date)} · {l.job}{l.who ? ` · ${l.who}` : ""}</span><span>{money2(l.cents)}</span></div>)}</div>
+        <span className="t14 light muted">{pay.legal_name}{pay.trading_name ? `, trading as ${pay.trading_name}` : ""}{pay.abn ? `, ABN ${fmtAbn(pay.abn)}` : ""}<br />To {inv.to}, Issued {dayLong(inv.issued_at)}</span>
+        <div style={{ marginTop: 10 }}>{inv.lines.map((l, i) => <div key={i} className="cp-row"><span>{dayShort(l.date)}, {l.job}{l.who ? `, ${l.who}` : ""}</span><span>{money2(l.cents)}</span></div>)}</div>
         <div className="cp-total"><span>Total</span><span>{money2(inv.total)}</span></div>
         {pay.gst === "yes" ? <div className="cp-row"><span className="light muted">Includes GST</span><span className="light muted">{money2(inv.gst)}</span></div>
           : <div className="cp-row"><span className="light muted">No GST charged</span><span /></div>}
@@ -369,7 +369,7 @@ export function TopUpPage() {
           what={`${money(credit(bank.amount))} connection fee credit`} last={`${money(credit(bank.amount))} added to your credit`} />
         <div className="pq-foot"><button className="pq-gold" onClick={() => go("/payments", true)}><span>Done</span></button></div>
       </> : (
-        <BankPay title="Connection fee credit" sub={`${money(credit(bank.amount))} credit · ${bank.reference}`} amount={bank.amount} pay={bank.pay} reference={bank.reference}
+        <BankPay title="Connection fee credit" sub={`${money(credit(bank.amount))} credit, ${bank.reference}`} amount={bank.amount} pay={bank.pay} reference={bank.reference}
           note={`Confirmed within 24 hours, usually faster, then ${money(credit(bank.amount))} is added to your credit.`}
           onConfirm={async (c) => { await rpc("topup_claim_paid", { p_id: bank.id, ...claimArgs(c) }); setBank({ ...bank, status: "claimed" }); reload(); }}
           onCancel={async () => { try { await rpc("topup_cancel", { p_id: bank.id }); toast("Top-up cancelled"); go("/payments", true); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } }} />
@@ -549,9 +549,9 @@ export function PaidThanks({ first, amount, reference, what, last }: { first?: s
         <defs><linearGradient id="ptg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#fde68a" /><stop offset=".5" stopColor="#f5c518" /><stop offset="1" stopColor="#c9971a" /></linearGradient></defs></svg>
     </div>
     <h1 className="pt-h">Thank you{first ? `, ${first}` : ""}.</h1>
-    <p className="pt-amt">{money2(amount)}<span>{what} · {reference}</span></p>
+    <p className="pt-amt">{money2(amount)}<span>{what}, {reference}</span></p>
     <ol className="pt-track">
-      <li className="done"><i>{Icon.tick("#1c1400", 14)}</i><span><b>Payment sent</b><small>Today, {now} · receipt attached</small></span></li>
+      <li className="done"><i>{Icon.tick("#1c1400", 14)}</i><span><b>Payment sent</b><small>Today, {now}, receipt attached</small></span></li>
       <li className="now"><i /><span><b>We check it with our bank</b><small>Within 24 hours, usually faster</small></span></li>
       <li><i /><span><b>{last}</b><small>We'll send you an alert when it's done</small></span></li>
     </ol>
@@ -598,7 +598,7 @@ export function PlusPage() {
           </div>
           <div className="pq-foot"><button className="pq-gold" onClick={() => go("/")}><span>Post a job</span></button></div>
         </> : <>
-          <BankPay title="Mahi Man Plus" sub={`12 months · ${order.reference}`} amount={order.amount} pay={pay} reference={order.reference}
+          <BankPay title="Mahi Man Plus" sub={`12 months, ${order.reference}`} amount={order.amount} pay={pay} reference={order.reference}
             note="Plus starts as soon as you confirm. We check your payment within 24 hours."
             onConfirm={async (c) => { await rpc("plus_claim", { p_id: order.id, ...claimArgs(c) }); setOrder({ ...order, status: "claimed" }); reloadP(); reloadMe(); }} />
         </>}

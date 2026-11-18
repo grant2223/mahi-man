@@ -255,9 +255,9 @@ function DailyChart({ days, open }: { days: (Period & { day: string })[]; open?:
       <div className="dc-head"><div><b>{mode === "jobs" ? "Jobs each day" : "Money through Mahi Man each day"}</b><small>Last 30 days. Tap a day for details.</small></div>
         <div className="ov-period"><button className={mode === "jobs" ? "on" : ""} onClick={() => setMode("jobs")}>Jobs</button><button className={mode === "money" ? "on" : ""} onClick={() => setMode("money")}>Money</button></div></div>
       <div className="dc-day">
-        <span className="t">{dayName(sel.day, true)}{pick === days.length - 1 ? " · today" : ""}</span>
-        <span className="n">{sel.done} done{sel.cancelled ? ` · ${sel.cancelled} cancelled` : ""}</span>
-        <span className="n">{money2(sel.gmv)} through Mahi Man · {money2(sel.revenue)} your revenue</span>
+        <span className="t">{dayName(sel.day, true)}{pick === days.length - 1 ? ", today" : ""}</span>
+        <span className="n">{sel.done} done{sel.cancelled ? `, ${sel.cancelled} cancelled` : ""}</span>
+        <span className="n">{money2(sel.gmv)} through Mahi Man, {money2(sel.revenue)} your revenue</span>
         {open && (sel.done > 0 || sel.cancelled > 0) && <button className="btn stone small" onClick={() => open(sel.day)}>See these jobs</button>}
       </div>
       <div className="dc-plot" style={{ height: h }}>
@@ -301,7 +301,7 @@ function Jobs({ day, onAll }: { day: string | null; onAll: () => void }) {
   }, [load]);
   return (
     <>
-    {day && <div className="adm-dayfilter"><span>Jobs done or cancelled on <b>{dayName(day, true)}</b> · {rows.length}</span><button className="btn stone small" onClick={onAll}>Show all jobs</button></div>}
+    {day && <div className="adm-dayfilter"><span>Jobs done or cancelled on <b>{dayName(day, true)}</b>, {rows.length}</span><button className="btn stone small" onClick={onAll}>Show all jobs</button></div>}
     <div className="table-wrap">
       <table>
         <thead><tr><th>Booked</th><th>Job</th><th>Where</th><th>Customer</th><th>Worker</th><th>Total</th><th>Status</th><th></th></tr></thead>
@@ -1872,7 +1872,7 @@ function PartnerDetail({ p, onBack, onChanged }: { p: PartnerRow; onBack: () => 
         <div className="stack" style={{ gap: 6, flex: 1, minWidth: 0 }}>
           <h2>{p.business_name}</h2>
           <span className="light muted">{p.contact_name}, {p.email}, {p.phone}</span>
-          <span className="light muted">ABN {fmtAbn(p.abn)} {p.abn_valid ? "" : "(not valid)"} · {p.business_type}{p.website ? ` · ${p.website}` : ""}</span>
+          <span className="light muted">ABN {fmtAbn(p.abn)} {p.abn_valid ? "" : "(not valid)"}, {p.business_type}{p.website ? `, ${p.website}` : ""}</span>
         </div>
         <div className="row" style={{ gap: 8, alignSelf: "flex-start", flexWrap: "wrap" }}>
           {p.status === "applied" && <>
@@ -1976,12 +1976,12 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
     const paths = (d?.rows ?? []).map((r) => r.proof).filter((x): x is string => !!x);
     if (!paths.length) return;
     sb.storage.from("receipts").createSignedUrls(paths, 3600).then(({ data }) => {
-      setUrls(Object.fromEntries((data ?? []).filter((x) => x.signedUrl && x.path).map((x) => [x.path as string, x.signedUrl])));
+      setUrls(Object.fromEntries((data ?? []).filter((x) => x.signedUrl && x.path).map((x) => [x.path as string, x.signedUrl as string])));
     });
   }, [d]);
   const isPdf = (p?: string | null) => !!p && /\.pdf$/i.test(p);
   const PART: Record<string, string> = { morning: "Morning", afternoon: "Afternoon", evening: "Evening" };
-  const sent = (r: MoneyRow) => r.paid_on ? `${day(r.paid_on + "T12:00:00+10:00")}${r.paid_part ? ` · ${PART[r.paid_part] ?? r.paid_part}` : ""}` : "";
+  const sent = (r: MoneyRow) => r.paid_on ? `${day(r.paid_on + "T12:00:00+10:00")}${r.paid_part ? `, ${PART[r.paid_part] ?? r.paid_part}` : ""}` : "";
   const notReceived = async (r: MoneyRow) => {
     setBusy(`${r.kind}${r.id}`);
     try { await rpc("admin_plus_not_received", { p_id: r.id }); toast(`${r.ref}: Plus switched off`); setOpen(null); load(); onChanged(); }
@@ -1989,7 +1989,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
   };
   const day = (iso: string) => new Date(iso).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }).replace(",", "");
   const month = new Date().toLocaleDateString("en-AU", { month: "long", timeZone: "Australia/Brisbane" });
-  const badge = (r: MoneyRow) => r.state === "paid" ? <span className="badge g">Paid</span> : r.state === "late" ? <span className="badge r">{r.paused ? "Overdue · booking paused" : "Overdue"}</span>
+  const badge = (r: MoneyRow) => r.state === "paid" ? <span className="badge g">Paid</span> : r.state === "late" ? <span className="badge r">{r.paused ? "Overdue, booking paused" : "Overdue"}</span>
     : r.state === "claimed" ? <span className="badge y">They say paid</span> : <span className="badge">Due</span>;
   if (!d) return <Loading />;
   const n = (k: number, w: string) => `${k} ${w}${k === 1 ? "" : "s"}`;
@@ -2006,7 +2006,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
         <div className="mn-list">{d.rows.map((r) => (
           <button key={`${r.kind}${r.id}`} className="mn-row" onClick={() => setOpen(r)}>
             <span className="mn-thumb">{r.proof && !isPdf(r.proof) && urls[r.proof] ? <img src={urls[r.proof]} alt="" /> : Icon.doc("var(--muted)", 22)}</span>
-            <span className="mn-mid"><b>{r.ref}</b><small>{r.who} · {KIND[r.kind]}</small>
+            <span className="mn-mid"><b>{r.ref}</b><small>{r.who}, {KIND[r.kind]}</small>
               <small>{r.state === "claimed" && r.paid_on ? `Sent ${day(r.paid_on + "T12:00:00+10:00")}` : r.state === "paid" && r.paid_at ? `Paid ${day(r.paid_at)}` : `Due ${day(r.due)}`}</small></span>
             <span className="mn-end"><b>{money2(r.amount)}</b>{badge(r)}</span>
           </button>
@@ -2023,7 +2023,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
             {open.state === "paid" && (
               <div className="mn-sent">{Icon.tick("var(--emerald)", 22)}
                 <span><b>{open.receipt_sent_at ? "Receipt sent" : "Paid"}</b>
-                  <small>{open.receipt_sent_at ? `To ${open.receipt_sent_to} · ${dayTime(open.receipt_sent_at)}` : "Done"}{["topup", "plus", "gift", "invoice"].includes(open.kind) ? ". They got a Payment received alert." : ""}</small></span></div>
+                  <small>{open.receipt_sent_at ? `To ${open.receipt_sent_to}, ${dayTime(open.receipt_sent_at)}` : "Done"}{["topup", "plus", "gift", "invoice"].includes(open.kind) ? ". They got a Payment received alert." : ""}</small></span></div>
             )}
             <dl className="mn-dl">
               <dt>Reference</dt><dd>{open.ref}</dd>
@@ -2047,7 +2047,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
       )}
       {big?.proof && urls[big.proof] && (
         <div className="mn-big">
-          <div className="mn-big-top"><span><b>{big.ref}</b><small>{money2(big.amount)}{big.paid_on ? ` · ${sent(big)}` : ""}{big.paid_from ? ` · ${big.paid_from}` : ""}</small></span>
+          <div className="mn-big-top"><span><b>{big.ref}</b><small>{money2(big.amount)}{big.paid_on ? `, ${sent(big)}` : ""}{big.paid_from ? `, ${big.paid_from}` : ""}</small></span>
             <button className="btn stone small" onClick={() => setBig(null)}>{Icon.x("currentColor")}Close</button></div>
           <img src={urls[big.proof]} alt={`Receipt for ${big.ref}`} />
         </div>

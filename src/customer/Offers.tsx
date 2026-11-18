@@ -361,8 +361,8 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
           // Everyone side by side first: their work, face, record and when they can be there. Tap to see the full card.
           if (openCard !== o.worker_id) {
             const line = jobs > 0
-              ? `${jobs} ${kind} job${jobs === 1 ? "" : "s"}${w!.recommended ? ` · ${w!.recommended} recommend` : ""}`
-              : `New to Mahi Man${yrs ? ` · ${yrs} ${kind} experience` : ""}`;
+              ? `${jobs} ${kind} job${jobs === 1 ? "" : "s"}${w!.recommended ? `, ${w!.recommended} recommend` : ""}`
+              : `New to Mahi Man${yrs ? `, ${yrs} ${kind} experience` : ""}`;
             return (
               <section key={o.worker_id} className="cr">
                 <button className={`cr-ph n${Math.min(pics.length, 3)}`} onClick={() => setOpenCard(o.worker_id)} aria-label={`${first}'s work`}>
@@ -377,7 +377,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
                     <span className="cr-t">
                       <b>{cardName(o.full_name)}{o.id_verified && <GoldTick s={20} />}</b>
                       <span className="g">{line}</span>
-                      <span>Can be there {at}{o.distance_km != null ? ` · ${o.distance_km} km` : ""}</span>
+                      <span>Can be there {at}{o.distance_km != null ? `, ${o.distance_km} km` : ""}</span>
                     </span>
                   </button>
                 </div>

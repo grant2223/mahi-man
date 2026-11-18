@@ -27,13 +27,13 @@ function Preview() {
       <div style={{ margin: "0 16px", background: "var(--ground)", borderRadius: 4, overflow: "hidden" }}>
         <div style={{ height: 130, background: "#8c7f6b" }} />
         <div className="row between" style={{ padding: "12px 14px", alignItems: "flex-end" }}>
-          <span className="stack" style={{ gap: 2 }}><span style={{ fontSize: 20, fontWeight: 600, letterSpacing: -0.4 }}>10% off any skip bin</span><span className="t15 light muted">Your business · 3 km</span></span>
+          <span className="stack" style={{ gap: 2 }}><span style={{ fontSize: 20, fontWeight: 600, letterSpacing: -0.4 }}>10% off any skip bin</span><span className="t15 light muted">Your business, 3 km</span></span>
           <span className="btn primary small">Get it</span>
         </div>
       </div>
       <div className="row" style={{ gap: 12, padding: "14px 16px 18px" }}>
         <div style={{ width: 56, height: 56, background: "#5f7a63", borderRadius: 4, flex: "none" }} />
-        <span className="stack" style={{ gap: 2 }}><span style={{ fontSize: 16, fontWeight: 500 }}>15% off everything</span><span className="t15 light muted">Another local business · 2 km</span></span>
+        <span className="stack" style={{ gap: 2 }}><span style={{ fontSize: 16, fontWeight: 500 }}>15% off everything</span><span className="t15 light muted">Another local business, 2 km</span></span>
       </div>
     </div>
   );

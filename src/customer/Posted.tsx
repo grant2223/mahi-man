@@ -8,12 +8,12 @@ import { shareLink, SITE } from "../lib/share";
 import { Icon, Logo, useToast } from "../ui/kit";
 
 const hmShort = (d: string) => new Date(d).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase();
-// "Posted 3:02 pm today · 37 minutes ago": when, without a ticking clock.
+// "Posted 3:02 pm today, 37 minutes ago": when, without a ticking clock.
 export const postedAgo = (d: string) => {
   const m = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 60000));
   const today = new Date(d).toDateString() === new Date().toDateString();
   const span = m < 1 ? "just now" : m < 60 ? `${m} minute${m === 1 ? "" : "s"} ago` : m < 1440 ? `${Math.round(m / 60)} hour${Math.round(m / 60) === 1 ? "" : "s"} ago` : `${Math.round(m / 1440)} days ago`;
-  return `Posted ${hmShort(d)}${today ? " today" : `, ${new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}`} · ${span}`;
+  return `Posted ${hmShort(d)}${today ? " today" : `, ${new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}`}, ${span}`;
 };
 
 // The job's suburb and first photo, for the job line on the posted, cancel and cancelled screens.
@@ -32,7 +32,7 @@ export function JobLine({ photo, title, parts }: { photo: string | null; title: 
   return (
     <div className="ps-job">
       {photo ? <img src={photo} alt="" /> : <span className="ps-ph" />}
-      <span><b>{title}</b><small>{parts.filter(Boolean).join(" · ")}</small></span>
+      <span><b>{title}</b><small>{parts.filter(Boolean).join(", ")}</small></span>
     </div>
   );
 }

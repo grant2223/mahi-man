@@ -56,10 +56,10 @@ export function WorkerProfile({ workerId, category = null, onBack, onBook }: { w
           <div className={face ? "pf-top" : "pf-top noface"} style={face ? { backgroundImage: `url(${face})` } : { background: "var(--hero)" }}>
             <div className="w">
               <div className="n"><span>{cardName(p.name)}{p.age != null && <i> {p.age}</i>}</span>{p.verified && <GoldTick s={26} />}</div>
-              <div className="s">{[p.suburb, `Since ${monthYear(p.since)}`].filter(Boolean).join(" · ")}</div>
+              <div className="s">{[p.suburb, `Since ${monthYear(p.since)}`].filter(Boolean).join(", ")}</div>
             </div>
           </div>
-          {onBook && <div className={p.online ? "wp-now on" : "wp-now"}>{p.online ? <><i />Available now</> : "Offline · book for later"}</div>}
+          {onBook && <div className={p.online ? "wp-now on" : "wp-now"}>{p.online ? <><i />Available now</> : "Offline, book for later"}</div>}
           <div className="pf-all">
             <div><b>{p.jobs}</b><small>Jobs</small></div>
             <div><b>{rec}</b><small>{p.scores?.reviewed ? "Thumbs up" : "No reviews"}</small></div>
@@ -73,7 +73,7 @@ export function WorkerProfile({ workerId, category = null, onBack, onBook }: { w
               s.jobs ? `${s.jobs} job${s.jobs === 1 ? "" : "s"}` : "New here",
               s.recommended ? `${s.recommended} thumbs up` : "",
               yearsLine(s.years),
-            ].filter(Boolean).join(" · ");
+            ].filter(Boolean).join(", ");
             return (
               <section key={s.category_id} className={big ? "pf-sec" : "pf-sec small"}>
                 <h2><CatIcon name={s.icon} size={big ? 24 : 22} color="var(--emerald)" />{s.category}{s.category_id === category && <em>Your job</em>}</h2>
