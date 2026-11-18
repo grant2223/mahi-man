@@ -290,7 +290,7 @@ export function InvoicePage({ id }: { id: number }) {
       <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
       <BankPay title={`Invoice ${inv.number}`} sub={`${n} connection fee${n === 1 ? "" : "s"} · ${st === "late" ? "was due" : "due"} ${dayShort(inv.due_at)}`} amount={inv.total} pay={pay} reference={inv.number}
         note="We confirm your payment within 24 hours, usually faster."
-        onConfirm={async (proof) => { await rpc("invoice_claim_paid", { p_id: inv.id, p_proof: proof }); setThanks(true); await load(); }}
+        onConfirm={async (c) => { await rpc("invoice_claim_paid", { p_id: inv.id, ...claimArgs(c) }); setThanks(true); await load(); }}
         onCancel={() => setShowInv(true)} cancelLabel="See the invoice" />
     </div>
   );
@@ -371,7 +371,7 @@ export function TopUpPage() {
       </> : (
         <BankPay title="Connection fee credit" sub={`${money(credit(bank.amount))} credit · ${bank.reference}`} amount={bank.amount} pay={bank.pay} reference={bank.reference}
           note={`Confirmed within 24 hours, usually faster, then ${money(credit(bank.amount))} is added to your credit.`}
-          onConfirm={async (proof) => { await rpc("topup_claim_paid", { p_id: bank.id, p_proof: proof }); setBank({ ...bank, status: "claimed" }); reload(); }}
+          onConfirm={async (c) => { await rpc("topup_claim_paid", { p_id: bank.id, ...claimArgs(c) }); setBank({ ...bank, status: "claimed" }); reload(); }}
           onCancel={async () => { try { await rpc("topup_cancel", { p_id: bank.id }); toast("Top-up cancelled"); go("/payments", true); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } }} />
       )}
     </div>
@@ -436,10 +436,26 @@ export function TopUpPage() {
 /* ---------- Pay by bank transfer ----------
    One screen for every bank transfer (Plus, top-ups): what it's for and the amount, the details in the order banks ask
    for them, who Mahi Man is, a note, then the declaration and Confirm payment. */
+export const claimArgs = (c: PaidClaim) => ({ p_proof: c.proof, p_paid_on: c.paid_on, p_paid_part: c.paid_part, p_paid_from: c.paid_from });
+export interface PaidClaim { proof: string; paid_on: string; paid_part: string; paid_from: string }
+const PARTS = [{ id: "morning", label: "Morning" }, { id: "afternoon", label: "Afternoon" }, { id: "evening", label: "Evening" }];
+const partNow = () => { const h = Number(new Date().toLocaleString("en-AU", { hour: "numeric", hourCycle: "h23", timeZone: TZ })); return h < 12 ? "morning" : h < 17 ? "afternoon" : "evening"; };
+// The last 7 days as Brisbane dates: Today, Yesterday, then Mon 16 Nov...
+const lastDays = () => Array.from({ length: 7 }, (_, i) => {
+  const d = new Date(Date.now() - i * 86400000);
+  const id = d.toLocaleDateString("en-CA", { timeZone: TZ });
+  return { id, label: i === 0 ? "Today" : i === 1 ? "Yesterday" : d.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: TZ }).replace(",", "") };
+});
 export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, onCancel, cancelLabel = "Cancel" }: {
-  title: string; sub: string; amount: number; pay: PayDetails; reference: string; note?: string; onConfirm: (proof: string) => Promise<void>; onCancel?: () => void; cancelLabel?: string;
+  title: string; sub: string; amount: number; pay: PayDetails; reference: string; note?: string; onConfirm: (claim: PaidClaim) => Promise<void>; onCancel?: () => void; cancelLabel?: string;
 }) {
   const toast = useToast();
+  const { profile } = useSession();
+  const days = lastDays();
+  const [paidOn, setPaidOn] = useState(days[0].id);
+  const [part, setPart] = useState(partNow);
+  const [from, setFrom] = useState(profile?.full_name ?? "");
+  const [pick, setPick] = useState<"day" | "part" | null>(null);
   const [agree, setAgree] = useState(false);
   const [busy, setBusy] = useState(false);
   // Proof of transfer: a screenshot or PDF of the bank's receipt, kept private for the money team.
@@ -494,13 +510,20 @@ export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, o
         <span><b>{uploading ? "Adding…" : proof ? "Transfer receipt added" : "Add your transfer receipt"}</b><small>{proof ? "Tap to change it" : "A screenshot from your banking app"}</small></span>
         {proof && Icon.tick("#f5c518", 20)}
       </label>
+      <h2 className="pq-sh">When you sent it</h2>
+      <div className="pq-when">
+        <button className="pq-sel" onClick={() => setPick("day")}><span><small>Day</small><b>{days.find((d) => d.id === paidOn)?.label}</b></span>{Icon.chevron("rgba(255,255,255,0.6)")}</button>
+        <button className="pq-sel" onClick={() => setPick("part")}><span><small>Time</small><b>{PARTS.find((x) => x.id === part)?.label}</b></span>{Icon.chevron("rgba(255,255,255,0.6)")}</button>
+      </div>
+      <label className="pq-from"><small>Name on the account you paid from</small>
+        <input value={from} onChange={(e) => setFrom(e.target.value)} autoComplete="name" placeholder="As it shows on your bank" /></label>
       <button className="pq-agree" role="checkbox" aria-checked={agree} onClick={() => setAgree(!agree)}>
         <i className={agree ? "on" : ""}>{agree && Icon.tick("#1c1400", 16)}</i>
         <span>I declare this payment has been sent. False confirmations may lead to account suspension.</span>
       </button>
-      <button className="pq-gold" disabled={busy || uploading || !agree || !proof} onClick={async () => {
+      <button className="pq-gold" disabled={busy || uploading || !agree || !proof || from.trim().length < 2} onClick={async () => {
         setBusy(true);
-        try { await onConfirm(proof!.path); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
+        try { await onConfirm({ proof: proof!.path, paid_on: paidOn, paid_part: part, paid_from: from.trim() }); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
       }}><span>{busy ? "One moment…" : "Confirm payment"}</span></button>
       {onCancel && <button className="pq-cancel" onClick={onCancel}>{cancelLabel}</button>}
     </div>
@@ -512,6 +535,8 @@ export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, o
         </div>
       </div>
     </Screen>}
+    {pick === "day" && <SearchPicker title="Day you sent it" options={days} value={[paidOn]} onClose={() => setPick(null)} onChange={(v) => setPaidOn(String(v[0]))} />}
+    {pick === "part" && <SearchPicker title="Time you sent it" options={PARTS} value={[part]} onClose={() => setPick(null)} onChange={(v) => setPart(String(v[0]))} />}
   </>;
 }
 
@@ -575,7 +600,7 @@ export function PlusPage() {
         </> : <>
           <BankPay title="Mahi Man Plus" sub={`12 months · ${order.reference}`} amount={order.amount} pay={pay} reference={order.reference}
             note="Plus starts as soon as you confirm. We check your payment within 24 hours."
-            onConfirm={async (proof) => { await rpc("plus_claim", { p_id: order.id, p_proof: proof }); setOrder({ ...order, status: "claimed" }); reloadP(); reloadMe(); }} />
+            onConfirm={async (c) => { await rpc("plus_claim", { p_id: order.id, ...claimArgs(c) }); setOrder({ ...order, status: "claimed" }); reloadP(); reloadMe(); }} />
         </>}
       </div>
     );

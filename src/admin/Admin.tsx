@@ -1940,7 +1940,9 @@ function PartnerDetail({ p, onBack, onChanged }: { p: PartnerRow; onBack: () => 
 
 // Every invoice in one place: customer connection fees, customer bank top-ups, tradie plans and partner months.
 // Match the reference on the bank statement, then mark it paid. "They say paid" means the customer confirmed they've paid.
-interface MoneyRow { kind: "invoice" | "topup" | "gift" | "plus" | "tradie" | "partner"; id: number; ref: string; who: string; what: string; item: string; amount: number; due: string; state: "due" | "late" | "claimed" | "paid"; paused: boolean; created: string; paid_at: string | null }
+interface MoneyRow { kind: "invoice" | "topup" | "gift" | "plus" | "tradie" | "partner"; id: number; ref: string; who: string; what: string; item: string; amount: number; due: string; state: "due" | "late" | "claimed" | "paid"; paused: boolean; created: string; paid_at: string | null;
+  proof?: string | null; paid_on?: string | null; paid_part?: string | null; paid_from?: string | null; claimed_at?: string | null;
+  receipt_sent_at?: string | null; receipt_sent_to?: string | null }
 interface MoneyData { rows: MoneyRow[]; due_week: number; due_week_n: number; late: number; late_n: number; paid_month: number; paid_month_n: number }
 const MONEY_VIEWS: [string, string][] = [["open", "To check and due"], ["late", "Overdue"], ["topups", "Top-ups, gift cards and Plus"], ["paid", "Paid"], ["all", "Everything"]];
 function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
@@ -1961,20 +1963,28 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
       else if (r.kind === "tradie") await rpc("admin_trade_order_paid", { p_id: r.id, p_note: `Bank transfer ${r.ref}` });
       else await rpc("admin_partner_paid", { p_invoice: r.id });
       toast(`${r.ref} marked paid`); load(); onChanged();
+      rpc<MoneyData>("admin_money", { p_view: "all" }).then((a) => { const now = a.rows.find((x) => x.kind === r.kind && x.id === r.id); if (now) setOpen(now); }).catch(() => {});
     } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   };
-  const receipt = async (r: MoneyRow) => {
-    try {
-      const path = await rpc<string | null>("admin_receipt", { p_kind: r.kind, p_id: r.id });
-      if (!path) { toast("No receipt was added"); return; }
-      const { data, error } = await sb.storage.from("receipts").createSignedUrl(path, 600);
-      if (error || !data) throw error ?? new Error("Couldn't open the receipt");
-      window.open(data.signedUrl, "_blank");
-    } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
-  };
+  // The customer's transfer receipt shows right on the row, so it can be checked against the bank without opening anything.
+  const [urls, setUrls] = useState<Record<string, string>>({});
+  const [big, setBig] = useState<MoneyRow | null>(null);
+  const [open, setOpen] = useState<MoneyRow | null>(null);
+  const KIND: Record<MoneyRow["kind"], string> = { invoice: "Invoice", topup: "Top-up", gift: "Gift card", plus: "Plus", tradie: "Tradie", partner: "Partner" };
+  const dayTime = (iso: string) => `${day(iso)}, ${new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" }).toLowerCase()}`;
+  useEffect(() => {
+    const paths = (d?.rows ?? []).map((r) => r.proof).filter((x): x is string => !!x);
+    if (!paths.length) return;
+    sb.storage.from("receipts").createSignedUrls(paths, 3600).then(({ data }) => {
+      setUrls(Object.fromEntries((data ?? []).filter((x) => x.signedUrl && x.path).map((x) => [x.path as string, x.signedUrl])));
+    });
+  }, [d]);
+  const isPdf = (p?: string | null) => !!p && /\.pdf$/i.test(p);
+  const PART: Record<string, string> = { morning: "Morning", afternoon: "Afternoon", evening: "Evening" };
+  const sent = (r: MoneyRow) => r.paid_on ? `${day(r.paid_on + "T12:00:00+10:00")}${r.paid_part ? ` · ${PART[r.paid_part] ?? r.paid_part}` : ""}` : "";
   const notReceived = async (r: MoneyRow) => {
     setBusy(`${r.kind}${r.id}`);
-    try { await rpc("admin_plus_not_received", { p_id: r.id }); toast(`${r.ref}: Plus switched off`); load(); onChanged(); }
+    try { await rpc("admin_plus_not_received", { p_id: r.id }); toast(`${r.ref}: Plus switched off`); setOpen(null); load(); onChanged(); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(null); }
   };
   const day = (iso: string) => new Date(iso).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }).replace(",", "");
@@ -1993,23 +2003,55 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
       <button className="cp-select" style={{ height: 44, minWidth: 280, background: "var(--card)", marginBottom: 14 }} onClick={() => setPick(true)}>
         <span>{MONEY_VIEWS.find(([k]) => k === view)?.[1]}</span>{Icon.chevron("var(--muted)")}</button>
       {d.rows.length === 0 ? <p className="light muted">Nothing here.</p> : (
-        <div className="table-wrap"><table className="rows"><thead><tr><th>Invoice</th><th>Who</th><th>For</th><th>Amount</th><th>Due</th><th>Status</th><th /></tr></thead>
-          <tbody>{d.rows.map((r) => (
-            <tr key={`${r.kind}${r.id}`}>
-              <td className="w5">{r.ref}</td>
-              <td><span className="w5">{r.who}</span><br /><span className="light muted">{r.what}</span></td>
-              <td className="light">{r.item || "—"}</td>
-              <td className="w5">{money2(r.amount)}</td>
-              <td className="light">{r.state === "paid" && r.paid_at ? `Paid ${day(r.paid_at)}` : day(r.due)}</td>
-              <td>{badge(r)}</td>
-              <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                {["plus", "topup", "invoice", "gift"].includes(r.kind) && r.state === "claimed" && <button className="btn stone small" style={{ marginRight: 8 }} onClick={() => receipt(r)}>Receipt</button>}
-                {r.kind === "plus" && r.state === "claimed" && <button className="btn stone small" style={{ marginRight: 8 }} disabled={busy === `${r.kind}${r.id}`} onClick={() => notReceived(r)}>Not received</button>}
-                {r.state !== "paid" && <button className={`btn ${r.state === "claimed" ? "primary" : "stone"} small`} disabled={busy === `${r.kind}${r.id}`} onClick={() => paid(r)}>Mark paid</button>}</td>
-            </tr>
-          ))}</tbody></table></div>
+        <div className="mn-list">{d.rows.map((r) => (
+          <button key={`${r.kind}${r.id}`} className="mn-row" onClick={() => setOpen(r)}>
+            <span className="mn-thumb">{r.proof && !isPdf(r.proof) && urls[r.proof] ? <img src={urls[r.proof]} alt="" /> : Icon.doc("var(--muted)", 22)}</span>
+            <span className="mn-mid"><b>{r.ref}</b><small>{r.who} · {KIND[r.kind]}</small>
+              <small>{r.state === "claimed" && r.paid_on ? `Sent ${day(r.paid_on + "T12:00:00+10:00")}` : r.state === "paid" && r.paid_at ? `Paid ${day(r.paid_at)}` : `Due ${day(r.due)}`}</small></span>
+            <span className="mn-end"><b>{money2(r.amount)}</b>{badge(r)}</span>
+          </button>
+        ))}</div>
       )}
-      <p className="light muted" style={{ marginTop: 14 }}>Match the reference on your bank statement to the invoice, then mark it paid. "They say paid" means the customer confirmed they've paid. Top-ups are added to the customer's balance when you mark them paid. A gift card sends once it's marked paid. Plus is on for 24 hours once they confirm, and for a year once you mark it paid. Not received switches it off.</p>
+      {open && (
+        <div className="mn-detail">
+          <div className="mn-top">
+            <button className="cx-back" onClick={() => setOpen(null)} aria-label="Back">{Icon.back("var(--ink)")}</button>
+            <span><b>{open.who}</b><small>{KIND[open.kind]}</small></span>
+          </div>
+          <div className="mn-body">
+            <div className="mn-amt"><b>{money2(open.amount)}</b>{badge(open)}</div>
+            {open.state === "paid" && (
+              <div className="mn-sent">{Icon.tick("var(--emerald)", 22)}
+                <span><b>{open.receipt_sent_at ? "Receipt sent" : "Paid"}</b>
+                  <small>{open.receipt_sent_at ? `To ${open.receipt_sent_to} · ${dayTime(open.receipt_sent_at)}` : "Done"}{["topup", "plus", "gift", "invoice"].includes(open.kind) ? ". They got a Payment received alert." : ""}</small></span></div>
+            )}
+            <dl className="mn-dl">
+              <dt>Reference</dt><dd>{open.ref}</dd>
+              {open.paid_on && <><dt>Sent</dt><dd>{sent(open)}</dd></>}
+              {open.paid_from && <><dt>Paid from</dt><dd>{open.paid_from}</dd></>}
+              {open.item && <><dt>For</dt><dd>{open.item}</dd></>}
+              {open.claimed_at && <><dt>They confirmed</dt><dd>{dayTime(open.claimed_at)}</dd></>}
+              {open.state === "paid" && open.paid_at ? <><dt>Marked paid</dt><dd>{dayTime(open.paid_at)}</dd></> : <><dt>Due</dt><dd>{day(open.due)}</dd></>}
+            </dl>
+            {open.proof && (isPdf(open.proof)
+              ? <button className="btn stone" onClick={() => urls[open.proof!] && window.open(urls[open.proof!], "_blank")}>{Icon.doc("currentColor", 20)}Open their PDF receipt</button>
+              : <button className="mn-shot" onClick={() => setBig(open)} aria-label="Their transfer receipt, full screen">{urls[open.proof] ? <img src={urls[open.proof]} alt={`Their transfer receipt for ${open.ref}`} /> : <span />}</button>)}
+          </div>
+          {open.state !== "paid" && (
+            <div className={`mn-foot ps-btns${open.kind === "plus" && open.state === "claimed" ? "" : " one"}`}>
+              {open.kind === "plus" && open.state === "claimed" && <button className="btn stone" disabled={!!busy} onClick={() => notReceived(open)}>{Icon.x("currentColor")}Not received</button>}
+              <button className="btn primary" disabled={!!busy} onClick={() => paid(open)}>{Icon.tick("currentColor", 20)}Mark paid</button>
+            </div>
+          )}
+        </div>
+      )}
+      {big?.proof && urls[big.proof] && (
+        <div className="mn-big">
+          <div className="mn-big-top"><span><b>{big.ref}</b><small>{money2(big.amount)}{big.paid_on ? ` · ${sent(big)}` : ""}{big.paid_from ? ` · ${big.paid_from}` : ""}</small></span>
+            <button className="btn stone small" onClick={() => setBig(null)}>{Icon.x("currentColor")}Close</button></div>
+          <img src={urls[big.proof]} alt={`Receipt for ${big.ref}`} />
+        </div>
+      )}
       {pick && <SearchPicker title="Show" placeholder="Search" options={MONEY_VIEWS.map(([id, label]) => ({ id, label }))} value={[view]} onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
     </>
   );

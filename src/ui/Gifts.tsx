@@ -9,7 +9,7 @@ import { Icon, Loading, SearchPicker, useToast } from "./kit";
 import { ActionBar } from "./Completion";
 import { AuthScreen } from "./Auth";
 import { stripeFor } from "../customer/Cards";
-import { BankPay, PaidThanks, dayLong, usePayments, type PayDetails } from "./Payments";
+import { BankPay, PaidThanks, claimArgs, dayLong, usePayments, type PayDetails } from "./Payments";
 
 /* Mahi Man gift cards: buy help for someone else. The gift lands in their wallet and pays the worker and the fee. */
 
@@ -207,7 +207,7 @@ export function GiftPage({ id }: { id: number }) {
       <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
       <BankPay title="Mahi Man gift card" sub={`For ${g.to}, ${g.reference}`} amount={g.amount} pay={g.pay} reference={g.reference}
         note="It sends once your payment is confirmed, within 24 hours and usually faster."
-        onConfirm={async (proof) => { await rpc("gift_claim_paid", { p_id: g.id, p_proof: proof }); setThanks(true); await load(); }}
+        onConfirm={async (c) => { await rpc("gift_claim_paid", { p_id: g.id, ...claimArgs(c) }); setThanks(true); await load(); }}
         onCancel={async () => { try { await rpc("gift_cancel", { p_id: g.id }); toast("Gift card cancelled"); go("/payments", true); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } }} />
     </div>
   );

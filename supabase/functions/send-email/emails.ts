@@ -124,9 +124,9 @@ ${ctx.play ? `<td class="stack" valign="top" width="50%" style="padding-left:6px
   if (kind === "receipt") {
     const total = Number(d.total_cents);
     const body = pdfNote(`Receipt ${d.number}.pdf`)
-      + rows([["Paid", money(total), true], ["Date", d.paid_on], ["For", `Invoice ${d.number}`], ["Paid by", d.method]])
+      + rows([["Paid", money(total), true], ["Date", d.paid_on], ["For", d.for ? `${d.for} · ${d.number}` : `Invoice ${d.number}`], ["Paid by", d.method]])
       + `<div style="margin:24px 0 0">${btn(`${site}/payments`, "See your payments", "quiet")}</div>`;
-    return { subject: `Receipt for ${money(total)}: invoice ${d.number}`, html: layout(ctx, `Thanks, ${d.first ?? ""}. Your receipt is attached.`, { eyebrow: "Payment received", title: `Thanks, ${first}.`, sub: `We've got your ${money(total)}. Your receipt is attached.` }, body) };
+    return { subject: `Receipt for ${money(total)}: ${d.for ? d.number : `invoice ${d.number}`}`, html: layout(ctx, `Thanks, ${d.first ?? ""}. Your receipt is attached.`, { eyebrow: "Payment received", title: `Thanks, ${first}.`, sub: `We've got your ${money(total)}. Your receipt is attached.` }, body) };
   }
 
   if (kind === "gift") {

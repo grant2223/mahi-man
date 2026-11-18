@@ -42,6 +42,10 @@ async function docFor(kind: string, d: Record<string, any>, to: string, pay: Pay
     const { data: prof } = await db.from("profiles").select("full_name").eq("id", inv.customer_id).maybeSingle();
     name = prof?.full_name || name; issued = day(inv.issued_at); due = day(inv.due_at); paid = day(inv.paid_at) || paid; total = inv.total_cents;
   }
+  // A bank top-up, Plus or gift card: a payment receipt that names what it was for, not an invoice receipt.
+  if (kind === "receipt" && !inv && d.for)
+    return { kind: "payment", title: d.for, heads: { job: "For", who: "" }, rows: [["Reference", d.number], ["Paid by", d.method ?? "Bank transfer"]],
+      number: d.number, issued, paid_on: paid, method: d.method ?? "Bank transfer", to_name: name, to_email: to, lines, total_cents: total, pay };
   return kind === "receipt"
     ? { kind: "receipt", number: d.number, issued, paid_on: paid, method: d.method ?? "Bank transfer", to_name: name, to_email: to, lines, total_cents: total, pay }
     : { kind: "invoice", number: d.number, issued, due, to_name: name, to_email: to, lines, total_cents: total, pay };
