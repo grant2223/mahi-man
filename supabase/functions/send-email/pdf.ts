@@ -14,6 +14,8 @@ export type DocData = {
   kind: "invoice" | "receipt" | "payment" | "statement";
   title?: string; rows?: [string, string][]; heads?: { job: string; who: string }; credit_cents?: number; note?: string;
   number: string; issued: string; due?: string; paid_on?: string; method?: string;
+  // A payment receipt for a transfer we haven't confirmed yet: "checking" (they say it's sent) or "waiting" (not sent).
+  pending?: "checking" | "waiting";
   to_name: string; to_email: string; lines: Line[]; total_cents: number; pay: Pay;
 };
 
@@ -76,7 +78,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   const x2 = M + 180, x3 = M + 360;
   col(M, receipt ? "Received from" : stmt ? "For" : "Bill to", [[d.to_name, F.med], [d.to_email, F.light]]);
   col(x2, "From", [[d.pay.trading_name || "Mahi Man", F.med], [d.pay.legal_name ?? "", F.light], [d.pay.abn ? `ABN ${fmtAbn(d.pay.abn)}` : "", F.light]]);
-  col(x3, receipt ? "Paid" : stmt ? "Made" : "Issued", receipt
+  col(x3, receipt ? (d.pending ? "Sent" : "Paid") : stmt ? "Made" : "Issued", receipt
     ? [[d.paid_on ?? "", F.med], [d.method ? `By ${d.method.toLowerCase()}` : "", F.light]]
     : [[d.issued, F.med]]);
 
@@ -84,9 +86,9 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   y -= 92;
   const big = money(stmt ? d.credit_cents ?? 0 : d.total_cents);
   const bw = text(big, M, y, F.bold, 34, C.ink);
-  text(stmt ? "credit now" : receipt ? "paid in full" : `due ${d.due}`, M + bw + 12, y + 2, F.med, 17, C.emerald);
+  text(stmt ? "credit now" : d.pending === "checking" ? "being checked" : d.pending === "waiting" ? "not paid yet" : receipt ? "paid in full" : `due ${d.due}`, M + bw + 12, y + 2, F.med, 17, C.emerald);
   y -= 18;
-  text(stmt ? `${d.title ?? "Your payments"}. Newest first.` : d.kind === "payment" ? `Thank you. ${d.title ?? ""}.` : receipt ? "Thank you. This receipt is for the invoice below." : "Connection fees for jobs booked on Mahi Man.", M, y, F.light, 10.5, C.body);
+  text(stmt ? `${d.title ?? "Your payments"}. Newest first.` : d.kind === "payment" ? (d.pending === "checking" ? `${d.title ?? ""}. We're checking your transfer with our bank, usually within a day.` : d.pending === "waiting" ? `${d.title ?? ""}. We haven't received this transfer yet.` : `Thank you. ${d.title ?? ""}.`) : receipt ? "Thank you. This receipt is for the invoice below." : "Connection fees for jobs booked on Mahi Man.", M, y, F.light, 10.5, C.body);
 
   // Lines. Long invoices carry on to more pages, each with the column headings again.
   y -= 34;

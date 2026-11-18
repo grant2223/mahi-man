@@ -377,7 +377,7 @@ export function Track({ id }: { id: string }) {
         ) : (
           <div className="pad stack" style={{ gap: 4 }}>
             <span className="t17 w5">{jobName}</span>
-            <span className="t15 light muted">{job.address}, {suburb}</span>
+            <span className="t15 light muted">{[job.address, suburb].filter(Boolean).join(", ")}</span>
           </div>
         )}
 

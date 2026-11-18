@@ -40,7 +40,8 @@ Deno.serve(async (req) => {
       const { data: r, error } = await db.rpc("payment_receipt", { p_kind: String(body.kind), p_id: String(body.id) });
       if (error || !r) return json({ error: "Receipt not found" }, 404);
       const number = r.ref ?? `MM-${String(body.kind).toUpperCase()}-${body.id}`;
-      doc = { ...base, kind: "payment", number, issued: dayY(r.at), paid_on: dayY(r.confirmed_at ?? r.at), method: VIA[r.via] ?? "Bank transfer", title: r.title,
+      const pending = r.status === "checking" ? "checking" as const : r.status === "waiting" ? "waiting" as const : undefined;
+      doc = { ...base, kind: "payment", number, pending, issued: dayY(r.at), paid_on: dayY(r.confirmed_at ?? r.at), method: VIA[r.via] ?? "Bank transfer", title: r.title,
         heads: { job: "What", who: "Paid by" }, lines: [{ date: dayY(r.at), job: r.title, who: VIA[r.via] ?? "", cents: r.amount }], total_cents: r.amount,
         rows: (r.lines ?? []).map((l: { k: string; v: string }) => [l.k, l.v] as [string, string]) };
       name = `Mahi-Man-receipt-${number}.pdf`;

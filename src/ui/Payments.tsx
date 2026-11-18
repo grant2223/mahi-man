@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
 import { api, rpc, sb, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money, money2, shrinkImage } from "../lib/format";
-import { Icon, Loading, SearchPicker, StepHero, useToast } from "./kit";
+import { Icon, Loading, Screen, SearchPicker, StepHero, useToast } from "./kit";
 import { ActionBar } from "./Completion";
 import { AuthScreen } from "./Auth";
 import { HistList, glyph, saveDocument, useHistory } from "./History";
@@ -445,6 +445,11 @@ export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, o
   // Proof of transfer: a screenshot or PDF of the bank's receipt, kept private for the money team.
   const [proof, setProof] = useState<{ path: string; name: string; preview: string | null } | null>(null);
   const [uploading, setUploading] = useState(false);
+  // Android's file box only offers Files, so there they choose: camera, or a screenshot/PDF. iPhone's own menu already has both.
+  const android = Capacitor.getPlatform() === "android";
+  const fileIn = useRef<HTMLInputElement>(null);
+  const camIn = useRef<HTMLInputElement>(null);
+  const [pickSrc, setPickSrc] = useState(false);
   const addProof = async (f: File | undefined) => {
     if (!f) return;
     if (f.size > 10 * 1024 * 1024) { toast("That file is too big. Use a screenshot."); return; }
@@ -482,8 +487,9 @@ export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, o
     </p>
     {note && <p className="pq-trust"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg><span>{note}</span></p>}
     <div className="pq-foot">
-      <label className={proof ? "pq-proof on" : "pq-proof"}>
-        <input type="file" accept="image/*,application/pdf" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; addProof(f); }} hidden />
+      <label className={proof ? "pq-proof on" : "pq-proof"} onClick={(e) => { if (android && !uploading && (e.target as HTMLElement).tagName !== "INPUT") { e.preventDefault(); setPickSrc(true); } }}>
+        <input ref={fileIn} type="file" accept="image/*,application/pdf" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; addProof(f); }} hidden />
+        <input ref={camIn} type="file" accept="image/*" capture="environment" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; addProof(f); }} hidden />
         {proof?.preview ? <img src={proof.preview} alt="" /> : <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2h9l5 5v15H6z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>}
         <span><b>{uploading ? "Adding…" : proof ? "Transfer receipt added" : "Add your transfer receipt"}</b><small>{proof ? "Tap to change it" : "A screenshot from your banking app"}</small></span>
         {proof && Icon.tick("#f5c518", 20)}
@@ -498,6 +504,14 @@ export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, o
       }}><span>{busy ? "One moment…" : "Confirm payment"}</span></button>
       {onCancel && <button className="pq-cancel" onClick={onCancel}>{cancelLabel}</button>}
     </div>
+    {pickSrc && <Screen title="Add your transfer receipt" onBack={() => setPickSrc(false)}>
+      <div className="screen-body" style={{ background: "var(--card)" }}>
+        <div className="hl-list">
+          <button onClick={() => { setPickSrc(false); camIn.current?.click(); }}>{Icon.camera("var(--emerald)")}<span><b>Take a photo</b><small>Of the receipt on your screen or on paper</small></span>{Icon.chevron("var(--faint)")}</button>
+          <button onClick={() => { setPickSrc(false); fileIn.current?.click(); }}>{Icon.doc("var(--emerald)")}<span><b>Choose a screenshot or PDF</b><small>From your phone</small></span>{Icon.chevron("var(--faint)")}</button>
+        </div>
+      </div>
+    </Screen>}
   </>;
 }
 
