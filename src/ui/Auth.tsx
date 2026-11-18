@@ -117,7 +117,7 @@ export function AuthScreen({ title, reason, need, onDone, onBack, askProfile = t
               onChange={(e) => { const c = e.target.value.replace(/\D/g, "").slice(0, 6); setCode(c); if (c.length === 6) verify(c); }} /></label>
           {err && <p className="err">{err}</p>}
           {busy && <p className="t15 muted">Checking…</p>}
-          <div className="auth-switch">No email? Check junk, or <button className="link" disabled={busy} onClick={sendCode}>send a new code</button></div>
+          <div className="auth-switch row between" style={{ alignItems: "center", gap: 12 }}><span>No email? Check your junk folder.</span><button className="btn stone small" disabled={busy} onClick={sendCode}>Send a new code</button></div>
         </>}
 
         {step === "name" && <>

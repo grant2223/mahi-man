@@ -258,7 +258,7 @@ function DailyChart({ days, open }: { days: (Period & { day: string })[]; open?:
         <span className="t">{dayName(sel.day, true)}{pick === days.length - 1 ? " · today" : ""}</span>
         <span className="n">{sel.done} done{sel.cancelled ? ` · ${sel.cancelled} cancelled` : ""}</span>
         <span className="n">{money2(sel.gmv)} through Mahi Man · {money2(sel.revenue)} your revenue</span>
-        {open && (sel.done > 0 || sel.cancelled > 0) && <button className="link" onClick={() => open(sel.day)}>See these jobs ›</button>}
+        {open && (sel.done > 0 || sel.cancelled > 0) && <button className="btn stone small" onClick={() => open(sel.day)}>See these jobs</button>}
       </div>
       <div className="dc-plot" style={{ height: h }}>
         <div className="dc-y">{[top, top / 2, 0].map((v) => <span key={v}>{fmt(v)}</span>)}</div>
@@ -479,7 +479,7 @@ function DisputeDecide({ inc, onBack }: { inc: Incident; onBack: () => void }) {
     <div className="dd">
       <div className="row between" style={{ alignItems: "flex-end", marginBottom: 16 }}>
         <span className="stack" style={{ gap: 4 }}>
-          <button className="link" style={{ alignSelf: "flex-start" }} onClick={onBack}>All disputes</button>
+          <button className="btn stone small" style={{ alignSelf: "flex-start" }} onClick={onBack}>{Icon.back("currentColor")} All disputes</button>
           <span className="dd-title">{job.job_types.name}, {money2(full)}</span>
           <span className="t15 light muted">{job.suburbs?.name}, {new Date(job.start_at).toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" })}. Reported by {inc.reporter?.full_name} at {new Date(inc.created_at).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" })}</span>
         </span>
@@ -708,7 +708,7 @@ function LicenceChecks({ onChanged }: { onChanged: () => void }) {
               <span className="stack" style={{ gap: 2 }}><span className="small muted">Number</span><span className="t17">{cur.number || "Not given"}</span></span>
               <span className="stack" style={{ gap: 2 }}><span className="small muted">Expires</span><span className="t17">{cur.expiry ? new Date(cur.expiry + "T00:00:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" }) : "No expiry given"}</span></span>
               <span className="stack" style={{ gap: 2 }}><span className="small muted">Name on account</span><span className="t17">{cur.profiles.full_name}{cur.profiles.id_status === "verified" ? ", ID verified" : ", ID not verified yet"}</span></span>
-              <a className="link" style={{ padding: 0 }} target="_blank" rel="noreferrer"
+              <a className="btn stone small" style={{ alignSelf: "flex-start" }} target="_blank" rel="noreferrer"
                 href={`https://www.google.com/search?q=${encodeURIComponent(`${cur.credential_types.name} register check Australia`)}`}>Find the register to check it</a>
             </div>
           </div>

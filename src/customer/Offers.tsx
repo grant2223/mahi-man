@@ -309,10 +309,6 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
               <button className="btn stone" disabled={rescueBusy} onClick={() => setPickWhen("day")}>Pick a time</button>
             </div>
           )}
-          <button className="link rs-share" onClick={async () => {
-            const r = await shareLink(`Paid job on Mahi Man: ${title}, ${price}. Workers keep 100%.`, `${SITE}/work`);
-            if (r === "copied") toast("Link copied. Paste it in a message.");
-          }}>Know someone who could do this? Share the job</button>
         </div>
       )}
       {pickWhen === "day" && <SearchPicker title="Which day?" placeholder="Search" value={[]} options={days} onClose={() => setPickWhen(null)}
@@ -437,7 +433,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
                 <button className="btn stone" onClick={() => ignore(o)} disabled={!!busy}>Ignore</button>
                 <button className="btn primary" onClick={() => choose(o)} disabled={!!busy}>{busy === o.worker_id ? "Booking…" : "Select"}</button>
               </div>
-              <button className="ox-see" onClick={() => setProfile(o.worker_id)}>See all of {first}'s work{Icon.chevron("var(--emerald)")}</button>
+              <button className="btn stone small ox-see" onClick={() => setProfile(o.worker_id)}>See all of {first}'s work{Icon.chevron("currentColor")}</button>
             </section>
           );
         })}
@@ -447,14 +443,6 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         <div className="cp-note">
           {Icon.msg("var(--muted)")}
           <span>Messages open with the person you choose. Everyone else is told the job's taken.</span>
-        </div>
-      )}
-      {!shown.length && !stuck && (
-        <div className="cp-note">
-          <span>Know someone who could do this? <button className="link" style={{ padding: 0 }} onClick={async () => {
-            const r = await shareLink(`Paid job on Mahi Man: ${title}, ${price}. Workers keep 100%.`, `${SITE}/work`);
-            if (r === "copied") toast("Link copied. Paste it in a message.");
-          }}>Share the job</button></span>
         </div>
       )}
       <div style={{ flex: 1 }} />

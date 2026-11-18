@@ -233,7 +233,7 @@ export function PaymentsPage() {
       )}
 
       <div className="cp-sec iv-band ph-sec">
-        <div className="ph-head"><span className="cp-title" style={{ margin: 0 }}>History</span>{(hist?.length ?? 0) > 0 && <button className="ph-all" onClick={() => go("/payments/history")}>See all</button>}</div>
+        <div className="ph-head"><span className="cp-title" style={{ margin: 0 }}>History</span>{(hist?.length ?? 0) > 0 && <button className="btn stone small" onClick={() => go("/payments/history")}>See all</button>}</div>
         {!hist ? <Loading /> : hist.length ? <HistList rows={hist} /> : <p className="ph-none">Your payments will show here</p>}
       </div>
 

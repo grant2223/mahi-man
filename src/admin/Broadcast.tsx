@@ -159,7 +159,7 @@ function NewBroadcast({ onSent }: { onSent: () => void }) {
     <div className="mb-grid">
       <div className="mb-form">
         <section className="mb-step">
-          <div className="row between"><h2>Who gets it</h2><button className="link" onClick={() => setNaming("audience")}>Save this audience</button></div>
+          <div className="row between"><h2>Who gets it</h2><button className="btn stone small" onClick={() => setNaming("audience")}>Save this audience</button></div>
           {saved.audiences.length > 0 && <button className="field sel mb-saved" onClick={() => setPick("audience")}><span className="k">Start from a saved audience</span><span className="v">Pick one</span></button>}
           <div className="mb-fields">
             {fields.map(([k, l]) => <button key={k} className="field sel" onClick={() => setPick(k)}><span className="k">{l}</span><span className="v">{name(k)}</span></button>)}
@@ -167,7 +167,7 @@ function NewBroadcast({ onSent }: { onSent: () => void }) {
           <div className="mb-reach">
             <b>{count ? `${fmt(count.sendable)} ${count.sendable === 1 ? "person" : "people"}` : "…"}</b>
             <span>{count ? [`${count.push} get an alert on their phone`, email && count.email ? `${count.email} by email only` : "", !email && count.none ? `${count.none} only see it in the app` : "", count.skipped ? `${count.skipped} skipped` : ""].filter(Boolean).join(" · ") : "Counting"}</span>
-            {!!count?.sendable && <button className="link" onClick={() => setSeeWho(true)}>See who</button>}
+            {!!count?.sendable && <button className="btn stone small" onClick={() => setSeeWho(true)}>See who</button>}
           </div>
         </section>
 
@@ -180,7 +180,7 @@ function NewBroadcast({ onSent }: { onSent: () => void }) {
         </section>
 
         <section className="mb-step">
-          <div className="row between"><h2>The message</h2><button className="link" disabled={!title.trim() || !body.trim()} onClick={() => setNaming("template")}>Save as a template</button></div>
+          <div className="row between"><h2>The message</h2><button className="btn stone small" disabled={!title.trim() || !body.trim()} onClick={() => setNaming("template")}>Save as a template</button></div>
           {tpl.length > 0 && <button className="field sel" onClick={() => setPick("template")}><span className="k">Start from a template</span><span className="v">Pick one</span></button>}
           <label className="field"><span className="k">Title · {title.length} of 50</span><input value={title} maxLength={50} onChange={(e) => setTitle(e.target.value)} placeholder="Rain's cleared. Lawns booked today" /></label>
           <label className="field mb-body"><span className="k">Message · {body.length} of 150</span><textarea value={body} maxLength={150} onChange={(e) => setBody(e.target.value)} placeholder="Book a mow by 9am and a local worker will have it done this afternoon." /></label>

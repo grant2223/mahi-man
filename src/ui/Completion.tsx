@@ -11,12 +11,12 @@ import { inviteText, shareLink, SITE } from "../lib/share";
 
 export const DONE_STEPS = ["Booked", "On the way", "Working", "Paid", "Reviewed"];
 
-export function DoneHero({ jobName, label, big, lime, sub, step }: { jobName: string; label: string; big: string; lime?: boolean; sub: string; step: number }) {
+export function DoneHero({ jobName, label, big, lime, sub, step, onBack }: { jobName: string; label: string; big: string; lime?: boolean; sub: string; step: number; onBack?: () => void }) {
   return (
     <section className="hero cp-hero">
       <div className="hero-top cp-top">
-        <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
-        <span className="jn">{jobName}</span>
+{onBack ? <span className="row" style={{ gap: 10, minWidth: 0 }}><button className="cx-back" onClick={onBack} aria-label="Back to jobs">{Icon.back("#fff")}</button><span className="t17 w5">{jobName}</span></span>
+        : <><button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button><span className="jn">{jobName}</span></>}
       </div>
       <span className="label" style={{ marginTop: 18 }}>{label}</span>
       <span className={`big${lime ? " lime" : ""}`} style={big.length > 6 ? { fontSize: 60, letterSpacing: -2.5, lineHeight: 1 } : undefined}>{big}</span>
@@ -252,7 +252,7 @@ const OUTCOME: Record<string, string> = {
 
 const when = (iso: string) => new Date(iso).toLocaleString("en-AU", { weekday: "long", hour: "numeric", minute: "2-digit" }).replace(",", "");
 
-export function DisputeView({ job, jobName, otherName, isWorker, onChanged, footer }: { job: Job; jobName: string; otherName: string; isWorker: boolean; onChanged: () => void; footer?: ReactNode }) {
+export function DisputeView({ job, jobName, otherName, isWorker, onChanged, onBack }: { job: Job; jobName: string; otherName: string; isWorker: boolean; onChanged: () => void; onBack?: () => void }) {
   const toast = useToast();
   const [d, setD] = useState<Dispute | null | undefined>(undefined);
   const [reply, setReply] = useState(false);
@@ -279,8 +279,8 @@ export function DisputeView({ job, jobName, otherName, isWorker, onChanged, foot
     <div className="app">
       <section className="hero cp-hero">
         <div className="hero-top cp-top">
-          <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
-          <span className="jn">{jobName}</span>
+  {onBack ? <span className="row" style={{ gap: 10, minWidth: 0 }}><button className="cx-back" onClick={onBack} aria-label="Back to jobs">{Icon.back("#fff")}</button><span className="t17 w5">{jobName}</span></span>
+          : <><button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button><span className="jn">{jobName}</span></>}
         </div>
         <span className="label" style={{ marginTop: 18 }}>{d.resolved ? "Decided" : "We're looking into it"}</span>
         <span className="big" style={{ fontSize: 60, letterSpacing: -2.5, lineHeight: 1 }}>{d.resolved ? OUTCOME[d.outcome ?? ""] ?? "Done" : big}</span>
@@ -315,7 +315,6 @@ export function DisputeView({ job, jobName, otherName, isWorker, onChanged, foot
       )}
       {!d.resolved && <Note icon="lock">{isWorker ? "" : "Don't pay until we decide. "}Reviews stay closed until then.</Note>}
       <div style={{ flex: 1 }} />
-      {footer}
       {!d.resolved && (
         <ActionBar>
           <button className="btn stone" style={{ flex: 1 }} onClick={() => go("/support")}>Get help</button>

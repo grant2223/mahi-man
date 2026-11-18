@@ -94,11 +94,10 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
 
   const approved = extras.filter((e) => e.status === "approved");
   const jobName = j.title || jt.name;
-  const leaveLink = <div style={{ padding: "0 16px 16px" }}><button className="btn stone" onClick={onLeave}>{Icon.back("currentColor")}See new jobs</button></div>;
   const problem = report && <JobProblem job={j} jobName={jobName} otherName={cName} isWorker onBack={() => setReport(false)} onDone={() => { setReport(false); load(); }} />;
 
   if (j.status === "disputed" || j.status === "refunded") {
-    return <><DisputeView job={j} jobName={jobName} otherName={cName} isWorker onChanged={load} footer={leaveLink} />{problem}</>;
+    return <><DisputeView job={j} jobName={jobName} otherName={cName} isWorker onChanged={load} onBack={onLeave} />{problem}</>;
   }
 
   if (j.status === "confirmed") {
@@ -110,7 +109,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     // The customer's Mahi Man gift card covers the whole job: Mahi Man pays the worker.
     return (
       <>
-        <DoneHero jobName={jobName} step={3} big={money(earn)} lime label="Paid by a gift card"
+        <DoneHero onBack={onLeave} jobName={jobName} step={3} big={money(earn)} lime label="Paid by a gift card"
           sub={`Mahi Man pays you on the Friday after ${cName} says it's done`} />
         <div className="cp-sec">
           <span className="cp-title" style={{ marginBottom: 2 }}>Nothing to collect</span>
@@ -131,7 +130,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     const at = told ? new Date(j.customer_paid_at!).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }) : "";
     return (
       <>
-        <DoneHero jobName={jobName} step={3} big={money(earn - gift)} lime
+        <DoneHero onBack={onLeave} jobName={jobName} step={3} big={money(earn - gift)} lime
           label={told ? `${cName} says they've paid you` : "Get paid"}
           sub={told ? `Marked paid at ${at}` : `Collect it from ${cName} now, ${payWay(j)}`} />
         {told ? (
@@ -159,7 +158,6 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
           </>
         )}
         <Note icon="clock">{told ? "If you don't answer within 24 hours, we take it as received." : `Waiting for ${cName} to check your after photos and pay. If they do nothing for 48 hours, the job closes as done.`}</Note>
-        {leaveLink}
         <ActionBar>
           <button className="btn stone" style={{ flex: 1 }} onClick={() => setReport(true)}>{told ? "Not received" : "Not paid?"}</button>
           <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={async () => {

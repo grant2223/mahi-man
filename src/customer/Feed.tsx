@@ -127,11 +127,11 @@ export function Feed({ setup }: { setup?: { done: number; total: number; onFinis
             </div>
           </div>
         )}
-        {!session && <p className="small light muted" style={{ margin: "18px 20px calc(var(--safe-bottom) + 24px)", lineHeight: 1.5 }}>
-          <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
-          <span className="sep" /><a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
-          <span className="sep" /><a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
-        </p>}
+        {!session && <div className="legal-btns" style={{ margin: "18px 20px calc(var(--safe-bottom) + 24px)" }}>
+          <button className="btn stone small" onClick={() => go("/privacy")}>Privacy</button>
+          <button className="btn stone small" onClick={() => go("/terms")}>Terms</button>
+          <button className="btn stone small" onClick={() => go("/support")}>{Icon.help("currentColor", 18)}Help</button>
+        </div>}
       </div>
       <TabBar on="work" />
 

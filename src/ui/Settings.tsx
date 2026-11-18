@@ -349,7 +349,7 @@ function Account({ prefs, onPrefs, onBack, onOpen, items, balance, plus }: { pre
         <section className="ax-sec">
           <h2>Contact<button onClick={() => setEditing("contact")}>Edit</button></h2>
           <button className="ax-row" onClick={() => !contact && setEditing("contact")}>{A.phone}
-            <span className="ax-t"><small>Mobile</small>{contact ? <b>{showPhone(contact.phone, contact.dial)}</b> : <b className="add">Add your mobile</b>}</span>
+            <span className="ax-t"><small>Mobile</small>{contact ? <b>{showPhone(contact.phone, contact.dial)}</b> : <b className="none">Not added yet</b>}</span>
             {contact?.whatsapp && <span className="ax-wa">{waMark(20)}</span>}</button>
           <div className="ax-row">{A.mail}<span className="ax-t"><small>Email</small><b>{session.user.email ?? ""}</b></span></div>
           {profile.id_status !== "verified" && (

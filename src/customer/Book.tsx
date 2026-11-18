@@ -464,14 +464,14 @@ export function Book() {
                     : "Invoiced when the job's done. Pay by bank transfer"}</p>
                 </div>
                 <div className="ck-m ck-total"><span>Total</span><b>{money(totalCents)}</b></div>
-                <a className="ck-hiw" href="/pricing" onClick={(e) => { e.preventDefault(); go("/pricing"); }}>How payment works</a>
+                <button className="btn stone small ck-hiw" onClick={() => go("/pricing")}>{Icon.help("currentColor", 18)}How payment works</button>
                 {bookingFee > 0 && session && <button className="ck-m ck-card" onClick={() => setCardScreen(true)}><span>Card</span><b>{profile?.card_last4 ? cardLabel(profile) : "Add a card"}</b></button>}
               </>)}
             </section>
 
             {/* Everything workers read, in full. */}
             <section className="ck-job">
-              <div className="ck-jh"><h2>The job</h2><button className="link" onClick={() => go("/book/details")}>Edit</button></div>
+              <div className="ck-jh"><h2>The job</h2><button className="btn stone small" onClick={() => go("/book/details")}>Edit</button></div>
               <p className="ck-desc">{d.details}</p>
               {jobSkills.length ? <div className="ck-list"><h3>Skills needed</h3><span className="plain">{jobSkills.map((k) => k.name).join(", ")}</span></div> : null}
               {d.notes ? <div className="ck-list"><h3>Notes for your worker</h3><span className="plain">{d.notes}</span></div> : null}
@@ -486,8 +486,10 @@ export function Book() {
         )}
         <div className="ck-cancel">
           {discard
-            ? <><span>Throw this job away?</span><button onClick={async () => { sessionStorage.removeItem(DRAFT_KEY); await draftMedia.clear(); go("/post", true); }}>Yes, cancel it</button><button onClick={() => setDiscard(false)}>Keep it</button></>
-            : <button onClick={() => setDiscard(true)}>Cancel, don't post this job</button>}
+            ? <><span>Throw this job away?</span>
+                <div className="ps-btns"><button className="btn stone" onClick={() => setDiscard(false)}>{Icon.back("currentColor")}Keep it</button>
+                <button className="btn out" onClick={async () => { sessionStorage.removeItem(DRAFT_KEY); await draftMedia.clear(); go("/post", true); }}>{Icon.cancel("currentColor")}Throw away</button></div></>
+            : <button className="btn stone" onClick={() => setDiscard(true)}>{Icon.cancel("currentColor")}Don't post this job</button>}
         </div>
         {err && <p className="err" style={{ padding: "0 20px" }}>{err}</p>}
         <div style={{ flex: 1 }} />
@@ -749,7 +751,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         })()}
         {recent && recent.some((r) => !LIVE[r.status]) ? (
           <div className="stack" style={{ gap: 0 }}>
-            <span className="row between" style={{ alignItems: "baseline" }}><span className="post-h">Your recent jobs</span><button className="link" onClick={() => go("/jobs")}>All your jobs</button></span>
+            <span className="row between" style={{ alignItems: "baseline" }}><span className="post-h">Your recent jobs</span><button className="btn stone small" onClick={() => go("/jobs")}>All your jobs</button></span>
             {recent.filter((r) => !LIVE[r.status]).map((r) => {
               const c = cats.find((x) => x.id === r.job_types?.category_id);
               return (
@@ -777,11 +779,11 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         ) : null}
 
         {feedOffer && <FeedOfferCard o={feedOffer} side="help" style={{ margin: "0 -16px", width: "calc(100% + 32px)", borderTop: "1px solid var(--line)" }} />}
-        {!signedIn && <p className="small light muted" style={{ margin: "18px 0 calc(var(--safe-bottom) + 18px)", lineHeight: 1.5 }}>
-          <a href="/privacy" onClick={(e) => { e.preventDefault(); go("/privacy"); }}>Privacy</a>
-          <span className="sep" /><a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>Terms</a>
-          <span className="sep" /><a href="/support" onClick={(e) => { e.preventDefault(); go("/support"); }}>Help</a>
-        </p>}
+        {!signedIn && <div className="legal-btns" style={{ margin: "18px 0 calc(var(--safe-bottom) + 18px)" }}>
+          <button className="btn stone small" onClick={() => go("/privacy")}>Privacy</button>
+          <button className="btn stone small" onClick={() => go("/terms")}>Terms</button>
+          <button className="btn stone small" onClick={() => go("/support")}>{Icon.help("currentColor", 18)}Help</button>
+        </div>}
       </div>
       <TabBar on="help" />
       {openRepeat && <RepeatScreen r={openRepeat} pic={openRepeat.photo ? repPics[openRepeat.photo] : undefined} onClose={() => setOpenRepeat(null)} onSaved={() => { setOpenRepeat(null); loadRepeats(); }} />}
@@ -851,8 +853,10 @@ function RepeatScreen({ r, pic, onClose, onSaved }: { r: Repeat; pic?: string; o
             );
           })}
           {stop
-            ? <div className="rp-stopask"><span>Stop repeating this job?</span><button className="rp-stop" disabled={busy} onClick={stopIt}>Yes, stop it</button><button className="rp-keep" onClick={() => setStop(false)}>Keep it</button></div>
-            : <button className="rp-stop" onClick={() => setStop(true)}>Stop repeating</button>}
+            ? <div className="rp-stopask"><span>Stop repeating this job?</span>
+                <div className="ps-btns"><button className="btn stone" onClick={() => setStop(false)}>{Icon.back("currentColor")}Keep it</button>
+                <button className="btn out" disabled={busy} onClick={stopIt}>{Icon.cancel("currentColor")}Stop it</button></div></div>
+            : <button className="btn stone rp-stop" onClick={() => setStop(true)}>{Icon.cancel("currentColor")}Stop repeating</button>}
         </div>
       </div>
       <div className="bottombar"><span /><button className="btn primary" disabled={busy} onClick={save}>Save</button></div>

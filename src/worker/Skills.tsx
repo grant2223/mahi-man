@@ -216,11 +216,11 @@ function JobDetail({ type, catalog, mine, isNew, next, onBack, onSaved, onCredsC
           </div>
         </div>
         <div className="kw-sec">
-          <span className="kw-h row between">What you do<button className="link" onClick={() => setPick("skills")}>Edit</button></span>
+          <span className="kw-h row between">What you do<button className="btn stone small" onClick={() => setPick("skills")}>Edit</button></span>
           <span className={skills.length ? "kw-v" : "kw-v muted"}>{skills.length ? nameOf(skills) : "Nothing added yet"}</span>
         </div>
         <div className="kw-sec">
-          <span className="kw-h row between">What you bring<button className="link" onClick={() => setPick("gear")}>Edit</button></span>
+          <span className="kw-h row between">What you bring<button className="btn stone small" onClick={() => setPick("gear")}>Edit</button></span>
           <span className={gear.length ? "kw-v" : "kw-v muted"}>{gear.length ? nameOf(gear) : "Nothing added yet"}</span>
         </div>
         <div className="kw-sec">
