@@ -45,20 +45,28 @@ function Page({ title, children, onBack }: { title: string; children: ReactNode;
 }
 
 /* ---------- Give help: buy a gift card ---------- */
+const GIFT_DRAFT = "mm-gift-draft";
+type GiftDraft = { amount: number; occasion: string; to: string; from: string; sendBy: "text" | "email"; dest: string; msg: string; sendOn: string };
+
 export function GiveHelpPage() {
   const { session, profile } = useSession();
   const toast = useToast();
   const { p } = usePayments(!!session);
   const today = todayIso();
   const xmas = `${today.slice(0, 4)}-12-25`;
-  const [amount, setAmount] = useState(10000);
-  const [occasion, setOccasion] = useState(today.slice(5, 7) === "11" || today.slice(5, 7) === "12" ? "Christmas" : "Just because");
-  const [to, setTo] = useState("");
-  const [from, setFrom] = useState("");
-  const [sendBy, setSendBy] = useState<"text" | "email">("text");
-  const [dest, setDest] = useState("");
-  const [msg, setMsg] = useState("");
-  const [sendOn, setSendOn] = useState(today);
+  // What they've typed is kept for this visit, so leaving the page (or Android's back button) doesn't lose it.
+  const draft = (() => { try { return JSON.parse(sessionStorage.getItem(GIFT_DRAFT) ?? "null") as Partial<GiftDraft> | null; } catch { return null; } })();
+  const [amount, setAmount] = useState(draft?.amount ?? 10000);
+  const [occasion, setOccasion] = useState(draft?.occasion ?? (today.slice(5, 7) === "11" || today.slice(5, 7) === "12" ? "Christmas" : "Just because"));
+  const [to, setTo] = useState(draft?.to ?? "");
+  const [from, setFrom] = useState(draft?.from ?? "");
+  const [sendBy, setSendBy] = useState<"text" | "email">(draft?.sendBy ?? "text");
+  const [dest, setDest] = useState(draft?.dest ?? "");
+  const [msg, setMsg] = useState(draft?.msg ?? "");
+  const [sendOn, setSendOn] = useState(draft?.sendOn && draft.sendOn >= today ? draft.sendOn : today);
+  useEffect(() => {
+    try { sessionStorage.setItem(GIFT_DRAFT, JSON.stringify({ amount, occasion, to, from, sendBy, dest, msg, sendOn } satisfies GiftDraft)); } catch { /* private mode */ }
+  }, [amount, occasion, to, from, sendBy, dest, msg, sendOn]);
   const [via, setVia] = useState<"card" | "bank" | null>(null);
   const [pick, setPick] = useState<"amount" | "occasion" | "by" | "on" | "via" | null>(null);
   const [busy, setBusy] = useState(false);
@@ -90,6 +98,7 @@ export function GiveHelpPage() {
         }
         toast("Paid. Thank you!");
       }
+      try { sessionStorage.removeItem(GIFT_DRAFT); } catch { /* private mode */ }
       go(`/gifts/${r.id}`, true);
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };

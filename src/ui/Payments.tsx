@@ -537,7 +537,7 @@ export function PaidThanks({ first, amount, reference, what, last }: { first?: s
 // Plus: one payment for a year. In beta it's a bank transfer; card payments switch on when Stripe is connected.
 export function PlusPage() {
   const toast = useToast();
-  const { profile } = useSession();
+  const { profile, reload: reloadMe } = useSession();
   const { p, reload: reloadP, failed } = usePayments();
   const [order, setOrder] = useState<(PlusOrder & { pay: PayDetails }) | null>(null);
   const [busy, setBusy] = useState(false);
@@ -575,7 +575,7 @@ export function PlusPage() {
         </> : <>
           <BankPay title="Mahi Man Plus" sub={`12 months · ${order.reference}`} amount={order.amount} pay={pay} reference={order.reference}
             note="Plus starts as soon as you confirm. We check your payment within 24 hours."
-            onConfirm={async (proof) => { await rpc("plus_claim", { p_id: order.id, p_proof: proof }); setOrder({ ...order, status: "claimed" }); reloadP(); }} />
+            onConfirm={async (proof) => { await rpc("plus_claim", { p_id: order.id, p_proof: proof }); setOrder({ ...order, status: "claimed" }); reloadP(); reloadMe(); }} />
         </>}
       </div>
     );

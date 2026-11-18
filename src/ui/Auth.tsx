@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { sb } from "../lib/supabase";
 import { Icon, Screen } from "./kit";
@@ -43,6 +43,12 @@ export function AuthScreen({ title, reason, need, onDone, onBack, askProfile = t
   const [err, setErr] = useState("");
   const [, setNote] = useState("");
   const codeRef = useRef<HTMLInputElement>(null);
+  // "Wait a minute" goes away once the minute is up, so it doesn't look like it's still blocked.
+  useEffect(() => {
+    if (!/^Wait a minute/.test(err)) return;
+    const t = window.setTimeout(() => setErr((e) => (/^Wait a minute/.test(e) ? "" : e)), 60000);
+    return () => window.clearTimeout(t);
+  }, [err]);
 
   const run = async (f: () => Promise<void>) => {
     setErr(""); setNote(""); setBusy(true);

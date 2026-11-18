@@ -2033,6 +2033,8 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .jc-bar { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 8px 20px calc(var(--safe-bottom) + 18px); }
 .jc-thumbs { display: flex; gap: 6px; }
 .jc-thumbs button { width: 50px; height: 50px; border: 0; border-radius: 3px; background: #222 center / cover no-repeat; box-shadow: 0 0 0 2px #fff; cursor: pointer; }
+.jc-thumbs .jc-lib { display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.14); box-shadow: none; border-radius: var(--r-control); }
+.jc-thumbs .jc-lib svg { width: 26px; height: 26px; }
 .jc-shutter { width: 76px; height: 76px; border-radius: 50%; border: 4px solid #fff; background: none; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 .jc-shutter i { width: 60px; height: 60px; border-radius: 50%; background: #fff; }
 .jc-shutter:disabled { opacity: 0.4; }

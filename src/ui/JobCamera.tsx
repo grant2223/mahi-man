@@ -48,6 +48,8 @@ export function JobCamera({ max, onBack, onDone }: { max: number; onBack: () => 
       <span className="jc-count">{full ? `${max} photos, that's the most` : shots.length ? `${shots.length} photo${shots.length === 1 ? "" : "s"}` : ""}</span>
       <div className="jc-bar">
         <div className="jc-thumbs">
+          {/* Photos already on the phone: always a way in, even when the camera can't open. */}
+          {!shots.length && <button className="jc-lib" onClick={() => file.current?.click()} aria-label="Choose from your photos"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="1.8" /><path d="M21 16l-5.5-5.5L6 20" /></svg></button>}
           {shots.slice(-3).map((s) => (
             <button key={s.url} style={{ backgroundImage: `url("${s.url}")` }} aria-label="Remove photo"
               onClick={() => setShots((all) => all.filter((x) => x.url !== s.url))} />
