@@ -1267,7 +1267,7 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "pay_account_name", label: "Account name", t: "text", ph: "Company Pty Ltd" },
   ] },
   { title: "Jobs", text: "Timing rules for every job.", fields: [
-    { k: "widen_after_minutes", label: "Show to workers further away after", t: "num", unit: "minutes" },
+    { k: "widen_after_minutes", label: "Alert workers and widen the search after", hint: "Plus jobs alert nearby workers the moment they're posted. Other jobs alert every worker in range once nobody has offered by this time.", t: "num", unit: "minutes" },
     { k: "widen_max_km", label: "Furthest a widened job goes", t: "num", unit: "km" },
     { k: "auto_release_hours", label: "Close as done if the customer does nothing for", t: "num", unit: "hours" },
   ] },
