@@ -1,11 +1,12 @@
 import { AfterJobOffer } from "../ui/LocalOffers";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { api, isDirectPay, payWay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { useRules } from "../lib/rules";
 import { go } from "../lib/router";
 import { elapsed, firstName, initials, money, money2 } from "../lib/format";
-import { Icon, Loading, Logo, Perf, Screen, Tile, useNow, useToast } from "../ui/kit";
+import { Icon, Loading, Logo, Perf, Screen, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
+import { JobLine, useJobLook } from "./Posted";
 import { ReportScreen as ReportUser } from "../ui/Report";
 import { ChatScreen } from "../ui/Chat";
 import { PayScreen } from "./Pay";
@@ -145,7 +146,7 @@ export function Track({ id }: { id: string }) {
         <OffersView jobId={id} title={jobName} price={money(job.price_cents)} priceCents={job.price_cents} feeDue={job.fee_status === "due" ? job.fee_cents : 0} asap={job.asap} startAt={job.start_at}
           searchingAt={job.searching_at ?? job.created_at} onBoosted={load} onChosen={load} onCancel={() => setScreen("cancel")}
           trade={!!job.trade} />
-        {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+        {screen === "cancel" && <CancelScreen job={job} title={jobName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
         {askAlerts && <AlertsAsk role="post" onDone={() => setAskAlerts(false)} />}
       </>
     );
@@ -483,7 +484,7 @@ export function Track({ id }: { id: string }) {
       )}
       {screen === "report" && <ProblemScreen job={job} jobName={jobName} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "reportUser" && job.worker_id && <ReportUser name={wName} userId={job.worker_id} jobId={id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
-      {screen === "cancel" && <CancelScreen job={job} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); reloadOwed(); }} />}
+      {screen === "cancel" && <CancelScreen job={job} title={jobName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); reloadOwed(); }} />}
       {paying && owedHere && <FeePayScreen fee={owedHere} onBack={() => setPaying(false)} onPaid={() => { setPaying(false); reloadOwed(); }} />}
     </div>
   );
@@ -493,35 +494,66 @@ interface CancelTerms {
   kind: "free" | "fee" | "late" | "no_show" | "new_time" | "not_moving" | "started";
   fee_cents?: number; set_off_at?: string; minutes_late?: number; worker: string | null; eta_at: string | null; eta_reason: string | null;
   booking_fee_cents: number; card: string | null; payments_live: boolean;
+  posted_at?: string; cancels_30?: number; cancel_limit?: number; pause_days?: number;
 }
 const hm = (d: string | null | undefined) => d ? new Date(d).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase() : "";
 
 // Cancelling: free until the worker is on the way; then a fee that goes to them. Free again if they're late.
-function CancelScreen({ job, onBack, onDone }: { job: Job; onBack: () => void; onDone: () => void }) {
+// Like Airtasker and Uber: say what happens before they cancel, ask why, and show the receipt after.
+// Free cancels are counted: too many in 30 days pauses posting (Admin sets both numbers).
+const ordinal = (n: number) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
+const longWhen = (d: string) => `${hm(d)}, ${new Date(d).toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" })}`;
+const ago = (d: string) => {
+  const m = Math.max(0, Math.round((Date.now() - new Date(d).getTime()) / 60000));
+  const today = new Date(d).toDateString() === new Date().toDateString();
+  const span = m < 1 ? "just now" : m < 60 ? `${m} minute${m === 1 ? "" : "s"} ago` : m < 1440 ? `${Math.round(m / 60)} hour${Math.round(m / 60) === 1 ? "" : "s"} ago` : `${Math.round(m / 1440)} days ago`;
+  return `Posted ${hm(d)}${today ? " today" : `, ${new Date(d).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}`} · ${span}`;
+};
+interface CancelDone { cancelled_at: string; reason: string; charged: number; cancels_30: number; cancel_limit: number; paused_until: string | null; told: string | null }
+
+function CancelScreen({ job, title, onBack, onDone }: { job: Job; title: string; onBack: () => void; onDone: () => void }) {
   const toast = useToast();
   const [t, setT] = useState<CancelTerms | null>(null);
   const [busy, setBusy] = useState(false);
   const [fee, setFee] = useState<OwedFee | null>(null);
+  const [reason, setReason] = useState<string | null>(null);
+  const [other, setOther] = useState("");
+  const [picking, setPicking] = useState(false);
+  const [done, setDone] = useState<CancelDone | null>(null);
   const rules = useRules();
+  const { suburb, photo } = useJobLook(job.id);
   useEffect(() => { rpc<CancelTerms>("cancel_preview", { p_job: job.id }).then(setT).catch((e) => toast(e instanceof Error ? e.message : String(e))); }, [job.id]);
   const w = t?.worker ?? "your worker";
   const W = t?.worker ?? "Your worker";
-  async function doCancel() {
+  const when = job.asap ? "As soon as possible" : job.start_at ? longWhen(job.start_at) : "";
+  const line = <JobLine photo={photo} title={title} parts={[money(job.price_cents), suburb, when]} />;
+  const OTHER = "Something else";
+  const reasons = [
+    ...(t?.kind === "new_time" ? [`The new time doesn't suit me`] : t?.kind === "not_moving" ? [`${W} hasn't moved`] : []),
+    "I found someone else", "I don't need it anymore", "I posted it by mistake", "The details are wrong. I'll post it again",
+    ...(job.worker_id ? [] : ["Nobody has taken it"]), "I want to change the price", OTHER,
+  ];
+  const said = reason === OTHER ? other.trim() : reason;
+
+  async function doCancel(why: string) {
     setBusy(true);
     try {
-      const r = await api<{ kind: string; fee_cents: number; fee_id: number | null; paid: boolean }>("cancel_job", { job_id: job.id });
+      const r = await api<{ kind: string; fee_cents: number; fee_id: number | null; paid: boolean; cancelled_at: string; cancels_30: number; cancel_limit: number; paused_until: string | null }>("cancel_job", { job_id: job.id, reason: why });
+      const receipt: CancelDone = { cancelled_at: r.cancelled_at ?? new Date().toISOString(), reason: why, charged: r.fee_cents, cancels_30: r.cancels_30, cancel_limit: r.cancel_limit, paused_until: r.paused_until, told: job.worker_id ? (t?.worker ?? null) : null };
       if (r.fee_cents > 0 && !r.paid && r.fee_id) {
         const all = await rpc<{ owed: OwedFee[] }>("my_fees");
         const f = all.owed.find((x) => x.id === r.fee_id);
-        if (f) { setFee(f); return; }
+        if (f) { setDone(receipt); setFee(f); return; }
       }
-      toast("Cancelled"); onDone();
+      setDone(receipt);
     } catch (e) { toast(e instanceof Error ? e.message : String(e)); setBusy(false); }
   }
-  if (fee) return <FeePayScreen fee={fee} onBack={onDone} onPaid={onDone} />;
+  if (fee) return <FeePayScreen fee={fee} onBack={() => setFee(null)} onPaid={() => setFee(null)} />;
+  if (done) return <CancelledView title={title} line={line} d={done} onDone={onDone} />;
   if (!t) return <Screen title="Cancel booking" onBack={onBack}><Loading /></Screen>;
 
   if (t.kind === "late" || t.kind === "no_show") {
+    const why = t.kind === "late" ? `${W} was ${t.minutes_late} minutes late` : `${W} didn't turn up`;
     return (
       <div className="screen" role="dialog" aria-label="Cancel booking">
         <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
@@ -534,44 +566,110 @@ function CancelScreen({ job, onBack, onDone }: { job: Job; onBack: () => void; o
           <div className="cp-sec">
             <span className="cp-title">Your choice</span>
             <div className="price-li">{Icon.tick("var(--emerald)", 20)}<span><b>Keep waiting.</b> {t.kind === "late" ? `${W} is still coming.` : `${W} may still turn up.`}</span></div>
-            <div className="price-li">{Icon.tick("var(--emerald)", 20)}<span><b>Cancel for free.</b> {t.kind === "no_show" ? `You get ${money(rules.fee)} credit, and ${w} gets a strike.` : `${W} gets a strike.`}</span></div>
+            <div className="price-li">{Icon.tick("var(--emerald)", 20)}<span><b>Cancel for free.</b> {t.kind === "no_show" ? `You get ${money(rules.fee)} credit, and ${w} gets a strike.` : `${W} gets a strike.`} It doesn't count against you.</span></div>
           </div>
           <div style={{ flex: 1 }} />
           <ActionBar>
             <button className="btn stone" style={{ flex: 1 }} onClick={onBack}>Keep waiting</button>
-            <button className="btn primary" style={{ flex: 1.3 }} disabled={busy} onClick={doCancel}>{busy ? "Cancelling…" : "Cancel for free"}</button>
+            <button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={() => doCancel(why)}>{busy ? "Cancelling…" : "Cancel for free"}</button>
           </ActionBar>
         </div>
       </div>
     );
   }
 
-  const title = t.kind === "fee" ? `${W} is on the way` : t.kind === "new_time" ? `${W} changed the time` : t.kind === "not_moving" ? `${W} hasn't moved` : t.kind === "started" ? "The job has started" : "Cancelling is free";
-  const body = t.kind === "fee"
-    ? `${W} set off at ${hm(t.set_off_at)}. The cancellation fee goes to ${w} for their time${t.booking_fee_cents ? ", and the connection fee isn't refunded" : ""}.`
-    : t.kind === "started" ? `${W} is already working. Use Get help and we'll sort it out.`
-    : t.kind === "new_time" ? `${W} now says ${hm(t.eta_at)}. You can cancel for free.`
-    : t.kind === "not_moving" ? `${W} hasn't moved in 10 minutes. You can cancel for free.`
-    : `${job.worker_id ? `${W} is told straight away.` : "Nobody has taken it yet."}${t.booking_fee_cents ? ` Your ${money2(t.booking_fee_cents)} connection fee is refunded.` : ""}`;
-  return (
-    <Screen title="Cancel booking" onBack={onBack}>
-      <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
-        <div className="cp-sec">
-          <span className="cp-title">{title}</span>
-          <span className="t16 light" style={{ lineHeight: 1.5 }}>{body}</span>
-          {t.kind === "fee" && t.card && t.payments_live && <span className="t15 light muted" style={{ marginTop: 6 }}>Charged to your {t.card}.</span>}
+  if (t.kind === "started") {
+    return (
+      <Screen title="Cancel booking" onBack={onBack}>
+        <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
+          <div className="cp-sec"><span className="cp-title">The job has started</span><span className="t16 light" style={{ lineHeight: 1.5 }}>{W} is already working. Use Get help and we'll sort it out.</span></div>
+          <div style={{ flex: 1 }} />
+          <ActionBar><button className="btn primary block" onClick={() => { onBack(); go("/support"); }}>Get help</button></ActionBar>
         </div>
-        {t.kind === "fee" && <Note icon="clock">Free to cancel until your worker is on the way, or if they're more than {rules.late} minutes late.</Note>}
+      </Screen>
+    );
+  }
+
+  // What happens if they cancel now, in plain words.
+  const counts = t.kind === "free" || t.kind === "fee";
+  const nth = (t.cancels_30 ?? 0) + 1, limit = t.cancel_limit ?? 3, days = t.pause_days ?? 7;
+  const items: { icon: ReactNode; head: string; body: string; warn?: boolean }[] = [];
+  if (t.kind === "fee") {
+    items.push({ icon: Icon.warn("#b8860b"), warn: true, head: `Cancelling costs ${money(t.fee_cents ?? 0)}`, body: `${W} set off at ${hm(t.set_off_at)}. The fee goes to ${w} for their time${t.booking_fee_cents ? ", and the connection fee isn't refunded" : ""}.${t.card && t.payments_live ? ` Charged to your ${t.card}.` : ""}` });
+  } else {
+    const free = t.kind === "new_time" ? `${W} changed the time to ${hm(t.eta_at)}, so it's free.` : t.kind === "not_moving" ? `${W} hasn't moved in 10 minutes, so it's free.`
+      : job.worker_id ? `${W} hasn't set off yet, so nothing is charged.` : "Nobody has taken it yet, so nothing is charged.";
+    items.push({ icon: Icon.tick("var(--emerald)", 22), head: "Free to cancel", body: free + (t.booking_fee_cents ? ` Your ${money2(t.booking_fee_cents)} connection fee is refunded.` : "") });
+  }
+  items.push(job.worker_id
+    ? { icon: Icon.bell("var(--emerald)"), head: `${W} is told straight away`, body: "They won't come." }
+    : { icon: Icon.bell("var(--emerald)"), head: "Taken down straight away", body: "It comes off everyone's alerts the moment you cancel." });
+  if (counts) items.push({ icon: Icon.warn("#b8860b"), warn: true, head: "Cancelling a lot pauses your account",
+    body: nth >= limit ? `This is your ${ordinal(nth)} cancel in 30 days, so you can't post for ${days} days after it.` : `${limit} cancels in 30 days and you can't post for ${days} days. This would be your ${ordinal(nth)}.` });
+
+  return (
+    <div className="screen cx" role="dialog" aria-label="Cancel this job">
+      <div className="screen-body" style={{ display: "flex", flexDirection: "column", background: "var(--card)" }}>
+        <section className="hero ps-hero">
+          <div className="hero-top"><button className="cx-back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button></div>
+          <h1 className="ps-h">Cancel this job?</h1>
+          {line}
+          {t.posted_at && <span className="cx-when">{ago(t.posted_at)}</span>}
+        </section>
+        <div className="cx-sec">
+          <h2>What happens</h2>
+          {items.map((i) => <div key={i.head} className={i.warn ? "cx-li warn" : "cx-li"}>{i.icon}<span><b>{i.head}</b>{i.body}</span></div>)}
+        </div>
+        <div className="cx-sec">
+          <h2>Why are you cancelling?</h2>
+          <button className={reason ? "cx-sel" : "cx-sel ph"} onClick={() => setPicking(true)}><span>{reason ?? "Select a reason"}</span>{Icon.down("var(--muted)")}</button>
+          {reason === OTHER && <textarea className="cx-other" value={other} maxLength={300} onChange={(e) => setOther(e.target.value)} placeholder="Tell us in a few words" autoFocus />}
+        </div>
         <div style={{ flex: 1 }} />
-        <ActionBar>
-          {t.kind === "started"
-            ? <button className="btn primary block" onClick={() => { onBack(); go("/support"); }}>Get help</button>
-            : <>
-                <button className="btn stone" style={{ flex: 1 }} onClick={onBack}>Keep it</button>
-                <button className="btn danger" style={{ flex: 1.4 }} disabled={busy} onClick={doCancel}>{busy ? "Cancelling…" : t.kind === "fee" ? `Cancel and pay ${money(t.fee_cents ?? 0)}` : "Cancel booking"}</button>
-              </>}
-        </ActionBar>
+        <div className="ps-foot">
+          <div className="ps-btns">
+            <button className="btn stone" onClick={onBack}>Keep job</button>
+            <button className="btn danger" disabled={busy || !said} onClick={() => said && doCancel(said)}>{Icon.cancel("currentColor")}{busy ? "Cancelling…" : t.kind === "fee" ? `Cancel, pay ${money(t.fee_cents ?? 0)}` : "Cancel job"}</button>
+          </div>
+        </div>
       </div>
-    </Screen>
+      {picking && <SearchPicker title="Why are you cancelling?" options={reasons.map((r) => ({ id: r, label: r, hint: r === OTHER ? "Tell us in a few words" : undefined }))}
+        value={reason ? [reason] : []} onClose={() => setPicking(false)} onChange={(v) => setReason(String(v[0]))} />}
+    </div>
+  );
+}
+
+// After cancelling: when, why, what it cost, and where they stand.
+function CancelledView({ line, d, onDone }: { title: string; line: ReactNode; d: CancelDone; onDone: () => void }) {
+  const again = () => { try { sessionStorage.setItem("mm-again", "1"); } catch { /* private mode */ } go("/", true); };
+  return (
+    <div className="screen cx" role="dialog" aria-label="Job cancelled">
+      <div className="screen-body" style={{ display: "flex", flexDirection: "column", background: "var(--card)" }}>
+        <section className="hero ps-hero">
+          <div className="hero-top"><button className="brand" onClick={onDone}><Logo /> Mahi Man</button></div>
+          <h1 className="ps-h">Job cancelled.</h1>
+          {line}
+        </section>
+        <div className="cx-sec">
+          <dl className="cx-sum">
+            <dt>Cancelled</dt><dd>{longWhen(d.cancelled_at)}</dd>
+            <dt>Reason</dt><dd>{d.reason}</dd>
+            <dt>Charged</dt><dd>{d.charged ? money(d.charged) : "Nothing"}</dd>
+            <dt>Cancels</dt><dd>{d.cancels_30} of {d.cancel_limit} in 30 days</dd>
+          </dl>
+        </div>
+        <div className="cx-sec">
+          <div className="cx-li">{Icon.bell("var(--emerald)")}<span>{d.told ? <><b>{d.told} has been told</b>They won't come.</> : <><b>It's off everyone's alerts</b>Nobody will turn up for it.</>}</span></div>
+          {d.paused_until && <div className="cx-li warn">{Icon.warn("#b8860b")}<span><b>Posting is paused until {longWhen(d.paused_until)}</b>That's {d.cancel_limit} cancels in 30 days.</span></div>}
+        </div>
+        <div style={{ flex: 1 }} />
+        <div className="ps-foot">
+          <div className={d.paused_until ? "ps-btns one" : "ps-btns"}>
+            {!d.paused_until && <button className="btn stone" onClick={again}>{Icon.repeat("currentColor", 22)}Post again</button>}
+            <button className="btn primary" onClick={() => go("/", true)}>{Icon.home("currentColor")}Home</button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

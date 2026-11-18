@@ -1279,6 +1279,8 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "noshow_wait_minutes", label: "Worker waits at the door for", hint: "Before they can cancel because the customer isn't there.", t: "num", unit: "minutes" },
     { k: "on_way_window_minutes", label: "On the way counts from", hint: "Before the start time, for jobs booked for later.", t: "num", unit: "minutes" },
     { k: "customer_late_cancels_30", label: "Customers pay upfront after", hint: "Late cancels in 30 days. Applies once card payments are on.", t: "num", unit: "cancels" },
+    { k: "customer_free_cancels_30", label: "Customers can't post after", hint: "Cancels in 30 days, free or paid. They're shown the count before they cancel.", t: "num", unit: "cancels" },
+    { k: "customer_cancel_pause_days", label: "Posting paused for", hint: "From their last cancel.", t: "num", unit: "days" },
   ] },
   { title: "Strikes", text: "Workers get a strike for cancelling late, not turning up, or arriving more than the late time after their arrival time.", fields: [
     { k: "strikes_offline_30", label: "Offline after", hint: "Strikes in 30 days.", t: "num", unit: "strikes" },
@@ -1461,7 +1463,7 @@ const FEE_KIND: Record<string, string> = { customer_cancel: "Late cancel", custo
 const FEE_FILTERS: [string, string][] = [["open", "Owed"], ["payout", "Paid by card, to pay the worker"], ["paid", "Paid"], ["waived", "Waived"], ["all", "All"]];
 
 interface FeeRow { id: number; created_at: string; kind: string; amount_cents: number; status: string; payer_name: string; payee_id: string | null; payee_name: string; job_title: string | null; paid_at: string | null; payment_ref: string | null; paid_out_at: string | null }
-interface CancelRow { at: string; who: string; person: string; other: string | null; job_title: string | null; kind: string; fee_cents: number; strike: boolean }
+interface CancelRow { at: string; who: string; person: string; other: string | null; job_title: string | null; kind: string; fee_cents: number; strike: boolean; reason: string | null }
 
 // Fees people owe for cancelling, and every cancellation in the last 90 days.
 function Cancellations({ onChanged }: { onChanged: () => void }) {
@@ -1518,7 +1520,7 @@ function Cancellations({ onChanged }: { onChanged: () => void }) {
       <h2 className="adm-sub" style={{ margin: "32px 0 12px" }}>Cancellations, last 90 days</h2>
       <div className="table-wrap">
         <table className="rows">
-          <thead><tr><th>Date</th><th>Cancelled by</th><th>Other side</th><th>Job</th><th>What happened</th><th>Fee</th><th>Worker strike</th></tr></thead>
+          <thead><tr><th>Date</th><th>Cancelled by</th><th>Other side</th><th>Job</th><th>What happened</th><th>Reason</th><th>Fee</th><th>Worker strike</th></tr></thead>
           <tbody>
             {cancels.map((c, i) => (
               <tr key={i}>
@@ -1527,11 +1529,12 @@ function Cancellations({ onChanged }: { onChanged: () => void }) {
                 <td className="light">{c.other ?? "—"}</td>
                 <td className="light">{c.job_title ?? "—"}</td>
                 <td>{CANCEL_KIND[c.kind] ?? c.kind}</td>
+                <td className="light">{c.reason ?? "—"}</td>
                 <td>{c.fee_cents ? money2(c.fee_cents) : <span className="muted">Free</span>}</td>
                 <td>{c.strike ? <span className="badge r">Strike</span> : ""}</td>
               </tr>
             ))}
-            {cancels.length === 0 && <tr><td colSpan={7} className="muted">No cancellations yet.</td></tr>}
+            {cancels.length === 0 && <tr><td colSpan={8} className="muted">No cancellations yet.</td></tr>}
           </tbody>
         </table>
       </div>

@@ -14,6 +14,7 @@ import { useSession } from "../lib/session";
 import { api } from "../lib/supabase";
 import { money2 } from "../lib/format";
 import { VerifyFlow } from "../ui/Verify";
+import { PostedView } from "./Posted";
 
 export interface Offer {
   worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_done: number;
@@ -193,6 +194,14 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
       </div>
     );
   }
+
+  // Nobody free yet: the "job posted" screen. Once people say they're free, they show below instead.
+  if (!shown.length && !stuck) return (
+    <>
+      <PostedView jobId={jobId} title={title} price={price} when={asap ? "As soon as possible" : startAt ? dayTime(startAt) : ""} onCancel={onCancel} />
+      {verifying && <VerifyFlow onClose={() => { setVerifying(false); reload(); }} />}
+    </>
+  );
 
   return (
     <div className="app" style={{ background: "var(--card)" }}>

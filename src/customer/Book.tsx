@@ -585,6 +585,9 @@ function CheckList({ title, kind, items, onChange, placeholder }: { title: strin
 }
 
 // ---------- Get help: one button, then your recent jobs ----------
+// Jobs still under way, and what the customer sees about each one.
+const LIVE: Record<string, string> = { searching: "Finding people near you", accepted: "Booked", in_progress: "Under way", finished: "Done. Check it and confirm", disputed: "Problem reported" };
+
 interface Recent {
   id: string; title: string | null; extra_categories: number[] | null; details: string; skill_ids: number[] | null; included: string[] | null; excluded: string[] | null; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
   status: string; worker_id: string | null; job_types: { category_id: number | null } | null; suburbs: { name: string } | null;
@@ -656,6 +659,14 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
     details: r.details, skills: r.skill_ids ?? [], included: r.included ?? [], excluded: r.excluded ?? [], reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
     invited: r.worker_id && ["finished", "confirmed"].includes(r.status) ? [r.worker_id] : [],
   }, "/book/check");
+  // "Post again" on the job-cancelled screen: open the job just cancelled, filled in.
+  useEffect(() => {
+    if (!recent?.length) return;
+    let want = false;
+    try { want = sessionStorage.getItem("mm-again") === "1"; sessionStorage.removeItem("mm-again"); } catch { /* private mode */ }
+    const r = want ? recent.find((x) => x.status === "cancelled") : undefined;
+    if (r) again(r);
+  }, [recent]);
 
   return (
     <div className="app" style={{ background: "var(--ground)" }}>
@@ -711,26 +722,51 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
           </div>
         )}
 
-        {recent && recent.length > 0 ? (
+        {/* Live jobs first, tappable, with what's happening. Finished ones below, with Post again. */}
+        {(() => {
+          const live = (recent ?? []).filter((r) => LIVE[r.status]);
+          return live.length > 0 && (
+            <div className="stack" style={{ gap: 0, marginBottom: 6 }}>
+              <span className="post-h">Your live jobs</span>
+              {live.map((r) => {
+                const c = cats.find((x) => x.id === r.job_types?.category_id);
+                const p = firstPhoto(r.job_media);
+                return (
+                  <button key={r.id} className="recent-row live" onClick={() => go(`/job/${r.id}`)}>
+                    {p && pics[p] ? <span className="sq pic" style={{ backgroundImage: `url("${pics[p]}")` }} /> : <span className="sq"><CatIcon name={c?.icon} size={28} /></span>}
+                    <span className="t">
+                      <b>{r.title || r.details}</b>
+                      <span className="live-st">{r.status === "searching" && <i className="live-dot" />}{LIVE[r.status]}</span>
+                    </span>
+                    <span className="btn primary small">View</span>
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
+        {recent && recent.some((r) => !LIVE[r.status]) ? (
           <div className="stack" style={{ gap: 0 }}>
             <span className="row between" style={{ alignItems: "baseline" }}><span className="post-h">Your recent jobs</span><button className="link" onClick={() => go("/jobs")}>All your jobs</button></span>
-            {recent.map((r) => {
+            {recent.filter((r) => !LIVE[r.status]).map((r) => {
               const c = cats.find((x) => x.id === r.job_types?.category_id);
               return (
                 <div key={r.id} className="recent-row">
-                  {(() => { const p = firstPhoto(r.job_media); return p && pics[p]
-                    ? <span className="sq pic" style={{ backgroundImage: `url("${pics[p]}")` }} />
-                    : <span className="sq"><CatIcon name={c?.icon} size={28} /></span>; })()}
-                  <span className="t">
-                    <b>{r.title || r.details}</b>
-                    <span>{money(r.price_cents)}, {r.suburbs?.name ?? ""}, {new Date(r.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</span>
-                  </span>
+                  <button className="rp-open" onClick={() => go(`/job/${r.id}`)}>
+                    {(() => { const p = firstPhoto(r.job_media); return p && pics[p]
+                      ? <span className="sq pic" style={{ backgroundImage: `url("${pics[p]}")` }} />
+                      : <span className="sq"><CatIcon name={c?.icon} size={28} /></span>; })()}
+                    <span className="t">
+                      <b>{r.title || r.details}</b>
+                      <span>{money(r.price_cents)}, {r.suburbs?.name ?? ""}, {new Date(r.created_at).toLocaleDateString("en-AU", { day: "numeric", month: "short" })}</span>
+                    </span>
+                  </button>
                   <button className="btn stone small" onClick={() => again(r)}>Post again</button>
                 </div>
               );
             })}
           </div>
-        ) : recent ? (
+        ) : recent && !recent.length ? (
           <div className="stack" style={{ gap: 0 }}>
             {[["1", "Show the job", "Say it or snap it. We fill in the rest"], ["2", "Set your price", "What you'll pay for the work"], ["3", "Select who does it", "Pay them directly when it's done"]].map(([n, t, s]) => (
               <div key={n} className="how-row"><span className="n">{n}</span><span className="t"><b>{t}</b><span>{s}</span></span></div>

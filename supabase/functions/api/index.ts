@@ -110,7 +110,9 @@ Deno.serve(async (req) => {
       case "cancel_job": {
         const { data: job } = await admin.from("jobs").select("*").eq("id", body.job_id).single();
         if (!job || job.customer_id !== user.id) return fail("Job not found");
-        const { data: terms, error } = await admin.rpc("do_customer_cancel", { p_job: job.id, p_customer: user.id });
+        // The reason is required from this build on; older app builds don't send one yet.
+        const reason = String(body.reason ?? "").trim().slice(0, 300) || "Not given (older app)";
+        const { data: terms, error } = await admin.rpc("do_customer_cancel", { p_job: job.id, p_customer: user.id, p_reason: reason });
         if (error) return fail(error.message);
         const fee = terms.kind === "fee" ? Number(terms.fee_cents) : 0;
         let paid = false;
@@ -131,7 +133,7 @@ Deno.serve(async (req) => {
           // Saved card: charge it now. If it fails, the customer pays the worker directly, like the job itself.
           paid = await chargeFee(terms.fee_id, user.id, user.email ?? undefined).catch(() => false);
         }
-        return ok({ kind: terms.kind, fee_cents: fee, fee_id: terms.fee_id ?? null, paid });
+        return ok({ kind: terms.kind, fee_cents: fee, fee_id: terms.fee_id ?? null, paid, cancelled_at: terms.cancelled_at, cancels_30: terms.cancels_30, cancel_limit: terms.cancel_limit, paused_until: terms.paused_until ?? null });
       }
       // Pay a cancellation fee you owe with your saved card.
       case "pay_fee": {

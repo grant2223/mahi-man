@@ -61,6 +61,11 @@ export const Icon = {
   clock: (c = "currentColor", s = 72) => <svg width={s} height={s} viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="1.7" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>,
   flag: (c = "currentColor") => <svg width="18" height="18" viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2" aria-hidden="true"><path d="M5 21V4h12l-2 4 2 4H5" /></svg>,
   star: (c = "currentColor", filled = false) => <svg width="34" height="34" viewBox="0 0 24 24" fill={filled ? c : "none"} stroke={c} strokeWidth="1.8" strokeLinejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z" /></svg>,
+  share: (c = "currentColor", s = 22) => <svg width={s} height={s} viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2" aria-hidden="true"><path d="M12 3v12M7.5 7.5L12 3l4.5 4.5M5 11v8.5a1.5 1.5 0 0 0 1.5 1.5h11a1.5 1.5 0 0 0 1.5-1.5V11" /></svg>,
+  cancel: (c = "currentColor", s = 22) => <svg width={s} height={s} viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2" aria-hidden="true"><circle cx="12" cy="12" r="9" /><path d="M9 9l6 6M15 9l-6 6" /></svg>,
+  bell: (c = "currentColor", s = 22) => <svg width={s} height={s} viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4zM10 21h4" /></svg>,
+  warn: (c = "currentColor", s = 22) => <svg width={s} height={s} viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2" aria-hidden="true"><path d="M12 3l9.5 17h-19z" /><path d="M12 10v4M12 17.5v.01" /></svg>,
+  home: (c = "currentColor", s = 22) => <svg width={s} height={s} viewBox="0 0 24 24" {...P} stroke={c} strokeWidth="2" aria-hidden="true"><path d="M3.5 10.5L12 3.5l8.5 7M5.5 9v11h13V9M10 20v-6h4v6" /></svg>,
 };
 
 /* ---------- Loading: a spinning ring, shown wherever a page is still fetching ---------- */
