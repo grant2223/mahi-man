@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { api, rpc, sb, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
-import { money, money2 } from "../lib/format";
+import { money, money2, shrinkImage } from "../lib/format";
 import { Icon, Loading, SearchPicker, StepHero, useToast } from "./kit";
 import { ActionBar } from "./Completion";
 import { AuthScreen } from "./Auth";
@@ -450,11 +450,13 @@ export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, o
     if (f.size > 10 * 1024 * 1024) { toast("That file is too big. Use a screenshot."); return; }
     setUploading(true);
     try {
-      const ext = (f.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "");
-      const path = `${myId()}/${reference}-${Date.now()}.${ext}`;
-      const { error } = await sb.storage.from("receipts").upload(path, f, { contentType: f.type || undefined });
+      const isPdf = f.type === "application/pdf" || /\.pdf$/i.test(f.name);
+      const body: Blob = isPdf ? f : await shrinkImage(f, 1800);
+      const uid = await myId();
+      const path = `${uid}/${reference}-${Date.now()}.${isPdf ? "pdf" : "jpg"}`;
+      const { error } = await sb.storage.from("receipts").upload(path, body, { contentType: isPdf ? "application/pdf" : "image/jpeg" });
       if (error) throw error;
-      setProof({ path, name: f.name, preview: f.type.startsWith("image/") ? URL.createObjectURL(f) : null });
+      setProof({ path, name: f.name, preview: isPdf ? null : URL.createObjectURL(body) });
     } catch { toast("Couldn't add the receipt. Try again."); } finally { setUploading(false); }
   };
   const copy = (v: string) => { navigator.clipboard?.writeText(v).then(() => toast("Copied")).catch(() => {}); };
@@ -481,7 +483,7 @@ export function BankPay({ title, sub, amount, pay, reference, note, onConfirm, o
     {note && <p className="pq-trust"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg><span>{note}</span></p>}
     <div className="pq-foot">
       <label className={proof ? "pq-proof on" : "pq-proof"}>
-        <input type="file" accept="image/*,application/pdf" onChange={(e) => addProof(e.target.files?.[0])} hidden />
+        <input type="file" accept="image/*,application/pdf" onChange={(e) => { const f = e.target.files?.[0]; e.target.value = ""; addProof(f); }} hidden />
         {proof?.preview ? <img src={proof.preview} alt="" /> : <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#f5c518" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 2h9l5 5v15H6z" /><path d="M14 2v6h6M9 13h6M9 17h4" /></svg>}
         <span><b>{uploading ? "Adding…" : proof ? "Transfer receipt added" : "Add your transfer receipt"}</b><small>{proof ? "Tap to change it" : "A screenshot from your banking app"}</small></span>
         {proof && Icon.tick("#f5c518", 20)}
