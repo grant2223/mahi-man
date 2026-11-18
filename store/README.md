@@ -50,7 +50,7 @@ Mahi Man gift cards are the same: they only pay for real-world jobs (the worker 
 
 ## 4. Submit
 
-- [x] **App Store:** version 1.0 submitted (now with build 45, waiting for review since 17 Nov 2026).
+- [x] **App Store:** version 1.0 submitted (now with build 46, waiting for review since 17 Nov 2026).
 - [x] **Google Play:** live in Australia and New Zealand.
 - [x] `play_store_url` and `testflight_url` are set in Admin → Settings, so the website shows Google Play and the iPhone beta. `app_store_url` stays empty until Apple approves 1.0.
 
@@ -64,7 +64,8 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 
 ## Building new versions
 
-- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 46 on 17 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 23 on 17 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
-- **Latest (17 Nov 2026, from 51543aa):** iOS build 46 is in TestFlight (Cairns pilot) and Android versionCode 23 is in Play review (Australia and New Zealand). They add Mahi Man Plus for loyal customers (reduced fees, alerts to nearby workers, saved favourites; urgent is gone), no connection fee for customers 60 and over, bonus top-up credit ($50 gets $60, $100 gets $120, $250 gets $300), one bank transfer screen for Plus, top-ups, invoices and gift cards (receipt upload, declaration, thank-you tracker), how each connection fee was paid on the job screen, a Payments page (Coming up, full history with filters, receipts, statement), and every PDF on the branded template with "Invoice" and "No GST charged".
-- **Before that:** build 45 / versionCode 22 (17 Nov, eb5704a); 45 is the build in App Store review, 22 was never sent (replaced by 23). Build 44 / 21 (c834400) and 43 / 20 (07076c9).
+- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 47 on 18 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 24 on 18 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Latest (18 Nov 2026, from 0b7fb24):** iOS build 47 is in TestFlight (Cairns pilot) and Android versionCode 24 is in Play review (Australia and New Zealand); 23 is live on Play. They add the new Buy a gift card design, Take a photo or choose a file for transfer receipts (the camera now opens on Android), receipts that say "being checked" until a transfer is confirmed, a photo library button in Snap it, live jobs kept on Home in areas that aren't open yet, the Plus banner going once you join, the gift card form keeping what you typed, and the Bricolage font bundled in the app.
+- **Before that (17 Nov):** build 46 / versionCode 23 (51543aa): Plus, bonus top-ups, bank transfer screen, payment history, branded PDFs. 46 is the build in App Store review.
+- **Before that:** build 45 / versionCode 22 (17 Nov, eb5704a); 45 was swapped for 46 in App Store review, and 22 was never sent (replaced by 23). Build 44 / 21 (c834400) and 43 / 20 (07076c9).
