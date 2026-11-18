@@ -260,6 +260,15 @@ export function Track({ id }: { id: string }) {
             <dt>Address</dt><dd>{[job.address, suburb].filter(Boolean).join(", ")}</dd>
           </dl>
         </div>
+        {owedHere && (
+          <div className="row between" style={{ padding: "8px 16px 18px", gap: 12 }}>
+            <span className="stack" style={{ gap: 2 }}>
+              <span className="t17 w5">Pay {owedHere.to} {money(owedHere.amount_cents)}</span>
+              <span className="small light muted">Cancellation fee, needed before your next job</span>
+            </span>
+            <button className="btn primary small" onClick={() => setPaying(true)}>Pay</button>
+          </div>
+        )}
         <div style={{ flex: 1 }} />
         <div className="ps-foot">
           <div className="ps-btns">
@@ -268,6 +277,7 @@ export function Track({ id }: { id: string }) {
           </div>
         </div>
         {overlays}
+        {paying && owedHere && <FeePayScreen fee={owedHere} onBack={() => setPaying(false)} onPaid={() => { setPaying(false); reloadOwed(); }} />}
       </div>
     );
   }
@@ -295,7 +305,6 @@ export function Track({ id }: { id: string }) {
     case "in_progress": label = `${wName} is working`; big = elapsed(job.started_at!, now); sub = `Up to ${Number(jt.max_hours)} hrs`; break;
     case "finished": label = "Job done"; big = money2(total); sub = direct ? `Check the photos, pay ${wName} directly, then confirm` : "Check the photos, then confirm to pay"; break;
     case "confirmed": label = direct ? "Done" : "Paid and done"; big = money2(total); sub = "Thanks for using Mahi Man"; break;
-    case "cancelled": label = "Cancelled"; big = "—"; sub = "This booking was cancelled"; break;
   }
 
   // The deadline to verify: the hours set in Admin from when they signed up.
@@ -361,18 +370,6 @@ export function Track({ id }: { id: string }) {
                       try { await rpc("accept_new_time", { p_job: id }); toast(`${wName} has been told`); load(); } catch (e) { toast(e instanceof Error ? e.message : String(e)); }
                     }}>OK, {hm(terms.eta_at)}</button>}
                   </div>
-                </div>
-              </>
-            )}
-            {job.status === "cancelled" && owedHere && (
-              <>
-                <Perf />
-                <div className="row between" style={{ padding: "8px 16px 18px", gap: 12 }}>
-                  <span className="stack" style={{ gap: 2 }}>
-                    <span className="t17 w5">Pay {owedHere.to} {money(owedHere.amount_cents)}</span>
-                    <span className="small light muted">Cancellation fee, needed before your next job</span>
-                  </span>
-                  <button className="btn primary small" onClick={() => setPaying(true)}>Pay</button>
                 </div>
               </>
             )}

@@ -31,7 +31,7 @@ export interface Job {
   payment_intent_id: string | null;
   eta_at: string | null;
   on_way_at?: string | null; arrived_at?: string | null; eta_changed_at?: string | null; eta_reason?: string | null; eta_ok_at?: string | null;
-  cancelled_by?: string | null; cancel_kind?: string | null; cancel_fee_cents?: number;
+  cancelled_by?: string | null; cancel_kind?: string | null; cancel_fee_cents?: number; cancel_reason?: string | null; cancelled_at?: string | null;
   created_at: string;
   searching_at: string | null;
   accepted_at: string | null;

@@ -8,6 +8,7 @@ import { ChatScreen } from "../ui/Chat";
 import { currentPosition, resumeTrip, startTrip, stopTrip, tripJob } from "../lib/trip";
 import { ReportScreen } from "../ui/Report";
 import { useRules } from "../lib/rules";
+import { go } from "../lib/router";
 import { ActionBar, DisputeView, DoneHero, Note, PriceRows, ProblemScreen as JobProblem, ReviewView, showPayid } from "../ui/Completion";
 
 interface Extra { id: string; amount_cents: number; reason: string; status: string }
