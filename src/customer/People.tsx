@@ -4,7 +4,7 @@ import { avatarUrl, rpc } from "../lib/supabase";
 import { go } from "../lib/router";
 import { Screen } from "../ui/kit";
 import { GoldTick } from "./Offers";
-import { cardName } from "../ui/ProfileHome";
+import { cardName } from "../lib/format";
 
 /* Your people: workers a customer saved, then everyone who's done a job for them. Book sends a job to that person first.
    Like TaskRabbit's My Taskers: saved favourites up top, past helpers below. */

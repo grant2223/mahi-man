@@ -61,3 +61,6 @@ export function validAbn(abn: string): boolean {
   n[0] -= 1;
   return n.reduce((s, x, i) => s + x * w[i], 0) % 89 === 0;
 }
+
+// A worker's name as shown to others: first name and initial, no full stop or comma ("Grant G").
+export const cardName = (n: string) => n.replace(/[.,\s]+$/, "").replace(/\.(?=\s|$)/g, "");

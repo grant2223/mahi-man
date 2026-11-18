@@ -1,3 +1,4 @@
+import { cardName } from "../lib/format";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import QRCode from "qrcode";
 import { Capacitor } from "@capacitor/core";
@@ -70,7 +71,7 @@ export function ProfileHero({ photo, name, age, verified, place, onCard, onCog }
         <button onClick={onCog} aria-label="Settings"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" /></svg></button>
       </div>
       <div className="pr-who">
-        <div className="n">{name}{age != null && <>, <i>{age}</i></>}{verified && <GoldTick s={26} />}</div>
+        <div className="n">{cardName(name)}{age != null && <> <i>{age}</i></>}{verified && <GoldTick s={26} />}</div>
         {place && <div className="s">{place}</div>}
       </div>
     </section>
@@ -256,8 +257,6 @@ export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge,
 export type PublicWorker = { id: string; name: string; first: string; age: number | null; photo: string | null; verified: boolean; suburb: string | null; area: string | null;
   jobs: number; reviewed: number; recommended: number; turns_up: number | null; does: { name: string; icon: string }[]; online?: boolean };
 export const SHARE_HOST = "mahiman.app";
-// The name on the card and the shared page: first name and initial, no full stop or comma ("Grant G").
-export const cardName = (n: string) => n.replace(/[.,\s]+$/, "").replace(/\.(?=\s|$)/g, "");
 
 const loadImg = (src: string) => new Promise<HTMLImageElement>((ok, no) => { const i = new Image(); i.crossOrigin = "anonymous"; i.onload = () => ok(i); i.onerror = no; i.src = src; });
 function cover(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number, fy = 0.3) {

@@ -1,3 +1,4 @@
+import { cardName } from "../lib/format";
 import { recLine, type Scores } from "../ui/Ratings";
 import { useEffect, useState } from "react";
 import { avatarUrl, rpc, sb, type Work, workPhotoUrls } from "../lib/supabase";
@@ -371,7 +372,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
                   <button className="cr-main" onClick={() => setOpenCard(o.worker_id)}>
                     <span className="cr-f" style={photo ? { backgroundImage: `url(${photo})` } : undefined}>{!photo && o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>
                     <span className="cr-t">
-                      <b>{o.full_name}{o.age != null && <i>{o.age}</i>}{o.id_verified && <GoldTick s={20} />}</b>
+                      <b>{cardName(o.full_name)}{o.id_verified && <GoldTick s={20} />}</b>
                       <span className="g">{line}</span>
                       <span>Can be there {at}{o.distance_km != null ? ` · ${o.distance_km} km` : ""}</span>
                     </span>
@@ -405,7 +406,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
               <button className="ox-who" onClick={() => setProfile(o.worker_id)}>
                 <span className="ox-face" style={photo ? { backgroundImage: `url(${photo})` } : undefined}>{!photo && o.full_name.split(" ").map((x) => x[0]).join("").slice(0, 2)}</span>
                 <span>
-                  <span className="n"><span>{o.full_name}{o.age != null && <i>, {o.age}</i>}</span>{o.id_verified && <GoldTick s={22} />}</span>
+                  <span className="n"><span>{cardName(o.full_name)}</span>{o.id_verified && <GoldTick s={22} />}</span>
                   <span className="s">{[o.distance_km != null ? `${o.distance_km} km away` : "", o.jobs_for_me > 0 ? `${o.jobs_for_me} job${o.jobs_for_me === 1 ? "" : "s"} for you` : ""].filter(Boolean).join(", ")}</span>
                 </span>
               </button>

@@ -6,6 +6,7 @@ import type { Scores } from "./Ratings";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { heart } from "../customer/People";
+import { cardName } from "../lib/format";
 
 interface Portfolio {
   name: string; age: number | null; photo: string | null; verified: boolean; since: string; suburb: string | null;
@@ -54,7 +55,7 @@ export function WorkerProfile({ workerId, category = null, onBack, onBook }: { w
         {p && <>
           <div className={face ? "pf-top" : "pf-top noface"} style={face ? { backgroundImage: `url(${face})` } : { background: "var(--hero)" }}>
             <div className="w">
-              <div className="n"><span>{p.name}{p.age != null && <i>, {p.age}</i>}</span>{p.verified && <GoldTick s={26} />}</div>
+              <div className="n"><span>{cardName(p.name)}{p.age != null && <i> {p.age}</i>}</span>{p.verified && <GoldTick s={26} />}</div>
               <div className="s">{[p.suburb, `Since ${monthYear(p.since)}`].filter(Boolean).join(" · ")}</div>
             </div>
           </div>
