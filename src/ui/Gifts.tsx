@@ -14,6 +14,11 @@ import { BankPay, PaidThanks, dayLong, usePayments, type PayDetails } from "./Pa
 /* Mahi Man gift cards: buy help for someone else. The gift lands in their wallet and pays the worker and the fee. */
 
 const AMOUNTS = [5000, 10000, 20000];
+const ROW_IC = {
+  gift: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0b6b4f" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="8" width="18" height="13" rx="1" /><path d="M12 8v13M3 12h18M12 8c-2-4-6-4-6-1.5S10 8 12 8zM12 8c2-4 6-4 6-1.5S14 8 12 8z" /></svg>,
+  day: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0b6b4f" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="1" /><path d="M3 10h18M8 3v4M16 3v4" /></svg>,
+  card: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#0b6b4f" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="1" /><path d="M3 10h18M7 15h4" /></svg>,
+};
 const OCCASIONS = ["Christmas", "Birthday", "Thank you", "Mother's Day", "Father's Day", "New home", "Get well", "Just because"];
 const back = (to: string) => () => (history.length > 1 ? history.back() : go(to));
 const TZ = "Australia/Brisbane";
@@ -25,11 +30,13 @@ const showMobile = (m: string) => m.replace(/^(\d{4})(\d{3})(\d{3})$/, "$1 $2 $3
 export function GiftCard({ amount, to, msg, from }: { amount: number; to: string; msg: string; from: string }) {
   return (
     <div className="gf-card">
-      <span className="gf-brand"><img src="/mahi-head.png" alt="" />Mahi Man</span>
+      <span className="gf-brand"><b>Mahi Man</b><small>Gift card</small></span>
       <span className="gf-amt">{money(amount)}</span>
-      <span className="gf-to">For {to || "…"}</span>
       {msg && <span className="gf-msg">{msg}</span>}
-      <span className="gf-from">From {from || "…"}</span>
+      <span className="gf-names">
+        <span><small>To</small><b className={to ? "" : "ph"}>{to || "Their name"}</b></span>
+        <span><small>From</small><b className={from ? "" : "ph"}>{from || "Your name"}</b></span>
+      </span>
       <img className="gf-mascot" src="/mascot.png" alt="" />
     </div>
   );
@@ -72,6 +79,12 @@ export function GiveHelpPage() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   useEffect(() => { if (profile?.full_name && !from) setFrom(profile.full_name.split(" ")[0]); }, [profile?.full_name]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const on = () => setScrolled(window.scrollY > 240);
+    window.addEventListener("scroll", on, { passive: true }); on();
+    return () => window.removeEventListener("scroll", on);
+  }, []);
 
   if (!session) return <div className="app"><AuthScreen title="Buy a gift card" reason="Sign in to buy a Mahi Man gift card." onBack={back("/")} onDone={() => {}} /></div>;
 
@@ -103,41 +116,68 @@ export function GiveHelpPage() {
     } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   };
 
+  const ai = Math.max(0, AMOUNTS.indexOf(amount));
+  const pct = AMOUNTS.length > 1 ? (ai / (AMOUNTS.length - 1)) * 100 : 0;
+  const chev = Icon.chevron("var(--faint)");
+
   return (
-    <Page title="Buy a gift card" onBack={back("/settings")}>
-      <div style={{ padding: "16px 16px 4px" }}><GiftCard amount={amount} to={to} msg={msg} from={from} /></div>
-      <div className="gf-grid">
-        <button className="field gf-f" onClick={() => setPick("amount")}><span className="k">Amount</span><span className="row between gf-v"><span className="v">{money(amount)}</span>{Icon.chevron("var(--muted)")}</span></button>
-        <button className="field gf-f" onClick={() => setPick("occasion")}><span className="k">Occasion</span><span className="row between gf-v"><span className="v">{occasion}</span>{Icon.chevron("var(--muted)")}</span></button>
-        <label className="field gf-f"><span className="k">To</span><input value={to} maxLength={40} placeholder="Their name" onChange={(e) => setTo(e.target.value)} /></label>
-        <label className="field gf-f"><span className="k">From</span><input value={from} maxLength={40} placeholder="Your name" onChange={(e) => setFrom(e.target.value)} /></label>
-        <button className="field gf-f" onClick={() => setPick("by")}><span className="k">Send by</span><span className="row between gf-v"><span className="v">{sendBy === "text" ? "Text" : "Email"}</span>{Icon.chevron("var(--muted)")}</span></button>
-        {sendBy === "text" ? <>
-          {/* A phone number is always two boxes: the country code, then the number. Gift texts go to Australian mobiles. */}
-          <span className="field gf-f"><span className="k">Country code</span><span className="v">🇦🇺 +61</span></span>
-          <label className="field gf-f" style={{ gridColumn: "1 / -1" }}><span className="k">Their mobile</span>
-            <input value={dest} inputMode="tel" type="tel" autoComplete="off" placeholder="412 345 678" onChange={(e) => setDest(e.target.value)} /></label>
-        </> : <label className="field gf-f"><span className="k">Their email</span>
-          <input value={dest} inputMode="email" type="email" autoComplete="off" placeholder="name@…" onChange={(e) => setDest(e.target.value)} /></label>}
-        <label className="field gf-f" style={{ gridColumn: "1 / -1" }}><span className="k">Message</span>
-          <textarea value={msg} maxLength={200} rows={2} placeholder="Merry Christmas. Get those gutters done!" onChange={(e) => setMsg(e.target.value)} /></label>
-        <button className="field gf-f" style={{ gridColumn: "1 / -1" }} onClick={() => setPick("on")}><span className="k">Send on</span><span className="row between gf-v"><span className="v">{onLabel}</span>{Icon.chevron("var(--muted)")}</span></button>
-        <button className="field gf-f" style={{ gridColumn: "1 / -1" }} onClick={() => setPick("via")}><span className="k">Pay with</span><span className="row between gf-v"><span className="v">{how === "card" ? p?.card : "Bank transfer"}</span>{Icon.chevron("var(--muted)")}</span></button>
+    <div className="app gf2">
+      {/* Once the hero scrolls away, a plain bar keeps the way back and the title clear of the status bar. */}
+      <div className={scrolled ? "gf2-top on" : "gf2-top"} aria-hidden={!scrolled}>
+        <button className="back" onClick={back("/settings")} aria-label="Back">{Icon.back("var(--ink)")}</button><b>Buy a gift card</b>
       </div>
-      <div className="cp-sec" style={{ paddingTop: 4 }}>
-        <span className="t14 light muted">{sendBy === "text" ? "You text it from your own phone, and we remind you on the day. " : "We email it on the day. "}Pays for any job on Mahi Man, the worker and the fee. Lasts 3 years.</span>
-        {err && <p className="err" style={{ margin: "8px 0 0" }}>{err}</p>}
+      <section className="gf2-hero">
+        <button className="back gf2-back" onClick={back("/settings")} aria-label="Back">{Icon.back("#fff")}</button>
+        <h1>Buy a gift card</h1>
+        <div className="gf2-card"><GiftCard amount={amount} to={to} msg={msg} from={from} /></div>
+      </section>
+
+      <div className="gf2-body">
+        <section>
+          <p className="gf2-h">How much</p>
+          <div className="gf2-rng">
+            <i className="gf2-track" /><i className="gf2-fill" style={{ width: `${pct}%` }} /><i className="gf2-knob" style={{ left: `${pct}%` }} />
+            <input type="range" min={0} max={AMOUNTS.length - 1} step={1} value={ai} aria-label="How much" onChange={(e) => setAmount(AMOUNTS[Number(e.target.value)])} />
+          </div>
+          <div className="gf2-stops">{AMOUNTS.map((a) => <button key={a} className={a === amount ? "on" : ""} onClick={() => setAmount(a)}>{money(a)}</button>)}</div>
+        </section>
+
+        <section>
+          <p className="gf2-h">The note</p>
+          <div className="gf2-note">
+            <label className="gf2-tf"><span>To</span><input value={to} maxLength={40} placeholder="Their name" onChange={(e) => setTo(e.target.value)} /></label>
+            <label className="gf2-tf"><span>From</span><input value={from} maxLength={40} placeholder="Your name" onChange={(e) => setFrom(e.target.value)} /></label>
+            <textarea className="gf2-msg" value={msg} maxLength={200} rows={2} placeholder="Merry Christmas. Get those gutters done!" onChange={(e) => setMsg(e.target.value)} />
+          </div>
+        </section>
+
+        <section>
+          <p className="gf2-h">{sendBy === "text" ? "Their mobile" : "Their email"}</p>
+          {sendBy === "text" ? (
+            <label className="gf2-ph"><span className="cc">🇦🇺 +61</span>
+              <input value={dest} inputMode="tel" type="tel" autoComplete="off" placeholder="412 345 678" onChange={(e) => setDest(e.target.value)} /></label>
+          ) : (
+            <label className="gf2-ph"><input value={dest} inputMode="email" type="email" autoComplete="off" placeholder="name@example.com" onChange={(e) => setDest(e.target.value)} /></label>
+          )}
+          <button className="gf2-alt" onClick={() => { setSendBy(sendBy === "text" ? "email" : "text"); setDest(""); }}>{sendBy === "text" ? "Email it instead" : "Text it instead"}</button>
+        </section>
+
+        <section className="gf2-rows">
+          <button onClick={() => setPick("occasion")}>{ROW_IC.gift}<span className="k">Occasion</span><span className="v">{occasion}</span>{chev}</button>
+          <button onClick={() => setPick("on")}>{ROW_IC.day}<span className="k">Send on</span><span className="v">{onLabel}</span>{chev}</button>
+          <button onClick={() => setPick("via")}>{ROW_IC.card}<span className="k">Pay with</span><span className="v">{how === "card" ? p?.card : "Bank transfer"}</span>{chev}</button>
+        </section>
+        <p className="gf2-fine">Pays for any job on Mahi Man. Lasts 3 years.</p>
+        {err && <p className="err" style={{ margin: "-18px 0 0" }}>{err}</p>}
       </div>
-      <div style={{ flex: 1 }} />
-      <ActionBar><button className="btn primary" style={{ flex: 1 }} disabled={busy} onClick={buy}>{busy ? "Working…" : `Pay ${money(amount)}`}</button></ActionBar>
+
+      <div className="gf2-bar"><button className="gf2-pay" disabled={busy} onClick={buy}>{busy ? "Working…" : `Pay ${money(amount)}`}</button></div>
       {pick === "amount" && <SearchPicker title="Amount" options={AMOUNTS.map((a) => ({ id: a, label: money(a) }))} value={[amount]} onClose={() => setPick(null)} onChange={(v) => setAmount(Number(v[0]))} />}
       {pick === "occasion" && <SearchPicker title="Occasion" options={OCCASIONS.map((o) => ({ id: o, label: o }))} value={[occasion]} onClose={() => setPick(null)} onChange={(v) => setOccasion(String(v[0]))} />}
-      {pick === "by" && <SearchPicker title="Send by" options={[{ id: "text", label: "Text", hint: "From your own phone, with a reminder on the day" }, { id: "email", label: "Email", hint: "We email it on the day" }]}
-        value={[sendBy]} onClose={() => setPick(null)} onChange={(v) => { setSendBy(v[0] as "text" | "email"); setDest(""); }} />}
       {pick === "on" && <SearchPicker title="Send on" options={dates} value={[sendOn]} onClose={() => setPick(null)} onChange={(v) => setSendOn(String(v[0]))} />}
       {pick === "via" && <SearchPicker title="Pay with" options={[...(p?.card_live ? [{ id: "card", label: p.card ?? "Add a card first", disabled: !p.card }] : []),
         { id: "bank", label: "Bank transfer", hint: "It sends once your payment is confirmed" }]} value={[how]} onClose={() => setPick(null)} onChange={(v) => setVia(v[0] as "card" | "bank")} />}
-    </Page>
+    </div>
   );
 }
 
@@ -165,7 +205,7 @@ export function GiftPage({ id }: { id: number }) {
   if (g.status === "requested") return (
     <div className="app pq">
       <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
-      <BankPay title="Mahi Man gift card" sub={`For ${g.to} · ${g.reference}`} amount={g.amount} pay={g.pay} reference={g.reference}
+      <BankPay title="Mahi Man gift card" sub={`For ${g.to}, ${g.reference}`} amount={g.amount} pay={g.pay} reference={g.reference}
         note="It sends once your payment is confirmed, within 24 hours and usually faster."
         onConfirm={async (proof) => { await rpc("gift_claim_paid", { p_id: g.id, p_proof: proof }); setThanks(true); await load(); }}
         onCancel={async () => { try { await rpc("gift_cancel", { p_id: g.id }); toast("Gift card cancelled"); go("/payments", true); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } }} />
@@ -195,7 +235,7 @@ export function GiftPage({ id }: { id: number }) {
     <Page title="Gift card" onBack={back("/payments")}>
       <div style={{ padding: "16px 16px 4px" }}><GiftCard amount={g.amount} to={g.to} msg={g.message} from={g.from} /></div>
       <div className="iv-pay">{status}</div>
-      {g.status === "paid" && <div className="cp-sec"><span className="t14 light muted">{`Gift code ${g.code}${g.expires_at ? ` · lasts until ${new Date(g.expires_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ })}` : ""}`}</span></div>}
+      {g.status === "paid" && <div className="cp-sec"><span className="t14 light muted">{`Gift code ${g.code}${g.expires_at ? ` – lasts until ${new Date(g.expires_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ })}` : ""}`}</span></div>}
       <div style={{ flex: 1 }} />
       {g.status === "paid" && !g.redeemed && g.send_by === "text" && (
         <ActionBar>
@@ -253,7 +293,7 @@ export function ClaimPage({ code }: { code: string }) {
         <div className="cp-sec"><span className="cp-title">{g.state === "added" ? "This gift is in a Mahi Man wallet" : g.state === "expired" ? "This gift card has expired" : "This gift card isn't paid for yet"}</span>
           <span className="t15 light">{g.state === "added" ? "If that's you, it's in You, Payments." : g.state === "expired" ? "Gift cards last 3 years." : `Once ${g.from} has paid, this link will work.`}</span></div>
       )}
-      <div className="cp-sec"><span className="t14 light muted">{`Gift code ${code.toUpperCase()}${g.expires_at ? ` · lasts until ${new Date(g.expires_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ })}` : ""}`}</span></div>
+      <div className="cp-sec"><span className="t14 light muted">{`Gift code ${code.toUpperCase()}${g.expires_at ? ` – lasts until ${new Date(g.expires_at).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ })}` : ""}`}</span></div>
       <div style={{ flex: 1 }} />
       {ready && (
         <ActionBar>
