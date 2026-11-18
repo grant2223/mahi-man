@@ -50,7 +50,7 @@ Mahi Man gift cards are the same: they only pay for real-world jobs (the worker 
 
 ## 4. Submit
 
-- [x] **App Store:** version 1.0 submitted (now with build 46, waiting for review since 17 Nov 2026).
+- [x] **App Store:** version 1.0 submitted (now with build 47, waiting for review since 18 Nov 2026).
 - [x] **Google Play:** live in Australia and New Zealand.
 - [x] `play_store_url` and `testflight_url` are set in Admin → Settings, so the website shows Google Play and the iPhone beta. `app_store_url` stays empty until Apple approves 1.0.
 
