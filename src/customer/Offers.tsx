@@ -60,6 +60,10 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
   const [widenMin, setWidenMin] = useState(30);
   const onPlus = !!me?.plus_until && new Date(me.plus_until) > new Date();
   const look = useJobLook(jobId);
+  const shareThis = async () => {
+    const r = await shareLink(`Paid job on Mahi Man: ${title}, ${price}. Workers keep 100%.`, `${SITE}/work`);
+    if (r === "copied") toast("Link copied. Paste it in a message.");
+  };
   useEffect(() => {
     sb.from("settings").select("key,value").in("key", ["widen_after_minutes"]).then(({ data }) => (data ?? []).forEach((r) => setWidenMin(Number(r.value))));
   }, []);
@@ -187,8 +191,11 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         </div>
         <Note icon="lock">You pay the tradie directly when the job's done. Selecting one tells the others straight away.</Note>
         <div style={{ flex: 1 }} />
-        <div style={{ padding: "0 16px calc(var(--safe-bottom) + 24px)" }}>
-          <button className="link quiet" onClick={onCancel}>Cancel this job</button>
+        <div className="ps-foot" style={{ paddingTop: 16 }}>
+          <div className="ps-btns">
+            <button className="btn stone" onClick={shareThis}>{Icon.share("currentColor")}Share</button>
+            <button className="btn out" onClick={onCancel}>{Icon.cancel("currentColor")}Cancel job</button>
+          </div>
         </div>
         {profile && <WorkerProfile workerId={profile} onBack={() => setProfile(null)} />}
         {chat && me && <ChatScreen jobId={jobId} me={me.id} workerId={chat.worker_id} otherName={chat.business_name ?? chat.full_name} otherPhoto={chat.photo_path}
@@ -451,8 +458,11 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         </div>
       )}
       <div style={{ flex: 1 }} />
-      <div style={{ padding: "0 16px calc(var(--safe-bottom) + 24px)" }}>
-        <button className="link quiet" onClick={onCancel}>Cancel this job</button>
+      <div className="ps-foot" style={{ paddingTop: 16 }}>
+        <div className="ps-btns">
+          <button className="btn stone" onClick={shareThis}>{Icon.share("currentColor")}Share</button>
+          <button className="btn out" onClick={onCancel}>{Icon.cancel("currentColor")}Cancel job</button>
+        </div>
       </div>
       {verifying && <VerifyFlow onClose={() => { setVerifying(false); reload(); }} />}
       {pickSort && <FilterScreen sortBy={sortBy} gender={gender} onClose={() => setPickSort(false)}

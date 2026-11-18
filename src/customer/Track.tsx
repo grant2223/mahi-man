@@ -45,7 +45,8 @@ export function Track({ id }: { id: string }) {
   const [code, setCode] = useState("");
   const [photos, setPhotos] = useState<{ kind: string; url: string }[]>([]);
   const [extras, setExtras] = useState<Extra[]>([]);
-  const [screen, setScreen] = useState<null | "chat" | "report" | "cancel" | "pay" | "reportUser" | { extra: Extra }>(null);
+  const [screen, setScreen] = useState<null | "chat" | "report" | "cancel" | "pay" | "reportUser" | "help" | { extra: Extra }>(null);
+  const look = useJobLook(id);
   const [busy, setBusy] = useState(false);
   const [reviewed, setReviewed] = useState<boolean | null>(null);
   const [pay, setPay] = useState<PayDetails | null>(null);
@@ -138,6 +139,8 @@ export function Track({ id }: { id: string }) {
     <>
       {screen === "report" && <ProblemScreen job={job} jobName={jobName} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "chat" && <ChatScreen jobId={id} me={session.user.id} otherName={worker?.full_name ?? wName} otherPhoto={worker?.photo_path} sub={jobName} onBack={() => setScreen(null)} />}
+      {screen === "help" && <JobHelp job={job} wName={job.worker_id ? wName : null} onBack={() => setScreen(null)}
+        onPick={(k) => { if (k === "support") { setScreen(null); go("/support"); } else setScreen(k); }} />}
     </>
   );
 
@@ -238,6 +241,37 @@ export function Track({ id }: { id: string }) {
     );
   }
 
+  if (job.status === "cancelled") {
+    const reason = job.cancel_reason && !/^Not given/.test(job.cancel_reason) ? job.cancel_reason : null;
+    const by = job.cancelled_by === "worker" ? wName : job.cancelled_by === "admin" ? "Mahi Man" : "You";
+    return (
+      <div className="app ps cx" style={{ background: "var(--card)" }}>
+        <section className="hero ps-hero">
+          <div className="hero-top"><button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button><HelpButton onClick={() => setScreen("help")} /></div>
+          <h1 className="ps-h">Job cancelled.</h1>
+          <JobLine photo={look.photo} title={jobName} parts={[money(job.price_cents), suburb, job.asap ? "As soon as possible" : longWhen(job.start_at)]} />
+        </section>
+        <div className="cx-sec">
+          <dl className="cx-sum">
+            <dt>Posted</dt><dd>{longWhen(job.created_at)}</dd>
+            {job.cancelled_at && <><dt>Cancelled</dt><dd>{longWhen(job.cancelled_at)}{by !== "You" ? ` by ${by}` : ""}</dd></>}
+            {reason && <><dt>Reason</dt><dd>{reason}</dd></>}
+            <dt>Charged</dt><dd>{job.cancel_fee_cents ? money(job.cancel_fee_cents) : "Nothing"}</dd>
+            <dt>Address</dt><dd>{[job.address, suburb].filter(Boolean).join(", ")}</dd>
+          </dl>
+        </div>
+        <div style={{ flex: 1 }} />
+        <div className="ps-foot">
+          <div className="ps-btns">
+            <button className="btn stone" onClick={() => { try { sessionStorage.setItem("mm-again", job.id); } catch { /* private mode */ } go("/", true); }}>{Icon.repeat("currentColor", 22)}Post again</button>
+            <button className="btn primary" onClick={() => go("/", true)}>{Icon.home("currentColor")}Home</button>
+          </div>
+        </div>
+        {overlays}
+      </div>
+    );
+  }
+
   let label = "", big = "", bigUnit = "", sub = "";
   switch (job.status) {
     case "awaiting_payment": label = "Not booked yet"; big = money2(total); sub = "Hold the payment to send it to workers"; break;
@@ -272,7 +306,7 @@ export function Track({ id }: { id: string }) {
       <section className="hero short">
         <div className="hero-top">
           <button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button>
-          <span className="small light" style={{ color: "rgba(255,255,255,0.85)" }}>{jobName}</span>
+          <HelpButton onClick={() => setScreen("help")} />
         </div>
         <span className="label">{label}</span>
         <div className="row" style={{ alignItems: "baseline", gap: 10, marginTop: 4 }}>
@@ -428,7 +462,7 @@ export function Track({ id }: { id: string }) {
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 12 }}>
               <span className="small light muted" style={{ lineHeight: 1.45 }}>{direct ? `Pay ${wName} ${money2(total)} ${payWay(job)}, then confirm. If you don't confirm or report a problem, the job closes after 48 hours.` : "If you don't confirm or report a problem, payment releases automatically 48 hours after the job was finished."}</span>
               <div className="row between">
-                <button className="link quiet" onClick={() => setScreen("report")}>Report a problem</button>
+                <button className="btn stone" onClick={() => setScreen("report")}>Something's wrong</button>
                 <button className="btn primary" disabled={busy} onClick={confirm}>{busy ? "Saving…" : direct ? "Confirm it's done" : "Confirm and pay"}</button>
               </div>
             </div>
@@ -467,15 +501,6 @@ export function Track({ id }: { id: string }) {
         </button>
       )}
 
-      <div className="footer between">
-        {["awaiting_payment", "searching", "accepted"].includes(job.status)
-          ? <button className="link quiet" onClick={() => setScreen("cancel")}>Cancel booking</button>
-          : <button className="link quiet" onClick={() => go("/jobs")}>My jobs</button>}
-        <span className="row" style={{ gap: 18 }}>
-          {job.worker_id && <button className="link quiet" onClick={() => setScreen("reportUser")}>Report {wName}</button>}
-          <button className="link" onClick={() => go("/support")}>Get help</button>
-        </span>
-      </div>
 
       {screen === "chat" && <ChatScreen jobId={id} me={session.user.id} otherName={worker?.full_name ?? wName} otherPhoto={worker?.photo_path} sub={jobName} onBack={() => setScreen(null)} />}
       {screen === "pay" && <PayScreen jobId={id} amountLabel={money2(total)} onBack={() => setScreen(null)} onPaid={() => { setScreen(null); load(); }} />}
@@ -484,6 +509,9 @@ export function Track({ id }: { id: string }) {
           onPaid={() => { setScreen(null); toast("Approved"); load(); }} />
       )}
       {screen === "report" && <ProblemScreen job={job} jobName={jobName} otherName={wName} isWorker={false} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
+      {screen === "help" && <JobHelp job={job} wName={job.worker_id ? wName : null} onBack={() => setScreen(null)}
+        onPick={(k) => { if (k === "support") { setScreen(null); go("/support"); } else setScreen(k); }} />}
+      {screen === "reportUser" && job.worker_id && <ReportUser name={wName} userId={job.worker_id} jobId={id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
       {screen === "reportUser" && job.worker_id && <ReportUser name={wName} userId={job.worker_id} jobId={id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
       {screen === "cancel" && <CancelScreen job={job} title={jobName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); reloadOwed(); }} />}
       {paying && owedHere && <FeePayScreen fee={owedHere} onBack={() => setPaying(false)} onPaid={() => { setPaying(false); reloadOwed(); }} />}
@@ -666,5 +694,28 @@ function CancelledView({ line, d, onDone }: { title: string; line: ReactNode; d:
         </div>
       </div>
     </div>
+  );
+}
+
+// Help, top right of every job screen (the way Uber and DoorDash do it): the less common actions in one full-screen list.
+export function HelpButton({ onClick }: { onClick: () => void }) {
+  return <button className="wj-safety" onClick={onClick} aria-label="Help">{Icon.help("#fff")}<span>Help</span></button>;
+}
+function JobHelp({ job, wName, onBack, onPick }: { job: Job; wName: string | null; onBack: () => void; onPick: (k: "cancel" | "report" | "reportUser" | "support") => void }) {
+  const rules = useRules();
+  const items: { k: "cancel" | "report" | "reportUser" | "support"; icon: ReactNode; t: string; s: string }[] = [];
+  if (["awaiting_payment", "searching", "accepted"].includes(job.status))
+    items.push({ k: "cancel", icon: Icon.cancel("var(--danger)", 24), t: "Cancel booking", s: job.worker_id ? `Free until ${wName} is on the way` : "Free, nobody has taken it yet" });
+  if (job.status === "finished") items.push({ k: "report", icon: Icon.flag("var(--emerald)"), t: "Report a problem with the job", s: "Something wasn't done, or went wrong" });
+  if (wName) items.push({ k: "reportUser", icon: Icon.person("var(--emerald)", 24), t: `Report ${wName}`, s: "Behaviour or safety" });
+  items.push({ k: "support", icon: Icon.msg("var(--emerald)"), t: "Talk to Mahi Man", s: rules.late ? "We reply within a few hours" : "We reply within a few hours" });
+  return (
+    <Screen title="Help with this job" onBack={onBack}>
+      <div className="screen-body" style={{ background: "var(--card)" }}>
+        <div className="hl-list">
+          {items.map((i) => <button key={i.k} onClick={() => onPick(i.k)}>{i.icon}<span><b>{i.t}</b><small>{i.s}</small></span>{Icon.chevron("var(--faint)")}</button>)}
+        </div>
+      </div>
+    </Screen>
   );
 }

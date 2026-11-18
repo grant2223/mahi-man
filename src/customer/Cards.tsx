@@ -100,7 +100,7 @@ export function PaymentMethods({ onBack }: { onBack: () => void }) {
           <div className="opt">
             <span className="row" style={{ gap: 12 }}><CardMark brand={p.card_brand} />
               <span className="stack" style={{ gap: 2 }}><b>{cardLabel(p)}</b><span className="small muted light">Expires {p.card_exp}. Used for top-ups</span></span></span>
-            <button className="link quiet" disabled={busy} onClick={async () => {
+            <button className="btn stone small" disabled={busy} onClick={async () => {
               setBusy(true);
               try { await api("card_remove"); await reload(); toast("Card removed"); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
             }}>Remove</button>

@@ -241,7 +241,7 @@ function JobDetail({ type, catalog, mine, isNew, next, onBack, onSaved, onCredsC
         </div>
         <div className="kw-auto">{Icon.tick("var(--emerald)", 22)}<span>Every {kind} job you finish on Mahi Man adds its after photos and the customer's review here by itself.</span></div>
         {err && <p className="err">{err}</p>}
-        {!isNew && <button className="link quiet" style={{ padding: 0, marginTop: 18 }} disabled={busy} onClick={stop}>Stop doing {kind} jobs</button>}
+        {!isNew && <button className="btn stone" style={{ marginTop: 18, alignSelf: "flex-start" }} disabled={busy} onClick={stop}>{Icon.cancel("currentColor")}Stop doing {kind} jobs</button>}
       </div>
       <div className="bottombar">
         <span className="small light muted">{next ? `Next, ${next.cat.name.toLowerCase()}` : ""}</span>
@@ -478,7 +478,7 @@ export function AddCredential({ types, initial, onBack, onSaved }: { types: Cred
         <div className="cs-go">
           <button className="cs-take" onClick={() => camera.current?.click()}>
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#14211c" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>Take photo</button>
-          <button className="link cs-pdf" onClick={() => pdf.current?.click()}>{Icon.doc("var(--emerald)")}Upload a PDF instead</button>
+          <button className="btn stone cs-pdf" onClick={() => pdf.current?.click()}>{Icon.doc("var(--emerald)")}Upload a PDF instead</button>
         </div>
       </div>
       {inputs}

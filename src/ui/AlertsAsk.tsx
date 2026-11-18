@@ -32,8 +32,8 @@ export function AlertsAsk({ role, onDone }: { role: "post" | "work"; onDone: () 
           <div key={b} className="li">{Icon.tick("var(--emerald)", 22)}<span><b>{b}</b>{s}</span></div>
         ))}
       </div>
-      <div className="foot">
-        <button className="link quiet" onClick={done}>Not now</button>
+      <div className="foot ps-btns">
+        <button className="btn stone" onClick={done}>Not now</button>
         <button className="btn primary" disabled={busy} onClick={async () => { setBusy(true); await turnOnAlerts().catch(() => {}); done(); }}>{c.button}</button>
       </div>
     </div>

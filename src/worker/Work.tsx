@@ -412,11 +412,11 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
                 <span className="t14 light muted">You can be there by</span>
                 <span className="t17 w5">{at(mins)} <span className="light muted" style={{ fontSize: 15 }}>in {mins} min</span></span>
               </span>
-              <button className="link" onClick={() => setEta(true)}>Change</button>
+              <button className="btn stone small" onClick={() => setEta(true)}>Change</button>
             </div>
           )}
           <p className="small light muted" style={{ margin: 0, lineHeight: 1.45 }}>{o.customer_name.split(" ")[0]} sees your profile, scores and this time, and chooses who they want. You stay available for 15 minutes. The street address shows once you're chosen.</p>
-          <button className="link quiet" style={{ alignSelf: "flex-start" }} onClick={() => setReport(true)}>{Icon.flag()} Report this job</button>
+          <button className="btn stone small" style={{ alignSelf: "flex-start" }} onClick={() => setReport(true)}>{Icon.flag()} Report this job</button>
         </div>
       </div>
       <div className="bottombar" style={{ justifyContent: "flex-end" }}>

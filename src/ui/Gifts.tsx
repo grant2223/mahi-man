@@ -79,7 +79,7 @@ export function GiveHelpPage() {
     setErr(""); setBusy(true);
     try {
       const r = await rpc<{ id: number }>("gift_buy", { p_amount: amount, p_occasion: occasion, p_to: to, p_from: from, p_message: msg,
-        p_send_by: sendBy, p_send_to: dest, p_send_on: sendOn, p_via: how });
+        p_send_by: sendBy, p_send_to: sendBy === "text" ? `+61${dest.replace(/\D/g, "").replace(/^0/, "")}` : dest, p_send_on: sendOn, p_via: how });
       if (how === "card") {
         const c = await api<{ done?: boolean; action?: string; client_secret?: string; publishable_key?: string }>("gift_card", { gift_id: r.id });
         if (c.action === "authenticate" && c.client_secret && c.publishable_key) {
@@ -103,9 +103,13 @@ export function GiveHelpPage() {
         <label className="field gf-f"><span className="k">To</span><input value={to} maxLength={40} placeholder="Their name" onChange={(e) => setTo(e.target.value)} /></label>
         <label className="field gf-f"><span className="k">From</span><input value={from} maxLength={40} placeholder="Your name" onChange={(e) => setFrom(e.target.value)} /></label>
         <button className="field gf-f" onClick={() => setPick("by")}><span className="k">Send by</span><span className="row between gf-v"><span className="v">{sendBy === "text" ? "Text" : "Email"}</span>{Icon.chevron("var(--muted)")}</span></button>
-        <label className="field gf-f"><span className="k">{sendBy === "text" ? "Their mobile" : "Their email"}</span>
-          <input value={dest} inputMode={sendBy === "text" ? "tel" : "email"} type={sendBy === "text" ? "tel" : "email"} autoComplete="off"
-            placeholder={sendBy === "text" ? "04…" : "name@…"} onChange={(e) => setDest(e.target.value)} /></label>
+        {sendBy === "text" ? <>
+          {/* A phone number is always two boxes: the country code, then the number. Gift texts go to Australian mobiles. */}
+          <span className="field gf-f"><span className="k">Country code</span><span className="v">🇦🇺 +61</span></span>
+          <label className="field gf-f" style={{ gridColumn: "1 / -1" }}><span className="k">Their mobile</span>
+            <input value={dest} inputMode="tel" type="tel" autoComplete="off" placeholder="412 345 678" onChange={(e) => setDest(e.target.value)} /></label>
+        </> : <label className="field gf-f"><span className="k">Their email</span>
+          <input value={dest} inputMode="email" type="email" autoComplete="off" placeholder="name@…" onChange={(e) => setDest(e.target.value)} /></label>}
         <label className="field gf-f" style={{ gridColumn: "1 / -1" }}><span className="k">Message</span>
           <textarea value={msg} maxLength={200} rows={2} placeholder="Merry Christmas. Get those gutters done!" onChange={(e) => setMsg(e.target.value)} /></label>
         <button className="field gf-f" style={{ gridColumn: "1 / -1" }} onClick={() => setPick("on")}><span className="k">Send on</span><span className="row between gf-v"><span className="v">{onLabel}</span>{Icon.chevron("var(--muted)")}</span></button>

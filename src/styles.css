@@ -554,7 +554,7 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .alerts-ask .li:last-child { border-bottom: 0; }
 .alerts-ask .li b { display: block; font-weight: 500; font-size: 17px; margin-bottom: 2px; }
 .alerts-ask .li svg { flex: none; margin-top: 2px; }
-.alerts-ask .foot { margin-top: auto; padding: 16px 20px calc(var(--safe-bottom) + 16px); display: flex; align-items: center; justify-content: space-between; border-top: 1px solid var(--line); }
+.alerts-ask .foot { margin-top: auto; padding: 16px 20px calc(var(--safe-bottom) + 16px); width: auto; }
 .tick-list { display: flex; flex-direction: column; gap: 8px; }
 .tick-item { display: flex; align-items: center; gap: 14px; width: 100%; min-height: 54px; padding: 12px 14px; border: 0; border-radius: var(--r-control); background: var(--ground); color: var(--ink); font: inherit; font-size: 16px; text-align: left; cursor: pointer; }
 .tick-item .box { width: 26px; height: 26px; flex: none; border-radius: 3px; background: var(--stone-2); display: flex; align-items: center; justify-content: center; }
@@ -2756,3 +2756,12 @@ img.mb-img.mm { object-fit: contain; background: var(--card); }
 .recent-row.live .btn.primary { background: var(--emerald); color: #fff; }
 .recent-row .t .live-st { display: flex; align-items: center; gap: 7px; color: var(--emerald); font-weight: 400; }
 .live-dot { width: 8px; height: 8px; border-radius: 50%; background: #f5c518; flex: none; animation: pt-pulse 1.6s ease-in-out infinite; }
+
+/* Help with this job: one full-screen list, no lines between rows */
+.hl-list { padding: 8px 20px; }
+.hl-list button { display: grid; grid-template-columns: 24px 1fr 20px; gap: 16px; align-items: center; width: 100%; min-height: 76px; border: 0; background: none; padding: 0; text-align: left; font: inherit; color: var(--ink); cursor: pointer; }
+.hl-list b { display: block; font-size: 17px; font-weight: 400; }
+.hl-list small { display: block; margin-top: 2px; font-size: 14px; font-weight: 300; color: var(--muted); }
+/* Footer buttons stay on screen on smaller phones */
+.ps .ps-foot { position: sticky; bottom: 0; padding-top: 14px; background: inherit; }
+.hl-list button:disabled { opacity: 0.5; }

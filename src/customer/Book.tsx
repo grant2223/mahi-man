@@ -663,8 +663,10 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   useEffect(() => {
     if (!recent?.length) return;
     let want = false;
-    try { want = sessionStorage.getItem("mm-again") === "1"; sessionStorage.removeItem("mm-again"); } catch { /* private mode */ }
-    const r = want ? recent.find((x) => x.status === "cancelled") : undefined;
+    let key: string | null = null;
+    try { key = sessionStorage.getItem("mm-again"); sessionStorage.removeItem("mm-again"); } catch { /* private mode */ }
+    want = !!key;
+    const r = want ? (recent.find((x) => x.id === key) ?? recent.find((x) => x.status === "cancelled")) : undefined;
     if (r) again(r);
   }, [recent]);
 

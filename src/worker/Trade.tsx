@@ -150,14 +150,14 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: Trad
               {payRows.map(([k, v]) => <div key={k} className="row between"><span className="t15 light">{k}</span><span className="t16 w5">{v}</span></div>)}
               {o && <div className="row between"><span className="t15 light">Reference</span><span className="t16 w5">TR-{o.id}</span></div>}
             </div>}
-            {o && !o.renewal && <button className="link quiet" style={{ padding: 0, alignSelf: "flex-start" }} disabled={busy} onClick={() => run("trade_order_cancel", "Invoice cancelled")}>Cancel the monthly invoice</button>}
+            {o && !o.renewal && <button className="btn stone small" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={() => run("trade_order_cancel", "Invoice cancelled")}>Cancel the monthly invoice</button>}
           </div>
         )}
         {missing(trade).length > 0 && <div className="cp-sec"><TradeReady trade={trade} /></div>}
         <Note icon="clock">{pl?.premium ? "You see every new trade job first." : `Monthly gets you new jobs first and $0 per job. Win a job a week and it costs less.`}</Note>
         <div style={{ flex: 1 }} />
         {pl?.premium && pl.status === "active" && (
-          <div style={{ padding: "0 16px 12px" }}><button className="link quiet" style={{ padding: 0 }} disabled={busy} onClick={() => run("trade_stop", "Monthly won't renew")}>Stop monthly</button></div>
+          <div style={{ padding: "0 16px 12px" }}><button className="btn stone" disabled={busy} onClick={() => run("trade_stop", "Monthly won't renew")}>Stop monthly</button></div>
         )}
         {!pl?.premium && !o && <ActionBar><button className="btn hx-go" style={{ flex: 1 }} onClick={onUpgrade}>Go monthly</button></ActionBar>}
       </div>

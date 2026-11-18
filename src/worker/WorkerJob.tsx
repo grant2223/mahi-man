@@ -31,7 +31,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
     rpc("tick_items", { p_job: job.id, p_items: next }).catch((e) => { setDone(done); toast(e instanceof Error ? e.message : String(e)); });
   };
   const [extras, setExtras] = useState<Extra[]>([]);
-  const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after" | "cant" | "eta">(null);
+  const [screen, setScreen] = useState<null | "reportUser" | "chat" | "code" | "extra" | "emergency" | "problem" | "before" | "after" | "cant" | "eta" | "help">(null);
   const [busy, setBusy] = useState(false);
   const [payid, setPayid] = useState<string | null>(null);
   const [bank, setBank] = useState<string | null>(null);
@@ -94,7 +94,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
 
   const approved = extras.filter((e) => e.status === "approved");
   const jobName = j.title || jt.name;
-  const leaveLink = <button className="link quiet" style={{ margin: "0 16px 16px", alignSelf: "flex-start" }} onClick={onLeave}>See new jobs</button>;
+  const leaveLink = <div style={{ padding: "0 16px 16px" }}><button className="btn stone" onClick={onLeave}>{Icon.back("currentColor")}See new jobs</button></div>;
   const problem = report && <JobProblem job={j} jobName={jobName} otherName={cName} isWorker onBack={() => setReport(false)} onDone={() => { setReport(false); load(); }} />;
 
   if (j.status === "disputed" || j.status === "refunded") {
@@ -116,7 +116,6 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
           <span className="cp-title" style={{ marginBottom: 2 }}>Nothing to collect</span>
           <span className="t16 light muted" style={{ lineHeight: 1.45 }}>{`${cName} paid with a Mahi Man gift card. We pay ${money(earn)} to your ${payid ? "PayID" : "bank account"} on the Friday after the job is confirmed. If ${cName} does nothing for 48 hours, it confirms itself.`}</span>
         </div>
-        {leaveLink}
         <ActionBar>
           <button className="btn stone" style={{ flex: 1 }} onClick={() => setReport(true)}>Something's wrong</button>
           <button className="btn primary" style={{ flex: 1 }} onClick={onChanged}>Back to jobs</button>
@@ -186,7 +185,10 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         <div className="hero-top">
           <span className="row" style={{ gap: 10, minWidth: 0 }}><button className="cx-back" onClick={onLeave} aria-label="Back to jobs">{Icon.back("#fff")}</button><span className="t17 w5">{jobName}</span></span>
           {/* Safety, the way Uber does it: a quiet shield, not a red button. It opens Call 000. */}
-          <button className="wj-safety" onClick={() => setScreen("emergency")} aria-label="Safety">{Icon.shield("#fff")}<span>Safety</span></button>
+          <span className="row" style={{ gap: 18 }}>
+            <button className="wj-safety" onClick={() => setScreen("help")} aria-label="Help">{Icon.help("#fff")}<span>Help</span></button>
+            <button className="wj-safety" onClick={() => setScreen("emergency")} aria-label="Safety">{Icon.shield("#fff")}<span>Safety</span></button>
+          </span>
         </div>
         {gotIt ? (<>
           <span className="label">{cName} chose you</span>
@@ -219,7 +221,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         <div className="row" style={{ gap: 12, padding: 16, background: "var(--card)", alignItems: "center", position: "relative", zIndex: 1 }}>
           <span style={{ width: 10, height: 10, borderRadius: 5, background: "var(--emerald)", flexShrink: 0 }} />
           <span className="t15 light" style={{ flex: 1 }}>Sharing your location with {cName}. It stops when you enter the start code.</span>
-          <button className="link quiet" onClick={async () => { await stopTrip(j.id); setOnWay(false); }}>Stop</button>
+          <button className="btn stone small" onClick={async () => { await stopTrip(j.id); setOnWay(false); }}>Stop</button>
         </div>
       )}
 
@@ -321,17 +323,6 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
         <div key={e.id} className="section t15 light">{e.status === "approved" ? `${cName} approved ${money(e.amount_cents)} extra.` : `${cName} declined the extra ${money(e.amount_cents)}.`}</div>
       ))}
 
-      {j.status === "in_progress" && (
-        <div className="row between" style={{ margin: "18px 20px 0" }}>
-          <button className="link" onClick={() => setScreen("extra")} disabled={!!pending}>Job bigger than booked?</button>
-          <button className="link quiet" onClick={() => setScreen("problem")}>Report a problem</button>
-        </div>
-      )}
-
-      <div className="row" style={{ margin: "14px 20px 0", justifyContent: j.status === "accepted" ? "space-between" : "flex-end" }}>
-        {j.status === "accepted" && <button className="link quiet" onClick={() => setScreen("cant")}>Cancel this job</button>}
-        <button className="link quiet" onClick={() => setScreen("reportUser")}>Report {cName}</button>
-      </div>
 
       <div className="footer">
         {j.status === "accepted" && gotIt && !canLeave && <button className="btn primary" onClick={() => setScreen("code")}>Enter start code {Icon.arrow("var(--lime)")}</button>}
@@ -348,6 +339,19 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
 
       {screen === "cant" && <WorkerCancelScreen job={j} name={cName} onBack={() => setScreen(null)} onEta={() => setScreen("eta")}
         onDone={async () => { await stopTrip(j.id); setOnWay(false); onChanged(); }} />}
+      {screen === "help" && (
+        <Screen title="Help with this job" onBack={() => setScreen(null)}>
+          <div className="screen-body" style={{ background: "var(--card)" }}>
+            <div className="hl-list">
+              {j.status === "in_progress" && <button disabled={!!pending} onClick={() => setScreen("extra")}>{Icon.plus("var(--emerald)")}<span><b>Job bigger than booked?</b><small>{pending ? `Waiting on ${cName} to answer` : `Ask ${cName} to pay for the extra work`}</small></span>{Icon.chevron("var(--faint)")}</button>}
+              {j.status === "in_progress" && <button onClick={() => setScreen("problem")}>{Icon.flag("var(--emerald)")}<span><b>Report a problem with the job</b><small>Something's unsafe or not as described</small></span>{Icon.chevron("var(--faint)")}</button>}
+              {j.status === "accepted" && <button onClick={() => setScreen("cant")}>{Icon.cancel("var(--danger)", 24)}<span><b>Cancel this job</b><small>Free until 2 hours before the start</small></span>{Icon.chevron("var(--faint)")}</button>}
+              <button onClick={() => setScreen("reportUser")}>{Icon.person("var(--emerald)", 24)}<span><b>Report {cName}</b><small>Behaviour or safety</small></span>{Icon.chevron("var(--faint)")}</button>
+              <button onClick={() => { setScreen(null); go("/support"); }}>{Icon.msg("var(--emerald)")}<span><b>Talk to Mahi Man</b><small>We reply within a few hours</small></span>{Icon.chevron("var(--faint)")}</button>
+            </div>
+          </div>
+        </Screen>
+      )}
       {screen === "eta" && <EtaScreen job={j} name={cName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
       {screen === "chat" && <ChatScreen jobId={j.id} me={session.user.id} otherName={cName} onBack={() => setScreen(null)} />}
       {screen === "reportUser" && <ReportScreen name={cName} userId={j.customer_id} jobId={j.id} onBack={() => setScreen(null)} onDone={() => setScreen(null)} />}
