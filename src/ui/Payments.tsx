@@ -579,7 +579,7 @@ export function PlusPage() {
         <span className="pq-brand">MAHI MAN</span>
         <span className="pq-word">Plus</span>
         <span className="pq-name">{name || "Member"}</span>
-        <span className="pq-since">{plus && !p.senior ? `Until ${until}` : "Member"}</span>
+        <span className="pq-since">{plus ? (p.senior ? "Member" : `Until ${until}`) : "Not a member yet"}</span>
       </div>
 
       <h1 className="pq-h">For our <em>loyal customers.</em></h1>

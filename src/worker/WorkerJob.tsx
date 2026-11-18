@@ -345,7 +345,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
             <div className="hl-list">
               {j.status === "in_progress" && <button disabled={!!pending} onClick={() => setScreen("extra")}>{Icon.plus("var(--emerald)")}<span><b>Job bigger than booked?</b><small>{pending ? `Waiting on ${cName} to answer` : `Ask ${cName} to pay for the extra work`}</small></span>{Icon.chevron("var(--faint)")}</button>}
               {j.status === "in_progress" && <button onClick={() => setScreen("problem")}>{Icon.flag("var(--emerald)")}<span><b>Report a problem with the job</b><small>Something's unsafe or not as described</small></span>{Icon.chevron("var(--faint)")}</button>}
-              {j.status === "accepted" && <button onClick={() => setScreen("cant")}>{Icon.cancel("var(--danger)", 24)}<span><b>Cancel this job</b><small>Free until 2 hours before the start</small></span>{Icon.chevron("var(--faint)")}</button>}
+              {j.status === "accepted" && <button onClick={() => setScreen("cant")}>{Icon.cancel("var(--danger)", 24)}<span><b>Cancel this job</b><small>See any fee or strike before you confirm</small></span>{Icon.chevron("var(--faint)")}</button>}
               <button onClick={() => setScreen("reportUser")}>{Icon.person("var(--emerald)", 24)}<span><b>Report {cName}</b><small>Behaviour or safety</small></span>{Icon.chevron("var(--faint)")}</button>
               <button onClick={() => { setScreen(null); go("/support"); }}>{Icon.msg("var(--emerald)")}<span><b>Talk to Mahi Man</b><small>We reply within a few hours</small></span>{Icon.chevron("var(--faint)")}</button>
             </div>
