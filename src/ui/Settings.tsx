@@ -1,3 +1,4 @@
+import { TaxDetails, useTax } from "./Tax";
 import { AboutEdit, ContactEdit, SuburbEdit } from "./Profile";
 import { GENDERS, showPhone } from "../lib/people";
 import { Capacitor } from "@capacitor/core";
@@ -69,7 +70,8 @@ export function Settings() {
   const toast = useToast();
   const [hub, setHub] = useState<Hub | null>(null);
   const [covers, setCovers] = useState<Record<string, string>>({});
-  const [sub, setSub] = useState<Sub>(null);
+  const [sub, setSub] = useState<Sub>(() => (new URLSearchParams(location.search).has("tax") ? "account" : null));
+  useEffect(() => { const f = () => setSub("account"); window.addEventListener("mm-open-tax", f); return () => window.removeEventListener("mm-open-tax", f); }, []);
   const [wh, setWh] = useState<WorkerHomeData | null>(null);
   const [card, setCard] = useState<PersonCard | null>(null);
   const [place, setPlace] = useState<{ suburb: string; area: string }>({ suburb: "", area: "" });
@@ -230,6 +232,8 @@ function Account({ prefs, onPrefs, onBack, onOpen, items, balance, plus }: { pre
   const [contact, setContact] = useState<{ phone: string; dial: string; whatsapp: boolean } | null>(null);
   const [q, setQ] = useState("");
   const [showBlocked, setShowBlocked] = useState(false);
+  const [tax, setTax] = useState(() => { const on = new URLSearchParams(location.search).has("tax") || sessionStorage.getItem("mm-tax") === "1"; sessionStorage.removeItem("mm-tax"); return on; });
+  const { tax: myTax, reload: reloadTax } = useTax();
   const [radius, setRadius] = useState<number | null>(null);
   const [blocked, setBlocked] = useState<{ id: string; name: string }[] | null>(null);
   const [on, setOn] = useState<Prefs>({ jobs: true, messages: true, offers: false, ...(prefs ?? {}) });
@@ -331,6 +335,7 @@ function Account({ prefs, onPrefs, onBack, onOpen, items, balance, plus }: { pre
           </div>
         </Screen>
       )}
+      {tax && <TaxDetails onBack={() => { setTax(false); reloadTax(); if (location.search.includes("tax")) history.replaceState(null, "", "/settings"); }} onBank={() => onOpen("payid")} />}
       <div className="screen-body">
         <div className="ax-head"><button onClick={onBack} aria-label="Back">{Icon.back("var(--ink)")}</button><h1>Settings</h1></div>
         <label className="search ax-search">{Icon.search("var(--muted)")}<input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search settings" /></label>
@@ -394,6 +399,7 @@ function Account({ prefs, onPrefs, onBack, onOpen, items, balance, plus }: { pre
           <section className="ax-sec ax-links">
             <h2>Your work</h2>
             <button className="ax-row" onClick={() => onOpen("payid")}>{A.bank}<span className="ax-one">Getting paid</span><span className="ax-r">{chev}</span></button>
+            <button className="ax-row" onClick={() => setTax(true)}>{A.doc}<span className="ax-one">Tax details</span><span className="ax-r">{myTax?.missing.length ? <span className="tx-need">{myTax.missing[0].replace(/^./, (c) => c.toUpperCase())} needed</span> : null}{chev}</span></button>
             <button className="ax-row" onClick={() => onOpen("reliability")}>{A.clock}<span className="ax-one">Turn-up score</span><span className="ax-r">{chev}</span></button>
             <button className="ax-row" onClick={() => onOpen("skills")}>{A.tool}<span className="ax-one">Skills</span><span className="ax-r">{chev}</span></button>
             <button className="ax-row" onClick={() => onOpen("creds")}>{A.cert}<span className="ax-one">Licences and certificates</span><span className="ax-r">{chev}</span></button>

@@ -42,7 +42,7 @@ export function Privacy() {
         <li>ID check: a photo of your passport, national ID card or driver licence and a selfie. These are seen only by the Mahi Man team, used only to confirm who you are, and deleted as soon as the check is decided. We keep the result (verified or not) and the ID type and country.</li>
         <li>Jobs: the job you book or take, the photos and video you add, your description, the address and suburb, times, prices and reviews. A review is whether you'd recommend the other person, a rating for each thing that matters (for workers: on time, prepared, quality, communication and friendliness; for customers: job description, prepared, paid on completion and respect), and an optional comment.</li>
         <li>Messages you send through the app.</li>
-        <li>Workers: PayID or bank account (shown to a customer only once their job is done), ABN if you give one, suburb and travel distance, the job types you do with your skills, experience and gear, and any licences or certificates you add (a photo, the number and the expiry date). These are checked by the Mahi Man team and only "verified" is shown to customers.</li>
+        <li>Workers: PayID or bank account (shown to a customer only once their job is done), ABN if you give one, your home address for tax reporting, suburb and travel distance, the job types you do with your skills, experience and gear, and any licences or certificates you add (a photo, the number and the expiry date). These are checked by the Mahi Man team and only "verified" is shown to customers.</li>
         <li>Payments: if you add a card, it is collected and stored by our payment provider, Stripe. We never see or keep your full card number. We keep the card type, last 4 digits and expiry so you can see which card is saved, plus a record of fees charged and refunded.</li>
         <li>Location when you open the app: your phone's location is used on your phone to open on your area and the jobs near you. It isn't sent to us.</li>
         <li>Setting your suburb: if you tap "Use my location" or move the map, that spot is sent to us only to find the suburb. We keep the suburb, not the spot.</li>
@@ -58,6 +58,7 @@ export function Privacy() {
       <p>We do not track you across other apps or websites and we do not sell your information.</p>
       <h2>Why we use it</h2>
       <p>To match jobs with nearby workers, show each side who they are dealing with, keep people safe, handle reports and disputes, and meet our legal obligations.</p>
+      <p>Tax reporting: the law requires Mahi Man to report what workers and tradies earn on jobs through the app to the Australian Taxation Office twice a year. For each worker and tradie we send their name, date of birth, home address, email, phone, ABN if they have one, bank details, and their jobs and total earned in that half-year. We never ask for or keep a tax file number.</p>
       <h2>Who sees what</h2>
       <ul>
         <li>Workers who can take a job see its photos, video, description, suburb and the customer's first name, last initial, photo, whether they are ID verified, and their average ratings and how many workers recommend them. The street address is only shown to the worker who takes the job.</li>
@@ -155,6 +156,12 @@ export function Terms() {
       <ul>
         <li>Some skills need a licence or certificate, such as an electrical licence or an RSA. Only workers whose licence we have checked and is in date can take those jobs. Workers must keep their licences current and tell us if one is suspended or cancelled.</li>
         <li>A worker's location is shared with the customer only between tapping "I'm on my way" and entering the start code.</li>
+      </ul>
+      <h2>Workers, tradies and tax</h2>
+      <ul>
+        <li>Workers and tradies are independent contractors, not employees of Mahi Man or of the customer. You are responsible for your own tax, including declaring what you earn, and for GST if you are registered for it.</li>
+        <li>Mahi Man reports what you earn on jobs through the app to the Australian Taxation Office twice a year, as required by law (the Sharing Economy Reporting Regime). Keep your tax details in Settings up to date: your home address, your ABN if you have one (tradies must have one) and your bank details.</li>
+        <li>We never ask for your tax file number. If your tax details are missing we'll remind you; your account keeps working.</li>
       </ul>
       <h2>Your account</h2>
       <ul>

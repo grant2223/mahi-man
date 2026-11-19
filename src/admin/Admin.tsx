@@ -11,7 +11,7 @@ import { BroadcastPage } from "./Broadcast";
 
 const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["delivery", "Parcel"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
 
-type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money" | "gifts" | "staff" | "broadcast";
+type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money" | "gifts" | "staff" | "broadcast" | "ato";
 
 const STATUS_BADGE: Record<string, string> = {
   awaiting_payment: "", searching: "y", accepted: "y", in_progress: "y", finished: "y", confirmed: "g", disputed: "r", cancelled: "", refunded: "r",
@@ -69,7 +69,7 @@ export function Admin() {
     { label: "To check", items: [["ids", "ID checks", counts.ids], ["licences", "Licence checks", counts.licences], ["reports", "Reports", counts.reports], ["problems", "Disputes", counts.problems]] },
     { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["broadcast", "Broadcast"], ["launch", "Launch list"]] },
     { label: "Trust", items: [["cancels", "Cancellations", counts.fees], ["strikes", "Strikes", counts.strikes], ["reviews", "Reviews"]] },
-    { label: "Money", items: [["money", "Invoices", counts.money], ["gifts", "Gift cards", counts.gifts]] },
+    { label: "Money", items: [["money", "Invoices", counts.money], ["gifts", "Gift cards", counts.gifts], ["ato", "ATO report", 0]] },
     { label: "Partners", items: [["partners", "Partners", counts.partners], ["tradies", "Tradies", counts.invoices]] },
     { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"], ["staff", "Staff"]] },
   ] as Group[]).map((g) => ({ ...g, items: g.items.filter(([k]) => allowed(k)) })).filter((g) => g.items.length);
@@ -125,6 +125,7 @@ export function Admin() {
         {show === "partners" && <Partners onChanged={recount} />}
         {show === "money" && <MoneyInvoices onChanged={recount} />}
         {show === "gifts" && <GiftCardsAdmin onChanged={recount} />}
+        {show === "ato" && <AtoReport />}
         {show === "staff" && <Staff />}
       </main>
     </div>
@@ -2103,7 +2104,7 @@ type StaffRole = "owner" | "admin" | "support" | "finance";
 type StaffArea = "all" | "people" | "checks" | "money" | "setup" | "settings" | "staff" | "broadcast";
 const TAB_AREA: Record<Tab, StaffArea> = {
   overview: "all", ids: "checks", licences: "checks", reports: "people", problems: "people", jobs: "people", people: "people", launch: "people",
-  cancels: "people", strikes: "people", reviews: "people", money: "money", gifts: "money", partners: "money", tradies: "money",
+  cancels: "people", strikes: "people", reviews: "people", money: "money", gifts: "money", ato: "money", partners: "money", tradies: "money",
   areas: "setup", types: "setup", skills: "setup", settings: "settings", staff: "staff", broadcast: "broadcast",
 };
 function roleCan(r: StaffRole, a: StaffArea | "paydetails") {
@@ -2314,4 +2315,102 @@ function OfferEdit({ o: start, month, onClose, onSaved }: { o: TOffer; month: nu
       {info && <Screen title={INFO[info][0]} onBack={() => setInfo(null)}><div className="screen-body of-info"><p>{INFO[info][1]}</p></div></Screen>}
     </div>
   );
+}
+
+// ATO report (Sharing Economy Reporting Regime): every worker and tradie paid for jobs in a half-year, with the details the ATO asks for.
+type AtoRow = { id: string; name: string; full_name: string; business_name: string | null; birth_date: string | null; street: string | null; suburb: string | null; state: string | null; postcode: string | null;
+  email: string | null; phone: string | null; abn: string | null; abn_name: string | null; bsb: string | null; account: string | null; payid: string | null; tradie: boolean;
+  jobs: number; earned: number; fees: number; first_job: string; last_job: string; missing: string[]; reminded_at: string | null };
+type AtoData = { from: string; to: string; due: string; rows: AtoRow[] };
+const atoHalves = () => {
+  const out: { id: string; label: string; y: number; h: number }[] = [];
+  const now = new Date(); let y = 2026, h = 2;
+  const nowKey = now.getFullYear() * 2 + (now.getMonth() < 6 ? 1 : 2);
+  while (y * 2 + h <= nowKey) {
+    out.unshift({ id: `${y}-${h}`, y, h, label: h === 2 ? `1 Jul to 31 Dec ${y}, due 31 Jan ${y + 1}` : `1 Jan to 30 Jun ${y}, due 31 Jul ${y}` });
+    if (h === 2) { y++; h = 1; } else h = 2;
+  }
+  return out;
+};
+const atoDay = (d: string) => new Date(d + "T12:00:00+10:00").toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: "Australia/Brisbane" });
+const atoAddr = (r: AtoRow) => r.street && r.suburb ? `${r.street}, ${r.suburb}${r.state ? ` ${r.state}` : ""}${r.postcode ? ` ${r.postcode}` : ""}` : null;
+const atoBank = (r: AtoRow) => r.bsb ? `BSB ${r.bsb.replace(/^(\d{3})(\d{3})$/, "$1-$2")}, ${r.account ?? ""}` : r.payid ? `PayID ${r.payid}` : null;
+function AtoReport() {
+  const toast = useToast();
+  const halves = atoHalves();
+  const [half, setHalf] = useState(halves[0]?.id ?? "2026-2");
+  const [pick, setPick] = useState(false);
+  const [open, setOpen] = useState<AtoRow | null>(null);
+  const [d, setD] = useState<AtoData | null>(null);
+  useEffect(() => {
+    const [y, h] = half.split("-").map(Number);
+    setD(null);
+    rpc<AtoData>("admin_ato_report", { p_year: y, p_half: h }).then(setD).catch((e) => toast((e as Error).message));
+  }, [half, toast]);
+  const csv = () => {
+    if (!d) return;
+    const q = (v: unknown) => { const t = v == null ? "" : String(v); return /[",\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+    const head = ["First and last name", "Business name", "Date of birth", "Street", "Suburb", "State", "Postcode", "Email", "Phone", "ABN", "ABN registered name",
+      "BSB", "Account number", "PayID", "Worker or tradie", "First job", "Last job", "Jobs", "Total paid to them ($)", "Mahi Man fees ($)", "Missing details"];
+    const lines = d.rows.map((r) => [r.name, r.business_name, r.birth_date, r.street, r.suburb, r.state, r.postcode, r.email, r.phone, r.abn, r.abn_name,
+      r.bsb, r.account, r.payid, r.tradie ? "Tradie" : "Worker", r.first_job, r.last_job, r.jobs, (r.earned / 100).toFixed(2), (r.fees / 100).toFixed(2), r.missing.join("; ")].map(q).join(","));
+    const blob = new Blob([[head.join(","), ...lines].join("\r\n")], { type: "text/csv" });
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = `mahi-man-ato-report-${d.from}-to-${d.to}.csv`; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  };
+  const rows = d?.rows ?? [];
+  const miss = rows.filter((r) => r.missing.length);
+  const dollars = (c: number) => "$" + Math.round(c / 100).toLocaleString("en-AU");
+  return <>
+    <div className="row between" style={{ marginBottom: 14, gap: 10, flexWrap: "wrap" }}>
+      <button className="cp-select" style={{ height: 44, minWidth: 280, background: "var(--card)" }} onClick={() => setPick(true)}><span>{halves.find((x) => x.id === half)?.label}</span>{Icon.down("var(--muted)")}</button>
+      <button className="btn primary" disabled={!rows.length} onClick={csv}>{Icon.doc("currentColor", 20)}Download CSV</button>
+    </div>
+    {!d ? <Loading /> : <>
+      <div className="stats">
+        <Stat n={rows.length} l="Workers and tradies" />
+        <Stat n={rows.reduce((a, r) => a + r.jobs, 0)} l="Jobs" />
+        <Stat n={dollars(rows.reduce((a, r) => a + r.earned, 0))} l="Earned" />
+        <Stat n={dollars(rows.reduce((a, r) => a + r.fees, 0))} l="Mahi Man fees" />
+      </div>
+      {!rows.length && <AdmEmpty text="No completed jobs in this half-year yet." />}
+      {miss.length > 0 && <>
+        <h2 className="adm-sub" style={{ margin: "18px 0 10px" }}>Missing details, {miss.length}</h2>
+        <div className="mn-list">{miss.map((r) => (
+          <button key={r.id} className="mn-row of-row" onClick={() => setOpen(r)}>
+            <span className="mn-mid"><b>{r.name || r.full_name}</b><small className="tx-need">No {r.missing.join(", no ")}</small></span>
+            <span className="mn-end"><small className="of-sm">{r.reminded_at ? `Reminded ${atoDay(r.reminded_at.slice(0, 10))}` : "Reminder on Monday"}</small></span>
+          </button>))}</div>
+      </>}
+      {rows.length > 0 && <>
+        <h2 className="adm-sub" style={{ margin: "18px 0 10px" }}>Everyone</h2>
+        <div className="mn-list">{rows.map((r) => (
+          <button key={r.id} className="mn-row of-row" onClick={() => setOpen(r)}>
+            <span className="mn-mid"><b>{r.name || r.full_name}</b><small>{r.jobs} job{r.jobs === 1 ? "" : "s"}{r.tradie ? ", tradie" : ""}</small></span>
+            <span className="mn-end"><b>{money2(r.earned)}</b>{r.missing.length ? <span className="badge r">Missing</span> : <span className="badge g">Ready</span>}</span>
+          </button>))}</div>
+      </>}
+    </>}
+    {open && (
+      <div className="mn-detail">
+        <div className="mn-top"><button className="cx-back" onClick={() => setOpen(null)} aria-label="Back">{Icon.back("var(--ink)")}</button>
+          <span><b>{open.name || open.full_name}</b><small>{open.jobs} job{open.jobs === 1 ? "" : "s"}, {money2(open.earned)}</small></span></div>
+        <div className="mn-body">
+          <dl className="mn-dl">
+            {open.business_name && <><dt>Business</dt><dd>{open.business_name}</dd></>}
+            <dt>Date of birth</dt><dd className={open.birth_date ? "" : "tx-need"}>{open.birth_date ? atoDay(open.birth_date) : "Missing"}</dd>
+            <dt>Address</dt><dd className={atoAddr(open) ? "" : "tx-need"}>{atoAddr(open) ?? "Missing"}</dd>
+            <dt>Email</dt><dd>{open.email ?? ""}</dd>
+            <dt>Phone</dt><dd>{open.phone ?? ""}</dd>
+            <dt>ABN</dt><dd className={open.tradie && !open.abn ? "tx-need" : ""}>{open.abn ? `${open.abn}${open.abn_name ? `, ${open.abn_name}` : ""}` : open.tradie ? "Missing" : "None"}</dd>
+            <dt>Bank</dt><dd className={atoBank(open) ? "" : "tx-need"}>{atoBank(open) ?? "Missing"}</dd>
+            <dt>Jobs</dt><dd>{open.jobs}, {atoDay(open.first_job)} to {atoDay(open.last_job)}</dd>
+            <dt>Earned</dt><dd>{money2(open.earned)}</dd>
+            <dt>Mahi Man fees</dt><dd>{money2(open.fees)}</dd>
+          </dl>
+        </div>
+      </div>
+    )}
+    {pick && <SearchPicker title="Half-year" options={halves.map((x) => ({ id: x.id, label: x.label }))} value={[half]} onClose={() => setPick(false)} onChange={(v) => setHalf(String(v[0]))} />}
+  </>;
 }

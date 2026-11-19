@@ -2925,3 +2925,14 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .of-dpick { position: relative; }
 .of-dpick input { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; border: 0; }
 .of-dpick input::-webkit-calendar-picker-indicator { position: absolute; inset: 0; width: 100%; height: 100%; cursor: pointer; }
+/* Tax details */
+.tx { background: var(--ground); padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.tx-r { width: 100%; border: 0; background: none; font: inherit; text-align: left; cursor: pointer; }
+.tx-r:disabled { cursor: default; color: inherit; opacity: 1; }
+.tx-need { color: var(--danger, #b3402f); }
+.tx-abn { display: flex; align-items: center; gap: 8px; padding: 0 16px 10px; font-size: 14px; font-weight: 300; color: var(--emerald); }
+.tx-get { align-self: flex-start; gap: 6px; }
+.tx-nudge { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; background: rgba(245, 197, 24, 0.18); font-size: 15px; }
+.mn-dl dd.tx-need { color: var(--danger, #b3402f); }
+.tx-abn.off { color: var(--danger, #b3402f); }
+.tx-two { display: grid; grid-template-columns: 1fr 130px; gap: 10px; }

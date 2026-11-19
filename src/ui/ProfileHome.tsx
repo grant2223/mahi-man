@@ -1,3 +1,4 @@
+import { TaxNudge, useTax } from "./Tax";
 import { cardName } from "../lib/format";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import QRCode from "qrcode";
@@ -125,6 +126,7 @@ export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge,
   d: WorkerHomeData; onlineBusy: boolean; onOnline: () => void; onStep: (k: "profile") => void; onSkills: () => void; onBadge: () => void; trade?: TradeWork | null;
   drive?: Driving | null; onLicence?: () => void; onVehicles?: () => void;
 }) {
+  const { tax } = useTax();
   const s = d.steps;
   const steps: [keyof typeof s, string][] = [["profile", "Profile"], ["online", "Go online"], ["job", "First job"], ["review", "First review"]];
   const nowAt = steps.findIndex(([k]) => !s[k]);
@@ -136,6 +138,7 @@ export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge,
   const subMax = Math.max(1, ...d.suburbs.map((p) => p.n));
   const goBtn = !d.online && <button className="btn pr-go" disabled={onlineBusy} onClick={onOnline}>{onlineBusy ? "Going online…" : "Go online"}</button>;
   return (<>
+    {tax && <TaxNudge missing={tax.missing} onOpen={() => { sessionStorage.setItem("mm-tax", "1"); window.dispatchEvent(new Event("mm-open-tax")); }} />}
     {d.done === 0 ? (
       <section className="pr-jr">
         <div className="big">{!s.profile ? "Finish your profile" : !s.online ? "Go online for your first job" : "Your first job is next"}</div>
