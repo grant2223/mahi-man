@@ -134,9 +134,9 @@ export function Admin() {
 
 // Overview: what's happening right now, what needs you, how healthy the marketplace is against its targets,
 // and jobs and money each day. Every number comes from admin_overview; tap a day on the chart for that day's details.
-type Period = { done: number; cancelled: number; gmv: number; revenue: number; fill: number | null; wait: number | null; repeat: number | null; cancel: number | null };
+type Period = { done: number; cancelled: number; gmv: number; revenue: number; fill: number | null; wait: number | null; repeat: number | null; cancel: number | null; signups?: number; signup_customers?: number; signup_workers?: number };
 type Ov = {
-  now: { waiting: number; longest_min: number | null; underway: number; on_way: number; online: number; approved: number; today_gmv: number; today_jobs: number };
+  now: { waiting: number; longest_min: number | null; underway: number; on_way: number; online: number; approved: number; today_gmv: number; today_jobs: number; users?: number; workers?: number };
   todo: { ids: number; ids_oldest_h: number | null; licences: number; reports: number; disputes: number; fees: number; strikes: number; tradies: number; partners: number; claimed: number; payouts: number; payouts_cents: number; late: number; late_cents: number };
   cur: Period; prev: Period; days: (Period & { day: string })[];
   targets: { fill: number; wait: number; repeat: number; cancel: number };
@@ -225,6 +225,15 @@ function Overview({ open, allowed }: { open: (t: Tab, day?: string) => void; all
               <span className="row between"><small className={`tg ${v == null ? "" : met ? "met" : "miss"}`}>{good === "up" ? `Target ${target}${unit}` : `Target under ${target}${unit}`}</small>{v != null && <Delta n={change(v, pv)} good={good} />}</span>
             </div>))}
         </div>
+      </section>
+      <section className="ov-sec">
+        <div className="ov-h"><h2>Sign-ups</h2><span>{span}</span></div>
+        <button className="ov-row4 three ov-su" onClick={allowed("people") ? () => open("people") : undefined}>
+          <div><b>{c.signups ?? 0}</b><span>New users</span><Delta n={change(c.signups ?? 0, p.signups ?? 0)} /></div>
+          <div><b>{c.signup_customers ?? 0}</b><span>Customers</span><Delta n={change(c.signup_customers ?? 0, p.signup_customers ?? 0)} /></div>
+          <div><b>{c.signup_workers ?? 0}</b><span>Workers</span><Delta n={change(c.signup_workers ?? 0, p.signup_workers ?? 0)} /></div>
+        </button>
+        <span className="ov-total">{n.users ?? 0} users in total, {n.workers ?? 0} of them workers</span>
       </section>
       <section className="ov-sec">
         <div className="ov-h"><h2>Jobs and money</h2><span>{span}</span></div>
