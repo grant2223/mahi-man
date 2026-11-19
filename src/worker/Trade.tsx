@@ -6,6 +6,7 @@ import { dayTime, money } from "../lib/format";
 import { Icon, Screen, SearchPicker, useNow, useToast } from "../ui/kit";
 import { ActionBar, Note } from "../ui/Completion";
 import { ChatScreen } from "../ui/Chat";
+import { BankPay, claimArgs } from "../ui/Payments";
 import type { Offer, MyOffer } from "./Work";
 
 /* Trade jobs for tradespeople. Two ways to pay: per job (free to join, a fee only when a customer picks your quote),
@@ -17,8 +18,11 @@ interface Pay { payid?: string; bsb?: string; account?: string; account_name?: s
 export interface TradeStatus {
   prices: Prices; licences: string[]; pending_licences: string[]; insured: boolean; abn: boolean; business_name: string | null;
   trades: number[]; can_trade: boolean;
-  plan: { plan: "standard" | "premium"; status: "active" | "stopped"; billing: "month" | "year" | null; renews_at: string | null; premium: boolean } | null;
-  order: { id: number; billing: "month" | "year"; amount_cents: number; renewal: boolean; created_at: string } | null;
+  plan: { plan: "standard" | "premium"; status: "active" | "stopped"; billing: "month" | "year" | null; renews_at: string | null; premium: boolean; starts_on?: string | null; offer?: string | null } | null;
+  order: { id: number; kind?: "plan" | "offer"; status?: "requested" | "claimed"; billing: "month" | "year"; amount_cents: number; renewal: boolean; created_at: string;
+    offer?: { name: string; months: number; starts_on: string | null } | null } | null;
+  // An offer this tradie can claim right now: a price for some months of Premium (set in Admin).
+  offer?: { id: number; name: string; price_cents: number; months: number; sale_to: string; starts_on: string | null; left: number | null } | null;
   owed: { id: number; reference: string; amount_cents: number; job: string; created_at: string }[];
   won_this_month: number; premium_now: { n: number; photos: string[] }; pay: Pay;
 }
@@ -53,12 +57,16 @@ export function TradeReady({ trade }: { trade: TradeStatus; onChanged?: () => vo
 
 // Join: monthly as the offer, per job as the free option, the comparison behind a tap.
 type Ready = { onChanged: () => void; onAbn: () => void; onCreds: () => void };
+const dayShort = (d: string) => new Date(d + "T12:00:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" }).replace(",", "");
 export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: TradeStatus; onBack: () => void; onJoined: (plan: "standard" | "premium") => void; onNeedPay?: () => void; ready: Ready }) {
   const toast = useToast();
   const p = trade.prices;
   const [year, setYear] = useState(false);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [info, setInfo] = useState<null | "offer" | "monthly" | "job">(null);
+  const of = trade.offer;
+  const OFFER = of ? { name: of.name, price: of.price_cents, months: of.months, starts: of.starts_on ? dayShort(of.starts_on) : "today", until: dayShort(of.sale_to), left: of.left } : null;
   const weekly = Math.round((p.win_fee_cents * 52) / 12);
   const premMonth = year ? Math.round(p.year_cents / 12) : p.month_cents;
   const freeMonths = Math.max(0, Math.round((p.month_cents * 12 - p.year_cents) / p.month_cents));
@@ -69,13 +77,14 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
     ["New jobs", `After ${after}`, "First"],
     ["Win 1 job a week", `${dollars(weekly)} a month`, `${dollars(premMonth)} a month`],
   ];
-  const join = async (plan: "standard" | "premium") => {
+  const join = async (plan: "standard" | "premium" | "offer") => {
     if (!trade.trades.length) { toast("Select your trades first"); document.querySelector(".tr")?.scrollIntoView({ behavior: "smooth" }); return; }
     setBusy(true);
     try {
-      await rpc("trade_join", { p_plan: plan, p_billing: year ? "year" : "month", p_business: null });
-      toast(plan === "premium" ? "Invoice on its way. Monthly starts once it's paid." : "You're in. Trade jobs near you show on your jobs page.");
-      onJoined(plan);
+      if (plan === "offer" && of) await rpc("trade_offer_claim", { p_offer: of.id });
+      else await rpc("trade_join", { p_plan: plan, p_billing: year ? "year" : "month", p_business: null });
+      toast(plan === "offer" ? "Offer claimed. Pay the invoice to lock it in." : plan === "premium" ? "Invoice on its way. Monthly starts once it's paid." : "You're in. Trade jobs near you show on your jobs page.");
+      onJoined(plan === "offer" ? "premium" : plan);
     } catch (e) {
       setBusy(false);
       if (e instanceof Error && e.message.startsWith("Add your PayID") && onNeedPay) onNeedPay(); else toast(e instanceof Error ? e.message : String(e));
@@ -86,24 +95,37 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
       <div className="screen-body">
         <section className="hx">
           <div className="top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button></div>
-          <span className="hx-tag">For tradespeople</span>
+          <span className="hx-tag">{OFFER ? `${OFFER.name}${OFFER.left !== null ? `, ${OFFER.left} spots left` : ""}` : "For tradespeople"}</span>
           <h1>Every local trade job, first.</h1>
+          {OFFER ? <>
+            <span className="hx-price">{dollars(OFFER.price)}<small> for {OFFER.months} months</small></span>
+            <span className="hx-off">{OFFER.starts === "today" ? "Starts when paid" : `From ${OFFER.starts}`}, then {dollars(p.month_cents)} a month<button className="of-i dark" onClick={() => setInfo("offer")} aria-label="About this offer">{Icon.info("rgba(255,255,255,0.8)", 18)}</button></span>
+          </> : <>
           <span className="hx-price">{year ? dollars(p.year_cents) : dollars(p.month_cents)}<small>{year ? " a year" : " a month"}</small></span>
           <div className="hx-term">
             <button className={!year ? "on" : ""} onClick={() => setYear(false)}>Monthly</button>
             <button className={year ? "on" : ""} onClick={() => setYear(true)}>Yearly{freeMonths ? `, ${freeMonths} months free` : ""}</button>
-          </div>
+          </div></>}
+          {!OFFER && <>
           <span className="hx-li">{Icon.tick("var(--gold)", 20)} Unlimited jobs, $0 when you win</span>
           <span className="hx-li">{Icon.tick("var(--gold)", 20)} See new jobs {after === "1 hour" ? "an hour" : after} earlier</span>
           <span className="hx-li">{Icon.tick("var(--gold)", 20)} Win a job a week for {dollars(premMonth)} a month, not {dollars(weekly)}</span>
-          <button className="btn hx-go" disabled={busy} onClick={() => join("premium")}>Go monthly {Icon.arrow("#2a2d32")}</button>
+          </>}
+          <button className="btn hx-go" disabled={busy} onClick={() => join(OFFER ? "offer" : "premium")}>{OFFER ? `Claim for ${dollars(OFFER.price)}` : "Go monthly"} {Icon.arrow("#2a2d32")}</button>
         </section>
         {missing(trade).length > 0 && <section className="tj-sec"><TradeReady trade={trade} /></section>}
         <section className="tj-sec last">
-          <div className="hx-std">
+          {OFFER && <div className="of-alt">
+            <span className="of-k">Or monthly, {dollars(p.month_cents)}<button className="of-i" onClick={() => setInfo("monthly")} aria-label="About monthly">{Icon.info("var(--muted)", 18)}</button></span>
+            <button className="btn stone small" disabled={busy} onClick={() => join("premium")}>Select</button>
+          </div>}
+{OFFER ? <div className="of-alt">
+            <span className="of-k">Or per job, {dollars(p.win_fee_cents)}<button className="of-i" onClick={() => setInfo("job")} aria-label="About per job">{Icon.info("var(--muted)", 18)}</button></span>
+            <button className="btn stone small" disabled={busy} onClick={() => join("standard")}>Select</button>
+          </div> :           <div className="hx-std">
             <span className="t"><b>Or pay per job, free to join</b><span>{dollars(p.win_fee_cents)} only when a customer picks you. See new jobs after {after}.</span></span>
             <button className="btn stone" disabled={busy} onClick={() => join("standard")}>Select</button>
-          </div>
+          </div>}
           <button className="cmp-toggle" onClick={() => setOpen(!open)} aria-expanded={open}>
             <span>Compare per job and monthly</span>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" style={{ transform: open ? "rotate(180deg)" : undefined }}><path d="M6 9l6 6 6-6" /></svg>
@@ -116,6 +138,13 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
           )}
         </section>
       </div>
+      {info && OFFER && <Screen title={info === "offer" ? OFFER.name : info === "job" ? "Per job" : "Monthly"} onBack={() => setInfo(null)}><div className="screen-body of-info">
+        {info === "offer"
+          ? <><p>{dollars(OFFER.price)} covers {OFFER.months} months of Premium, {OFFER.starts === "today" ? "starting when your payment is confirmed" : `from ${OFFER.starts}`}. After that it's {dollars(p.month_cents)} a month. We remind you 7 days before, and you can stop any time. Claim by {OFFER.until}.</p>
+            <p>Premium: unlimited jobs, $0 when you win, and you see new jobs {after === "1 hour" ? "an hour" : after} earlier.</p></>
+          : info === "job" ? <p>Free to join. {dollars(p.win_fee_cents)} only when a customer picks you. You see new jobs after {after}.</p>
+          : <p>{dollars(p.month_cents)} a month or {dollars(p.year_cents)} a year, starting today. Stop any time.</p>}
+      </div></Screen>}
     </div>
   );
 }
@@ -125,6 +154,8 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: Trad
   const toast = useToast();
   const [busy, setBusy] = useState(false);
   const pl = trade.plan, o = trade.order, pay = trade.pay;
+  const [paying, setPaying] = useState(false);
+  const oName = o?.kind === "offer" && o.offer ? `${o.offer.name}, ${o.offer.months} months` : o?.billing === "year" ? "Yearly" : "Monthly";
   const owed = trade.owed.reduce((a, x) => a + x.amount_cents, 0);
   const run = async (fn: string, done: string) => {
     setBusy(true);
@@ -132,36 +163,50 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: Trad
   };
   const payRows = ([["PayID", pay.payid], ["BSB", pay.bsb], ["Account", pay.account], ["Account name", pay.account_name || pay.trading_name]] as [string, string | undefined][]).filter(([, v]) => v);
   return (
+    <>
     <Screen title="How you pay" onBack={onBack}>
       <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
         <div className="cp-sec">
-          <span className="cp-title">{pl?.premium ? "Monthly" : "Per job"}</span>
-          {pl?.premium
+          <span className="cp-title">{pl?.premium || pl?.starts_on ? (pl?.offer ?? "Monthly") : "Per job"}</span>
+          {pl?.starts_on && !pl.premium
+            ? <span className="t15 light muted">Premium starts {day(pl.starts_on)} and runs until {day(pl.renews_at!)}.</span>
+            : pl?.premium
             ? <span className="t15 light muted">{pl.status === "stopped" ? `Stopped. Monthly runs until ${day(pl.renews_at!)}, then you pay per job.` : `${pl.billing === "year" ? "Yearly" : "Monthly"}. Renews ${day(pl.renews_at!)}.`}</span>
             : <span className="t15 light muted">{dollars(trade.prices.win_fee_cents)} when a customer picks your quote. {trade.won_this_month ? `${trade.won_this_month} won this month.` : ""}</span>}
         </div>
         {(o || owed > 0) && (
           <div className="cp-sec">
             <span className="cp-title">To pay</span>
-            {o && <div className="row between" style={{ padding: "6px 0" }}><span className="t16">{o.billing === "year" ? "Yearly" : "Monthly"}{o.renewal ? ", renewal" : ""}</span><span className="t17 w5">{money(o.amount_cents)}</span></div>}
+            {o && <div className="row between" style={{ padding: "6px 0" }}><span className="t16">{oName}{o.renewal ? ", renewal" : ""}</span><span className="t17 w5">{money(o.amount_cents)}</span></div>}
             {trade.owed.map((x) => <div key={x.id} className="row between" style={{ padding: "6px 0" }}><span className="t16">{x.job} <span className="light muted">{x.reference}</span></span><span className="t17 w5">{money(x.amount_cents)}</span></div>)}
-            {payRows.length > 0 && <div className="tp-pay">
+            {o?.status === "claimed" && <span className="t15 light muted">We're checking your payment, usually within 24 hours.</span>}
+            {payRows.length > 0 && o?.status !== "claimed" && <div className="tp-pay">
               <span className="t15 light muted">By bank transfer. Use the reference so we can match it.</span>
               {payRows.map(([k, v]) => <div key={k} className="row between"><span className="t15 light">{k}</span><span className="t16 w5">{v}</span></div>)}
               {o && <div className="row between"><span className="t15 light">Reference</span><span className="t16 w5">TR-{o.id}</span></div>}
             </div>}
-            {o && !o.renewal && <button className="btn stone small" style={{ alignSelf: "flex-start" }} disabled={busy} onClick={() => run("trade_order_cancel", "Invoice cancelled")}>Cancel the monthly invoice</button>}
+            {o && o.status !== "claimed" && <div className="ps-btns">
+              {!o.renewal ? <button className="btn stone" disabled={busy} onClick={() => run("trade_order_cancel", "Invoice cancelled")}>{Icon.x("currentColor")}Cancel</button> : <span />}
+              <button className="btn primary" disabled={busy} onClick={() => setPaying(true)}>{Icon.tick("currentColor", 20)}I've paid</button>
+            </div>}
           </div>
         )}
         {missing(trade).length > 0 && <div className="cp-sec"><TradeReady trade={trade} /></div>}
-        <Note icon="clock">{pl?.premium ? "You see every new trade job first." : `Monthly gets you new jobs first and $0 per job. Win a job a week and it costs less.`}</Note>
+        <Note icon="clock">{pl?.premium || pl?.starts_on ? "You see every new trade job first." : `Monthly gets you new jobs first and $0 per job. Win a job a week and it costs less.`}</Note>
         <div style={{ flex: 1 }} />
         {pl?.premium && pl.status === "active" && (
           <div style={{ padding: "0 16px 12px" }}><button className="btn stone" disabled={busy} onClick={() => run("trade_stop", "Monthly won't renew")}>Stop monthly</button></div>
         )}
-        {!pl?.premium && !o && <ActionBar><button className="btn hx-go" style={{ flex: 1 }} onClick={onUpgrade}>Go monthly</button></ActionBar>}
+        {!pl?.premium && !pl?.starts_on && !o && <ActionBar><button className="btn hx-go" style={{ flex: 1 }} onClick={onUpgrade}>Go monthly</button></ActionBar>}
       </div>
     </Screen>
+      {paying && o && <div className="app pq tp-paying">
+          <button className="back pq-back" onClick={() => setPaying(false)} aria-label="Back">{Icon.back("#fff")}</button>
+          <BankPay title={oName} sub={`TR-${o.id}`} amount={o.amount_cents} pay={pay} reference={`TR-${o.id}`}
+            note="We check your payment within 24 hours, usually faster."
+            onConfirm={async (c) => { await rpc("trade_claim_paid", { p_id: o.id, ...claimArgs(c) }); setPaying(false); toast("Thanks. We're checking your payment."); onChanged(); }} />
+        </div>}
+    </>
   );
 }
 

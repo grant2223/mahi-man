@@ -5,7 +5,7 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money2, shrinkImage, validAbn } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
-import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit";
+import { CatIcon, Icon, Loading, Logo, Screen, SearchPicker, useToast } from "../ui/kit";
 import { UsersPage } from "./Users";
 import { BroadcastPage } from "./Broadcast";
 
@@ -1682,9 +1682,9 @@ function Reviews() {
 
 // ---------- Tradies: what they owe (monthly and jobs won) to mark paid, and every tradie ----------
 interface TradeSummary { orders_waiting: number; waiting_cents: number; premium: number; standard: number; paid_30_cents: number; trade_jobs_30: number; no_quote_jobs: number }
-interface TradeOrder { id: number; created_at: string; worker_id: string; worker_name: string; business_name: string | null; email: string | null; kind: "plan" | "win"; billing: "month" | "year" | null; job: string | null; amount_cents: number; status: string; renewal: boolean; paid_at: string | null; note: string | null }
+interface TradeOrder { id: number; created_at: string; worker_id: string; worker_name: string; business_name: string | null; email: string | null; kind: "plan" | "win" | "offer"; billing: "month" | "year" | null; job: string | null; amount_cents: number; status: string; renewal: boolean; paid_at: string | null; note: string | null }
 interface Tradie { worker_id: string; full_name: string; business_name: string | null; licences: string[]; plan: "standard" | "premium" | null; premium: boolean; billing: "month" | "year" | null; renews_at: string | null; quotes_30: number; won_30: number; owed_cents: number; paid_cents: number }
-const TRADE_VIEWS: [string, string][] = [["requested", "To be paid"], ["tradies", "Tradies"], ["paid", "Paid"], ["all", "Everything"]];
+const TRADE_VIEWS: [string, string][] = [["requested", "To be paid"], ["tradies", "Tradies"], ["offers", "Offers"], ["paid", "Paid"], ["all", "Everything"]];
 
 function Tradies({ onChanged }: { onChanged: () => void }) {
   const toast = useToast();
@@ -1695,12 +1695,13 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
   const [tradies, setTradies] = useState<Tradie[] | null>(null);
   const load = useCallback(() => {
     rpc<TradeSummary>("admin_trade_summary").then(setSum).catch(() => {});
+    if (view === "offers") return;
     if (view === "tradies") rpc<Tradie[]>("admin_tradies").then(setTradies).catch((e) => toast((e as Error).message));
     else rpc<TradeOrder[]>("admin_trade_orders", { p_status: view }).then(setOrders).catch((e) => toast((e as Error).message));
   }, [view, toast]);
   useEffect(() => { load(); }, [load]);
   const act = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); toast(msg); load(); onChanged(); } catch (e) { toast((e as Error).message); } };
-  const what = (o: TradeOrder) => o.kind === "plan" ? `${o.billing === "year" ? "Yearly" : "Monthly"}${o.renewal ? ", renewal" : ""}` : `Job won${o.job ? `: ${o.job}` : ""}`;
+  const what = (o: TradeOrder) => o.kind === "offer" ? "Offer" : o.kind === "plan" ? `${o.billing === "year" ? "Yearly" : "Monthly"}${o.renewal ? ", renewal" : ""}` : `Job won${o.job ? `: ${o.job}` : ""}`;
   const plan = (t: Tradie) => t.premium ? (t.billing === "year" ? "Yearly" : "Monthly") : t.plan ? "Per job" : "Not joined";
   return (
     <>
@@ -1717,7 +1718,7 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
           <span>{TRADE_VIEWS.find(([k]) => k === view)?.[1]}</span>{Icon.down("var(--muted)")}
         </button>
       </div>
-      {view === "tradies" ? (
+      {view === "offers" ? <TradeOffers /> : view === "tradies" ? (
         !tradies ? <Loading /> : !tradies.length ? <AdmEmpty text="No tradies yet. They show here once they join or send in a trade licence." /> : (
           <div className="table-wrap"><table className="rows">
             <thead><tr><th>Tradie</th><th>Licences</th><th>Plan</th><th>Quotes, 30 days</th><th>Won</th><th>To pay</th><th>Paid in total</th></tr></thead>
@@ -1743,9 +1744,9 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
               <td><span className="w5">{o.business_name ?? o.worker_name}</span><span className="small muted light" style={{ display: "block" }}>{o.email ?? ""}</span></td>
               <td>{what(o)}</td>
               <td className="w5">{money2(o.amount_cents)}</td>
-              <td>{o.status === "paid" ? <span className="badge g">Paid {o.paid_at ? day(o.paid_at) : ""}</span> : o.status === "cancelled" ? <span className="badge">Cancelled</span> : <span className="badge y">To be paid</span>}</td>
+              <td>{o.status === "paid" ? <span className="badge g">Paid {o.paid_at ? day(o.paid_at) : ""}</span> : o.status === "cancelled" ? <span className="badge">Cancelled</span> : o.status === "claimed" ? <span className="badge y">They say paid</span> : <span className="badge y">To be paid</span>}</td>
               <td style={{ textAlign: "right", whiteSpace: "nowrap" }}>
-                {o.status === "requested" && <>
+                {(o.status === "requested" || o.status === "claimed") && <>
                   <button className="btn stone small" onClick={() => act(() => rpc("admin_trade_order_cancel", { p_id: o.id }), "Cancelled")}>Cancel</button>{" "}
                   <button className="btn primary small" onClick={() => act(() => rpc("admin_trade_order_paid", { p_id: o.id }), o.kind === "plan" ? "Paid. Monthly is on." : "Paid")}>Mark paid</button>
                 </>}
@@ -2214,6 +2215,103 @@ function AddStaff({ onBack, onDone }: { onBack: () => void; onDone: (email: stri
         </div>
       </div>
       {picking && <SearchPicker title="Role" options={roleOptions()} value={[role]} onClose={() => setPicking(false)} onChange={(v) => setRole(String(v[0]) as StaffRole)} />}
+    </div>
+  );
+}
+
+// Tradie offers: a price for some months of Premium, on sale between two dates, with an optional start day, spots and who can claim it.
+type TOffer = { id: number | null; name: string; price_cents: number; months: number; sale_from: string; sale_to: string; starts_on: string | null; spots: number | null; who: "new" | "any"; taken: number; paid: number; state: "live" | "scheduled" | "ended" };
+const bneToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Brisbane" });
+const dShort = (iso: string) => new Date(iso + "T12:00:00+10:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }).replace(",", "");
+function TradeOffers() {
+  const toast = useToast();
+  const [d, setD] = useState<{ offers: TOffer[]; month_cents: number } | null>(null);
+  const [edit, setEdit] = useState<TOffer | null>(null);
+  const load = useCallback(() => { rpc<{ offers: TOffer[]; month_cents: number }>("admin_trade_offers").then(setD).catch((e) => toast((e as Error).message)); }, [toast]);
+  useEffect(load, [load]);
+  if (!d) return <Loading />;
+  const blank: TOffer = { id: null, name: "", price_cents: 0, months: 3, sale_from: bneToday(), sale_to: "", starts_on: null, spots: null, who: "new", taken: 0, paid: 0, state: "scheduled" };
+  return <>
+    <div className="row between" style={{ marginBottom: 12 }}>
+      <span />
+      <button className="btn primary" onClick={() => setEdit(blank)}>{Icon.plus("currentColor")}New offer</button>
+    </div>
+    {d.offers.length === 0 ? <AdmEmpty text="No offers yet." /> : (
+      <div className="mn-list">{d.offers.map((o) => (
+        <button key={o.id} className="mn-row of-row" onClick={() => setEdit(o)}>
+          <span className="mn-mid"><b>{o.name}</b><small>{money2(o.price_cents)} for {o.months} months of Premium</small>
+            <small>{o.state === "scheduled" ? `On sale ${dShort(o.sale_from)}` : o.state === "live" ? `Ends ${dShort(o.sale_to)}` : `Ended`}{o.starts_on ? `, Premium from ${dShort(o.starts_on)}` : ""}</small></span>
+          <span className="mn-end"><span className={`badge ${o.state === "live" ? "g" : o.state === "scheduled" ? "y" : ""}`}>{o.state === "live" ? "On sale" : o.state === "scheduled" ? "Scheduled" : "Ended"}</span>
+            <b>{o.spots ? `${o.taken} of ${o.spots}` : o.taken}</b><small className="of-sm">claimed</small></span>
+        </button>
+      ))}</div>
+    )}
+    {edit && <OfferEdit o={edit} month={d.month_cents} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
+  </>;
+}
+function OfferEdit({ o: start, month, onClose, onSaved }: { o: TOffer; month: number; onClose: () => void; onSaved: () => void }) {
+  const toast = useToast();
+  const [o, setO] = useState(start);
+  const [price, setPrice] = useState(start.price_cents ? String(start.price_cents / 100) : "");
+  const [spots, setSpots] = useState(start.spots ? String(start.spots) : "");
+  const [pick, setPick] = useState<null | "months" | "who">(null);
+  const [info, setInfo] = useState<null | "starts" | "who" | "after">(null);
+  const [busy, setBusy] = useState(false);
+  const set = (p: Partial<TOffer>) => setO({ ...o, ...p });
+  const cents = Math.round(Number(price || 0) * 100);
+  const INFO = {
+    starts: ["Premium starts", "Pick a day, or leave it as when they pay. Until the day, they're signed up and ready to go. Tap the cross to go back to when they pay."],
+    who: ["Who can claim it", "New tradies only, or any tradie who isn't on Premium yet. Each tradie can claim an offer once."],
+    after: ["After the offer", `They move to monthly Premium at ${money2(month)} a month. They get a reminder 7 days before and can stop or switch to per job any time.`],
+  } as const;
+  const k = (label: string, i?: keyof typeof INFO) => <span className="of-k">{label}{i && <button className="of-i" onClick={() => setInfo(i)} aria-label={`About ${label}`}>{Icon.info("var(--muted)", 18)}</button>}</span>;
+  const save = async () => {
+    setBusy(true);
+    try {
+      await rpc("admin_trade_offer_save", { p_id: o.id, p_name: o.name, p_price_cents: cents, p_months: o.months, p_from: o.sale_from, p_to: o.sale_to || null,
+        p_starts: o.starts_on, p_spots: spots ? Number(spots) : null, p_who: o.who });
+      toast("Saved"); onSaved();
+    } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
+  };
+  const end = async () => {
+    setBusy(true);
+    try { await rpc("admin_trade_offer_end", { p_id: o.id }); toast("Offer ended"); onSaved(); }
+    catch (e) { toast((e as Error).message); } finally { setBusy(false); }
+  };
+  const left = o.spots ? o.spots - o.taken : spots ? Number(spots) - o.taken : null;
+  return (
+    <div className="mn-detail">
+      <div className="mn-top">
+        <button className="cx-back" onClick={onClose} aria-label="Back">{Icon.back("var(--ink)")}</button>
+        <span><b>{o.id ? o.name : "New offer"}</b>{o.id ? <small>{o.taken} claimed, {o.paid} paid</small> : null}</span>
+      </div>
+      <div className="mn-body">
+        <div className="of-prev">
+          <span className="hx-tag">{o.name || "Offer"}{left !== null ? `, ${left} left` : ""}</span>
+          <span className="of-big">{cents ? `$${(cents / 100).toLocaleString("en-AU", { maximumFractionDigits: 2 })}` : "$0"}<small>{o.months} months of Premium</small></span>
+        </div>
+        <div className="of-list">
+          <label className="of-r">{k("Name")}<input className="of-v of-in" value={o.name} maxLength={40} placeholder="Add a name" onChange={(e) => set({ name: e.target.value })} /></label>
+          <label className="of-r">{k("Price")}<span className="of-v"><span className="of-pre">$</span><input className="of-in of-amt" inputMode="decimal" value={price} placeholder="0" size={Math.max(2, price.length)} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} /></span></label>
+          <div className="of-r">{k("Premium for")}<button className="of-v" onClick={() => setPick("months")}>{o.months} months{Icon.chevron("var(--faint)")}</button></div>
+          <label className="of-r">{k("On sale from")}<span className="of-v of-dpick">{o.sale_from ? dShort(o.sale_from) : "Select a day"}{Icon.chevron("var(--faint)")}<input type="date" value={o.sale_from ?? ""} onChange={(e) => set({ sale_from: e.target.value })} /></span></label>
+          <label className="of-r">{k("Until")}<span className="of-v of-dpick">{o.sale_to ? dShort(o.sale_to) : "Select a day"}{Icon.chevron("var(--faint)")}<input type="date" value={o.sale_to ?? ""} min={o.sale_from} onChange={(e) => set({ sale_to: e.target.value })} /></span></label>
+          <label className="of-r">{k("Premium starts", "starts")}<span className="of-v of-dpick">{o.starts_on ? dShort(o.starts_on) : "When they pay"}{Icon.chevron("var(--faint)")}<input type="date" value={o.starts_on ?? ""} min={o.sale_from} onChange={(e) => set({ starts_on: e.target.value || null })} /></span>
+            {o.starts_on && <button className="of-i" onClick={(e) => { e.preventDefault(); set({ starts_on: null }); }} aria-label="Start when they pay">{Icon.x("var(--muted)")}</button>}</label>
+          <label className="of-r">{k("Spots")}<input className="of-v of-in of-num" inputMode="numeric" value={spots} placeholder="No limit" onChange={(e) => setSpots(e.target.value.replace(/\D/g, ""))} /></label>
+          <div className="of-r">{k("Who", "who")}<button className="of-v" onClick={() => setPick("who")}>{o.who === "new" ? "New tradies" : "Not on Premium"}{Icon.chevron("var(--faint)")}</button></div>
+          <div className="of-r">{k("After", "after")}<span className="of-v">{money2(month)} a month</span></div>
+        </div>
+      </div>
+      <div className={`mn-foot ps-btns${o.id && o.state !== "ended" ? "" : " one"}`}>
+        {o.id && o.state !== "ended" && <button className="btn stone" disabled={busy} onClick={end}>{Icon.x("currentColor")}End offer</button>}
+        <button className="btn primary" disabled={busy} onClick={save}>{Icon.tick("currentColor", 20)}Save</button>
+      </div>
+      {pick === "months" && <SearchPicker title="Premium for" options={Array.from({ length: 12 }, (_, i) => ({ id: i + 1, label: `${i + 1} month${i ? "s" : ""}` }))} value={[o.months]}
+        onClose={() => setPick(null)} onChange={(v) => set({ months: Number(v[0]) })} />}
+      {pick === "who" && <SearchPicker title="Who can claim it" options={[{ id: "new", label: "New tradies" }, { id: "any", label: "Any tradie not on Premium" }]} value={[o.who]}
+        onClose={() => setPick(null)} onChange={(v) => set({ who: v[0] as TOffer["who"] })} />}
+      {info && <Screen title={INFO[info][0]} onBack={() => setInfo(null)}><div className="screen-body of-info"><p>{INFO[info][1]}</p></div></Screen>}
     </div>
   );
 }
