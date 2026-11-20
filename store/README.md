@@ -50,7 +50,7 @@ Mahi Man gift cards are the same: they only pay for real-world jobs (the worker 
 
 ## 4. Submit
 
-- [x] **App Store:** version 1.0 submitted (now with build 48, waiting for review since 18 Nov 2026).
+- [x] **App Store:** version 1.0 submitted (now with build 49, resubmitted 20 Nov 2026, waiting for review).
 - [x] **Google Play:** live in Australia and New Zealand.
 - [x] `play_store_url` and `testflight_url` are set in Admin → Settings, so the website shows Google Play and the iPhone beta. `app_store_url` stays empty until Apple approves 1.0.
 
@@ -64,8 +64,8 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 
 ## Building new versions
 
-- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 48 on 18 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 25 on 18 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
-- **Latest (18 Nov 2026, from 7c634e2):** iOS build 48 is in TestFlight (Cairns pilot, waiting for beta review) and is the build on App Store 1.0. Android versionCode 25 is in Play review for Production; 24 is live. They add the day, time and account name for bank payments, the Payment received alert and emailed receipt, proper buttons in place of small text links, no divider lines, a back arrow with the job name on the worker's paid and disputed screens, and the new Admin invoices list.
+- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 49 on 20 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 26 on 20 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Latest (20 Nov 2026, from efe404a):** iOS build 49 is in TestFlight (Cairns pilot, waiting for beta review) and is the build on App Store 1.0, waiting for review. Android versionCode 26 is sent for Play review in Production (Australia and New Zealand); 25 is live. They bring the new tradie pricing: Standard free to join with a fee of 12.5% of the won quote (max $250), Premium $249 a month or $2,499 a year, and the $990 a year launch offer, locked in, for the first 10 tradies in each trade. Premium quotes are listed first on trade jobs. App Store 1.0 can't take What's New on a first release, so that text is in the TestFlight notes and the Play release notes.
 - **Before that (17 Nov):** build 46 / versionCode 23 (51543aa): Plus, bonus top-ups, bank transfer screen, payment history, branded PDFs. 46 is the build in App Store review.
 - **Before that:** build 45 / versionCode 22 (17 Nov, eb5704a); 45 was swapped for 46 in App Store review, and 22 was never sent (replaced by 23). Build 44 / 21 (c834400) and 43 / 20 (07076c9).
