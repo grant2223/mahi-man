@@ -48,7 +48,8 @@ async function docFor(kind: string, d: Record<string, any>, to: string, pay: Pay
       number: d.number, issued, paid_on: paid, method: d.method ?? "Bank transfer", to_name: name, to_email: to, lines, total_cents: total, pay };
   return kind === "receipt"
     ? { kind: "receipt", number: d.number, issued, paid_on: paid, method: d.method ?? "Bank transfer", to_name: name, to_email: to, lines, total_cents: total, pay }
-    : { kind: "invoice", number: d.number, issued, due, to_name: name, to_email: to, lines, total_cents: total, pay };
+    : { kind: "invoice", number: d.number, issued, due, to_name: name, to_email: to, lines, total_cents: total, pay,
+        ...(d.doc_title ? { title: d.doc_title, heads: { job: "Job", who: d.who_head ?? "Customer" } } : {}) };
 }
 
 const b64 = (u: Uint8Array) => { let s = ""; for (let i = 0; i < u.length; i += 0x8000) s += String.fromCharCode(...u.subarray(i, i + 0x8000)); return btoa(s); };

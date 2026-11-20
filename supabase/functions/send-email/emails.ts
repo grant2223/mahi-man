@@ -105,8 +105,8 @@ ${ctx.play ? `<td class="stack" valign="top" width="50%" style="padding-left:6px
   if (kind === "invoice") {
     const total = Number(d.total_cents), n = (d.lines ?? []).length;
     const body = pdfNote(`Invoice ${d.number}.pdf`)
-      + p(`Hi ${first}, here are your connection fees for ${n} job${n === 1 ? "" : "s"}. Your invoice is attached.`)
-      + `<div style="margin:4px 0 26px">${btn(`${site}/invoice/${d.id ?? ""}`, "View and pay")}</div>`
+      + p(d.intro ? `Hi ${first}, ${esc(d.intro)} Your invoice is attached.` : `Hi ${first}, here are your connection fees for ${n} job${n === 1 ? "" : "s"}. Your invoice is attached.`)
+      + `<div style="margin:4px 0 26px">${btn(d.link ? `${site}${d.link}` : `${site}/invoice/${d.id ?? ""}`, "View and pay")}</div>`
       + payBlock(ctx.pay, d.number);
     return { subject: `Invoice ${d.number}: ${money(total)} due ${d.due}`, html: layout(ctx, `${money(total)} due ${d.due}. Your invoice is attached.`, { eyebrow: `Invoice ${esc(d.number)}`, title: `${money(total)}<br><span style="color:${C.lime}">due ${esc(d.due)}</span>` }, body) };
   }
@@ -114,11 +114,11 @@ ${ctx.play ? `<td class="stack" valign="top" width="50%" style="padding-left:6px
   if (kind === "invoice_reminder") {
     const total = Number(d.total_cents);
     const body = pdfNote(`Invoice ${d.number}.pdf`)
-      + p(`Hi ${first}, we haven't seen this payment yet. Pay by <b style="font-weight:500;color:${C.ink}">${esc(d.pause)}</b> to keep booking jobs on Mahi Man.`)
-      + `<div style="margin:4px 0 8px">${btn(`${site}/invoice/${d.id ?? ""}`, "Pay now")}</div>`
-      + `<p style="margin:0 0 26px;font-size:14px;line-height:1.5;font-weight:300;color:${C.muted}">Already paid? Open the invoice, add your transfer receipt and confirm. We check it within 24 hours.</p>`
+      + p(d.intro ? `Hi ${first}, ${esc(d.intro)}` : `Hi ${first}, we haven't seen this payment yet. Pay by <b style="font-weight:500;color:${C.ink}">${esc(d.pause)}</b> to keep booking jobs on Mahi Man.`)
+      + `<div style="margin:4px 0 8px">${btn(d.link ? `${site}${d.link}` : `${site}/invoice/${d.id ?? ""}`, "Pay now")}</div>`
+      + `<p style="margin:0 0 26px;font-size:14px;line-height:1.5;font-weight:300;color:${C.muted}">Already paid? ${d.link ? "Open How you pay" : "Open the invoice"}, add your transfer receipt and confirm. We check it within 24 hours.</p>`
       + payBlock(ctx.pay, d.number);
-    return { subject: `Reminder: ${money(total)} for invoice ${d.number}`, html: layout(ctx, `Pay by ${d.pause} to keep booking jobs.`, { eyebrow: "Payment reminder", title: `${money(total)} is still owing`, sub: `Invoice ${esc(d.number)} was due ${esc(d.due)}.` }, body) };
+    return { subject: `Reminder: ${money(total)} for invoice ${d.number}`, html: layout(ctx, d.pause ? `Pay by ${d.pause} to keep booking jobs.` : `${money(total)} is still owing.`, { eyebrow: "Payment reminder", title: `${money(total)} is still owing`, sub: `Invoice ${esc(d.number)} was due ${esc(d.due)}.` }, body) };
   }
 
   if (kind === "receipt") {

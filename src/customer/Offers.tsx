@@ -336,7 +336,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         {shown.length > 0 && !picked.length && (
           <div className="av-none"><span>Nobody available matches.</span><button className="btn stone small" onClick={() => setGender("any")}>Show everyone</button></div>
         )}
-        {sortOffers(picked, sortBy, work).slice(0, 10).map((o) => {
+        {(trade ? picked : sortOffers(picked, sortBy, work)).slice(0, 10).map((o) => {
           const at = asap ? clock(new Date(Date.now() + o.eta_minutes * 60000)) : clock(new Date(startAt));
           const photo = avatarUrl(o.photo_path);
           const first = o.full_name.split(" ")[0];

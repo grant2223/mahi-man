@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { sb } from "../lib/supabase";
 import { money } from "../lib/format";
 import { go } from "../lib/router";
-import { Icon, Logo } from "./kit";
+import { Icon, Logo, SearchPicker } from "./kit";
 import { LdLinks, SiteFooter, StoreBadges } from "./Landing";
 
 /* mahiman.app/tradies: one job, get tradespeople to download Mahi Man and finish a tradie profile.
@@ -15,18 +15,22 @@ const TRADES: [string, string][] = [
 ];
 const MORE = "Plus air conditioning, painting, tiling, fencing, cleaning, mobile mechanics, appliance repairs, locksmiths and more.";
 
-type T = { win: number; month: number; year: number; after: number; early: number; first: number; more: number; every: number; max: number; open: number; life: number; seats: number; sold: number };
-const DEF: T = { win: 9900, month: 24900, year: 249900, after: 60, early: 10, first: 5, more: 5, every: 30, max: 15, open: 48, life: 250000, seats: 20, sold: 0 };
+type T = { pct: number; cap: number; month: number; year: number; after: number; early: number; first: number; more: number; every: number; max: number; open: number; launch: number; spots: number };
+const DEF: T = { pct: 1250, cap: 25000, month: 24900, year: 249900, after: 60, early: 10, first: 5, more: 5, every: 30, max: 15, open: 48, launch: 99000, spots: 10 };
+type Spot = { trade: string; left: number };
+const cents2 = (c: number) => "$" + (c / 100).toLocaleString("en-AU", { minimumFractionDigits: c % 100 ? 2 : 0, maximumFractionDigits: 2 });
+const fee = (quote: number, t: T) => Math.min(t.cap, Math.round((quote * t.pct) / 10000));
+const rule = (t: T) => `${t.pct / 100}%, max ${money(t.cap)}`;
 
 function useTradeNumbers() {
   const [t, setT] = useState<T>(DEF);
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["trade_win_fee_cents", "trade_premium_month_cents", "trade_premium_year_cents",
-      "trade_standard_after_minutes", "trade_standard_early_minutes", "trade_first_quotes", "trade_more_quotes", "trade_more_every_minutes", "trade_max_quotes", "trade_quiet_hours", "trade_lifetime_cents", "trade_lifetime_seats", "trade_lifetime_sold"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["trade_win_percent", "trade_win_max_cents", "trade_premium_month_cents", "trade_premium_year_cents",
+      "trade_standard_after_minutes", "trade_standard_early_minutes", "trade_first_quotes", "trade_more_quotes", "trade_more_every_minutes", "trade_max_quotes", "trade_quiet_hours", "trade_launch_year_cents", "trade_launch_spots"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
-      setT((d) => ({ ...d, win: m.trade_win_fee_cents ?? d.win, month: m.trade_premium_month_cents ?? d.month, year: m.trade_premium_year_cents ?? d.year,
+      setT((d) => ({ ...d, pct: m.trade_win_percent ? m.trade_win_percent * 100 : d.pct, cap: m.trade_win_max_cents ?? d.cap, month: m.trade_premium_month_cents ?? d.month, year: m.trade_premium_year_cents ?? d.year,
         after: m.trade_standard_after_minutes ?? d.after, early: m.trade_standard_early_minutes ?? d.early, first: m.trade_first_quotes ?? d.first,
-        more: m.trade_more_quotes ?? d.more, every: m.trade_more_every_minutes ?? d.every, max: m.trade_max_quotes ?? d.max, open: m.trade_quiet_hours ?? d.open, life: m.trade_lifetime_cents ?? d.life, seats: m.trade_lifetime_seats ?? d.seats, sold: m.trade_lifetime_sold ?? d.sold }));
+        more: m.trade_more_quotes ?? d.more, every: m.trade_more_every_minutes ?? d.every, max: m.trade_max_quotes ?? d.max, open: m.trade_quiet_hours ?? d.open, launch: m.trade_launch_year_cents ?? d.launch, spots: m.trade_launch_spots ?? d.spots }));
     });
   }, []);
   return t;
@@ -37,7 +41,8 @@ const join = (e: React.MouseEvent) => { e.preventDefault(); location.href = JOIN
 
 export function TradiesPage() {
   const t = useTradeNumbers();
-  const left = Math.max(0, t.seats - t.sold);
+  const [spots, setSpots] = useState<Spot[]>([]);
+  useEffect(() => { sb.rpc("trade_launch_open").then(({ data }) => setSpots((data ?? []) as Spot[])); }, []);
   return (
     <div className="ld td">
       <header className="ld-nav"><div className="ld-wrap ld-nav-in">
@@ -51,7 +56,7 @@ export function TradiesPage() {
         <Trades />
         <Plans t={t} />
       </div>
-      {left > 0 && <Launch t={t} left={left} />}
+      {spots.some((x) => x.left > 0) && <Launch t={t} spots={spots} />}
       <div className="td-flow">
         <Need />
         <Faq t={t} />
@@ -119,9 +124,9 @@ function Plans({ t }: { t: T }) {
   const tick = (c: string) => Icon.tick(c, 22);
   const rows: [string, React.ReactNode, React.ReactNode, React.ReactNode][] = [
     ["Job alerts", `Up to ${after(t.after)} later`, <b className="em">Instant</b>, <b className="gd">Instant</b>],
-    ["Send quotes", tick("var(--emerald)"), tick("var(--emerald)"), tick("var(--gold)")],
+    ["Your quote", "In the list", <b className="em">Top 10</b>, <b className="gd">Top 10</b>],
     ["No commission", tick("var(--emerald)"), tick("var(--emerald)"), tick("var(--gold)")],
-    ["Job fees", `${money(t.win)} per job`, "$0", "$0"],
+    ["Fee if you win", rule(t), "$0", "$0"],
     ["Billed", "Never", "Monthly", "Yearly"],
   ];
   return (
@@ -130,7 +135,7 @@ function Plans({ t }: { t: T }) {
         <h2>Membership options.</h2>
         <div className="td-plans">
           <div className="td-ph"><span /></div>
-          <div className="td-ph"><span>Free</span><b>$0</b><small>to join</small></div>
+          <div className="td-ph"><span>Standard</span><b>$0</b><small>to join</small></div>
           <div className="td-ph"><span>Premium Monthly</span><b>{money(t.month)}</b><small>a month</small></div>
           <div className="td-ph on"><span>Premium Annual</span><b>{money(t.year)}</b><small>a year</small></div>
           {rows.map(([k, a, b, c], i) => (
@@ -144,18 +149,26 @@ function Plans({ t }: { t: T }) {
   );
 }
 
-function Launch({ t, left }: { t: T; left: number }) {
+function Launch({ t, spots }: { t: T; spots: Spot[] }) {
+  const [pick, setPick] = useState(false);
+  const [trade, setTrade] = useState<string | null>(null);
+  const sel = spots.find((x) => x.trade === trade);
   return (
     <section className="td-launch">
       <div className="td-launch-band">
         <div className="ld-wrap td-launch-in">
-          <span className="td-launch-k">Exclusive launch offer for Cairns</span>
-          <div className="td-launch-p"><b>{money(t.life)}</b><span><b>Lifetime</b><span>Only {t.seats} available</span></span></div>
-          <p>Pay once and keep Premium for life.</p>
-          <span className="td-left"><i style={{ width: `${(left / t.seats) * 100}%` }} />{left} of {t.seats} left</span>
+          <span className="td-launch-k">Launch offer</span>
+          <div className="td-launch-p"><b>{money(t.launch)}</b><span><b>A year, locked in</b><span>While you stay subscribed</span></span></div>
+          <p>First {t.spots} tradies in each trade.</p>
+          <button className="btn td-ltrade" onClick={() => setPick(true)}><span className="td-lt">{sel ? sel.trade : "Your trade"}</span>{Icon.down("currentColor")}</button>
+          {sel && (sel.left > 0
+            ? <span className="td-left"><i style={{ width: `${(sel.left / t.spots) * 100}%` }} />{sel.left} of {t.spots} left</span>
+            : <span className="td-left full">Full</span>)}
         </div>
       </div>
       <img className="td-launch-man" src="/mascot.png" alt="" />
+      {pick && <SearchPicker title="Your trade" value={trade ? [trade] : []} options={spots.map((x) => ({ id: x.trade, label: x.trade, right: x.left > 0 ? `${x.left} left` : "Full" }))}
+        onClose={() => setPick(false)} onChange={(v) => setTrade(String(v[0]))} />}
     </section>
   );
 }
@@ -184,7 +197,7 @@ function Faq({ t }: { t: T }) {
     ["Joining", [
       ["Who can join as a tradie?", "Sole traders and companies with an ABN and public liability insurance. Work that always needs a licence, like electrical, plumbing, gas, air conditioning or locksmithing, needs that licence too."],
       ["How do I sign up?", "Download Mahi Man and create your account with your photo. Verify your ID, then tap Complete tradie profile: sole trader or company, your details, your services, your licences and certificates. We check your ABN, insurance and any licence by hand before you quote."],
-      ["What does it cost to join?", "Nothing. Joining, job alerts and quoting are free."],
+      ["What does it cost to join?", "Nothing on Standard. Joining, job alerts and quoting are free."],
       ["What kind of work comes through?", "Work at the customer's place: electrical, plumbing, gas, carpentry, concreting, roofing, landscaping, painting, tiling, fencing, decking, air conditioning, bond and carpet cleaning, pressure washing, window cleaning, mobile mechanics, appliance repairs and locksmithing. You always go to the customer."],
       ["Can I still do normal jobs?", "Yes. Lawn mowing, yard tidy-ups, moving help and similar jobs stay normal jobs at the customer's price, and your account can take them too."],
     ]],
@@ -198,10 +211,11 @@ function Faq({ t }: { t: T }) {
     ["Money", [
       ["How do I get paid?", "The customer pays you directly, by bank transfer or cash, when the job's done. Mahi Man never holds your money."],
       ["Does Mahi Man take a commission?", "No. You keep 100% of every job."],
-      ["What does Free cost when I win?", `${money(t.win)} for each job where the customer selects your quote, on your invoice from Mahi Man. Quotes that aren't selected cost nothing.`],
-      ["How do I pay for Premium?", "By bank transfer for now. Monthly starts once your first payment is in."],
-      ["Can I cancel Premium?", "Yes, any time. There's no contract. Premium runs to the end of what you've paid. If a renewal isn't paid within 7 days, you move to Free."],
-      ["What is the lifetime offer?", `A Cairns launch offer: pay ${money(t.life)} once and keep Premium for life. Only ${t.seats} are available, and the offer closes when they're gone.`],
+      ["What does Standard cost when I win?", `${t.pct / 100}% of your quote, never more than ${money(t.cap)} a job, on your invoice from Mahi Man. A $170 quote is ${cents2(fee(17000, t))}. Quotes that aren't selected cost nothing.`],
+      ["How much is Premium?", `${money(t.month)} a month or ${money(t.year)} a year. Job alerts first, your quote in the top 10, and $0 when you win.`],
+      ["How do I pay for Premium?", "By bank transfer for now. Premium starts once your first payment is in."],
+      ["Can I cancel Premium?", "Yes, any time. There's no contract. Premium runs to the end of what you've paid. If a renewal isn't paid within 7 days, you move to Standard."],
+      ["What is the launch offer?", `Premium for ${money(t.launch)} a year, locked in for as long as you stay subscribed. Only the first ${t.spots} tradies in each trade get it, and it closes for a trade once its ${t.spots} spots are gone. If you cancel and come back, it's the regular ${money(t.month)} a month or ${money(t.year)} a year.`],
     ]],
   ];
   return (

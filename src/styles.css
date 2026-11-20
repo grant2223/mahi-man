@@ -364,7 +364,7 @@ td input, td select { height: 40px; border: 0; border-radius: var(--r-control); 
 .cp-label { font-size: 17px; font-weight: 500; }
 .cp-row { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; font-size: 16px; font-weight: 300; }
 .cp-total { display: flex; justify-content: space-between; margin-top: 6px; padding-top: 8px; font-size: 18px; font-weight: 500; }
-.cp-note { display: flex; gap: 14px; align-items: flex-start; padding: 18px 16px; font-size: 15px; font-weight: 300; color: var(--muted); line-height: 1.45; }
+.cp-note { display: flex; flex-shrink: 0; gap: 14px; align-items: flex-start; padding: 18px 16px; font-size: 15px; font-weight: 300; color: var(--muted); line-height: 1.45; }
 .cp-plain { display: flex; flex-direction: column; gap: 6px; padding: 18px 16px 0; }
 .cp-payid { display: flex; align-items: center; gap: 14px; padding: 16px; background: var(--card); }
 .cp-payid .k { font-size: 14px; font-weight: 300; color: var(--muted); }
@@ -2938,3 +2938,17 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .tx-two { display: grid; grid-template-columns: 1fr 130px; gap: 10px; }
 .ov-su { width: 100%; border: 0; padding: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .ov-total { display: block; margin-top: 10px; font-size: 14px; font-weight: 300; color: var(--muted); }
+.tj-fee small { display: block; font-size: 13px; font-weight: 300; color: var(--muted); }
+.btn.td-ltrade { align-self: flex-start; margin-top: 8px; background: var(--ink); color: #fff; gap: 8px; }
+.td-left.full { font-weight: 500; }
+.ln-h { margin: 0; font-size: 20px; font-weight: 600; }
+.ln-row { cursor: default; }
+.td-launch-in > * { max-width: 56%; }
+.btn.td-ltrade { display: inline-flex; flex-direction: row; align-items: center; white-space: nowrap; height: 48px; padding: 0 16px; }
+.btn.td-ltrade { max-width: 60%; }
+.td-lt { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.td-launch .td-launch-band { z-index: 3; }
+.ln-r { padding-right: 16px; }
+.ln-v { display: inline-flex; align-items: baseline; gap: 10px; white-space: nowrap; }
+.ln-v small { font-size: 13px; font-weight: 300; color: var(--muted); }
+.ln-v b { font-size: 16px; font-weight: 500; } .ln-v b.full { color: var(--muted); font-weight: 400; }
