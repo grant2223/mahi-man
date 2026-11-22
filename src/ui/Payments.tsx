@@ -11,7 +11,7 @@ import { AuthScreen } from "./Auth";
 import { HistList, glyph, saveDocument, useHistory } from "./History";
 import { stripeFor } from "../customer/Cards";
 
-/* How customers pay Mahi Man: pay as you go (invoiced by bank transfer), a top-up balance, or Plus.
+/* How customers pay Mahi Man: pay as you go (invoiced by bank transfer) or Plus. Credit (gifts, cancellations) still pays fees first.
    Every number comes from the live settings through my_payments(). */
 
 export interface PayDetails { gst?: string; trading_name?: string; legal_name?: string; abn?: string; payid?: string; bsb?: string; account?: string; account_name?: string }
@@ -95,13 +95,13 @@ const Badge = ({ s }: { s: string }) => <span className={`badge ${STATUS[s]?.[0]
 /* ---------- How you pay (was Pricing) ---------- */
 export function HowYouPay() {
   const { session } = useSession();
-  const [r, setR] = useState({ payg: 15, payg_min: 995, plus: 7.5, plus_min: 495, plus_year: 9900, bonus: 20 });
+  const [r, setR] = useState({ payg: 15, payg_min: 995, plus: 7.5, plus_min: 495, plus_year: 9900 });
   const [auth, setAuth] = useState<string | null>(null);
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "plus_fee_percent", "plus_fee_min_cents", "plus_year_cents", "topup_bonus_percent"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "plus_fee_percent", "plus_fee_min_cents", "plus_year_cents"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((x) => [x.key, Number(x.value)]));
       setR((c) => ({ payg: m.booking_fee_percent || c.payg, payg_min: m.booking_fee_min_cents || c.payg_min,
-        plus: m.plus_fee_percent || c.plus, plus_min: m.plus_fee_min_cents || c.plus_min, plus_year: m.plus_year_cents || c.plus_year, bonus: m.topup_bonus_percent ?? c.bonus }));
+        plus: m.plus_fee_percent || c.plus, plus_min: m.plus_fee_min_cents || c.plus_min, plus_year: m.plus_year_cents || c.plus_year }));
     });
   }, []);
   // A weekly regular: 4 jobs of $80 in a month.
@@ -125,28 +125,25 @@ export function HowYouPay() {
         </section>
       </div>
       <h2 className="hp-plans">Pay less with a plan</h2>
-      <div className="pl-table">
-        <div className="pl-row pl-head"><span /><b>Pay as you go</b><b>Credit</b><b><span className="pl-badge">Plus</span></b></div>
-        <div className="pl-row"><span>Connection fee</span><b>{pctLabel(r.payg)}</b><b>{pctLabel(r.payg)}</b><b className="pl-plus">{pctLabel(r.plus)}</b></div>
-        <div className="pl-row"><span>Minimum fee</span><span>{money2(r.payg_min)}</span><span>{money2(r.payg_min)}</span><span className="pl-plus">{money2(r.plus_min)}</span></div>
-        <div className="pl-row"><span>Bonus credit</span><span>—</span><span>+{r.bonus}%</span><span className="pl-plus">—</span></div>
-        <div className="pl-row"><span>To join</span><span>Free</span><span>Free</span><span className="pl-plus">{dollars(r.plus_year)} a year</span></div>
-        <div className="pl-row"><span>Workers alerted when you post</span><span>—</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
-        <div className="pl-row"><span>Save your favourites</span><span>—</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
-        <div className="pl-row pl-eg"><span>Weekly, 4 jobs of $80</span><b>{money2(eg(r.payg, r.payg_min))}</b><b>{money2(Math.round(eg(r.payg, r.payg_min) * 100 / (100 + r.bonus)))}</b><b className="pl-plus">{money2(eg(r.plus, r.plus_min) + Math.round(r.plus_year / 12))}</b></div>
+      <div className="pl-table pl-two">
+        <div className="pl-row pl-head"><span /><b>Pay as you go</b><b><span className="pl-badge">Plus</span></b></div>
+        <div className="pl-row"><span>Connection fee</span><b>{pctLabel(r.payg)}</b><b className="pl-plus">{pctLabel(r.plus)}</b></div>
+        <div className="pl-row"><span>Minimum fee</span><span>{money2(r.payg_min)}</span><span className="pl-plus">{money2(r.plus_min)}</span></div>
+        <div className="pl-row"><span>To join</span><span>Free</span><span className="pl-plus">{dollars(r.plus_year)} a year</span></div>
+        <div className="pl-row"><span>Workers alerted when you post</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
+        <div className="pl-row"><span>Save your favourites</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
+        <div className="pl-row pl-eg"><span>Weekly, 4 jobs of $80</span><b>{money2(eg(r.payg, r.payg_min))}</b><b className="pl-plus">{money2(eg(r.plus, r.plus_min) + Math.round(r.plus_year / 12))}</b></div>
       </div>
       <div className="cp-sec" style={{ paddingBottom: Capacitor.isNativePlatform() ? 18 : "calc(var(--safe-bottom) + 32px)" }}>
         <Li b="Pay as you go" s="Nothing upfront. Pay the fee by bank transfer, after each job, weekly or every 2 weeks on your payday." />
-        <Li b="Credit" s={`Prepay your connection fees by bank transfer and get ${r.bonus}% bonus credit: pay $100, get $${100 + r.bonus}. Fees come off your credit automatically.`} />
         <Li b="Plus" s={`For our loyal customers. Half the connection fee (${pctLabel(r.plus)}, minimum ${money2(r.plus_min)}), workers nearby alerted the moment you post, and your favourite workers saved to book again.`} />
       </div>
       {Capacitor.isNativePlatform() && (
         <ActionBar>
-          <button className="btn stone" style={{ flex: 1 }} onClick={() => open("/topup")}>Top up</button>
           <button className="btn primary" style={{ flex: 1 }} onClick={() => open("/plus")}>Get Plus</button>
         </ActionBar>
       )}
-      {auth && <AuthScreen title={auth === "/plus" ? "Get Plus" : "Top up"} reason="Sign in to prepay your connection fees." onBack={() => setAuth(null)} onDone={() => { const to = auth; setAuth(null); go(to); }} />}
+      {auth && <AuthScreen title="Get Plus" reason="Sign in to get Plus." onBack={() => setAuth(null)} onDone={() => { const to = auth; setAuth(null); go(to); }} />}
     </div>
   );
 }
@@ -210,14 +207,15 @@ export function PaymentsPage() {
         {p.gift_balance > 0 ? (
           <div className="gf-split">
             <span><b className="w5">{money2(p.gift_balance)}</b> gift{p.gift_from ? ` from ${p.gift_from}` : ""}<br /><span className="light muted">Pays jobs and fees</span></span>
-            {p.balance - p.gift_balance > 0 && <span><b className="w5">{money2(p.balance - p.gift_balance)}</b> top-up<br /><span className="light muted">Pays connection fees</span></span>}
+            {p.balance - p.gift_balance > 0 && <span><b className="w5">{money2(p.balance - p.gift_balance)}</b> credit<br /><span className="light muted">Pays connection fees</span></span>}
           </div>
         ) : <span className="t15 light">{line}</span>}
-        <div className="row" style={{ gap: 10, marginTop: 12, flexWrap: "wrap" }}>
-          <button className="btn primary small" onClick={() => go("/topup")}>Top up</button>
-          {plus && !p.senior && (p.plus_renew ? <button className="btn stone small" onClick={stopPlus}>Stop Plus</button>
-            : <button className="btn stone small" onClick={() => go("/plus")}>Keep Plus</button>)}
-        </div>
+        {plus && !p.senior && (
+          <div className="row" style={{ gap: 10, marginTop: 12, flexWrap: "wrap" }}>
+            {p.plus_renew ? <button className="btn stone small" onClick={stopPlus}>Stop Plus</button>
+              : <button className="btn stone small" onClick={() => go("/plus")}>Keep Plus</button>}
+          </div>
+        )}
       </div>
 
       {soon.length > 0 && (
@@ -239,7 +237,7 @@ export function PaymentsPage() {
       </div>
 
       <div className="cp-sec iv-band" style={{ gap: 8, paddingBottom: "calc(var(--safe-bottom) + 28px)" }}>
-        <span className="cp-title" style={{ margin: 0 }}>If your credit runs out</span>
+        <span className="cp-title" style={{ margin: 0 }}>How you get invoiced</span>
         <span className="t14 light muted" style={{ marginBottom: 4 }}>Fees are invoiced and paid by bank transfer. One transfer covers all your jobs.</span>
         <button className="cp-select" onClick={() => setPick("plan")}><span>{PLAN_OPTS.find((o) => o.id === plan)?.label}</span>{Icon.chevron("var(--muted)")}</button>
         {plan !== "now" && <button className="cp-select" onClick={() => setPick("payday")}><span>Payday: {DAYS[payday]}</span>{Icon.chevron("var(--muted)")}</button>}

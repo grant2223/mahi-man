@@ -76,7 +76,7 @@ function CardForm({ onSaved }: { onSaved: () => void }) {
         <span className="stack" style={{ gap: 2 }}><span className="t17">Save this card for next time</span><span className="small light muted">Remove it any time in You, Payment methods.</span></span>
       </button>
       <p className="small light muted" style={{ lineHeight: 1.5, margin: "0 0 16px" }}>
-        By adding this card you allow Mahi Man to charge the top-ups you ask for, including automatic top-ups if you turn them on. Cards are handled by Stripe. Mahi Man never sees your full card number.
+        By adding this card you allow Mahi Man to charge the connection fees and purchases you agree to. Cards are handled by Stripe. Mahi Man never sees your full card number.
       </p>
       {err && <p className="err">{err}</p>}
       <div className="row" style={{ justifyContent: "space-between", alignItems: "center" }}>

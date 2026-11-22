@@ -124,11 +124,10 @@ export function Settings() {
     { label: "Verify your ID", hint: idLabel, act: () => setSub(profile.id_status === "verified" ? "account" : "verify") },
     { label: "Your area", hint: "Where you use Mahi Man", act: () => setSub("account") },
     { label: "Alerts", hint: "New jobs, messages and local offers", act: () => setSub("account") },
-    { label: "Payment card", hint: "Card for top-ups and fees", act: () => setSub("cards") },
+    { label: "Payment card", hint: "Card for fees", act: () => setSub("cards") },
     { label: "Blocked people", hint: "People you've blocked", act: () => setSub("account") },
     { label: "Sign out", hint: "At the bottom of Settings", act: () => setSub("account") },
     { label: "Balance and history", hint: "Payments, invoices and receipts", act: () => go("/payments") },
-    { label: "Top up", hint: "Prepay your connection fees", act: () => go("/topup") },
     { label: "Mahi Man Plus", hint: "Reduced fees, faster help", act: () => go("/plus") },
     { label: "Buy a gift card", hint: "Mahi Man help for someone else", act: () => go("/gift") },
     { label: "Redeem a gift card", hint: "Add a gift code", act: () => go("/gift-code") },
@@ -186,7 +185,6 @@ export function Settings() {
         <section className="pr-sec">
           <h2>Your money<button onClick={() => go("/payments")}>History</button></h2>
           <div className="pr-bal"><b>{money(bal)}</b><small>{gift > 0 ? `credit, gift card ${money(gift)}` : "credit"}</small></div>
-          <button className="pr-line" onClick={() => go("/topup")}>{I.plus()}<span><b>Top up</b></span></button>
           <button className="pr-line" onClick={() => go("/gift")}>{I.gift()}<span><b>Buy a gift card</b></span></button>
           <button className="pr-line" onClick={() => go("/gift-code")}>{I.ticket()}<span><b>Redeem a gift card</b></span></button>
         </section>
@@ -409,7 +407,6 @@ function Account({ prefs, onPrefs, onBack, onOpen, items, balance, plus }: { pre
         <section className="ax-sec ax-links">
           <h2>Money<button onClick={() => go("/payments")}>History</button></h2>
           <div className="ax-row">{A.wallet}<span className="ax-t"><small>Credit</small><b>{money(balance)}</b></span></div>
-          <button className="ax-row" onClick={() => go("/topup")}>{A.plus}<span className="ax-one">Top up</span><span className="ax-r">{chev}</span></button>
           <button className="ax-row" onClick={() => go("/gift")}>{A.gift}<span className="ax-one">Buy a gift card</span><span className="ax-r">{chev}</span></button>
           <button className="ax-row" onClick={() => go("/gift-code")}>{A.ticket}<span className="ax-one">Redeem a gift card</span><span className="ax-r">{chev}</span></button>
           <button className="ax-row" onClick={() => onOpen("cards")}>{A.card}<span className="ax-t"><small>Payment card</small><b>{profile.card_last4 ? cardLabel(profile) : "Add a card"}</b></span><span className="ax-r">{chev}</span></button>

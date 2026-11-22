@@ -83,7 +83,7 @@ function Routes() {
     if (ready && !session) { go("/", true); return null; }
     return <Settings />;
   }
-  // Paying Mahi Man: balance, invoices, top-up and Plus. Invoice links come from alerts and emails.
+  // Paying Mahi Man: balance, invoices and Plus. /topup only opens a top-up already waiting (new top-ups have ended). Invoice links come from alerts and emails.
   const rc = path.match(/^\/payments\/receipt\/([a-z_]+)\/([\w-]+)$/);
   if (path === "/payments/history" || rc) {
     if (ready && !session) { go("/", true); return null; }
@@ -94,7 +94,7 @@ function Routes() {
   if (path === "/payments" || path === "/topup" || path === "/plus" || inv) {
     if (ready && !session) { go("/", true); return null; }
     if (!session) return null;
-    return inv ? <InvoicePage id={Number(inv[1])} /> : path === "/payments" ? <PaymentsPage /> : path === "/topup" ? <TopUpPage /> : <PlusPage />;
+    return inv ? <InvoicePage id={Number(inv[1])} /> : path === "/payments" ? <PaymentsPage /> : path === "/topup" && new URLSearchParams(location.search).get("id") ? <TopUpPage /> : <PlusPage />;
   }
   if (path === "/verify") {
     if (ready && !session) { go("/", true); return null; }

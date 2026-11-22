@@ -1248,25 +1248,21 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
   { title: "Payments", text: "Customers pay workers directly. The connection fee is billed when the customer selects a worker, with the rate the job was posted with, and paid by bank transfer on an invoice or from their balance. It's given back if the job doesn't go ahead.", fields: [
     { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash, and Mahi Man fees are invoiced. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
     { k: "fee_mode", label: "Charge the connection fee", hint: "After the pilot. While pilot mode is on, fees are always invoiced and paid by bank transfer.", t: "toggle", on: "invoice", off: "off" },
-    { k: "stripe_publishable_key", label: "Stripe publishable key", hint: "Starts with pk_. Needed before card top-ups.", t: "text", ph: "pk_live_…" },
+    { k: "stripe_publishable_key", label: "Stripe publishable key", hint: "Starts with pk_. Needed before card payments.", t: "text", ph: "pk_live_…" },
   ] },
-  { title: "Connection fee", text: "Three ways to pay, shown side by side on How you pay. Invoices show GST only once you turn on Registered for GST under Payment details.", fields: [
+  { title: "Connection fee", text: "Two ways to pay, pay as you go or Plus, shown side by side on How you pay. Invoices show GST only once you turn on Registered for GST under Payment details.", fields: [
 
     { k: "booking_fee_percent", label: "Connection fee", hint: "A share of the job price. New jobs use it; jobs already posted keep theirs.", t: "num", unit: "%" },
     { k: "booking_fee_min_cents", label: "Connection fee, minimum", t: "num", unit: "$" },
-    { k: "topup_bonus_percent", label: "Top-up bonus credit", hint: "Pay $100, get $120 at 20%. Fees come off credit at the normal rate.", t: "num", unit: "%" },
-    { k: "topup_amounts", label: "Top-up amounts", hint: "In cents, separated by commas, e.g. 5000,10000,25000.", t: "text", ph: "5000,10000,25000" },
     { k: "plus_fee_percent", label: "Plus, connection fee", t: "num", unit: "%" },
     { k: "plus_fee_min_cents", label: "Plus, minimum", t: "num", unit: "$" },
     { k: "plus_year_cents", label: "Plus, per year", hint: "One payment, by bank transfer in beta.", t: "num", unit: "$" },
     { k: "plus_cents", label: "Plus, monthly value", hint: "Only used to show the yearly saving.", t: "num", unit: "$" },
     { k: "invoice_due_days", label: "Invoice after each job is due in", t: "num", unit: "days" },
     { k: "invoice_pause_days", label: "Posting pauses once overdue by", t: "num", unit: "days" },
-    { k: "auto_topup_cents", label: "Automatic top-up adds", t: "num", unit: "$" },
-    { k: "auto_topup_below_cents", label: "When the balance drops under", t: "num", unit: "$" },
     { k: "fee_percent", label: "Fee when the card is held", hint: "Only used with pilot mode off.", t: "num", unit: "%" },
   ] },
-  { title: "Payment details", text: "Shown on every invoice and top-up. Customers pay to this account with the invoice number as the reference.", fields: [
+  { title: "Payment details", text: "Shown on every invoice and bank transfer. Customers pay to this account with the invoice number as the reference.", fields: [
     { k: "pay_trading_name", label: "Trading name", t: "text", ph: "Mahi Man" },
     { k: "pay_legal_name", label: "Legal name", t: "text", ph: "Company Pty Ltd" },
     { k: "pay_abn", label: "ABN", t: "text", ph: "11 digits" },
@@ -1958,7 +1954,7 @@ interface MoneyRow { kind: "invoice" | "topup" | "gift" | "plus" | "tradie" | "p
   proof?: string | null; paid_on?: string | null; paid_part?: string | null; paid_from?: string | null; claimed_at?: string | null;
   receipt_sent_at?: string | null; receipt_sent_to?: string | null }
 interface MoneyData { rows: MoneyRow[]; due_week: number; due_week_n: number; late: number; late_n: number; paid_month: number; paid_month_n: number }
-const MONEY_VIEWS: [string, string][] = [["open", "To check and due"], ["late", "Overdue"], ["topups", "Top-ups, gift cards and Plus"], ["paid", "Paid"], ["all", "Everything"]];
+const MONEY_VIEWS: [string, string][] = [["open", "To check and due"], ["late", "Overdue"], ["topups", "Gift cards and Plus"], ["paid", "Paid"], ["all", "Everything"]];
 function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
   const toast = useToast();
   const [view, setView] = useState("open");
