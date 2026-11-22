@@ -20,7 +20,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-AU", { weekday
 const month = (iso: string) => new Date(iso).toLocaleDateString("en-AU", { month: "long", year: "numeric", timeZone: TZ });
 
 export const KINDS: { id: "all" | HistKind; label: string }[] = [
-  { id: "all", label: "Everything" }, { id: "fee", label: "Connection fees" }, { id: "topup", label: "Credit and top-ups" },
+  { id: "all", label: "Everything" }, { id: "fee", label: "Connection fees" }, { id: "topup", label: "Credit" },
   { id: "invoice", label: "Invoices" }, { id: "plus", label: "Plus" }, { id: "gift", label: "Gift cards" },
 ];
 const PERIODS = [

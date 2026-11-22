@@ -119,11 +119,9 @@ function Steps() {
 }
 
 function Plans({ t }: { t: T }) {
-  const tick = (c: string) => Icon.tick(c, 22);
   const rows: [string, React.ReactNode, React.ReactNode, React.ReactNode][] = [
     ["Job alerts", `Up to ${after(t.after)} later`, <b className="em">Instant</b>, <b className="gd">Instant</b>],
     ["Your quote", "In the list", <b className="em">First 10</b>, <b className="gd">First 10</b>],
-    ["No commission", tick("var(--emerald)"), tick("var(--emerald)"), tick("var(--gold)")],
     ["Fee if you win", rule(t), "$0", "$0"],
     ["Billed", "Never", "Monthly", "Yearly"],
   ];
@@ -200,7 +198,7 @@ function Faq({ t }: { t: T }) {
     ]],
     ["Money", [
       ["How do I get paid?", "The customer pays you directly, by bank transfer or cash, when the job's done. Mahi Man never holds your money."],
-      ["Does Mahi Man take a commission?", "No. You keep 100% of every job."],
+      ["Does Mahi Man take a cut of the job?", "No. The customer pays you the full price directly. On Standard, the finder's fee is invoiced separately when you win. Premium pays nothing."],
       ["What does Standard cost when I win?", `${t.pct / 100}% of your quote, never more than ${money(t.cap)} a job, on your invoice from Mahi Man. A $170 quote is ${cents2(fee(17000, t))}. Quotes that aren't selected cost nothing.`],
       ["How much is Premium?", `${money(t.month)} a month or ${money(t.year)} a year. Job alerts first, a guaranteed place in the first 10 quotes, and $0 when you win.`],
       ["How do I pay for Premium?", "By bank transfer for now. Premium starts once your first payment is in."],

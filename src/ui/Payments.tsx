@@ -1,4 +1,4 @@
-import { connFee, pctLabel } from "../lib/fee";
+import { pctLabel } from "../lib/fee";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
 import { api, rpc, sb, myId } from "../lib/supabase";
@@ -104,8 +104,6 @@ export function HowYouPay() {
         plus: m.plus_fee_percent || c.plus, plus_min: m.plus_fee_min_cents || c.plus_min, plus_year: m.plus_year_cents || c.plus_year }));
     });
   }, []);
-  // A weekly regular: 4 jobs of $80 in a month.
-  const eg = (pct: number, min: number) => 4 * connFee(8000, pct, min);
   const dollars = (c: number) => `$${Math.round(c / 100)}`;
   const open = (to: string) => (session ? go(to) : setAuth(to));
   return (
@@ -132,7 +130,6 @@ export function HowYouPay() {
         <div className="pl-row"><span>To join</span><span>Free</span><span className="pl-plus">{dollars(r.plus_year)} a year</span></div>
         <div className="pl-row"><span>Workers alerted when you post</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
         <div className="pl-row"><span>Save your favourites</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
-        <div className="pl-row pl-eg"><span>Weekly, 4 jobs of $80</span><b>{money2(eg(r.payg, r.payg_min))}</b><b className="pl-plus">{money2(eg(r.plus, r.plus_min) + Math.round(r.plus_year / 12))}</b></div>
       </div>
       <div className="cp-sec" style={{ paddingBottom: Capacitor.isNativePlatform() ? 18 : "calc(var(--safe-bottom) + 32px)" }}>
         <Li b="Pay as you go" s="Nothing upfront. Pay the fee by bank transfer, after each job, weekly or every 2 weeks on your payday." />

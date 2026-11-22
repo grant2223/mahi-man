@@ -83,7 +83,6 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
     [`On a ${dollars(example)} job`, cents2(winFee(example, p)), "$0"],
     ["Job alerts", `After ${after}`, "First"],
     ["Your quote", "In the list", "First 10"],
-    ["Commission", "None", "None"],
   ];
   const join = async (plan: "standard" | "premium" | "offer" | "launch") => {
     if (!trade.trades.length) { toast("Select your trades first"); document.querySelector(".tr")?.scrollIntoView({ behavior: "smooth" }); return; }

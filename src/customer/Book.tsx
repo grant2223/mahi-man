@@ -702,7 +702,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         {signedIn && !onPlus && !soon && (
           <button className="plus-band" onClick={() => go("/plus")}>
             <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#f5c518" /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
-            <span><span className="pw">PLUS</span><b>Reduced fees, faster help</b><small>For our loyal customers</small></span>
+            <span><span className="pw">PLUS</span><b>Half fees, faster help</b><small>For our loyal customers</small></span>
             <span className="go">Try it</span>
           </button>
         )}

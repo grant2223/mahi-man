@@ -60,7 +60,7 @@ const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
     ["How do I get a quote?", "Post the job with photos. Tradies send you a fixed quote, what it includes and when they can come. Select one, or say no to all of them."],
     ["Can I ask the tradie questions first?", "Yes. Message any tradie from their quote before you select one. Your number is never shared."],
     ["What does it cost me?", "Nothing to Mahi Man. You pay the tradie their quote directly when the job's done."],
-    ["I'm a tradie. How does it work?", <>Join free on Standard and get job alerts on your phone. If a customer selects your quote, the fee is {fee.tpct / 100}% of it, never more than {money(fee.tmax)}, and no commission ever.
+    ["I'm a tradie. How does it work?", <>Join free on Standard and get job alerts on your phone. If a customer selects your quote, the fee is {fee.tpct / 100}% of it, never more than {money(fee.tmax)}.
       Or go Premium for {money(fee.tmonth)} a month or {money(fee.tyear)} a year: alerts first, a guaranteed place in the first 10 quotes and $0 when you win. Standard members get new jobs up to {fee.tafter === 60 ? "1 hour" : `${fee.tafter} minutes`} later.{" "}
       <a href="/tradies" onClick={(e) => { e.preventDefault(); go("/tradies"); }} style={{ color: "var(--emerald)", fontWeight: 500 }}>See the tradie page</a></>],
     ["What if the customer goes quiet?", `Your quote stays open for ${fee.tquiet} hours. Sending a quote is free, so there's nothing to get back. No contract.`],
