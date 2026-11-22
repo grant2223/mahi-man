@@ -1,3 +1,4 @@
+import { connFee, pctLabel } from "../lib/fee";
 import { AlertsBell } from "../ui/Alerts";
 import { areaSuburbs } from "../lib/suburbs";
 import { FeePayScreen, OwedBanner, useOwed, type OwedFee } from "./Fees";
@@ -75,8 +76,8 @@ export function Book() {
   const photoAdded = useRef(false);
   const [verifyScreen, setVerifyScreen] = useState(false);
   const verifySent = useRef(false);
-  const [feePct, setFeePct] = useState(12);
-  const [feeMax, setFeeMax] = useState(3000);
+  const [feePct, setFeePct] = useState(15);
+  const [feeMin, setFeeMin] = useState(995);
   const [supply, setSupply] = useState<{ online_now: number; typical_minutes: number | null } | null>(null);
   const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...lastUsed(), ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
   const [media, setMedia] = useState<(DraftItem & { url: string })[]>([]);
@@ -99,10 +100,10 @@ export function Book() {
   useEffect(() => {
     sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
-    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_max_cents", "fee_mode"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_min_cents", "fee_mode"]).then(({ data }) => {
       for (const r of data ?? []) {
         if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true"); if (r.key === "fee_mode") setFeeMode(r.value);
-        if (r.key === "booking_fee_percent") setFeePct(Number(r.value)); if (r.key === "booking_fee_max_cents") setFeeMax(Number(r.value));
+        if (r.key === "booking_fee_percent") setFeePct(Number(r.value)); if (r.key === "booking_fee_min_cents") setFeeMin(Number(r.value));
       }
     });
     draftMedia.all().then((items) => setMedia(items.map((m) => ({ ...m, url: URL.createObjectURL(m.blob) }))));
@@ -141,23 +142,24 @@ export function Book() {
       .then((r) => setSupply(r?.[0] ?? null)).catch(() => setSupply(null));
   }, [path, d.categoryId, d.suburbId]);
   const total = d.priceCents + Math.round((d.priceCents * fee) / 100);
-  const isPlus = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
-  // Invoice mode: the connection fee is billed when the job goes ahead, at the rate their plan gives them.
+  // Invoice mode: the connection fee is billed when the customer selects a worker, at the rate their plan gives them.
   const { p: payInfo } = usePayments(feeMode === "invoice" && !!session);
   const invoiceFee = (() => {
     if (feeMode !== "invoice" || isTrade) return null;
-    const r = payInfo?.rates ?? { payg: feePct, payg_max: feeMax, topup: 0, topup_max: 0, plus: 0, plus_max: 0 };
-    const amt = (pct: number, max: number) => Math.min(Math.round((d.priceCents * pct) / 100), max);
+    const r = payInfo?.rates ?? { payg: feePct, payg_min: feeMin, topup: 0, topup_min: 0, plus: 0, plus_min: 0 };
+    const amt = (pct: number, min: number) => connFee(d.priceCents, pct, min);
     const plan = (payInfo?.plan ?? "now") as "now" | "weekly" | "fortnightly";
-    if (payInfo?.senior) return { cents: 0, pct: 0, from: "senior" as const };
+    if (payInfo?.senior) return { cents: 0, pct: 0, min: false, from: "senior" as const };
     if (payInfo && payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) {
-      const c = amt(r.plus, r.plus_max);
-      return { cents: c, pct: r.plus, from: payInfo.balance >= c ? "balance" as const : plan };
+      const c = amt(r.plus, r.plus_min);
+      return { cents: c, pct: r.plus, min: c === r.plus_min && c > Math.round((d.priceCents * r.plus) / 100), from: payInfo.balance >= c ? "balance" as const : plan };
     }
-    if (payInfo && r.topup && payInfo.balance >= amt(r.topup, r.topup_max)) return { cents: amt(r.topup, r.topup_max), pct: r.topup, from: "balance" as const };
-    return { cents: amt(r.payg, r.payg_max), pct: r.payg, from: plan };
+    const c = amt(r.payg, r.payg_min);
+    const min = c === r.payg_min && c > Math.round((d.priceCents * r.payg) / 100);
+    if (payInfo && payInfo.balance >= c) return { cents: c, pct: r.payg, min, from: "balance" as const };
+    return { cents: c, pct: r.payg, min, from: plan };
   })();
-  const bookingFee = feeMode === "on_choose" && !isPlus && !isTrade ? Math.min(Math.round((d.priceCents * feePct) / 100), feeMax) : 0;
+  const bookingFee = feeMode === "on_choose" && !isTrade ? connFee(d.priceCents, feePct, feeMin) : 0;
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
   const reusedPhotos = d.reuse.filter((r) => r.kind === "photo");
@@ -336,7 +338,7 @@ export function Book() {
           const when = d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
           // The connection fee Mahi Man charges. Invoiced (bank transfer) in the pilot, by card after it.
           const connPct = invoiceFee ? invoiceFee.pct : feePct;
-          const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : Math.min(Math.round((d.priceCents * feePct) / 100), feeMax);
+          const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : connFee(d.priceCents, feePct, feeMin);
           const connCharged = !isTrade && (invoiceFee ? true : bookingFee > 0);
           const totalCents = d.priceCents + (connCharged ? connCents : 0);
           return (<>
@@ -419,11 +421,11 @@ export function Book() {
             {/* Pay less: the cheaper plans, priced on this job, the way Uber One and DashPass show what you'd save at checkout. */}
             {connCharged && invoiceFee && payInfo && !(payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) && (() => {
               const r = payInfo.rates;
-              const plusCents = Math.min(Math.round((d.priceCents * r.plus) / 100), r.plus_max);
+              const plusCents = connFee(d.priceCents, r.plus, r.plus_min);
               const save = connCents - plusCents;
               return save > 0 ? (
                 <div className="ck-save">
-                  <div className="t"><b>Save {money2(save)} with Plus</b><span>{r.plus}% fees, {money(r.plus_year)} a year</span></div>
+                  <div className="t"><b>Save {money2(save)} with Plus</b><span>Half fees ({pctLabel(r.plus)}), {money(r.plus_year)} a year</span></div>
                   <div className="a"><button className="btn primary" onClick={() => go("/plus")}>Get Plus</button></div>
                 </div>
               ) : null;
@@ -454,14 +456,14 @@ export function Book() {
                 </div>
                 <div className="ck-grp">
                   <div className="ck-m ck-gh"><span>Owed to Mahi Man</span><b>{money(totalCents - d.priceCents)}</b></div>
-                  <div className="ck-m ck-sub"><span>{invoiceFee?.from === "senior" ? "Connection fee" : `Connection fee, ${connPct}%`}</span>
+                  <div className="ck-m ck-sub"><span>{invoiceFee?.from === "senior" ? "Connection fee" : invoiceFee?.min ? "Connection fee, minimum" : `Connection fee, ${pctLabel(connPct)}`}</span>
                     {invoiceFee?.from === "senior" ? <b><em>Free</em></b> : connCharged ? <b>{money2(connCents)}</b> : <b><s>{money2(connCents)}</s> <em>Free</em></b>}</div>
                   <p className="ck-due">{invoiceFee?.from === "senior" ? "No connection fee for customers 60 and over"
                     : bookingFee > 0 ? "Charged to your card when you choose a worker"
-                    : invoiceFee?.from === "balance" ? "Taken from your credit when the job's done"
+                    : invoiceFee?.from === "balance" ? "Taken from your credit when you select a worker"
                     : invoiceFee?.from === "weekly" ? "On your weekly invoice. Pay by bank transfer"
                     : invoiceFee?.from === "fortnightly" ? "On your fortnightly invoice. Pay by bank transfer"
-                    : "Invoiced when the job's done. Pay by bank transfer"}</p>
+                    : "Invoiced when you select a worker. Pay by bank transfer"}</p>
                 </div>
                 <div className="ck-m ck-total"><span>Total</span><b>{money(totalCents)}</b></div>
                 <button className="btn stone small ck-hiw" onClick={() => go("/pricing")}>{Icon.help("currentColor", 18)}How payment works</button>

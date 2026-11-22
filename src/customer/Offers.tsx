@@ -35,8 +35,8 @@ const clock = (d: Date) => d.toLocaleTimeString("en-AU", { hour: "numeric", minu
 // The customer's job while it's open: people who say they're available, and Yes or Ignore on each.
 const RAISE = 1000;
 
-export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt, searchingAt, feeDue = 0, onChosen, onCancel, onBoosted, trade }: {
-  jobId: string; title: string; price: string; priceCents?: number; asap: boolean; startAt: string; searchingAt: string; feeDue?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
+export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt, searchingAt, feeDue = 0, feeInvoice = 0, onChosen, onCancel, onBoosted, trade }: {
+  jobId: string; title: string; price: string; priceCents?: number; asap: boolean; startAt: string; searchingAt: string; feeDue?: number; feeInvoice?: number; onChosen: () => void; onCancel: () => void; onBoosted: () => void;
   trade?: boolean;
 }) {
   const { profile: me, reload } = useSession();
@@ -330,6 +330,11 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
           <span className="t15 light" style={{ flex: 1 }}>
             {me?.card_last4 ? <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> connection fee to {cardLabel(me)}.</> : <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> connection fee. You'll add a card first.</>}
           </span>
+        </div>
+      )}
+      {feeInvoice > 0 && feeDue === 0 && shown.length > 0 && (
+        <div className="row" style={{ gap: 10, padding: "14px 16px", alignItems: "center", background: "var(--card)" }}>
+          <span className="t15 light" style={{ flex: 1 }}>Selecting someone adds your <b className="w5">{money2(feeInvoice)}</b> connection fee. You get it back if the job doesn't go ahead.</span>
         </div>
       )}
       <div className="offers">

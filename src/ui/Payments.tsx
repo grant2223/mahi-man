@@ -1,3 +1,4 @@
+import { connFee, pctLabel } from "../lib/fee";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
 import { api, rpc, sb, myId } from "../lib/supabase";
@@ -20,7 +21,7 @@ interface TopupRow { id: number; reference: string; amount: number; status: "req
 interface PlusOrder { id: number; reference: string; amount: number; months: number; status: "requested" | "claimed" }
 export interface MyPayments {
   mode: string; card_live: boolean;
-  rates: { payg: number; payg_max: number; topup: number; topup_max: number; plus: number; plus_max: number; plus_cents: number; plus_year: number; auto_topup: number; auto_below: number };
+  rates: { payg: number; payg_min: number; topup: number; topup_min: number; plus: number; plus_min: number; plus_cents: number; plus_year: number; auto_topup: number; auto_below: number };
   balance: number; gift_balance: number; gift_from: string | null; plan: "now" | "weekly" | "fortnightly"; payday: number; anchor: string | null;
   plus_until: string | null; senior?: boolean; plus_renew: boolean; plus_order: PlusOrder | null; auto_topup: boolean; card: string | null; pay: PayDetails;
   next: { total: number; lines: Line[] }; invoices: InvoiceRow[]; log: { delta: number; kind: string; note: string; at: string }[]; topups: TopupRow[];
@@ -94,17 +95,17 @@ const Badge = ({ s }: { s: string }) => <span className={`badge ${STATUS[s]?.[0]
 /* ---------- How you pay (was Pricing) ---------- */
 export function HowYouPay() {
   const { session } = useSession();
-  const [r, setR] = useState({ payg: 12, payg_max: 3000, topup: 12, topup_max: 3000, plus: 6, plus_max: 1500, plus_year: 9900, bonus: 20 });
+  const [r, setR] = useState({ payg: 15, payg_min: 995, plus: 7.5, plus_min: 495, plus_year: 9900, bonus: 20 });
   const [auth, setAuth] = useState<string | null>(null);
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_max_cents", "topup_fee_percent", "topup_fee_max_cents", "plus_fee_percent", "plus_fee_max_cents", "plus_year_cents", "topup_bonus_percent"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "plus_fee_percent", "plus_fee_min_cents", "plus_year_cents", "topup_bonus_percent"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((x) => [x.key, Number(x.value)]));
-      setR((c) => ({ payg: m.booking_fee_percent || c.payg, payg_max: m.booking_fee_max_cents || c.payg_max, topup: m.topup_fee_percent || c.topup, topup_max: m.topup_fee_max_cents || c.topup_max,
-        plus: m.plus_fee_percent || c.plus, plus_max: m.plus_fee_max_cents || c.plus_max, plus_year: m.plus_year_cents || c.plus_year, bonus: m.topup_bonus_percent ?? c.bonus }));
+      setR((c) => ({ payg: m.booking_fee_percent || c.payg, payg_min: m.booking_fee_min_cents || c.payg_min,
+        plus: m.plus_fee_percent || c.plus, plus_min: m.plus_fee_min_cents || c.plus_min, plus_year: m.plus_year_cents || c.plus_year, bonus: m.topup_bonus_percent ?? c.bonus }));
     });
   }, []);
   // A weekly regular: 4 jobs of $80 in a month.
-  const eg = (pct: number, max: number) => 4 * Math.min(Math.round((8000 * pct) / 100), max);
+  const eg = (pct: number, min: number) => 4 * connFee(8000, pct, min);
   const dollars = (c: number) => `$${Math.round(c / 100)}`;
   const open = (to: string) => (session ? go(to) : setAuth(to));
   return (
@@ -120,24 +121,24 @@ export function HowYouPay() {
         <section>
           <h2>Mahi Man</h2><p className="amt">The connection fee</p>
           <div className="hp-row"><i>How</i><span>An invoice, paid by bank transfer. If you have credit, it comes off your credit instead.</span></div>
-          <div className="hp-row"><i>When</i><span>Only if the job goes ahead. Within 3 days, or weekly or every 2 weeks on your payday. Set it in You, Payments.</span></div>
+          <div className="hp-row"><i>When</i><span>When you select a worker. Pay within 3 days, or weekly or every 2 weeks on your payday. If the job doesn't go ahead, you get it back.</span></div>
         </section>
       </div>
       <h2 className="hp-plans">Pay less with a plan</h2>
       <div className="pl-table">
         <div className="pl-row pl-head"><span /><b>Pay as you go</b><b>Credit</b><b><span className="pl-badge">Plus</span></b></div>
-        <div className="pl-row"><span>Connection fee</span><b>{r.payg}%</b><b>{r.topup}%</b><b className="pl-plus">{r.plus}%</b></div>
-        <div className="pl-row"><span>Fee cap</span><span>{dollars(r.payg_max)}</span><span>{dollars(r.topup_max)}</span><span className="pl-plus">{dollars(r.plus_max)}</span></div>
+        <div className="pl-row"><span>Connection fee</span><b>{pctLabel(r.payg)}</b><b>{pctLabel(r.payg)}</b><b className="pl-plus">{pctLabel(r.plus)}</b></div>
+        <div className="pl-row"><span>Minimum fee</span><span>{money2(r.payg_min)}</span><span>{money2(r.payg_min)}</span><span className="pl-plus">{money2(r.plus_min)}</span></div>
         <div className="pl-row"><span>Bonus credit</span><span>—</span><span>+{r.bonus}%</span><span className="pl-plus">—</span></div>
         <div className="pl-row"><span>To join</span><span>Free</span><span>Free</span><span className="pl-plus">{dollars(r.plus_year)} a year</span></div>
         <div className="pl-row"><span>Workers alerted when you post</span><span>—</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
         <div className="pl-row"><span>Save your favourites</span><span>—</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
-        <div className="pl-row pl-eg"><span>Weekly, 4 jobs of $80</span><b>{money2(eg(r.payg, r.payg_max))}</b><b>{money2(Math.round(eg(r.topup, r.topup_max) * 100 / (100 + r.bonus)))}</b><b className="pl-plus">{money2(eg(r.plus, r.plus_max) + Math.round(r.plus_year / 12))}</b></div>
+        <div className="pl-row pl-eg"><span>Weekly, 4 jobs of $80</span><b>{money2(eg(r.payg, r.payg_min))}</b><b>{money2(Math.round(eg(r.payg, r.payg_min) * 100 / (100 + r.bonus)))}</b><b className="pl-plus">{money2(eg(r.plus, r.plus_min) + Math.round(r.plus_year / 12))}</b></div>
       </div>
       <div className="cp-sec" style={{ paddingBottom: Capacitor.isNativePlatform() ? 18 : "calc(var(--safe-bottom) + 32px)" }}>
         <Li b="Pay as you go" s="Nothing upfront. Pay the fee by bank transfer, after each job, weekly or every 2 weeks on your payday." />
         <Li b="Credit" s={`Prepay your connection fees by bank transfer and get ${r.bonus}% bonus credit: pay $100, get $${100 + r.bonus}. Fees come off your credit automatically.`} />
-        <Li b="Plus" s="For our loyal customers. Reduced fees, workers nearby alerted the moment you post, and your favourite workers saved to book again." />
+        <Li b="Plus" s={`For our loyal customers. Half the connection fee (${pctLabel(r.plus)}, minimum ${money2(r.plus_min)}), workers nearby alerted the moment you post, and your favourite workers saved to book again.`} />
       </div>
       {Capacitor.isNativePlatform() && (
         <ActionBar>
@@ -172,8 +173,8 @@ export function PaymentsPage() {
 
   const plus = isPlus(p);
   const line = p.senior ? "Plus, no connection fee, as you're 60 or over"
-    : plus ? `Plus, fees are ${p.rates.plus}%${p.plus_renew ? `, renews ${dayShort(p.plus_until!)}` : `, ends ${dayShort(p.plus_until!)}`}`
-    : p.balance > 0 ? "Connection fees come off your credit first" : `Pay as you go, fees are ${p.rates.payg}%`;
+    : plus ? `Plus, fees are ${pctLabel(p.rates.plus)}${p.plus_renew ? `, renews ${dayShort(p.plus_until!)}` : `, ends ${dayShort(p.plus_until!)}`}`
+    : p.balance > 0 ? "Connection fees come off your credit first" : `Pay as you go, fees are ${pctLabel(p.rates.payg)}`;
   // Fortnightly needs to know which week: the next two of that weekday.
   const anchorOpts = [7, 14].map((n) => { const t = brisDate(); const d = new Date(t.getTime() + 86400_000 * (((payday - t.getUTCDay() + 7) % 7) || 7)); return new Date(d.getTime() + (n - 7) * 86400_000); });
   const dirty = plan !== p.plan || (plan !== "now" && payday !== p.payday) || (plan === "fortnightly" && anchor !== p.anchor);
@@ -594,7 +595,7 @@ export function PlusPage() {
           <p className="pq-lead">Plus is on for the next 24 hours while we check your transfer. Once it lands, it's yours for the year.</p>
           <div className="pq-steps">
             <div><b className="pq-plus">+</b><span><b>Our team has been notified</b><small>We'll confirm your payment within 24 hours</small></span></div>
-            <div><b className="pq-plus">+</b><span><b>Use Plus straight away</b><small>Reduced fees, faster help and your favourites</small></span></div>
+            <div><b className="pq-plus">+</b><span><b>Use Plus straight away</b><small>Half fees, faster help and your favourites</small></span></div>
           </div>
           <div className="pq-foot"><button className="pq-gold" onClick={() => go("/")}><span>Post a job</span></button></div>
         </> : <>
@@ -624,7 +625,7 @@ export function PlusPage() {
       <h1 className="pq-h">For our <em>loyal customers.</em></h1>
 
       <div className="pq-perks">
-        <div><i className="pq-plus" aria-hidden="true">+</i>{p.senior ? <span><b>No connection fee</b><small>As you're 60 or over</small></span> : <span><b>Reduced fees</b><small>{p.rates.plus}% instead of {p.rates.payg}% on every job</small></span>}</div>
+        <div><i className="pq-plus" aria-hidden="true">+</i>{p.senior ? <span><b>No connection fee</b><small>As you're 60 or over</small></span> : <span><b>Half the fees</b><small>{pctLabel(p.rates.plus)} instead of {pctLabel(p.rates.payg)}, minimum {money2(p.rates.plus_min)}</small></span>}</div>
         <div><i className="pq-plus" aria-hidden="true">+</i><span><b>Get help faster</b><small>Workers nearby are alerted when you post</small></span></div>
         <div><i className="pq-plus" aria-hidden="true">+</i><span><b>Save your favourites</b><small>Book the workers you like, again and again</small></span></div>
       </div>

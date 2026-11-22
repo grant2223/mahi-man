@@ -2952,3 +2952,4 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .ln-v { display: inline-flex; align-items: baseline; gap: 10px; white-space: nowrap; }
 .ln-v small { font-size: 13px; font-weight: 300; color: var(--muted); }
 .ln-v b { font-size: 16px; font-weight: 500; } .ln-v b.full { color: var(--muted); font-weight: 400; }
+@media (max-width: 899px) { .td-launch-in > * { max-width: 50%; } .td-launch-in p { font-size: 15px; } .td-launch-man { right: -36px; max-height: 240px; } }

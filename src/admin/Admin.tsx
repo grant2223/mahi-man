@@ -1239,25 +1239,25 @@ function Types() {
   );
 }
 
-// What each fee state means on the jobs list. Invoice mode: "when it goes ahead" until the job finishes, then invoiced or paid.
-const FEE_LABEL: Record<string, string> = { paid: "paid", refunded: "refunded", due: "due", invoice: "when it goes ahead", invoiced: "invoiced" };
+// What each fee state means on the jobs list. Invoice mode: "when a worker's selected" until then, then invoiced or paid; void if it didn't go ahead.
+const FEE_LABEL: Record<string, string> = { paid: "paid", refunded: "refunded", due: "due", invoice: "when a worker's selected", invoiced: "invoiced", void: "given back" };
 
 // Settings in groups, each with a plain explanation. Money is shown in dollars; nothing saves until Save.
 type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" | "jobs" | "tradies" | "km" | "seats" } | { t: "text"; ph: string });
 const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
-  { title: "Payments", text: "Customers pay workers directly. The connection fee is billed when a job goes ahead, and paid by bank transfer on an invoice or from their balance.", fields: [
+  { title: "Payments", text: "Customers pay workers directly. The connection fee is billed when the customer selects a worker, with the rate the job was posted with, and paid by bank transfer on an invoice or from their balance. It's given back if the job doesn't go ahead.", fields: [
     { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash, and Mahi Man fees are invoiced. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
     { k: "fee_mode", label: "Charge the connection fee", hint: "After the pilot. While pilot mode is on, fees are always invoiced and paid by bank transfer.", t: "toggle", on: "invoice", off: "off" },
     { k: "stripe_publishable_key", label: "Stripe publishable key", hint: "Starts with pk_. Needed before card top-ups.", t: "text", ph: "pk_live_…" },
   ] },
   { title: "Connection fee", text: "Three ways to pay, shown side by side on How you pay. Invoices show GST only once you turn on Registered for GST under Payment details.", fields: [
 
-    { k: "booking_fee_percent", label: "Pay as you go", hint: "Invoiced after each job, weekly or every 2 weeks.", t: "num", unit: "%" },
-    { k: "booking_fee_max_cents", label: "Pay as you go cap", t: "num", unit: "$" },
+    { k: "booking_fee_percent", label: "Connection fee", hint: "A share of the job price. New jobs use it; jobs already posted keep theirs.", t: "num", unit: "%" },
+    { k: "booking_fee_min_cents", label: "Connection fee, minimum", t: "num", unit: "$" },
     { k: "topup_bonus_percent", label: "Top-up bonus credit", hint: "Pay $100, get $120 at 20%. Fees come off credit at the normal rate.", t: "num", unit: "%" },
     { k: "topup_amounts", label: "Top-up amounts", hint: "In cents, separated by commas, e.g. 5000,10000,25000.", t: "text", ph: "5000,10000,25000" },
-    { k: "plus_fee_percent", label: "Plus", t: "num", unit: "%" },
-    { k: "plus_fee_max_cents", label: "Plus cap", t: "num", unit: "$" },
+    { k: "plus_fee_percent", label: "Plus, connection fee", t: "num", unit: "%" },
+    { k: "plus_fee_min_cents", label: "Plus, minimum", t: "num", unit: "$" },
     { k: "plus_year_cents", label: "Plus, per year", hint: "One payment, by bank transfer in beta.", t: "num", unit: "$" },
     { k: "plus_cents", label: "Plus, monthly value", hint: "Only used to show the yearly saving.", t: "num", unit: "$" },
     { k: "invoice_due_days", label: "Invoice after each job is due in", t: "num", unit: "days" },
@@ -1709,8 +1709,8 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
   }, [view, toast]);
   useEffect(() => { load(); }, [load]);
   const act = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); toast(msg); load(); onChanged(); } catch (e) { toast((e as Error).message); } };
-  const what = (o: TradeOrder) => o.kind === "offer" ? "Offer" : o.kind === "plan" ? `${o.launch ? "Launch offer" : o.billing === "year" ? "Premium, yearly" : "Premium, monthly"}${o.renewal ? ", renewal" : ""}` : `Fee for a job won${o.job ? `: ${o.job}` : ""}`;
-  const plan = (t: Tradie) => t.premium ? (t.launch ? "Premium, launch" : t.billing === "year" ? "Premium, yearly" : "Premium, monthly") : t.plan ? "Standard" : "Not joined";
+  const what = (o: TradeOrder) => o.kind === "offer" ? "Offer" : o.kind === "plan" ? `${o.launch ? "Premium for life" : o.billing === "year" ? "Premium, yearly" : "Premium, monthly"}${o.renewal ? ", renewal" : ""}` : `Fee for a job won${o.job ? `: ${o.job}` : ""}`;
+  const plan = (t: Tradie) => t.premium ? (t.launch ? "Premium for life" : t.billing === "year" ? "Premium, yearly" : "Premium, monthly") : t.plan ? "Standard" : "Not joined";
   return (
     <>
       {sum && (
@@ -1734,7 +1734,12 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
               <tr key={t.worker_id}>
                 <td><span className="w5">{t.business_name ?? t.full_name}</span>{t.business_name && <span className="small muted light" style={{ display: "block" }}>{t.full_name}</span>}</td>
                 <td className="light">{t.licences.length ? t.licences.join(", ") : "Being checked"}</td>
-                <td><span className={`badge ${t.premium ? "y" : t.plan ? "g" : ""}`}>{plan(t)}</span>{t.premium && t.renews_at && <span className="small muted light" style={{ display: "block" }}>Renews {day(t.renews_at)}</span>}</td>
+                <td><span className={`badge ${t.premium ? "y" : t.plan ? "g" : ""}`}>{plan(t)}</span>{t.premium && t.renews_at && <span className="small muted light" style={{ display: "block" }}>Renews {day(t.renews_at)}</span>}
+                  {t.premium && t.launch && <button className="btn stone small" style={{ display: "block", marginTop: 6 }} onClick={async () => {
+                    if (!confirm(`Refund ${t.business_name ?? t.full_name} under the money-back guarantee? Send the money back by bank transfer first. Lifetime Premium ends and they move to Standard.`)) return;
+                    try { await rpc("admin_trade_launch_refund", { p_worker: t.worker_id, p_note: null }); toast("Premium ended. They're on Standard now."); rpc<Tradie[]>("admin_tradies").then(setTradies); }
+                    catch (e) { toast((e as Error).message); }
+                  }}>Refund</button>}</td>
                 <td>{t.quotes_30}</td>
                 <td>{t.won_30}</td>
                 <td className="w5">{t.owed_cents ? money2(t.owed_cents) : "—"}</td>
@@ -2232,7 +2237,7 @@ type TOffer = { id: number | null; name: string; price_cents: number; months: nu
 const bneToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Brisbane" });
 const dShort = (iso: string) => new Date(iso + "T12:00:00+10:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }).replace(",", "");
 // The launch offer: one yearly price, locked in while they stay subscribed, for the first few tradies in each trade.
-type Launch = { price_cents: number; spots: number; trades: { trade: string; paid: number; waiting: number }[] };
+type Launch = { price_cents: number; open: boolean; guarantee_days: number; paid: number; waiting: number };
 function TradeLaunch() {
   const toast = useToast();
   const [d, setD] = useState<Launch | null>(null);
@@ -2241,28 +2246,23 @@ function TradeLaunch() {
   const load = useCallback(() => { rpc<Launch>("admin_trade_launch").then(setD).catch((e) => toast((e as Error).message)); }, [toast]);
   useEffect(load, [load]);
   if (!d) return <Loading />;
-  const full = d.trades.filter((t) => t.paid + t.waiting >= d.spots).length;
   return <>
     <div className="row between" style={{ margin: "20px 0 12px", gap: 12 }}>
       <span className="stack" style={{ gap: 2 }}>
         <span className="row" style={{ gap: 6 }}><h3 className="ln-h">Launch offer</h3><button className="of-i" onClick={() => setInfo(true)} aria-label="About the launch offer">{Icon.info("var(--muted)", 18)}</button></span>
-        <span className="t15 light muted">{dollars(d.price_cents)} a year, {d.spots} spots in each trade{full ? `, ${full} full` : ""}</span>
+        <span className="t15 light muted">{dollars(d.price_cents)} once, Premium for life</span>
       </span>
       <button className="btn stone" onClick={() => setEdit(true)}>Change</button>
     </div>
-    <div className="of-list">{d.trades.map((t) => {
-      const taken = t.paid + t.waiting, isFull = taken >= d.spots;
-      return (
-        <div key={t.trade} className="of-r ln-r">
-          <span className="of-k">{t.trade}</span>
-          <span className="ln-v">{t.waiting > 0 && <small>{t.waiting} waiting to pay</small>}<b className={isFull ? "full" : ""}>{isFull ? "Full" : `${taken} of ${d.spots}`}</b></span>
-        </div>
-      );
-    })}</div>
+    <div className="of-list">
+      <div className="of-r ln-r"><span className="of-k">Status</span><span className="ln-v"><b className={d.open ? "" : "full"}>{d.open ? "On sale" : "Ended"}</b></span></div>
+      <div className="of-r ln-r"><span className="of-k">Tradies on lifetime Premium</span><span className="ln-v"><b>{d.paid}</b></span></div>
+      <div className="of-r ln-r"><span className="of-k">Waiting to pay</span><span className="ln-v"><b>{d.waiting}</b></span></div>
+    </div>
     {info && <Screen title="Launch offer" onBack={() => setInfo(false)}><div className="screen-body of-info">
-      <p>Premium for {dollars(d.price_cents)} a year, and it stays that price every year while the tradie stays subscribed.</p>
-      <p>The first {d.spots} tradies in each trade get it. A tradie takes a spot in each of their trades that has room. A spot is held while their invoice waits to be paid and freed if it's cancelled. When a trade is full, the offer closes for that trade only.</p>
-      <p>If a tradie cancels and comes back, they pay the regular Premium price.</p>
+      <p>One payment of {dollars(d.price_cents)} for lifetime Premium, paid by bank transfer like every tradie invoice. Nothing renews.</p>
+      <p>Tradies see it as a limited launch offer, never with a number of spots. It's for tradies who haven't had Premium before. End it any time with Change; anyone who's paid keeps it.</p>
+      <p>Money-back guarantee: within {d.guarantee_days} days of paying, a tradie can ask for the full amount back. Send the money back by bank transfer, then press Refund on them under Tradies. Their Premium ends and they move to Standard.</p>
     </div></Screen>}
     {edit && <LaunchEdit d={d} onClose={() => setEdit(false)} onSaved={() => { setEdit(false); load(); }} />}
   </>;
@@ -2270,23 +2270,27 @@ function TradeLaunch() {
 function LaunchEdit({ d, onClose, onSaved }: { d: Launch; onClose: () => void; onSaved: () => void }) {
   const toast = useToast();
   const [price, setPrice] = useState(String(d.price_cents / 100));
-  const [spots, setSpots] = useState(String(d.spots));
+  const [open, setOpen] = useState(d.open);
   const [busy, setBusy] = useState(false);
   const save = async () => {
     setBusy(true);
-    try { await rpc("admin_trade_launch_save", { p_price_cents: Math.round(Number(price || 0) * 100), p_spots: Number(spots || 0) }); toast("Saved"); onSaved(); }
+    try { await rpc("admin_trade_launch_save", { p_price_cents: Math.round(Number(price || 0) * 100), p_open: open }); toast("Saved"); onSaved(); }
     catch (e) { toast((e as Error).message); setBusy(false); }
   };
   return (
     <div className="mn-detail">
       <div className="mn-top">
         <button className="cx-back" onClick={onClose} aria-label="Back">{Icon.back("var(--ink)")}</button>
-        <span><b>Launch offer</b><small>Locked in while they stay subscribed</small></span>
+        <span><b>Launch offer</b><small>Lifetime Premium, one payment</small></span>
       </div>
       <div className="mn-body">
         <div className="of-list">
-          <label className="of-r"><span className="of-k">A year</span><span className="of-v"><span className="of-pre">$</span><input className="of-in of-amt" inputMode="decimal" value={price} size={Math.max(2, price.length)} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} /></span></label>
-          <label className="of-r"><span className="of-k">Spots in each trade</span><input className="of-v of-in of-num" inputMode="numeric" value={spots} onChange={(e) => setSpots(e.target.value.replace(/\D/g, ""))} /></label>
+          <label className="of-r"><span className="of-k">Price, once</span><span className="of-v"><span className="of-pre">$</span><input className="of-in of-amt" inputMode="decimal" value={price} size={Math.max(2, price.length)} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} /></span></label>
+          <div className="of-r"><span className="of-k">On sale</span>
+            <span className="seg" style={{ display: "inline-flex", gap: 6 }}>
+              <button className={`btn small ${open ? "primary" : "stone"}`} onClick={() => setOpen(true)}>On</button>
+              <button className={`btn small ${!open ? "primary" : "stone"}`} onClick={() => setOpen(false)}>Ended</button>
+            </span></div>
         </div>
       </div>
       <div className="mn-foot ps-btns one"><button className="btn primary" disabled={busy} onClick={save}>{Icon.tick("currentColor", 20)}Save</button></div>

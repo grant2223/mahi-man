@@ -12,7 +12,7 @@ import type { Offer, MyOffer } from "./Work";
 /* Trade jobs for tradespeople. Standard (free to join, a share of the quote, capped, only when a customer picks your quote),
    or Premium, monthly or yearly (no fee, every new job first). A tradesperson is a tradesperson; only the timing and the fee differ. Customers don't set a budget; tradies quote their price. */
 
-interface Prices { win_pct_bp: number; win_max_cents: number; launch_year_cents: number; launch_spots: number; month_cents: number; year_cents: number; standard_after_minutes: number; standard_early_minutes: number;
+interface Prices { win_pct_bp: number; win_max_cents: number; launch_cents: number; launch_open: boolean; guarantee_days: number; month_cents: number; year_cents: number; standard_after_minutes: number; standard_early_minutes: number;
   first_quotes: number; more_quotes: number; more_every_minutes: number; max_quotes: number; quiet_hours: number; qbcc_over_cents?: number }
 interface Pay { payid?: string; bsb?: string; account?: string; account_name?: string; trading_name?: string }
 export interface TradeStatus {
@@ -23,8 +23,8 @@ export interface TradeStatus {
     offer?: { name: string; months: number; starts_on: string | null } | null } | null;
   // An offer this tradie can claim right now: a price for some months of Premium (set in Admin).
   offer?: { id: number; name: string; price_cents: number; months: number; sale_to: string; starts_on: string | null; left: number | null } | null;
-  // The launch offer in one of their trades with spots left, or null once every one of their trades is full.
-  launch?: { trade: string; left: number } | null;
+  // The launch offer (lifetime Premium for one payment) while it's open and they haven't had Premium before.
+  launch?: { price_cents: number } | null;
   owed: { id: number; reference: string; amount_cents: number; job: string; created_at: string; status?: "requested" | "claimed" }[];
   won_this_month: number; premium_now: { n: number; photos: string[] }; pay: Pay;
 }
@@ -78,11 +78,11 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
   const after = p.standard_after_minutes >= 60 && p.standard_after_minutes % 60 === 0 ? `${p.standard_after_minutes / 60} hour${p.standard_after_minutes === 60 ? "" : "s"}` : `${p.standard_after_minutes} min`;
   const example = 40000;
   const rows: [string, string, string][] = [
-    ["To join", "Free", L ? `${dollars(p.launch_year_cents)} a year` : year ? `${dollars(p.year_cents)} a year` : `${dollars(p.month_cents)} a month`],
+    ["To join", "Free", L ? `${dollars(L.price_cents)} once, for life` : year ? `${dollars(p.year_cents)} a year` : `${dollars(p.month_cents)} a month`],
     ["Fee if you win", feeRule(p), "$0"],
     [`On a ${dollars(example)} job`, cents2(winFee(example, p)), "$0"],
     ["Job alerts", `After ${after}`, "First"],
-    ["Your quote", "In the list", "Top 10"],
+    ["Your quote", "In the list", "First 10"],
     ["Commission", "None", "None"],
   ];
   const join = async (plan: "standard" | "premium" | "offer" | "launch") => {
@@ -91,7 +91,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
     try {
       if (plan === "offer" && of) await rpc("trade_offer_claim", { p_offer: of.id });
       else await rpc("trade_join", { p_plan: plan === "launch" ? "launch" : plan, p_billing: plan === "launch" || year ? "year" : "month", p_business: null });
-      toast(plan === "offer" || plan === "launch" ? "Spot held. Pay the invoice to lock it in." : plan === "premium" ? "Invoice on its way. Premium starts once it's paid." : "You're in. Trade jobs near you show on your jobs page.");
+      toast(plan === "launch" ? "Invoice on its way. Lifetime Premium starts once it's paid." : plan === "offer" ? "Spot held. Pay the invoice to lock it in." : plan === "premium" ? "Invoice on its way. Premium starts once it's paid." : "You're in. Trade jobs near you show on your jobs page.");
       onJoined(plan === "standard" ? "standard" : "premium");
     } catch (e) {
       setBusy(false);
@@ -100,7 +100,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
   };
   const perks = <>
     <span className="hx-li">{Icon.tick("var(--gold)", 20)} Job alerts first</span>
-    <span className="hx-li">{Icon.tick("var(--gold)", 20)} Your quote in the top 10</span>
+    <span className="hx-li">{Icon.tick("var(--gold)", 20)} A place in the first 10 quotes</span>
     <span className="hx-li">{Icon.tick("var(--gold)", 20)} No commission, $0 when you win</span>
   </>;
   const alt = (label: string, k: "monthly" | "job", plan: "premium" | "standard") => (
@@ -114,11 +114,11 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
       <div className="screen-body">
         <section className="hx">
           <div className="top"><button className="back" onClick={onBack} aria-label="Back">{Icon.back("#fff")}</button></div>
-          <span className="hx-tag">{L ? `Launch offer, ${L.left} of ${p.launch_spots} left in ${L.trade}` : OFFER ? `${OFFER.name}${OFFER.left !== null ? `, ${OFFER.left} spots left` : ""}` : "For tradespeople"}</span>
+          <span className="hx-tag">{L ? "Limited launch offer" : OFFER ? OFFER.name : "For tradespeople"}</span>
           <h1>Every local trade job, first.</h1>
           {L ? <>
-            <span className="hx-price">{dollars(p.launch_year_cents)}<small> a year</small></span>
-            <span className="hx-off">Locked in while you stay subscribed<button className="of-i dark" onClick={() => setInfo("launch")} aria-label="About the launch offer">{Icon.info("rgba(255,255,255,0.8)", 18)}</button></span>
+            <span className="hx-price">{dollars(L.price_cents)}<small> once</small></span>
+            <span className="hx-off">Premium for life. Money-back guarantee<button className="of-i dark" onClick={() => setInfo("launch")} aria-label="About the launch offer">{Icon.info("rgba(255,255,255,0.8)", 18)}</button></span>
           </> : OFFER ? <>
             <span className="hx-price">{dollars(OFFER.price)}<small> for {OFFER.months} months</small></span>
             <span className="hx-off">{OFFER.starts === "today" ? "Starts when paid" : `From ${OFFER.starts}`}, then {dollars(p.month_cents)} a month<button className="of-i dark" onClick={() => setInfo("offer")} aria-label="About this offer">{Icon.info("rgba(255,255,255,0.8)", 18)}</button></span>
@@ -129,7 +129,7 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
             <button className={year ? "on" : ""} onClick={() => setYear(true)}>Yearly{freeMonths ? `, ${freeMonths} months free` : ""}</button>
           </div></>}
           {!OFFER && perks}
-          <button className="btn hx-go" disabled={busy} onClick={() => join(L ? "launch" : OFFER ? "offer" : "premium")}>{L ? `Claim for ${dollars(p.launch_year_cents)}` : OFFER ? `Claim for ${dollars(OFFER.price)}` : "Go Premium"} {Icon.arrow("#2a2d32")}</button>
+          <button className="btn hx-go" disabled={busy} onClick={() => join(L ? "launch" : OFFER ? "offer" : "premium")}>{L ? `Claim for ${dollars(L.price_cents)}` : OFFER ? `Claim for ${dollars(OFFER.price)}` : "Go Premium"} {Icon.arrow("#2a2d32")}</button>
         </section>
         {missing(trade).length > 0 && <section className="tj-sec"><TradeReady trade={trade} /></section>}
         <section className="tj-sec last">
@@ -148,13 +148,14 @@ export function TradeJoin({ trade, onBack, onJoined, onNeedPay }: { trade: Trade
         </section>
       </div>
       {info && <Screen title={info === "launch" ? "Launch offer" : info === "offer" && OFFER ? OFFER.name : info === "job" ? "Standard" : "Premium"} onBack={() => setInfo(null)}><div className="screen-body of-info">
-        {info === "launch"
-          ? <><p>{dollars(p.launch_year_cents)} a year for Premium, and it stays {dollars(p.launch_year_cents)} every year for as long as you stay subscribed. Only the first {p.launch_spots} tradies in each trade get it{L ? `, and ${L.left} spots are left in ${L.trade}` : ""}.</p>
-            <p>If you cancel and come back later, you pay the regular price: {dollars(p.month_cents)} a month or {dollars(p.year_cents)} a year.</p></>
+        {info === "launch" && L
+          ? <><p>One payment of {dollars(L.price_cents)} and you're on Premium for life: job alerts first, a guaranteed place in the first 10 quotes, and $0 when you win. No monthly or yearly fee, ever.</p>
+            <p>Money-back guarantee: if you're not happy within {p.guarantee_days} days of paying, ask us and we refund the {dollars(L.price_cents)} in full. Premium ends when it's refunded. The full terms are in the Terms of use.</p>
+            <p>This is a limited launch offer and can end at any time.</p></>
           : info === "offer" && OFFER
           ? <><p>{dollars(OFFER.price)} covers {OFFER.months} months of Premium, {OFFER.starts === "today" ? "starting when your payment is confirmed" : `from ${OFFER.starts}`}. After that it's {dollars(p.month_cents)} a month. We remind you 7 days before, and you can stop any time. Claim by {OFFER.until}.</p></>
           : info === "job" ? <p>Free to join and free to quote. If a customer selects your quote, the fee is {p.win_pct_bp / 100}% of your quote, never more than {dollars(p.win_max_cents)}. Win a {dollars(example)} job and it's {cents2(winFee(example, p))}. Job alerts come to you after {after}.</p>
-          : <p>{dollars(p.month_cents)} a month or {dollars(p.year_cents)} a year. Job alerts first, your quote in the top 10, and $0 when you win. Stop any time.</p>}
+          : <p>{dollars(p.month_cents)} a month or {dollars(p.year_cents)} a year. Job alerts first, a guaranteed place in the first 10 quotes, and $0 when you win. Stop any time.</p>}
       </div></Screen>}
     </div>
   );
@@ -165,7 +166,7 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: Trad
   const [busy, setBusy] = useState(false);
   const pl = trade.plan, o = trade.order, pay = trade.pay;
   const [paying, setPaying] = useState(false);
-  const oName = o?.kind === "offer" && o.offer ? `${o.offer.name}, ${o.offer.months} months` : o?.launch ? "Premium, launch offer" : o?.billing === "year" ? "Premium, yearly" : "Premium, monthly";
+  const oName = o?.kind === "offer" && o.offer ? `${o.offer.name}, ${o.offer.months} months` : o?.launch ? "Premium for life, launch offer" : o?.billing === "year" ? "Premium, yearly" : "Premium, monthly";
   const owed = trade.owed.reduce((a, x) => a + x.amount_cents, 0);
   // What "I've paid" pays: the Premium invoice, or else the oldest fee on a won job.
   const fee = trade.owed.find((x) => x.status !== "claimed");
@@ -180,11 +181,11 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: Trad
     <Screen title="How you pay" onBack={onBack}>
       <div className="screen-body" style={{ background: "var(--card)", display: "flex", flexDirection: "column" }}>
         <div className="cp-sec">
-          <span className="cp-title">{pl?.premium || pl?.starts_on ? (pl?.offer ?? (pl.launch ? "Premium, launch offer" : "Premium")) : "Standard"}</span>
+          <span className="cp-title">{pl?.premium || pl?.starts_on ? (pl?.offer ?? (pl.launch ? "Premium for life" : "Premium")) : "Standard"}</span>
           {pl?.starts_on && !pl.premium
             ? <span className="t15 light muted">Premium starts {day(pl.starts_on)} and runs until {day(pl.renews_at!)}.</span>
             : pl?.premium
-            ? <span className="t15 light muted">{pl.status === "stopped" ? `Stopped. Premium runs until ${day(pl.renews_at!)}, then you're on Standard.` : pl.launch ? `${dollars(trade.prices.launch_year_cents)} a year, locked in. Renews ${day(pl.renews_at!)}.` : `${pl.billing === "year" ? "Yearly" : "Monthly"}. Renews ${day(pl.renews_at!)}.`}</span>
+            ? <span className="t15 light muted">{pl.status === "stopped" ? `Stopped. Premium runs until ${day(pl.renews_at!)}, then you're on Standard.` : pl.launch ? "Paid once. Nothing renews." : `${pl.billing === "year" ? "Yearly" : "Monthly"}. Renews ${day(pl.renews_at!)}.`}</span>
             : <span className="t15 light muted">Fee if you win: {trade.prices.win_pct_bp / 100}% of your quote, max {dollars(trade.prices.win_max_cents)}. {trade.won_this_month ? `${trade.won_this_month} won this month.` : ""}</span>}
         </div>
         {(o || owed > 0) && (
@@ -207,10 +208,10 @@ export function TradePlan({ trade, onBack, onChanged, onUpgrade }: { trade: Trad
           </div>
         )}
         {missing(trade).length > 0 && <div className="cp-sec"><TradeReady trade={trade} /></div>}
-        <Note icon="clock">{pl?.premium || pl?.starts_on ? "You see every new trade job first." : `Premium gets you job alerts first, your quote in the top 10, and $0 when you win.`}</Note>
+        <Note icon="clock">{pl?.premium || pl?.starts_on ? "You see every new trade job first." : `Premium gets you job alerts first, a guaranteed place in the first 10 quotes, and $0 when you win.`}</Note>
         <div style={{ flex: 1 }} />
-        {pl?.premium && pl.status === "active" && (
-          <div style={{ padding: "0 16px 12px" }}><button className="btn stone" disabled={busy} onClick={() => run("trade_stop", "Premium won't renew")}>Stop Premium</button>{pl.launch && <span className="t15 light muted" style={{ display: "block", marginTop: 8 }}>Your launch price ends if you stop. Coming back is {dollars(trade.prices.month_cents)} a month or {dollars(trade.prices.year_cents)} a year.</span>}</div>
+        {pl?.premium && pl.status === "active" && !pl.launch && (
+          <div style={{ padding: "0 16px 12px" }}><button className="btn stone" disabled={busy} onClick={() => run("trade_stop", "Premium won't renew")}>Stop Premium</button></div>
         )}
         {!pl?.premium && !pl?.starts_on && !o && <ActionBar><button className="btn hx-go" style={{ flex: 1 }} onClick={onUpgrade}>Go Premium</button></ActionBar>}
       </div>
