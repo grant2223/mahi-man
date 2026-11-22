@@ -1,7 +1,7 @@
 import { pctLabel } from "../lib/fee";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { Capacitor } from "@capacitor/core";
-import { api, rpc, sb, myId } from "../lib/supabase";
+import { rpc, sb, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money, money2, shrinkImage } from "../lib/format";
@@ -9,7 +9,6 @@ import { Icon, Loading, Screen, SearchPicker, StepHero, useToast } from "./kit";
 import { ActionBar } from "./Completion";
 import { AuthScreen } from "./Auth";
 import { HistList, glyph, saveDocument, useHistory } from "./History";
-import { stripeFor } from "../customer/Cards";
 
 /* How customers pay Mahi Man: pay as you go (invoiced by bank transfer) or Plus. Credit (gifts, cancellations) still pays fees first.
    Every number comes from the live settings through my_payments(). */
@@ -318,116 +317,6 @@ export function InvoicePage({ id }: { id: number }) {
 }
 
 const savePdf = (inv: InvoiceDetail) => saveDocument({ doc: "invoice", id: inv.id });
-
-/* ---------- Top up ---------- */
-const AMOUNTS = [5000, 10000, 25000]; // shown until the topup_amounts setting loads
-
-export function TopUpPage() {
-  const toast = useToast();
-  const { profile } = useSession();
-  const { p, reload, failed } = usePayments();
-  const [amount, setAmount] = useState(5000);
-  const [amounts, setAmounts] = useState(AMOUNTS);
-  const [bonus, setBonus] = useState(20); // % extra credit on a top-up
-  useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["topup_amounts", "topup_bonus_percent"]).then(({ data }) => (data ?? []).forEach((r) => {
-      if (r.key === "topup_bonus_percent") { const b = Number(r.value); if (b >= 0) setBonus(b); return; }
-      const a = String(r.value ?? "").split(",").map((x) => Number(x.trim())).filter((x) => x > 0);
-      if (a.length) { setAmounts(a); setAmount((c) => (a.includes(c) ? c : a[0])); }
-    }));
-  }, []);
-  const credit = (a: number) => Math.round(a * (100 + bonus) / 100);
-  const [via, setVia] = useState<"card" | "bank" | null>(null);
-  const [auto, setAuto] = useState<boolean | null>(null);
-  const [pick, setPick] = useState<"via" | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState("");
-  const [bank, setBank] = useState<{ id: number; reference: string; amount: number; status: string; pay: PayDetails } | null>(null);
-  const [key] = useState(() => crypto.randomUUID()); // one charge per visit, even if the button is pressed twice
-  const waitingId = Number(new URLSearchParams(location.search).get("id")) || null;
-  useEffect(() => {
-    if (!p) return;
-    const t = waitingId ? p.topups.find((x) => x.id === waitingId) : null;
-    if (t) setBank({ ...t, pay: p.pay });
-  }, [p, waitingId]);
-  if (!p) return <Page title="Top up" onBack={back("/payments")}><Waiting failed={failed} onRetry={reload} /></Page>;
-
-  const canCard = p.card_live && !!p.card;
-  const how = via ?? (canCard ? "card" : "bank");
-  const autoOn = auto ?? p.auto_topup;
-
-  // Bank transfer: the payment details, then a plain "we'll confirm" once they say it's sent.
-  if (bank) return (
-    <div className="app pq">
-      <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
-      {bank.status === "claimed" ? <>
-        <PaidThanks first={profile?.full_name?.split(" ")[0]} amount={bank.amount} reference={bank.reference}
-          what={`${money(credit(bank.amount))} connection fee credit`} last={`${money(credit(bank.amount))} added to your credit`} />
-        <div className="pq-foot"><button className="pq-gold" onClick={() => go("/payments", true)}><span>Done</span></button></div>
-      </> : (
-        <BankPay title="Connection fee credit" sub={`${money(credit(bank.amount))} credit, ${bank.reference}`} amount={bank.amount} pay={bank.pay} reference={bank.reference}
-          note={`Confirmed within 24 hours, usually faster, then ${money(credit(bank.amount))} is added to your credit.`}
-          onConfirm={async (c) => { await rpc("topup_claim_paid", { p_id: bank.id, ...claimArgs(c) }); setBank({ ...bank, status: "claimed" }); reload(); }}
-          onCancel={async () => { try { await rpc("topup_cancel", { p_id: bank.id }); toast("Top-up cancelled"); go("/payments", true); } catch (e) { toast(e instanceof Error ? e.message : String(e)); } }} />
-      )}
-    </div>
-  );
-
-  const submit = async () => {
-    setBusy(true); setErr("");
-    try {
-      if (how === "bank") {
-        const r = await rpc<{ id: number; reference: string; amount: number; pay: PayDetails }>("topup_request", { p_amount: amount });
-        setBank({ ...r, status: "requested" });
-      } else {
-        if (autoOn !== p.auto_topup) await rpc("set_auto_topup", { p_on: autoOn });
-        const r = await api<{ done?: boolean; action?: string; client_secret?: string; publishable_key?: string }>("topup_card", { amount, key: `${key}-${amount}` });
-        if (r.action === "authenticate" && r.client_secret && r.publishable_key) {
-          const stripe = await stripeFor(r.publishable_key);
-          const res = await stripe?.confirmCardPayment(r.client_secret);
-          if (!res || res.error || !res.paymentIntent) throw new Error(res?.error?.message ?? "Your bank didn't approve it. Try again.");
-          await api("topup_card_done", { payment_intent_id: res.paymentIntent.id });
-        }
-        toast(`${money(amount)} added`); reload(); go("/payments", true);
-      }
-    } catch (e) { setErr(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
-  };
-
-  const viaOpts = [...(p.card_live ? [{ id: "card", label: p.card ?? "Add a card first", disabled: !p.card }] : []), { id: "bank", label: "Bank transfer", hint: "Added once it's confirmed" }];
-  return (
-    <div className="app pq">
-      <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
-      <h1 className="pq-pt">Prepay your <em>connection fees.</em></h1>
-      <p className="pq-lead">Get bonus credit when you prepay. Your connection fees come off your credit. Workers are still paid directly by you.</p>
-      {/* Each amount shows the credit it buys: what you pay, what you get, and the bonus. */}
-      <div className="pq-amts" role="radiogroup" aria-label="Amount">
-        {amounts.map((a) => (
-          <button key={a} role="radio" aria-checked={amount === a} className={amount === a ? "on" : ""} onClick={() => setAmount(a)}>
-            <b>Pay {money(a)}</b>
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6" /></svg>
-            <em>Get {money(credit(a))} credit</em>
-          </button>
-        ))}
-      </div>
-      <p className="pq-bal">Your credit now: {money2(p.balance)}</p>
-      <div className="pq-fields">
-        {p.card_live && <button className="pq-field" onClick={() => setPick("via")}><small>Pay with</small><b>{how === "card" ? p.card : "Bank transfer"}</b>{Icon.chevron("#f5c518")}</button>}
-        {how === "card" && (
-          <div className="row between" style={{ marginTop: 6, alignItems: "center", gap: 14 }}>
-            <span className="stack" style={{ gap: 2 }}><span className="w5">Top up automatically</span><span className="t14 light" style={{ color: "rgba(255,255,255,.7)" }}>Add {money(p.rates.auto_topup)} when your credit drops under {money(p.rates.auto_below)}</span></span>
-            <button className={`toggle ${autoOn ? "on" : ""}`} aria-pressed={autoOn} aria-label="Top up automatically" onClick={() => setAuto(!autoOn)} />
-          </div>
-        )}
-      </div>
-      {err && <p className="err" style={{ margin: "12px 0 0" }}>{err}</p>}
-      <div className="pq-foot">
-        <button className="pq-gold" disabled={busy} onClick={submit}><span>{busy ? "One moment…" : how === "card" ? `Top up ${money(amount)}` : "Continue"}</span></button>
-        <span className="pq-small">Credit only pays Mahi Man connection fees. Top-ups aren't refundable.</span>
-      </div>
-      {pick === "via" && <SearchPicker title="Pay with" options={viaOpts} value={[how]} onClose={() => setPick(null)} onChange={(v) => setVia(v[0] as "card" | "bank")} />}
-    </div>
-  );
-}
 
 /* ---------- Pay by bank transfer ----------
    One screen for every bank transfer (Plus, top-ups): what it's for and the amount, the details in the order banks ask

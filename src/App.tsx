@@ -21,7 +21,7 @@ import { PayoutsDone, Privacy, Support, Terms } from "./ui/Legal";
 import { AddCodePage, ClaimPage, GiftPage, GiveHelpPage } from "./ui/Gifts";
 import { HistoryPage, ReceiptPage } from "./ui/History";
 import { TradiesPage } from "./ui/Tradies";
-import { HowYouPay, InvoicePage, PaymentsPage, PlusPage, TopUpPage } from "./ui/Payments";
+import { HowYouPay, InvoicePage, PaymentsPage, PlusPage } from "./ui/Payments";
 import { lastSide } from "./ui/SideSwitch";
 import { GetAppPage, Landing } from "./ui/Landing";
 import { useEffect } from "react";
@@ -94,7 +94,7 @@ function Routes() {
   if (path === "/payments" || path === "/topup" || path === "/plus" || inv) {
     if (ready && !session) { go("/", true); return null; }
     if (!session) return null;
-    return inv ? <InvoicePage id={Number(inv[1])} /> : path === "/payments" ? <PaymentsPage /> : path === "/topup" && new URLSearchParams(location.search).get("id") ? <TopUpPage /> : <PlusPage />;
+    return inv ? <InvoicePage id={Number(inv[1])} /> : path === "/plus" ? <PlusPage /> : <PaymentsPage />;
   }
   if (path === "/verify") {
     if (ready && !session) { go("/", true); return null; }
