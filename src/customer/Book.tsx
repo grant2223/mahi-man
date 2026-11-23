@@ -420,7 +420,7 @@ export function Book() {
       <div className="app wk">
         {(() => {
           const jobName = d.title?.trim() || jobSkills.map((k) => k.name).join(", ") || cat?.name || "The job";
-          const when = d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+          const when = d.asap ? "Now" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
           // The connection fee Mahi Man charges. Invoiced (bank transfer) in the pilot, by card after it.
           const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : connFee(d.priceCents, feePct, feeMin, feeMax);
           const connCharged = !isTrade && (invoiceFee ? true : bookingFee > 0);
