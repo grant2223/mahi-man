@@ -43,14 +43,9 @@ interface Draft {
 const DRAFT_KEY = "mm-draft-2";
 const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 10, reuse: [], included: [], excluded: [], payMethod: "cash" };
 const MAX_PHOTOS = 6;
-// The address from their last job, so the next one starts filled in. Kept on this phone only. Pay by always starts on cash.
-const LAST_KEY = "mm-last-job";
-function lastUsed(): Partial<Draft> {
-  try { const l = JSON.parse(localStorage.getItem(LAST_KEY) || "{}"); return { ...(l.suburbId ? { suburbId: l.suburbId, address: l.address ?? "", notes: l.notes ?? "" } : {}) }; } catch { return {}; }
-}
-function rememberLast(d: Draft) {
-  try { localStorage.setItem(LAST_KEY, JSON.stringify({ suburbId: d.suburbId, address: d.address, notes: d.notes })); } catch { /* private mode */ }
-}
+// Every new job starts with the address empty: they use their current location or type it. Pay by always starts on cash.
+// Older versions kept the last job's address on the phone and filled it in; clear it so it never shows again.
+try { localStorage.removeItem("mm-last-job"); } catch { /* private mode */ }
 const MAX_VIDEO_SECONDS = 60;
 
 export interface PastWorker { worker_id: string; full_name: string; photo_path: string | null; id_verified: boolean; rating: number | null; jobs_for_me: number; last_job: string | null; online?: boolean }
@@ -82,7 +77,7 @@ export function Book() {
   const [feePct, setFeePct] = useState(15);
   const [feeMin, setFeeMin] = useState(995);
   const [feeMax, setFeeMax] = useState(5995);
-  const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...lastUsed(), ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
+  const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
   const [media, setMedia] = useState<(DraftItem & { url: string })[]>([]);
   const [reuseUrls, setReuseUrls] = useState<Record<string, string>>({});
   const [past, setPast] = useState<PastWorker[]>([]);
@@ -175,7 +170,7 @@ export function Book() {
     setReuseUrls({});
     uploads.current = {};
     setErr("");
-    setD({ ...blank, ...lastUsed(), ...prefill, ...(prefill?.priceCents ? { priceCents: Math.max(prefill.priceCents, LO) } : {}), priceSet: !!prefill?.priceCents });
+    setD({ ...blank, ...prefill, ...(prefill?.priceCents ? { priceCents: Math.max(prefill.priceCents, LO) } : {}), priceSet: !!prefill?.priceCents });
     go(to);
   }
 
@@ -367,7 +362,6 @@ export function Book() {
       // A repeat: set up now the job is posted. If it fails the job still stands; they can set it from Home.
       if (!isTrade && d.repeatWeeks) await rpc("repeat_set", { p_job: id, p_weeks: d.repeatWeeks }).catch(() => toast("Posted. The repeat didn't save, so post it again from Home to repeat it."));
       const finish = async () => {
-        rememberLast(d);
         sessionStorage.removeItem(DRAFT_KEY);
         await draftMedia.clear();
         go(`/job/${id}`);
