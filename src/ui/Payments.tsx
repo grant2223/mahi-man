@@ -20,7 +20,7 @@ interface TopupRow { id: number; reference: string; amount: number; status: "req
 interface PlusOrder { id: number; reference: string; amount: number; months: number; status: "requested" | "claimed" }
 export interface MyPayments {
   mode: string; card_live: boolean;
-  rates: { payg: number; payg_min: number; topup: number; topup_min: number; plus: number; plus_min: number; plus_cents: number; plus_year: number; auto_topup: number; auto_below: number };
+  rates: { payg: number; payg_min: number; payg_max?: number; plus_max?: number; topup: number; topup_min: number; plus: number; plus_min: number; plus_cents: number; plus_year: number; auto_topup: number; auto_below: number };
   balance: number; gift_balance: number; gift_from: string | null; plan: "now" | "weekly" | "fortnightly"; payday: number; anchor: string | null;
   plus_until: string | null; senior?: boolean; plus_renew: boolean; plus_order: PlusOrder | null; auto_topup: boolean; card: string | null; pay: PayDetails;
   next: { total: number; lines: Line[] }; invoices: InvoiceRow[]; log: { delta: number; kind: string; note: string; at: string }[]; topups: TopupRow[];
@@ -94,12 +94,12 @@ const Badge = ({ s }: { s: string }) => <span className={`badge ${STATUS[s]?.[0]
 /* ---------- How you pay (was Pricing) ---------- */
 export function HowYouPay() {
   const { session } = useSession();
-  const [r, setR] = useState({ payg: 15, payg_min: 995, plus: 7.5, plus_min: 495, plus_year: 9900 });
+  const [r, setR] = useState({ payg: 15, payg_min: 995, payg_max: 5995, plus: 7.5, plus_min: 495, plus_max: 2995, plus_year: 9900 });
   const [auth, setAuth] = useState<string | null>(null);
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "plus_fee_percent", "plus_fee_min_cents", "plus_year_cents"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "booking_fee_max_cents", "plus_fee_percent", "plus_fee_min_cents", "plus_fee_max_cents", "plus_year_cents"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((x) => [x.key, Number(x.value)]));
-      setR((c) => ({ payg: m.booking_fee_percent || c.payg, payg_min: m.booking_fee_min_cents || c.payg_min,
+      setR((c) => ({ payg: m.booking_fee_percent || c.payg, payg_min: m.booking_fee_min_cents || c.payg_min, payg_max: m.booking_fee_max_cents || c.payg_max, plus_max: m.plus_fee_max_cents || c.plus_max,
         plus: m.plus_fee_percent || c.plus, plus_min: m.plus_fee_min_cents || c.plus_min, plus_year: m.plus_year_cents || c.plus_year }));
     });
   }, []);
@@ -126,13 +126,14 @@ export function HowYouPay() {
         <div className="pl-row pl-head"><span /><b>Pay as you go</b><b><span className="pl-badge">Plus</span></b></div>
         <div className="pl-row"><span>Connection fee</span><b>{pctLabel(r.payg)}</b><b className="pl-plus">{pctLabel(r.plus)}</b></div>
         <div className="pl-row"><span>Minimum fee</span><span>{money2(r.payg_min)}</span><span className="pl-plus">{money2(r.plus_min)}</span></div>
+        <div className="pl-row"><span>Most you'll pay</span><span>{money2(r.payg_max)}</span><span className="pl-plus">{money2(r.plus_max)}</span></div>
         <div className="pl-row"><span>To join</span><span>Free</span><span className="pl-plus">{dollars(r.plus_year)} a year</span></div>
         <div className="pl-row"><span>Workers alerted when you post</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
         <div className="pl-row"><span>Save your favourites</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
       </div>
       <div className="cp-sec" style={{ paddingBottom: Capacitor.isNativePlatform() ? 18 : "calc(var(--safe-bottom) + 32px)" }}>
         <Li b="Pay as you go" s="Nothing upfront. Pay the fee by bank transfer, after each job, weekly or every 2 weeks on your payday." />
-        <Li b="Plus" s={`For our loyal customers. Half the connection fee (${pctLabel(r.plus)}, minimum ${money2(r.plus_min)}), workers nearby alerted the moment you post, and your favourite workers saved to book again.`} />
+        <Li b="Plus" s={`For our loyal customers. Half the connection fee (${pctLabel(r.plus)}, ${money2(r.plus_min)} to ${money2(r.plus_max)}), workers nearby alerted the moment you post, and your favourite workers saved to book again.`} />
       </div>
       {Capacitor.isNativePlatform() && (
         <ActionBar>
@@ -509,7 +510,7 @@ export function PlusPage() {
       <h1 className="pq-h">For our <em>loyal customers.</em></h1>
 
       <div className="pq-perks">
-        <div><i className="pq-plus" aria-hidden="true">+</i>{p.senior ? <span><b>No connection fee</b><small>As you're 60 or over</small></span> : <span><b>Half the fees</b><small>{pctLabel(p.rates.plus)} instead of {pctLabel(p.rates.payg)}, minimum {money2(p.rates.plus_min)}</small></span>}</div>
+        <div><i className="pq-plus" aria-hidden="true">+</i>{p.senior ? <span><b>No connection fee</b><small>As you're 60 or over</small></span> : <span><b>Half the fees</b><small>{pctLabel(p.rates.plus)} instead of {pctLabel(p.rates.payg)}, never more than {money2(p.rates.plus_max ?? 2995)}</small></span>}</div>
         <div><i className="pq-plus" aria-hidden="true">+</i><span><b>Get help faster</b><small>Workers nearby are alerted when you post</small></span></div>
         <div><i className="pq-plus" aria-hidden="true">+</i><span><b>Save your favourites</b><small>Book the workers you like, again and again</small></span></div>
       </div>

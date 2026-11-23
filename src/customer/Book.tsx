@@ -1,4 +1,4 @@
-import { connFee, pctLabel } from "../lib/fee";
+import { connFee } from "../lib/fee";
 import { AlertsBell } from "../ui/Alerts";
 import { areaSuburbs } from "../lib/suburbs";
 import { FeePayScreen, OwedBanner, useOwed, type OwedFee } from "./Fees";
@@ -78,7 +78,7 @@ export function Book() {
   const verifySent = useRef(false);
   const [feePct, setFeePct] = useState(15);
   const [feeMin, setFeeMin] = useState(995);
-  const [supply, setSupply] = useState<{ online_now: number; typical_minutes: number | null } | null>(null);
+  const [feeMax, setFeeMax] = useState(5995);
   const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...lastUsed(), ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
   const [media, setMedia] = useState<(DraftItem & { url: string })[]>([]);
   const [reuseUrls, setReuseUrls] = useState<Record<string, string>>({});
@@ -100,10 +100,10 @@ export function Book() {
   useEffect(() => {
     sb.from("job_types").select("*").eq("active", true).eq("custom_price", true).order("sort").then(({ data }) => setTypes((data ?? []) as JobType[]));
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
-    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_min_cents", "fee_mode"]).then(({ data }) => {
+    sb.from("settings").select("key,value").in("key", ["fee_percent", "pilot_mode", "booking_fee_percent", "booking_fee_min_cents", "booking_fee_max_cents", "fee_mode"]).then(({ data }) => {
       for (const r of data ?? []) {
         if (r.key === "fee_percent") setFee(Number(r.value)); if (r.key === "pilot_mode") setPilot(r.value === "true"); if (r.key === "fee_mode") setFeeMode(r.value);
-        if (r.key === "booking_fee_percent") setFeePct(Number(r.value)); if (r.key === "booking_fee_min_cents") setFeeMin(Number(r.value));
+        if (r.key === "booking_fee_percent") setFeePct(Number(r.value)); if (r.key === "booking_fee_min_cents") setFeeMin(Number(r.value)); if (r.key === "booking_fee_max_cents") setFeeMax(Number(r.value));
       }
     });
     draftMedia.all().then((items) => setMedia(items.map((m) => ({ ...m, url: URL.createObjectURL(m.blob) }))));
@@ -136,30 +136,25 @@ export function Book() {
   const jobSkills = skillList.filter((k) => typeIds.includes(k.category_id) && (d.skills ?? []).includes(k.id));
   const tradeSkill = jobSkills.find((k) => k.trade && k.licence) ?? jobSkills.find((k) => k.trade) ?? null;
   const isTrade = !!tradeSkill;
-  useEffect(() => {
-    if (path !== "/book/check" || !d.categoryId || !d.suburbId) return;
-    rpc<{ online_now: number; typical_minutes: number | null }[]>("supply_near", { p_category: d.categoryId, p_suburb: d.suburbId })
-      .then((r) => setSupply(r?.[0] ?? null)).catch(() => setSupply(null));
-  }, [path, d.categoryId, d.suburbId]);
   const total = d.priceCents + Math.round((d.priceCents * fee) / 100);
   // Invoice mode: the connection fee is billed when the customer selects a worker, at the rate their plan gives them.
   const { p: payInfo } = usePayments(feeMode === "invoice" && !!session);
   const invoiceFee = (() => {
     if (feeMode !== "invoice" || isTrade) return null;
-    const r = payInfo?.rates ?? { payg: feePct, payg_min: feeMin, topup: 0, topup_min: 0, plus: 0, plus_min: 0 };
-    const amt = (pct: number, min: number) => connFee(d.priceCents, pct, min);
+    const r = payInfo?.rates ?? { payg: feePct, payg_min: feeMin, payg_max: feeMax, topup: 0, topup_min: 0, plus: 0, plus_min: 0, plus_max: 0 };
+    const amt = (pct: number, min: number, max?: number) => connFee(d.priceCents, pct, min, max);
     const plan = (payInfo?.plan ?? "now") as "now" | "weekly" | "fortnightly";
     if (payInfo?.senior) return { cents: 0, pct: 0, min: false, from: "senior" as const };
     if (payInfo && payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) {
-      const c = amt(r.plus, r.plus_min);
+      const c = amt(r.plus, r.plus_min, r.plus_max);
       return { cents: c, pct: r.plus, min: c === r.plus_min && c > Math.round((d.priceCents * r.plus) / 100), from: payInfo.balance >= c ? "balance" as const : plan };
     }
-    const c = amt(r.payg, r.payg_min);
+    const c = amt(r.payg, r.payg_min, r.payg_max);
     const min = c === r.payg_min && c > Math.round((d.priceCents * r.payg) / 100);
     if (payInfo && payInfo.balance >= c) return { cents: c, pct: r.payg, min, from: "balance" as const };
     return { cents: c, pct: r.payg, min, from: plan };
   })();
-  const bookingFee = feeMode === "on_choose" && !isTrade ? connFee(d.priceCents, feePct, feeMin) : 0;
+  const bookingFee = feeMode === "on_choose" && !isTrade ? connFee(d.priceCents, feePct, feeMin, feeMax) : 0;
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
   const reusedPhotos = d.reuse.filter((r) => r.kind === "photo");
@@ -337,10 +332,8 @@ export function Book() {
           const typeNames = typeIds.map((id) => cats.find((c) => c.id === id)?.name).filter(Boolean).join(", ");
           const when = d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
           // The connection fee Mahi Man charges. Invoiced (bank transfer) in the pilot, by card after it.
-          const connPct = invoiceFee ? invoiceFee.pct : feePct;
-          const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : connFee(d.priceCents, feePct, feeMin);
+          const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : connFee(d.priceCents, feePct, feeMin, feeMax);
           const connCharged = !isTrade && (invoiceFee ? true : bookingFee > 0);
-          const totalCents = d.priceCents + (connCharged ? connCents : 0);
           return (<>
             {/* Where it is, on a map, the way Uber, DoorDash and TaskRabbit start their confirm screens. */}
             <div className="ck-map">
@@ -353,7 +346,7 @@ export function Book() {
 
             {/* The job and when. */}
             <button className="ck-head" onClick={() => go("/book/details")}>
-              <span className="k">{typeNames}, Check and post</span>
+              <span className="k">{[typeNames, "Check and post"].filter(Boolean).join(", ")}</span>
               <b>{jobName}</b>
               <span className="w">{when}</span>
             </button>
@@ -380,14 +373,59 @@ export function Book() {
               <input ref={mediaIn} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addPicked(e.target.files); e.target.value = ""; }} />
             </section>
 
-            {/* What's included and what isn't: type straight into each line. */}
-            <section className="ck-ie">
+            {/* The job, straight under its photos: what workers read. */}
+            <section className="ck-job">
+              <div className="ck-jh"><h2>The job</h2><button className="btn stone small" onClick={() => go("/book/details")}>Edit</button></div>
+              <p className="ck-desc">{d.details}</p>
+              <div className="ck-ie2">
               <CheckList title="Included" kind="yes" items={d.included ?? []} placeholder="Like: Mow the back lawn" onChange={(v) => { setD({ ...d, included: v }); setErr(""); }} />
               <CheckList title="Not included" kind="no" items={d.excluded ?? []} placeholder="Like: The front lawn" onChange={(v) => setD({ ...d, excluded: v })} />
+              </div>
+              {d.notes ? <div className="ck-list"><h3>Notes for your worker</h3><span className="plain">{d.notes}</span></div> : null}
+              {isTrade && <div className="ck-list"><h3>Who can take it</h3>
+                <button className="ck-who" onClick={() => go("/book/details")}>{tradeSkill!.licence ? `Licensed tradies, ${lc(tradeSkill!.licence)} checked` : "Tradies with an ABN and insurance, checked"}</button></div>}
             </section>
 
+
+
+
+            {/* The money: big, plain, and nothing hidden. TaskRabbit and DoorDash both list each line, then a bold total. */}
+            <section className="ck-money">
+              {isTrade ? (<>
+                <div className="ck-m"><span>Connection fee</span><b>$0</b></div>
+                <p>Tradies send you a fixed quote. Select one and pay the tradie directly.</p>
+              </>) : (<>
+                {/* Two people get paid, so two groups: your worker, then Mahi Man. */}
+                <div className="ck-grp">
+                  <button className="ck-m ck-gh" onClick={() => go("/book/price")}><span>Pay your worker</span><b>{money(d.priceCents)}</b></button>
+                  {suggested != null && <p className="ck-hint">{d.priceCents === suggested ? `Suggested for ${cat?.name.toLowerCase() ?? "this job"}` : `Suggested ${money(suggested)} for ${cat?.name.toLowerCase() ?? "this job"}`}</p>}
+                  {(() => {
+                    const v = Math.min(Math.max(d.priceCents, LO), SLIDER_MAX);
+                    const pct = ((v - LO) / (SLIDER_MAX - LO)) * 100;
+                    return <input className="mm-range ck-range" type="range" min={LO / 100} max={SLIDER_MAX / 100} step={5} value={v / 100} aria-label="Price"
+                      onChange={(e) => setD({ ...d, priceCents: Number(e.target.value) * 100, priceSet: true })}
+                      style={{ background: `linear-gradient(90deg, var(--emerald) ${pct}%, var(--stone-2) ${pct}%) center / 100% 10px no-repeat` }} />;
+                  })()}
+                  {/* The customer says how they'll pay, so the worker knows before they offer. */}
+                  <button className="ck-method" onClick={() => setPickMethod(true)}>
+                    <span className="k">How will you pay?</span><span className="v">{PAY_METHODS.find((m) => m.id === d.payMethod)?.short ?? ""}</span>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg></button>
+                  <p className="ck-due">Paid straight to your worker when the job is done</p>
+                </div>
+                {/* Mahi Man's fee: one line, charged later, never added to the worker's price. */}
+                <div className="ck-grp">
+                  <div className="ck-m ck-gh"><span className="ck-fee">Mahi Man fee<button className="ck-i" onClick={() => go("/pricing")} aria-label="How the fee works">{Icon.help("currentColor", 20)}</button></span>
+                    {invoiceFee?.from === "senior" ? <b><em>Free</em></b> : connCharged ? <b>{money2(connCents)}</b> : <b><s>{money2(connCents)}</s> <em>Free</em></b>}</div>
+                  <p className="ck-due">{invoiceFee?.from === "senior" ? "No fee for customers 60 and over"
+                    : bookingFee > 0 ? "Charged to your card only when you select a worker"
+                    : invoiceFee?.from === "balance" ? "Taken from your credit only when you select a worker"
+                    : "Only charged when you select a worker"}</p>
+                </div>
+                {bookingFee > 0 && session && <button className="ck-m ck-card" onClick={() => setCardScreen(true)}><span>Card</span><b>{profile?.card_last4 ? cardLabel(profile) : "Add a card"}</b></button>}
+              </>)}
+            </section>
             {!isTrade && (
-              <section className="ck-money" style={{ paddingBottom: 4 }}>
+              <section className="ck-money ck-more" style={{ paddingBottom: 4 }}>
                 {(() => {
                   const first = chosen[0];
                   const ph = first ? avatarUrl(first.photo_path) : null;
@@ -418,88 +456,22 @@ export function Book() {
               </section>
             )}
 
-            {/* Pay less: the cheaper plans, priced on this job, the way Uber One and DashPass show what you'd save at checkout. */}
-            {connCharged && invoiceFee && payInfo && !(payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) && (() => {
-              const r = payInfo.rates;
-              const plusCents = connFee(d.priceCents, r.plus, r.plus_min);
-              const save = connCents - plusCents;
-              return save > 0 ? (
-                <div className="ck-save">
-                  <div className="t"><b>Save {money2(save)} with Plus</b><span>Half fees ({pctLabel(r.plus)}), {money(r.plus_year)} a year</span></div>
-                  <div className="a"><button className="btn primary" onClick={() => go("/plus")}>Get Plus</button></div>
-                </div>
-              ) : null;
-            })()}
-
-            {/* The money: big, plain, and nothing hidden. TaskRabbit and DoorDash both list each line, then a bold total. */}
-            <section className="ck-money">
-              {isTrade ? (<>
-                <div className="ck-m"><span>Connection fee</span><b>$0</b></div>
-                <p>Tradies send you a fixed quote. Select one and pay the tradie directly.</p>
-              </>) : (<>
-                {/* Two people get paid, so two groups: your worker, then Mahi Man. */}
-                <div className="ck-grp">
-                  <button className="ck-m ck-gh" onClick={() => go("/book/price")}><span>Pay your worker</span><b>{money(d.priceCents)}</b></button>
-                  {suggested != null && <p className="ck-hint">{d.priceCents === suggested ? `Suggested for ${cat?.name.toLowerCase() ?? "this job"}` : `Suggested ${money(suggested)} for ${cat?.name.toLowerCase() ?? "this job"}`}</p>}
-                  {(() => {
-                    const v = Math.min(Math.max(d.priceCents, LO), SLIDER_MAX);
-                    const pct = ((v - LO) / (SLIDER_MAX - LO)) * 100;
-                    return <input className="mm-range ck-range" type="range" min={LO / 100} max={SLIDER_MAX / 100} step={5} value={v / 100} aria-label="Price"
-                      onChange={(e) => setD({ ...d, priceCents: Number(e.target.value) * 100, priceSet: true })}
-                      style={{ background: `linear-gradient(90deg, var(--emerald) ${pct}%, var(--stone-2) ${pct}%) center / 100% 10px no-repeat` }} />;
-                  })()}
-                  {/* The customer says how they'll pay, so the worker knows before they offer. */}
-                  <button className="ck-method" onClick={() => setPickMethod(true)}>
-                    <span className="k">How will you pay?</span><span className="v">{PAY_METHODS.find((m) => m.id === d.payMethod)?.short ?? ""}</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg></button>
-                  <p className="ck-due">Paid straight to your worker when the job is done</p>
-                </div>
-                <div className="ck-grp">
-                  <div className="ck-m ck-gh"><span>Owed to Mahi Man</span><b>{money(totalCents - d.priceCents)}</b></div>
-                  <div className="ck-m ck-sub"><span>{invoiceFee?.from === "senior" ? "Connection fee" : invoiceFee?.min ? "Connection fee, minimum" : `Connection fee, ${pctLabel(connPct)}`}</span>
-                    {invoiceFee?.from === "senior" ? <b><em>Free</em></b> : connCharged ? <b>{money2(connCents)}</b> : <b><s>{money2(connCents)}</s> <em>Free</em></b>}</div>
-                  <p className="ck-due">{invoiceFee?.from === "senior" ? "No connection fee for customers 60 and over"
-                    : bookingFee > 0 ? "Charged to your card when you choose a worker"
-                    : invoiceFee?.from === "balance" ? "Taken from your credit when you select a worker"
-                    : invoiceFee?.from === "weekly" ? "On your weekly invoice. Pay by bank transfer"
-                    : invoiceFee?.from === "fortnightly" ? "On your fortnightly invoice. Pay by bank transfer"
-                    : "Invoiced when you select a worker. Pay by bank transfer"}</p>
-                </div>
-                <div className="ck-m ck-total"><span>Total</span><b>{money(totalCents)}</b></div>
-                <button className="btn stone small ck-hiw" onClick={() => go("/pricing")}>{Icon.help("currentColor", 18)}How payment works</button>
-                {bookingFee > 0 && session && <button className="ck-m ck-card" onClick={() => setCardScreen(true)}><span>Card</span><b>{profile?.card_last4 ? cardLabel(profile) : "Add a card"}</b></button>}
-              </>)}
-            </section>
-
-            {/* Everything workers read, in full. */}
-            <section className="ck-job">
-              <div className="ck-jh"><h2>The job</h2><button className="btn stone small" onClick={() => go("/book/details")}>Edit</button></div>
-              <p className="ck-desc">{d.details}</p>
-              {jobSkills.length ? <div className="ck-list"><h3>Skills needed</h3><span className="plain">{jobSkills.map((k) => k.name).join(", ")}</span></div> : null}
-              {d.notes ? <div className="ck-list"><h3>Notes for your worker</h3><span className="plain">{d.notes}</span></div> : null}
-              {isTrade && <div className="ck-list"><h3>Who can take it</h3>
-                <button className="ck-who" onClick={() => go("/book/details")}>{tradeSkill!.licence ? `Licensed tradies, ${lc(tradeSkill!.licence)} checked` : "Tradies with an ABN and insurance, checked"}</button></div>}
-            </section>
           </>);
         })()}
 
-        {!isTrade && supply && supply.online_now > 0 && !jobSkills.some((k) => k.needs) && (
-          <p className="ck-live"><i />{supply.online_now} {cat?.name.toLowerCase() ?? ""} worker{supply.online_now === 1 ? "" : "s"} online near {suburb?.name} now{supply.typical_minutes != null ? `. Usually someone's free in about ${supply.typical_minutes} min` : ""}.</p>
-        )}
-        <div className="ck-cancel">
-          {discard
-            ? <><span>Throw this job away?</span>
-                <div className="ps-btns"><button className="btn stone" onClick={() => setDiscard(false)}>{Icon.back("currentColor")}Keep it</button>
-                <button className="btn out" onClick={async () => { sessionStorage.removeItem(DRAFT_KEY); await draftMedia.clear(); go("/post", true); }}>{Icon.cancel("currentColor")}Throw away</button></div></>
-            : <button className="btn stone" onClick={() => setDiscard(true)}>{Icon.cancel("currentColor")}Don't post this job</button>}
-        </div>
         {err && <p className="err" style={{ padding: "0 20px" }}>{err}</p>}
         <div style={{ flex: 1 }} />
-        <div className="bottombar">
-          <span className="ck-terms">By pressing Post my job, you agree to the <a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>terms and conditions</a>.</span>
-          <button className="btn primary" disabled={busy} onClick={book}>
-            {busy ? "Posting…" : photoCount === 0 ? "Add a photo" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : <>Post my job {Icon.arrow("#fff")}</>}
-          </button>
+        <div className="bottombar ck-bar">
+          <div className="ck-btns">
+            {discard
+              ? <><button className="btn stone" onClick={() => setDiscard(false)}>{Icon.back("currentColor")}Keep it</button>
+                <button className="btn out" onClick={async () => { sessionStorage.removeItem(DRAFT_KEY); await draftMedia.clear(); go("/post", true); }}>{Icon.cancel("currentColor")}Throw away</button></>
+              : <><button className="btn stone" onClick={() => setDiscard(true)}>{Icon.cancel("currentColor")}Cancel</button>
+                <button className="btn primary" disabled={busy} onClick={book}>
+                  {busy ? "Posting…" : photoCount === 0 ? "Add a photo" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : <>Post my job {Icon.arrow("#fff")}</>}
+                </button></>}
+          </div>
+          <span className="ck-terms">{discard ? "This job and its photos will be deleted." : <>By posting, you agree to the <a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>terms and conditions</a>.</>}</span>
         </div>
         {pickWho === "people" && <SearchPicker title="Ask first" multi placeholder="Search by name" value={d.invited}
           options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: p.jobs_for_me ? `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` : "Saved from their code" }))}

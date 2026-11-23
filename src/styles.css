@@ -1256,9 +1256,6 @@ button.ck-m { cursor: pointer; }
 .ck-boost b { font-size: 17px; font-weight: 600; }
 .ck-boost .t span { font-size: 14px; font-weight: 300; color: var(--muted); line-height: 1.4; }
 .ck-boost .switch:not(.on) { background: var(--stone-2); }
-.ck-cancel { display: flex; flex-direction: column; gap: 12px; padding: 22px 20px 26px; font-size: 16px; color: var(--ink); }
-.ck-cancel > .btn { width: 100%; }
-.ck-cancel .ps-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ck-save { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 20px; background: var(--emerald-tint); }
 .ck-save .t { display: flex; flex-direction: column; gap: 4px; }
 .ck-save b { font-size: 18px; font-weight: 600; color: var(--emerald); }
@@ -1325,7 +1322,11 @@ button.ck-m { cursor: pointer; }
 .hp-row span { font-size: 16px; font-weight: 300; line-height: 1.45; }
 .hp-plans { margin: 26px 20px 4px; font-size: 24px; font-weight: 600; letter-spacing: -0.5px; }
 .ck-method .v.ph { color: var(--muted); font-weight: 400; }
-.ck-terms { flex: 1; max-width: 190px; font-size: 13px; font-weight: 300; line-height: 1.4; color: var(--muted); }
+.ck-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+.ck-btns { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.ck-btns .btn { width: 100%; justify-content: center; }
+.ck-btns .btn svg { flex: none; }
+.ck-terms { text-align: center; font-size: 13px; font-weight: 300; line-height: 1.4; color: var(--muted); }
 .ck-terms a { color: var(--emerald); }
 .urg { display: inline-block; align-self: flex-start; font-size: 13px; font-weight: 600; color: var(--ink); background: var(--lime); padding: 2px 8px; border-radius: 3px; }
 .of-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
@@ -2954,3 +2955,7 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .ln-v b { font-size: 16px; font-weight: 500; } .ln-v b.full { color: var(--muted); font-weight: 400; }
 @media (max-width: 899px) { .td-launch-in > * { max-width: 50%; } .td-launch-in p { font-size: 15px; } .td-launch-man { right: -36px; max-height: 240px; } }
 .pl-two .pl-row { grid-template-columns: 1.5fr 1fr 1fr; }
+.ck-job { background: var(--card); padding-bottom: 8px; }
+.ck-ie2 { margin: 0 -20px; padding: 0 20px; }
+.ck-fee { display: inline-flex; align-items: center; gap: 6px; }
+.ck-i { display: inline-flex; padding: 4px; margin: -4px 0; border: 0; background: none; color: var(--muted); cursor: pointer; }

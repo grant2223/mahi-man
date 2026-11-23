@@ -110,7 +110,7 @@ export function Terms() {
       </ul>
       <h2>Connection fee</h2>
       <ul>
-        <li>Customers pay Mahi Man a connection fee on each job that goes ahead: 15% of the job price, minimum $9.95. With Plus it's half: 7.5%, minimum $4.95. The fee is shown before you post the job. Trade jobs have no customer fee. Workers keep 100% of the job price.</li>
+        <li>Customers pay Mahi Man a connection fee on each job that goes ahead: 15% of the job price, minimum $9.95 and never more than $59.95. With Plus it's half: 7.5%, from $4.95 to $29.95. The fee is shown before you post the job. Trade jobs have no customer fee. Workers keep 100% of the job price.</li>
         <li>The fee is charged when you select a worker. If you cancel once your worker is on the way, the fee stays. If your worker cancels, or you cancel before they're on the way, it comes off your invoice, or back as credit if you've already paid it.</li>
         <li>Customers aged 60 and over pay no connection fee and get Plus at no cost. It switches on automatically once your ID confirms your age.</li>
         <li>Every job shows in the list of available jobs for workers nearby, newest first. Jobs posted by Plus members also send those workers an alert the moment they're posted.</li>
@@ -118,7 +118,7 @@ export function Terms() {
         <li>If an invoice is not paid by its due date we send one reminder. If it is still unpaid 3 days after the due date, you can't post new jobs until it is paid.</li>
         <li>Credit: you may get credit, for example when a worker cancels late. Gift cards work differently, see below. Connection fees are taken from your credit while it covers them. Credit only pays Mahi Man connection fees. It can't be used to pay workers, transferred, exchanged for cash or refunded, except where Australian Consumer Law requires it.</li>
         <li>Plus: a yearly membership, paid upfront in one payment, with half the connection fee, alerts to nearby workers when you post, and saved favourite workers. While we're in beta it's paid by bank transfer. Once you confirm you've paid, Plus is on for 24 hours while we check, and for a year from the day your payment is confirmed. If the payment doesn't arrive, Plus is switched off. A false or misleading confirmation may lead to your Plus membership being cancelled and your account being suspended. Plus doesn't renew by itself.</li>
-        <li>Mahi Man is owned and operated by Find Fit People Pty Ltd, which is not registered for GST, so no GST is charged on our fees or memberships. Rates, minimums and prices are shown on the How you pay page and can change; the fee shown when you post a job is the one that applies to it.</li>
+        <li>Mahi Man is owned and operated by Find Fit People Pty Ltd, which is not registered for GST, so no GST is charged on our fees or memberships. Rates, minimums, caps and prices are shown on the How you pay page and can change; the fee shown when you post a job is the one that applies to it.</li>
         <li>By saving a card you allow us to charge the connection fees and purchases you agree to. You can remove a saved card at any time in the app, under You, Payment methods.</li>
       </ul>
       <h2>Gift cards</h2>

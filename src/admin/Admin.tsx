@@ -1254,8 +1254,10 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
 
     { k: "booking_fee_percent", label: "Connection fee", hint: "A share of the job price. New jobs use it; jobs already posted keep theirs.", t: "num", unit: "%" },
     { k: "booking_fee_min_cents", label: "Connection fee, minimum", t: "num", unit: "$" },
+    { k: "booking_fee_max_cents", label: "Connection fee, most", t: "num", unit: "$" },
     { k: "plus_fee_percent", label: "Plus, connection fee", t: "num", unit: "%" },
     { k: "plus_fee_min_cents", label: "Plus, minimum", t: "num", unit: "$" },
+    { k: "plus_fee_max_cents", label: "Plus, most", t: "num", unit: "$" },
     { k: "plus_year_cents", label: "Plus, per year", hint: "One payment, by bank transfer in beta.", t: "num", unit: "$" },
     { k: "plus_cents", label: "Plus, monthly value", hint: "Only used to show the yearly saving.", t: "num", unit: "$" },
     { k: "invoice_due_days", label: "Invoice after each job is due in", t: "num", unit: "days" },

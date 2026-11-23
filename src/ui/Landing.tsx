@@ -35,7 +35,7 @@ const USES: [string, string, string][] = [
 ];
 
 // Every answer here is how the platform actually works (the terms and privacy policy say the same). Fees and windows come from the live settings.
-type Fee = { pct: number; min: number; plus: number; pl: number; plmin: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number; tpct: number; tmax: number; tmonth: number; tyear: number; tafter: number; tquiet: number };
+type Fee = { pct: number; min: number; max: number; plmax: number; plus: number; pl: number; plmin: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number; tpct: number; tmax: number; tmonth: number; tyear: number; tafter: number; tquiet: number };
 const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
   ["Getting help", [
     ["How fast can someone come?", "The moment you post, workers who are switched on near you get an alert. If nobody says they're keen within 10 minutes, workers further out can see your job too."],
@@ -84,10 +84,10 @@ const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
     ["What's my Turns up score?", "How often you turn up on time for the jobs you take. Customers see it every time you say you're available."],
   ]],
   ["Payments and fees", [
-    ["What does it cost?", `You pay your worker directly by bank transfer or cash. When you select a worker, customers pay Mahi Man a connection fee of ${pctLabel(fee.pct)} of the job price, minimum ${money2(fee.min)}. Workers keep 100%.`],
+    ["What does it cost?", `You pay your worker directly by bank transfer or cash. When you select a worker, customers pay Mahi Man a connection fee of ${pctLabel(fee.pct)} of the job price, minimum ${money2(fee.min)}, never more than ${money2(fee.max)}. Posting is free and workers keep 100%.`],
     ["How do I pay the fee?", `By bank transfer. Pick an invoice after each job, weekly, or every 2 weeks on your payday. If you have credit, your fees come off it first.`],
     ["Is my card safe?", "Cards are stored by Stripe, our payment provider. We never see or keep your full card number."],
-    ["Is there a way to pay less?", `Mahi Man Plus, $${Math.round(fee.plus / 100)} a year, halves the fee to ${pctLabel(fee.pl)} (minimum ${money2(fee.plmin)}), alerts workers nearby when you post, and lets you save your favourite workers. It suits people who book often. Customers 60 and over pay no connection fee.`],
+    ["Is there a way to pay less?", `Mahi Man Plus, $${Math.round(fee.plus / 100)} a year, halves the fee to ${pctLabel(fee.pl)} (${money2(fee.plmin)} to ${money2(fee.plmax)}), alerts workers nearby when you post, and lets you save your favourite workers. It suits people who book often. Customers 60 and over pay no connection fee.`],
     ["Can I give Mahi Man as a gift?", "Yes. A Mahi Man gift card of $50, $100 or $200 pays for any job, the worker and the fee. Text it from your phone or we email it on the day you pick, like Christmas morning. Buy one in the app under You, Buy a gift card, or at mahiman.app/gift. It lasts 3 years."],
   ]],
   ["Local offers", [
@@ -110,13 +110,13 @@ export function Landing() {
   useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
   // The connection fee customers pay from launch, from the live settings.
-  const [fee, setFee] = useState<Fee>({ pct: 15, min: 995, plus: 9900, pl: 7.5, plmin: 495, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, tpct: 1250, tmax: 25000, tmonth: 24900, tyear: 249900, tafter: 60, tquiet: 48 });
+  const [fee, setFee] = useState<Fee>({ pct: 15, min: 995, max: 5995, plmax: 2995, plus: 9900, pl: 7.5, plmin: 495, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, tpct: 1250, tmax: 25000, tmonth: 24900, tyear: 249900, tafter: 60, tquiet: 48 });
   useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "plus_fee_min_cents", "plus_year_cents", "plus_fee_percent", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "booking_fee_max_cents", "plus_fee_max_cents", "plus_fee_min_cents", "plus_year_cents", "plus_fee_percent", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
       "noshow_wait_minutes", "worker_cancel_window_minutes", "strikes_offline_30", "offline_days", "strikes_review_90", "customer_late_cancels_30",
       "trade_win_percent", "trade_win_max_cents", "trade_premium_month_cents", "trade_premium_year_cents", "trade_standard_after_minutes", "trade_quiet_hours"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
-      setFee((f) => ({ pct: m.booking_fee_percent || f.pct, min: m.booking_fee_min_cents || f.min, plmin: m.plus_fee_min_cents || f.plmin, plus: m.plus_year_cents || f.plus, pl: m.plus_fee_percent || f.pl,
+      setFee((f) => ({ pct: m.booking_fee_percent || f.pct, min: m.booking_fee_min_cents || f.min, max: m.booking_fee_max_cents || f.max, plmax: m.plus_fee_max_cents || f.plmax, plmin: m.plus_fee_min_cents || f.plmin, plus: m.plus_year_cents || f.plus, pl: m.plus_fee_percent || f.pl,
         cancel: m.cancel_fee_cents || f.cancel, soon: m.worker_late_cancel_cents || f.soon, late: m.late_minutes || f.late, wait: m.noshow_wait_minutes || f.wait,
         window: m.worker_cancel_window_minutes || f.window, s30: m.strikes_offline_30 || f.s30, off: m.offline_days || f.off, s90: m.strikes_review_90 || f.s90,
         lc30: m.customer_late_cancels_30 || f.lc30, tpct: m.trade_win_percent ? m.trade_win_percent * 100 : f.tpct, tmax: m.trade_win_max_cents || f.tmax, tmonth: m.trade_premium_month_cents || f.tmonth, tyear: m.trade_premium_year_cents || f.tyear, tafter: m.trade_standard_after_minutes || f.tafter, tquiet: m.trade_quiet_hours || f.tquiet }));
