@@ -228,6 +228,8 @@ const when = (o: Offer) => (o.asap ? "Today" : dayTime(o.start_at).replace(/^./,
 // Trade jobs: the photo first, the job, where and when, Send quote. Tradespeople paying per job also see the jobs others can quote on now, blurred.
 export function TradeFeed({ trade, jobs, quotes = [], onQuote, covers, onBack, onOpen, onUpgrade }: { trade: TradeStatus; jobs: Offer[]; quotes?: MyOffer[]; onQuote?: (job: string) => void; covers: Record<string, string>; onBack: () => void; onOpen: (o: Offer) => void; onUpgrade: () => void; ready: Ready }) {
   const hidden = trade.premium_now;
+  const [view, setView] = useState<"jobs" | "quotes">("jobs");
+  const waitingN = quotes.filter((m) => m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).length;
   const [blur, setBlur] = useState<string[]>([]);
   useEffect(() => { if (hidden.photos.length) mediaUrls(hidden.photos).then((m) => setBlur(hidden.photos.map((p) => m[p]).filter(Boolean))).catch(() => {}); }, [hidden.photos.join()]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
@@ -238,7 +240,13 @@ export function TradeFeed({ trade, jobs, quotes = [], onQuote, covers, onBack, o
           <h1>Trade jobs</h1>
         </section>
         {missing(trade).length > 0 && <div className="tj-sec" style={{ background: "var(--card)" }}><TradeReady trade={trade} /></div>}
-        <TradeQuotes quotes={quotes} covers={covers} onOpen={(id) => onQuote?.(id)} />
+        {quotes.length > 0 && (
+          <div className="wk-tabs" role="tablist">
+            <button role="tab" aria-selected={view === "jobs"} className={view === "jobs" ? "on" : ""} onClick={() => setView("jobs")}>{Icon.pin(view === "jobs" ? "#fff" : "var(--ink)")} Jobs</button>
+            <button role="tab" aria-selected={view === "quotes"} className={view === "quotes" ? "on" : ""} onClick={() => setView("quotes")}>{Icon.doc(view === "quotes" ? "#fff" : "var(--ink)")} My quotes{waitingN > 0 && <span className="n">{waitingN}</span>}</button>
+          </div>
+        )}
+        {view === "quotes" && quotes.length > 0 ? <TradeQuotes quotes={quotes} covers={covers} onOpen={(id) => onQuote?.(id)} /> : (<>
         {!premium(trade) && hidden.n > 0 && (
           <button className="fu-blur" onClick={onUpgrade}>
             <span className="fu-pics">{(blur.length ? blur : [null, null, null].slice(0, Math.min(3, hidden.n))).map((u, i) => <i key={i} style={u ? { backgroundImage: `url("${u}")` } : undefined} />)}</span>
@@ -257,6 +265,7 @@ export function TradeFeed({ trade, jobs, quotes = [], onQuote, covers, onBack, o
           </div>
         ))}
         {!jobs.length && !missing(trade).length && <p className="t17 light" style={{ padding: "24px 16px", margin: 0, lineHeight: 1.45 }}>No trade jobs near you right now. You'll get an alert when one comes in.</p>}
+        </>)}
       </div>
     </div>
   );
@@ -351,7 +360,6 @@ export function TradeQuotes({ quotes, covers, onOpen }: { quotes: MyOffer[]; cov
   if (!quotes.length) return null;
   return (
     <div className="tq">
-      <h2 className="tq-h">Your quotes</h2>
       {quotes.map((m) => {
         const left = Math.max(0, Math.ceil((new Date(m.expires_at).getTime() - now) / 3600e3));
         const live = m.status === "pending" && left > 0;

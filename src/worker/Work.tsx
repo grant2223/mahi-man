@@ -153,6 +153,9 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const [open, setOpen] = useState<Offer | null>(null);
   const [mine, setMine] = useState<MyOffer[]>([]);
   const [waiting, setWaiting] = useState<string | null>(null);
+  const [view, setView] = useState<"jobs" | "quotes">("jobs");
+  const tq = mine.filter((m) => m.trade);
+  const tqWaiting = tq.filter((m) => m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).length;
   const seen = useRef<Set<string>>(new Set());
   const pending = useRef(0);
   const { trade, reload: reloadTrade } = useTrade();
@@ -236,10 +239,17 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         <div className="title-row">
           <h1 className="mid" style={{ margin: "18px 0 8px" }}>{online ? <>Jobs<br />near you</> : <>You're<br />offline</>}</h1>
         </div>
-        {online && jobs.length > 0 && <p className="lede" style={{ position: "relative", maxWidth: 210 }}>Which job could you help with?</p>}
-        {!online && <button className="btn of-hero-go" onClick={toggle}>Go online</button>}
+        {view === "jobs" && online && jobs.length > 0 && <p className="lede" style={{ position: "relative", maxWidth: 210 }}>Which job could you help with?</p>}
+        {view === "jobs" && !online && <button className="btn of-hero-go" onClick={toggle}>Go online</button>}
       </section>
 
+      {tq.length > 0 && (
+        <div className="wk-tabs" role="tablist">
+          <button role="tab" aria-selected={view === "jobs"} className={view === "jobs" ? "on" : ""} onClick={() => setView("jobs")}>{Icon.pin(view === "jobs" ? "#fff" : "var(--ink)")} Jobs</button>
+          <button role="tab" aria-selected={view === "quotes"} className={view === "quotes" ? "on" : ""} onClick={() => setView("quotes")}>{Icon.doc(view === "quotes" ? "#fff" : "var(--ink)")} My quotes{tqWaiting > 0 && <span className="n">{tqWaiting}</span>}</button>
+        </div>
+      )}
+      {view === "quotes" && tq.length > 0 ? <TradeQuotes quotes={tq} covers={covers} onOpen={setWaiting} /> : (<>
       {wrapups.length > 0 && (
         <div className="wrap-list">
           {wrapups.map((j) => (
@@ -250,8 +260,6 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
           ))}
         </div>
       )}
-
-      <TradeQuotes quotes={mine.filter((m) => m.trade)} covers={covers} onOpen={setWaiting} />
 
       {mine.filter((m) => !m.trade && m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).length > 0 && (
         <div className="wrap-list">
@@ -285,6 +293,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
 
       {!online && <OfflineJobs onGoOnline={toggle} />}
       {!online && <Offline />}
+      </>)}
       <History />
       <TabBar on="work" />
       {open && <OfferScreen o={open} pilot={pilot} onBack={() => setOpen(null)}

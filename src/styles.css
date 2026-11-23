@@ -3096,3 +3096,10 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .tq-row.off .pic { filter: grayscale(1); opacity: 0.55; }
 .tq-row.off .t b, .tq-row.off .tq-amt { color: var(--muted); }
 .tq-row:disabled { color: inherit; }
+/* Do work: Jobs and My quotes, side by side. */
+.wk-tabs { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 10px; padding: 14px 16px 4px; }
+.wk-tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 52px; border: 0; border-radius: var(--r-control); background: var(--card); color: var(--ink); font: inherit; font-size: 17px; font-weight: 500; cursor: pointer; }
+.wk-tabs button svg { flex: none; width: 20px; height: 20px; }
+.wk-tabs button.on { background: var(--emerald); color: #fff; }
+.wk-tabs .n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 3px; background: var(--lime); color: var(--ink); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
+.tq { margin-top: 10px; }
