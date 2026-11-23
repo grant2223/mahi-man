@@ -3152,10 +3152,6 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .wk-thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
 .wk-thumbs span, .wk-thumbs .add { aspect-ratio: 1; border-radius: 12px; background: var(--ground) center / cover; }
 .wk-thumbs .add { display: flex; align-items: center; justify-content: center; cursor: pointer; }
-.wk-amt { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 18px 0 4px; }
-.wk-amt label { display: flex; align-items: baseline; gap: 2px; cursor: text; }
-.wk-amt label span { font-size: 40px; font-weight: 600; }
-.wk-amt input { border: 0; background: none; font: inherit; font-size: 72px; font-weight: 600; letter-spacing: -2px; color: var(--ink); text-align: center; outline: none; padding: 0; }
 .wk-sel { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; border: 0; border-radius: 99px; background: var(--ground); font: inherit; font-size: 17px; font-weight: 500; color: var(--ink); cursor: pointer; }
 .wk-pay2 { display: grid; grid-template-columns: auto 1fr 1fr; align-items: center; gap: 8px; margin-top: 22px; }
 .wk-pay2 > span { font-size: 16px; color: var(--muted); padding-right: 6px; }
@@ -3167,3 +3163,21 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .wk-ww small { font-size: 14px; color: var(--muted); }
 .wk-ww b { font-size: 19px; font-weight: 600; }
 .wk-ww b.ph { color: var(--muted); font-weight: 400; }
+.wk-two2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wk-two2 button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 56px; border: 0; border-radius: 14px; background: var(--ground); font: inherit; font-size: 17px; font-weight: 500; color: var(--ink); cursor: pointer; white-space: nowrap; }
+.wk-two2 button.on { background: var(--emerald); color: #fff; }
+.wk-two2 button svg { flex: none; }
+.wk-two2.alt { margin-top: 8px; }
+.wk-where { margin-top: 18px; border-radius: 18px; overflow: hidden; background: var(--ground); }
+.wk-addr { display: flex; align-items: center; gap: 10px; padding: 16px 18px; }
+.wk-addr svg { flex: none; width: 24px; height: 24px; }
+.wk-addr b { font-size: 18px; font-weight: 600; }
+.wk-addr b.ph { color: var(--muted); font-weight: 400; }
+
+.wk-type { display: flex; align-items: center; gap: 10px; min-height: 92px; padding: 0 12px 0 20px; border-radius: 18px; background: var(--ground); box-shadow: inset 0 0 0 2px var(--emerald); }
+.wk-type label { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 2px; cursor: text; }
+.wk-type label span { font-size: 34px; font-weight: 600; }
+.wk-type input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; font: inherit; font-size: 56px; font-weight: 600; letter-spacing: -1.5px; color: var(--ink); outline: none; padding: 0; }
+.wk-type .wk-sel { background: #fff; flex: none; }
+.wk-map { position: relative; height: 170px; overflow: hidden; }
+.wk-map .pm { position: absolute; inset: 0; }

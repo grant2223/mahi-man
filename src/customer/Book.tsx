@@ -17,6 +17,7 @@ import { JobCamera } from "../ui/JobCamera";
 import { PayScreen } from "./Pay";
 import { AddCardScreen, cardLabel } from "./Cards";
 import { lc } from "../worker/Skills";
+import { PlaceMap } from "../ui/PlaceMap";
 import { SetSide, SideSwitch } from "../ui/SideSwitch";
 import { TabBar } from "../ui/TabBar";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
@@ -41,13 +42,13 @@ interface Draft {
 const DRAFT_KEY = "mm-draft-2";
 const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 10, reuse: [], included: [], excluded: [], payMethod: "cash" };
 const MAX_PHOTOS = 6;
-// The address and pay method from their last job, so the next one starts filled in. Kept on this phone only.
+// The address from their last job, so the next one starts filled in. Kept on this phone only. Pay by always starts on cash.
 const LAST_KEY = "mm-last-job";
 function lastUsed(): Partial<Draft> {
-  try { const l = JSON.parse(localStorage.getItem(LAST_KEY) || "{}"); return { ...(l.suburbId ? { suburbId: l.suburbId, address: l.address ?? "", notes: l.notes ?? "" } : {}), ...(l.payMethod ? { payMethod: l.payMethod } : {}) }; } catch { return {}; }
+  try { const l = JSON.parse(localStorage.getItem(LAST_KEY) || "{}"); return { ...(l.suburbId ? { suburbId: l.suburbId, address: l.address ?? "", notes: l.notes ?? "" } : {}) }; } catch { return {}; }
 }
 function rememberLast(d: Draft) {
-  try { localStorage.setItem(LAST_KEY, JSON.stringify({ suburbId: d.suburbId, address: d.address, notes: d.notes, payMethod: d.payMethod })); } catch { /* private mode */ }
+  try { localStorage.setItem(LAST_KEY, JSON.stringify({ suburbId: d.suburbId, address: d.address, notes: d.notes })); } catch { /* private mode */ }
 }
 const MAX_VIDEO_SECONDS = 60;
 
@@ -192,6 +193,13 @@ export function Book() {
   }, [path, session?.user.id, media]);
   const mediaIn = useRef<HTMLInputElement>(null);
   const [pickUnit, setPickUnit] = useState(false);
+  // Current location: the phone's position, matched to the nearest suburb.
+  const useMyLocation = () => {
+    navigator.geolocation?.getCurrentPosition((p) => {
+      const near = [...(suburbs as (Suburb & { lat: number; lng: number })[])].sort((a, b) => ((a.lat - p.coords.latitude) ** 2 + (a.lng - p.coords.longitude) ** 2) - ((b.lat - p.coords.latitude) ** 2 + (b.lng - p.coords.longitude) ** 2))[0];
+      if (near) setD({ ...d, suburbId: near.id });
+    }, () => setErr("Couldn't get your location. Type the address instead."), { enableHighAccuracy: true, timeout: 10000 });
+  };
   const addPicked = async (list: FileList | null) => {
     const all = Array.from(list ?? []);
     const ph = all.filter((f) => f.type.startsWith("image/")), vid = all.filter((f) => f.type.startsWith("video/")).slice(0, 1);
@@ -339,16 +347,16 @@ export function Book() {
     const sug = jt?.price_cents ?? 8000;
     // The usual range: around the suggested price for a whole job; $40 to $60 an hour; $280 to $420 a day.
     const range = unit === "hour" ? [4000, 6000] : unit === "day" ? [28000, 42000] : [Math.round((sug * 0.8) / 500) * 500, Math.round((sug * 1.35) / 500) * 500];
-    const max = unit === "hour" ? 15000 : unit === "day" ? 80000 : SLIDER_MAX;
+    const max = unit === "hour" ? 20000 : 100000;
     const min = unit === "hour" ? 2500 : LO;
     const set = (c: number) => setD({ ...d, priceCents: Math.min(HI, Math.max(min, c)), priceSet: true });
     const pct = (c: number) => Math.max(0, Math.min(100, ((c - min) / (max - min)) * 100));
     const UNITS = [{ id: "job", label: "for the job" }, { id: "hour", label: "an hour" }, { id: "day", label: "a day" }, { id: "visit", label: "a visit" }] as const;
     return (
       <WalkShell n={3} title="What will you pay?" onBack={() => history.back()} onNext={() => after("/book/when-where")}>
-        <div className="wk-amt">
-          <label><span>$</span><input inputMode="numeric" value={Math.round(d.priceCents / 100)} style={{ width: `${String(Math.round(d.priceCents / 100)).length + 0.15}ch` }}
-            onChange={(e) => set(Number(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)) * 100)} aria-label="Price" /></label>
+        <div className="wk-type">
+          <label><span>$</span><input inputMode="numeric" value={Math.round(d.priceCents / 100)} placeholder="0"
+            onChange={(e) => set(Number(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)) * 100)} aria-label="Type a price" /></label>
           <button className="wk-sel" onClick={() => setPickUnit(true)}>{UNITS.find((u) => u.id === unit)!.label}{Icon.down("var(--ink)")}</button>
         </div>
         <div className="wk-scale">
@@ -367,15 +375,26 @@ export function Book() {
     );
   }
 
-  // Step 4: when and where, already filled in. A quick look; tap either to change it.
+  // Step 4: when and where. Now is selected; Pick a time if not. Where starts on their current location, shown on the map to confirm,
+  // or they type the address. (Uber and DoorDash: Now or Schedule, and Current location first.)
   if (path === "/book/when-where") {
-    const when = d.asap ? "As soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    const when = d.asap ? "Now" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
     const where = [d.address?.trim(), suburb?.name].filter(Boolean).join(", ");
     return (
       <WalkShell n={4} title="When and where?" onBack={() => history.back()} err={err}
-        onNext={() => { if (!where || !suburb) { retTo("/book/when-where"); return go("/book/where"); } setErr(""); after("/book/check"); }}>
-        <button className="wk-ww" onClick={() => { retTo("/book/when-where"); go("/book/when"); }}>{Icon.clock("var(--emerald)", 28)}<span><small>When</small><b>{when}</b></span>{Icon.chevron("var(--muted)")}</button>
-        <button className="wk-ww" onClick={() => { retTo("/book/when-where"); go("/book/where"); }}>{Icon.pin("var(--emerald)")}<span><small>Where</small><b className={where ? "" : "ph"}>{where || "Add the address"}</b></span>{Icon.chevron("var(--muted)")}</button>
+        onNext={() => { if (!where || !suburb) return setErr("Use your location or type the address."); setErr(""); after("/book/check"); }}>
+        <div className="wk-two2">
+          <button className={d.asap ? "on" : ""} onClick={() => setD({ ...d, asap: true })}>{d.asap && Icon.tick("#fff", 18)}Now</button>
+          <button className={!d.asap ? "on" : ""} onClick={() => { retTo("/book/when-where"); go("/book/when"); }}>{!d.asap && Icon.tick("#fff", 18)}{d.asap ? "Pick a time" : when}</button>
+        </div>
+        <div className="wk-where">
+          <div className="wk-map"><PlaceMap lat={suburb?.lat ?? null} lng={suburb?.lng ?? null} /></div>
+          <div className="wk-addr">{Icon.pin("var(--emerald)")}<b className={where ? "" : "ph"}>{where || "No address yet"}</b></div>
+        </div>
+        <div className="wk-two2 alt">
+          <button onClick={useMyLocation}>{Icon.pin("currentColor")}Current location</button>
+          <button onClick={() => { retTo("/book/when-where"); go("/book/where"); }}>{Icon.search("currentColor")}Type address</button>
+        </div>
       </WalkShell>
     );
   }
