@@ -138,7 +138,7 @@ export function Landing() {
       <section className="ld-hero">
         <div className="ld-wrap ld-hero-in">
           <div className="ld-hero-text">
-            <h1>Get the right help, right now.</h1>
+            <h1>Get help with anything.</h1>
             <p className="ld-sub">Verified locals with real reviews, ready today. No spam, no chasing.</p>
             <div className="row ld-ctas">
               <a className="btn lime" href="/post" onClick={link("/post")}>Post a job, free {Icon.arrow("var(--ink)")}</a>
