@@ -357,18 +357,25 @@ export function Book() {
     const UNITS = [{ id: "job", label: "for the job" }, { id: "hour", label: "an hour" }, { id: "day", label: "a day" }, { id: "visit", label: "a visit" }] as const;
     return (
       <WalkShell n={3} title="What will you pay?" onBack={() => history.back()} onNext={() => after("/book/when-where")}>
-        <div className="wk-type">
-          <label><span>$</span><input inputMode="numeric" value={Math.round(d.priceCents / 100)} placeholder="0"
-            onChange={(e) => set(Number(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)) * 100)} aria-label="Type a price" /></label>
-          <button className="wk-sel" onClick={() => setPickUnit(true)}>{UNITS.find((u) => u.id === unit)!.label}{Icon.down("var(--ink)")}</button>
+        {/* Airbnb's price filter: the line under the heading, the spread of prices as bars, the slider on them, typed boxes under it. */}
+        <p className="wk-sub">Most people pay {money(range[0])} to {money(range[1])} {UNITS.find((u) => u.id === unit)!.label}.</p>
+        <div className="wk-hist" aria-hidden="true">
+          {Array.from({ length: 36 }, (_, k) => {
+            const at = ((k + 0.5) / 36) * 100;
+            const mid = (pct(range[0]) + pct(range[1])) / 2, spread = Math.max(8, (pct(range[1]) - pct(range[0])) * 0.9);
+            const h = 6 + 94 * Math.exp(-(((at - mid) / spread) ** 2));
+            return <i key={k} className={at <= pct(d.priceCents) ? "on" : ""} style={{ height: `${h}%` }} />;
+          })}
         </div>
         <div className="wk-scale">
-          <span className="wk-band-l" style={{ left: `${Math.min(80, Math.max(20, (pct(range[0]) + pct(range[1])) / 2))}%` }}>Usual {money(range[0])} to {money(range[1])}</span>
-          <i className="band" style={{ left: `${pct(range[0])}%`, width: `${pct(range[1]) - pct(range[0])}%` }} />
           <input className="mm-range" type="range" min={0} max={100} step={0.5} value={pct(d.priceCents)} aria-label="Price"
             onChange={(e) => set(fromPct(Number(e.target.value)))} />
         </div>
-        <div className="wk-ends"><span>{money(min)}</span><span>{money(max)}{max >= 100000 ? "+" : ""}</span></div>
+        <div className="wk-boxes">
+          <label className="wk-box"><small>Your price</small><span>$<input inputMode="numeric" value={Math.round(d.priceCents / 100)}
+            onChange={(e) => set(Number(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)) * 100)} aria-label="Type a price" /></span></label>
+          <button className="wk-box" onClick={() => setPickUnit(true)}><small>Price is</small><span>{UNITS.find((u) => u.id === unit)!.label}{Icon.down("var(--ink)")}</span></button>
+        </div>
         <div className="wk-pay2">
           <span>Pay by</span>
           {PAY_METHODS.map((m) => <button key={m.id} className={(d.payMethod ?? "cash") === m.id ? "on" : ""} onClick={() => setD({ ...d, payMethod: m.id })}>{(d.payMethod ?? "cash") === m.id && Icon.tick("#fff", 18)}{m.short}</button>)}

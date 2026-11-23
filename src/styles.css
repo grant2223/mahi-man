@@ -3128,12 +3128,6 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .wk-head h1 { font-size: 34px; letter-spacing: -1px; }
 .wk-prog i { height: 5px; border-radius: 99px; }
 .wk-say { background: var(--ground); border-radius: 18px; }
-.wk-scale { position: relative; margin: 8px 0 0; }
-.wk-scale::before { content: ""; position: absolute; left: 0; right: 0; top: 19px; height: 6px; border-radius: 99px; background: var(--stone-2); }
-.wk-scale .band { position: absolute; top: 16px; height: 12px; border-radius: 99px; background: var(--emerald); opacity: 0.35; }
-.wk-scale .mm-range { position: relative; }
-.wk-scale .mm-range::-webkit-slider-runnable-track { height: 6px; background: transparent; }
-.wk-scale .mm-range::-webkit-slider-thumb { width: 34px; height: 34px; margin-top: -14px; border-radius: 50%; background: #fff; box-shadow: 0 2px 10px rgba(20, 33, 28, 0.3); }
 .wk-rec { display: flex; align-items: center; gap: 10px; margin: 18px 0 0; padding: 14px 16px; border-radius: 16px; background: var(--emerald-tint, #e6f4ee); font-size: 16px; color: var(--ink); }
 .wk-rec svg { flex: none; }
 .wk-rec b { font-weight: 600; }
@@ -3174,11 +3168,6 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .wk-addr b { font-size: 18px; font-weight: 600; }
 .wk-addr b.ph { color: var(--muted); font-weight: 400; }
 
-.wk-type { display: flex; align-items: center; gap: 10px; min-height: 92px; padding: 0 12px 0 20px; border-radius: 18px; background: var(--ground); box-shadow: inset 0 0 0 2px var(--emerald); }
-.wk-type label { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: 2px; cursor: text; }
-.wk-type label span { font-size: 34px; font-weight: 600; }
-.wk-type input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; font: inherit; font-size: 56px; font-weight: 600; letter-spacing: -1.5px; color: var(--ink); outline: none; padding: 0; }
-.wk-type .wk-sel { background: #fff; flex: none; }
 .wk-map { position: relative; height: 170px; overflow: hidden; }
 .wk-map .pm { position: absolute; inset: 0; }
 .wk-h { margin: 22px 0 8px; font-size: 18px; font-weight: 600; }
@@ -3189,6 +3178,20 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .wk-loc { display: flex; align-items: center; gap: 12px; width: 100%; height: 52px; padding: 0 18px; border: 0; background: none; font: inherit; font-size: 17px; font-weight: 500; color: var(--emerald); cursor: pointer; }
 .wk-loc svg { width: 22px; height: 22px; }
 .wk-where { margin-top: 4px; }
-.wk-scale { margin-top: 44px; }
-.wk-band-l { position: absolute; top: -30px; transform: translateX(-50%); padding: 4px 10px; border-radius: 99px; background: var(--emerald); color: #fff; font-size: 14px; font-weight: 600; white-space: nowrap; }
-.wk-ends { display: flex; justify-content: space-between; margin-top: 2px; font-size: 14px; color: var(--muted); }
+
+.wk-sub { margin: -4px 0 18px; font-size: 16px; font-weight: 300; color: var(--muted); }
+.wk-hist { display: flex; align-items: flex-end; gap: 3px; height: 86px; padding: 0 17px; }
+.wk-hist i { flex: 1; border-radius: 2px 2px 0 0; background: var(--stone-2); }
+.wk-hist i.on { background: var(--emerald); }
+.wk-scale { position: relative; margin-top: -22px; }
+.wk-scale::before { content: ""; position: absolute; left: 17px; right: 17px; top: 21px; height: 2px; background: var(--stone-2); }
+.wk-scale .mm-range { position: relative; }
+.wk-scale .mm-range::-webkit-slider-runnable-track { height: 2px; background: transparent; }
+.wk-scale .mm-range::-webkit-slider-thumb { width: 34px; height: 34px; margin-top: -16px; border-radius: 50%; background: #fff; box-shadow: 0 1px 6px rgba(20, 33, 28, 0.35); }
+.wk-boxes { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px; margin-top: 18px; }
+.wk-box { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-height: 76px; padding: 0 16px; border: 0; border-radius: 14px; background: var(--ground); font: inherit; color: var(--ink); text-align: left; cursor: text; }
+button.wk-box { cursor: pointer; }
+.wk-box small { font-size: 13px; color: var(--muted); }
+.wk-box span { display: flex; align-items: center; gap: 1px; width: 100%; font-size: 24px; font-weight: 600; }
+.wk-box input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; font: inherit; color: var(--ink); outline: none; padding: 0; }
+button.wk-box span { font-size: 19px; justify-content: space-between; }
