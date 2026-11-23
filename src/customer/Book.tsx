@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, avatarUrl, firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go, usePath } from "../lib/router";
-import { money, money2, photoForReading, shrinkImage } from "../lib/format";
+import { money, money2, photoForReading, priceAbout, priceWords, shrinkImage, UNIT_COUNT } from "../lib/format";
 import { draftMedia, type DraftItem } from "../lib/draftMedia";
 import { CatIcon, Icon, Logo, Screen, SearchPicker, StepHero, useToast } from "../ui/kit";
 import { AuthScreen } from "../ui/Auth";
@@ -34,8 +34,8 @@ interface Draft {
   budgetMin?: number | null; budgetMax?: number | null;
   // The job's name ("Backyard clean-up") and its other kinds of work besides the main one.
   title?: string; extraCats?: number[];
-  // What the price is for: the whole job, an hour, or another unit (a day, a visit).
-  priceUnit?: "job" | "hour" | "day" | "visit";
+  // What the price is for: fixed (the whole job), or an hour, a day, a visit; and about how many. priceCents is then the rate.
+  priceUnit?: "fixed" | "hour" | "day" | "visit"; unitQty?: number;
   // 0 for just once; otherwise it posts itself again every 1, 2 or 4 weeks.
   repeatWeeks?: 0 | 1 | 2 | 4;
 }
@@ -138,25 +138,29 @@ export function Book() {
   const jobSkills = skillList.filter((k) => typeIds.includes(k.category_id) && (d.skills ?? []).includes(k.id));
   const tradeSkill = jobSkills.find((k) => k.trade && k.licence) ?? jobSkills.find((k) => k.trade) ?? null;
   const isTrade = !!tradeSkill;
-  const total = d.priceCents + Math.round((d.priceCents * fee) / 100);
+  // The whole-job amount: the price itself if fixed, otherwise the rate times about how many hours, days or visits.
+  const unit = d.priceUnit === "hour" || d.priceUnit === "day" || d.priceUnit === "visit" ? d.priceUnit : "fixed";
+  const qty = unit === "fixed" ? 1 : d.unitQty ?? 1;
+  const jobCents = unit === "fixed" ? d.priceCents : Math.round(d.priceCents * qty);
+  const total = jobCents + Math.round((jobCents * fee) / 100);
   // Invoice mode: the connection fee is billed when the customer selects a worker, at the rate their plan gives them.
   const { p: payInfo } = usePayments(feeMode === "invoice" && !!session);
   const invoiceFee = (() => {
     if (feeMode !== "invoice" || isTrade) return null;
     const r = payInfo?.rates ?? { payg: feePct, payg_min: feeMin, payg_max: feeMax, topup: 0, topup_min: 0, plus: 0, plus_min: 0, plus_max: 0 };
-    const amt = (pct: number, min: number, max?: number) => connFee(d.priceCents, pct, min, max);
+    const amt = (pct: number, min: number, max?: number) => connFee(jobCents, pct, min, max);
     const plan = (payInfo?.plan ?? "now") as "now" | "weekly" | "fortnightly";
     if (payInfo?.senior) return { cents: 0, pct: 0, min: false, from: "senior" as const };
     if (payInfo && payInfo.plus_until && new Date(payInfo.plus_until) > new Date()) {
       const c = amt(r.plus, r.plus_min, r.plus_max);
-      return { cents: c, pct: r.plus, min: c === r.plus_min && c > Math.round((d.priceCents * r.plus) / 100), from: payInfo.balance >= c ? "balance" as const : plan };
+      return { cents: c, pct: r.plus, min: c === r.plus_min && c > Math.round((jobCents * r.plus) / 100), from: payInfo.balance >= c ? "balance" as const : plan };
     }
     const c = amt(r.payg, r.payg_min, r.payg_max);
-    const min = c === r.payg_min && c > Math.round((d.priceCents * r.payg) / 100);
+    const min = c === r.payg_min && c > Math.round((jobCents * r.payg) / 100);
     if (payInfo && payInfo.balance >= c) return { cents: c, pct: r.payg, min, from: "balance" as const };
     return { cents: c, pct: r.payg, min, from: plan };
   })();
-  const bookingFee = feeMode === "on_choose" && !isTrade ? connFee(d.priceCents, feePct, feeMin, feeMax) : 0;
+  const bookingFee = feeMode === "on_choose" && !isTrade ? connFee(jobCents, feePct, feeMin, feeMax) : 0;
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
   const reusedPhotos = d.reuse.filter((r) => r.kind === "photo");
@@ -258,7 +262,7 @@ export function Book() {
     if (!(d.included ?? []).some((x) => x.trim())) { setErr("Add at least one thing that's included."); return; }
     if (!photoCount && !video && !reusedVideo) { mediaIn.current?.click(); return; }
     if (!photoCount) { setErr("Add at least one photo. A video on its own isn't enough."); return; }
-    if (!isTrade && (d.priceCents < LO || d.priceCents > HI)) { setErr(`Set a price from ${money(LO)} to ${money(HI)}.`); return; }
+    if (!isTrade && (d.priceCents < LO || jobCents > HI)) { setErr(`Set a price from ${money(LO)} to ${money(HI)}.`); return; }
     if (!suburb || d.address.trim().length < 3) return go("/book/where");
     if (!d.asap && !/T\d/.test(d.startAt)) return go("/book/when");
     if (!session) { setAuth(true); return; }
@@ -280,7 +284,8 @@ export function Book() {
       const id = await rpc<string>("create_job", {
         p_job_type: jt.id, p_suburb: d.suburbId, p_address: d.address, p_notes: d.notes,
         p_asap: d.asap, p_start_at: d.asap ? new Date().toISOString() : new Date(d.startAt).toISOString(),
-        p_details: d.details, p_media: uploaded, p_price_cents: d.priceCents,
+        p_details: d.details, p_media: uploaded, p_price_cents: jobCents,
+        p_price_unit: unit, p_unit_price_cents: unit === "fixed" ? null : d.priceCents, p_unit_qty: qty,
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
         p_included: (d.included ?? []).map((x) => x.trim()).filter(Boolean), p_excluded: (d.excluded ?? []).map((x) => x.trim()).filter(Boolean), p_skills: jobSkills.map((k) => k.id),
         p_title: d.title?.trim() || null, p_extra_categories: d.extraCats ?? [],
@@ -341,29 +346,33 @@ export function Book() {
     );
   }
 
-  // Step 3: the price. Type it or slide it; what it's for and how they'll pay are quick selects beside it.
+  // Step 3: the price, Airbnb's price filter: what most people pay, the bars, the slider on them, then the boxes to type in.
+  // Fixed, hourly, daily or per visit; for anything but fixed, about how many. Ranges are what Australians pay (cost guides in job_types).
   if (path === "/book/w-price") {
     if (isTrade) { go("/book/when-where", true); return null; }
-    const unit = d.priceUnit ?? "job";
-    const sug = jt?.price_cents ?? 8000;
-    // The usual range: around the suggested price for a whole job; $40 to $60 an hour; $280 to $420 a day.
-    const range = unit === "hour" ? [4000, 6000] : unit === "day" ? [28000, 42000] : [Math.round((sug * 0.8) / 500) * 500, Math.round((sug * 1.35) / 500) * 500];
-    const max = unit === "hour" ? 20000 : 100000;
-    const min = unit === "hour" ? 2500 : LO;
+    const hourly = unit === "hour" || unit === "day";
+    const perDay = unit === "day" ? 7 : 1;
+    const lo = hourly ? (jt?.hour_lo_cents ?? 4000) * perDay : jt?.range_lo_cents ?? Math.round((jt?.price_cents ?? 8000) * 0.7);
+    const hi = hourly ? (jt?.hour_hi_cents ?? 6000) * perDay : jt?.range_hi_cents ?? Math.round((jt?.price_cents ?? 8000) * 1.5);
+    const mid = hourly ? Math.round((lo + hi) / 2) : jt?.range_mid_cents ?? Math.round((lo + hi) / 2);
+    const max = unit === "hour" ? 20000 : unit === "day" ? 150000 : 100000;
+    const min = 2500;
     const set = (c: number) => setD({ ...d, priceCents: Math.min(HI, Math.max(min, c)), priceSet: true });
-    // The scale runs to $1,000 but spreads out the everyday prices: position is the square root of the share.
+    // The scale runs far enough for big jobs but spreads out everyday prices: position is the square root of the share.
     const pct = (c: number) => Math.sqrt(Math.max(0, Math.min(1, (c - min) / (max - min)))) * 100;
     const fromPct = (p: number) => Math.round((min + (p / 100) ** 2 * (max - min)) / 500) * 500;
-    const UNITS = [{ id: "job", label: "for the job" }, { id: "hour", label: "an hour" }, { id: "day", label: "a day" }, { id: "visit", label: "a visit" }] as const;
+    const UNITS = [{ id: "fixed", label: "Fixed" }, { id: "hour", label: "Hourly" }, { id: "day", label: "Daily" }, { id: "visit", label: "Per visit" }] as const;
+    const per = unit === "fixed" ? "for the job" : unit === "hour" ? "an hour" : unit === "day" ? "a day" : "a visit";
+    const startAt = (u: string) => u === "hour" ? Math.round(((jt?.hour_lo_cents ?? 4000) + (jt?.hour_hi_cents ?? 6000)) / 2 / 500) * 500
+      : u === "day" ? Math.round(((jt?.hour_lo_cents ?? 4000) + (jt?.hour_hi_cents ?? 6000)) / 2 * 7 / 500) * 500 : jt?.range_mid_cents ?? jt?.price_cents ?? 8000;
     return (
       <WalkShell n={3} title="What will you pay?" onBack={() => history.back()} onNext={() => after("/book/when-where")}>
-        {/* Airbnb's price filter: the line under the heading, the spread of prices as bars, the slider on them, typed boxes under it. */}
-        <p className="wk-sub">Most people pay {money(range[0])} to {money(range[1])} {UNITS.find((u) => u.id === unit)!.label}.</p>
+        <p className="wk-sub">Most people pay {money(lo)} to {money(hi)} {per}.</p>
         <div className="wk-hist" aria-hidden="true">
           {Array.from({ length: 36 }, (_, k) => {
             const at = ((k + 0.5) / 36) * 100;
-            const mid = (pct(range[0]) + pct(range[1])) / 2, spread = Math.max(8, (pct(range[1]) - pct(range[0])) * 0.9);
-            const h = 6 + 94 * Math.exp(-(((at - mid) / spread) ** 2));
+            const m = pct(mid), sd = Math.max(5, (at < m ? m - pct(lo) : pct(hi) - m) * 0.75);
+            const h = 6 + 94 * Math.exp(-(((at - m) / sd) ** 2));
             return <i key={k} className={at <= pct(d.priceCents) ? "on" : ""} style={{ height: `${h}%` }} />;
           })}
         </div>
@@ -376,12 +385,21 @@ export function Book() {
             onChange={(e) => set(Number(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)) * 100)} aria-label="Type a price" /></span></label>
           <button className="wk-box" onClick={() => setPickUnit(true)}><small>Price is</small><span>{UNITS.find((u) => u.id === unit)!.label}{Icon.down("var(--ink)")}</span></button>
         </div>
+        {unit !== "fixed" && (
+          <div className="wk-qty">
+            <span>About how many {UNIT_COUNT[unit][1]}?</span>
+            <div><button onClick={() => setD({ ...d, unitQty: Math.max(unit === "hour" ? 0.5 : 1, qty - (unit === "hour" ? 0.5 : 1)) })} aria-label="Fewer">−</button>
+              <b>{qty}</b>
+              <button onClick={() => setD({ ...d, unitQty: Math.min(100, qty + (unit === "hour" ? 0.5 : 1)) })} aria-label="More">+</button></div>
+            <small>{money(jobCents)} in all</small>
+          </div>
+        )}
         <div className="wk-pay2">
           <span>Pay by</span>
           {PAY_METHODS.map((m) => <button key={m.id} className={(d.payMethod ?? "cash") === m.id ? "on" : ""} onClick={() => setD({ ...d, payMethod: m.id })}>{(d.payMethod ?? "cash") === m.id && Icon.tick("#fff", 18)}{m.short}</button>)}
         </div>
-        {pickUnit && <SearchPicker title="The price is" value={[unit]} options={UNITS.map((u) => ({ id: u.id, label: u.label.replace(/^./, (c) => c.toUpperCase()) }))}
-          onClose={() => setPickUnit(false)} onChange={(v) => { const u = String(v[0]) as NonNullable<Draft["priceUnit"]>; setD({ ...d, priceUnit: u, priceCents: u === "hour" ? 5000 : u === "day" ? 35000 : sug, priceSet: true }); }} />}
+        {pickUnit && <SearchPicker title="Price is" value={[unit]} options={UNITS.map((u) => ({ id: u.id, label: u.label }))}
+          onClose={() => setPickUnit(false)} onChange={(v) => { const u = String(v[0]) as NonNullable<Draft["priceUnit"]>; setD({ ...d, priceUnit: u, unitQty: u === "hour" ? 2 : 1, priceCents: startAt(u), priceSet: true }); }} />}
       </WalkShell>
     );
   }
@@ -430,7 +448,7 @@ export function Book() {
           const jobName = d.title?.trim() || jobSkills.map((k) => k.name).join(", ") || cat?.name || "The job";
           const when = d.asap ? "Now" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
           // The connection fee Mahi Man charges. Invoiced (bank transfer) in the pilot, by card after it.
-          const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : connFee(d.priceCents, feePct, feeMin, feeMax);
+          const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : connFee(jobCents, feePct, feeMin, feeMax);
           const connCharged = !isTrade && (invoiceFee ? true : bookingFee > 0);
           return (<>
             {/* Check and post: the job, then four plain rows. Lists, skills and the rest live in Edit. */}
@@ -471,7 +489,7 @@ export function Book() {
               {isTrade ? (
                 <div className="cp2-pay">{Icon.card("var(--emerald)")}<span>Price</span><b className="cp2-q">Tradies quote you</b><small>Select a quote and pay the tradie directly. $0 fee.</small></div>
               ) : (<>
-                <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/w-price"); }}>{Icon.card("var(--emerald)")}<span>Price</span><b>{money(d.priceCents)}{({ hour: " an hour", day: " a day", visit: " a visit", job: "" } as const)[d.priceUnit ?? "job"]}</b>{Icon.chevron("var(--muted)")}</button>
+                <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/w-price"); }}>{Icon.card("var(--emerald)")}<span>Price</span><b>{priceWords({ price_cents: jobCents, price_unit: unit, unit_price_cents: d.priceCents })}{unit !== "fixed" && <small className="cp2-sub">{priceAbout({ price_cents: jobCents, price_unit: unit, unit_price_cents: d.priceCents, unit_qty: qty })}</small>}</b>{Icon.chevron("var(--muted)")}</button>
                 <button className="qk-row" onClick={() => setPickMethod(true)}>{Icon.doc("var(--emerald)", 22)}<span>Pay by</span><b>{PAY_METHODS.find((m) => m.id === d.payMethod)?.short ?? ""}</b>{Icon.chevron("var(--muted)")}</button>
                 {(() => {
                   const first = chosen[0];

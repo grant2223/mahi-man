@@ -23,6 +23,7 @@ export interface Job {
   start_at: string;
   asap: boolean;
   price_cents: number;
+  price_unit?: "fixed" | "hour" | "day" | "visit"; unit_price_cents?: number | null; unit_qty?: number | null;
   trade?: boolean; budget_min_cents?: number | null; budget_max_cents?: number | null;
   pay_method?: "cash" | "bank" | null;
   fee_cents: number; gift_cents?: number; fee_status?: "none" | "due" | "paid" | "refunded" | "invoice" | "invoiced" | "void"; fee_paid_at?: string | null; fee_refunded_at?: string | null;
@@ -55,6 +56,8 @@ export interface JobType {
   needs_insurance: boolean; needs_vehicle: boolean; needs_driver?: boolean; active: boolean; sort: number;
   category_id: number | null; photo_path: string | null; included: string[]; excluded: string[];
   custom_price: boolean; min_price_cents: number; max_price_cents: number;
+  // What Australians pay for this kind of job (cost guides), for the price slider and its bars.
+  range_lo_cents?: number | null; range_mid_cents?: number | null; range_hi_cents?: number | null; hour_lo_cents?: number | null; hour_hi_cents?: number | null;
 }
 export interface Category { id: number; name: string; icon: string; photo_path: string | null; sort: number; active: boolean }
 export interface Suburb { id: number; name: string; area_id?: number; lat?: number; lng?: number }

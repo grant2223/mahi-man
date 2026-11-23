@@ -1,4 +1,4 @@
-import { cardName } from "../lib/format";
+import { cardName, priceWords } from "../lib/format";
 import { AfterJobOffer } from "../ui/LocalOffers";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { api, isDirectPay, payWay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
@@ -147,7 +147,7 @@ export function Track({ id }: { id: string }) {
   if (job.status === "searching") {
     return (
       <>
-        <OffersView jobId={id} title={jobName} price={money(job.price_cents)} priceCents={job.price_cents} feeDue={job.fee_status === "due" ? job.fee_cents : 0} feeInvoice={job.fee_status === "invoice" ? job.fee_cents : 0} asap={job.asap} startAt={job.start_at}
+        <OffersView jobId={id} title={jobName} price={priceWords(job)} priceCents={job.price_cents} feeDue={job.fee_status === "due" ? job.fee_cents : 0} feeInvoice={job.fee_status === "invoice" ? job.fee_cents : 0} asap={job.asap} startAt={job.start_at}
           searchingAt={job.searching_at ?? job.created_at} onBoosted={load} onChosen={load} onCancel={() => setScreen("cancel")}
           trade={!!job.trade} />
         {screen === "cancel" && <CancelScreen job={job} title={jobName} onBack={() => setScreen(null)} onDone={() => { setScreen(null); load(); }} />}
@@ -249,7 +249,7 @@ export function Track({ id }: { id: string }) {
         <section className="hero ps-hero">
           <div className="hero-top"><button className="brand" onClick={() => go("/")}><Logo /> Mahi Man</button><HelpButton onClick={() => setScreen("help")} /></div>
           <h1 className="ps-h">Job cancelled.</h1>
-          <JobLine photo={look.photo} title={jobName} parts={[money(job.price_cents), suburb, job.asap ? "As soon as possible" : longWhen(job.start_at)]} />
+          <JobLine photo={look.photo} title={jobName} parts={[priceWords(job), suburb, job.asap ? "As soon as possible" : longWhen(job.start_at)]} />
         </section>
         <div className="cx-sec">
           <dl className="cx-sum">
@@ -546,7 +546,7 @@ function CancelScreen({ job, title, onBack, onDone }: { job: Job; title: string;
   const w = t?.worker ?? "your worker";
   const W = t?.worker ?? "Your worker";
   const when = job.asap ? "As soon as possible" : job.start_at ? longWhen(job.start_at) : "";
-  const line = <JobLine photo={photo} title={title} parts={[money(job.price_cents), suburb, when]} />;
+  const line = <JobLine photo={photo} title={title} parts={[priceWords(job), suburb, when]} />;
   const OTHER = "Something else";
   const reasons = [
     ...(t?.kind === "new_time" ? [`The new time doesn't suit me`] : t?.kind === "not_moving" ? [`${W} hasn't moved`] : []),

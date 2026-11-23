@@ -4,7 +4,7 @@ import { Fragment, useCallback, useEffect, useRef, useState } from "react";
 import { api, firstPhoto, mediaUrls, rpc, sb, type IdStatus, type Job, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
 import { go } from "../lib/router";
-import { hours, money, whenLabel } from "../lib/format";
+import { hours, money, priceAbout, pricePair, whenLabel } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
 import { Icon, Loading, Logo, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ReportScreen } from "../ui/Report";
@@ -135,6 +135,8 @@ export interface Offer {
   video_path: string | null; customer_id: string; customer_name: string; customer_photo: string | null; customer_verified: boolean;
   customer_rating: number | null; customer_jobs: number; customer_since: string; others_keen: number; invited_me: boolean; customer_scores?: Scores | null;
   trade?: boolean;
+  // What the price is for: fixed, or a rate an hour, a day or a visit, and about how many.
+  price_unit?: string | null; unit_price_cents?: number | null; unit_qty?: number | null;
   urgent?: boolean; pay_method?: "cash" | "bank" | null;
 }
 
@@ -285,7 +287,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
             <span>{startLabel(o)}{o.others_keen > 0 ? `, ${o.others_keen} other${o.others_keen === 1 ? "" : "s"} keen` : ""}</span>
             {o.customer_verified ? <span className="ver">{Icon.shieldTick("var(--emerald)", 15)}{o.customer_name}</span> : <span className="unver">{o.customer_name}, not verified</span>}
           </span>
-          <span className="p">{money(o.earn_cents)}</span>
+          {(() => { const [p, w] = pricePair({ price_cents: o.earn_cents, price_unit: o.price_unit, unit_price_cents: o.unit_price_cents }); return <span className="p">{p}{w && <small className="pu">{w}</small>}</span>; })()}
         </button>
       </Fragment>))}
       {online && !jobs.length && <Standby />}
@@ -376,7 +378,8 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
         )}
         <div style={{ background: "var(--card)", padding: "20px 20px 0" }}>
           {/* The job and what it pays, side by side, straight under the photos. */}
-          <div className="of-title"><h1>{o.job_name}</h1><span className="em">{money(o.earn_cents)}</span></div>
+          <div className="of-title"><h1>{o.job_name}</h1>{(() => { const [p, w] = pricePair({ price_cents: o.earn_cents, price_unit: o.price_unit, unit_price_cents: o.unit_price_cents }); return <span className="em">{p}{w && <small className="pu">{w}</small>}</span>; })()}</div>
+          {o.price_unit && o.price_unit !== "fixed" && <span className="t15 w5" style={{ display: "block", marginTop: 6 }}>{priceAbout({ price_cents: o.earn_cents, price_unit: o.price_unit, unit_price_cents: o.unit_price_cents, unit_qty: o.unit_qty })}</span>}
           <span className="t15 light muted" style={{ display: "block", marginTop: 6 }}>
             {o.pay_method === "cash" ? "Paid to you in cash when it's done. You keep all of it."
               : o.pay_method === "bank" ? "Paid to you by bank transfer when it's done. You keep all of it."
@@ -506,7 +509,7 @@ export { hours };
 
 // Offline: the jobs they could take right now, so there's a reason to go online. Tapping one goes online.
 function OfflineJobs({ onGoOnline }: { onGoOnline: () => void }) {
-  const [jobs, setJobs] = useState<{ id: string; job_name: string; category: string | null; suburb: string; distance_km: number | null; earn_cents: number; asap: boolean; start_at: string; cover_path: string | null }[] | null>(null);
+  const [jobs, setJobs] = useState<{ id: string; job_name: string; category: string | null; suburb: string; distance_km: number | null; earn_cents: number; asap: boolean; start_at: string; cover_path: string | null; price_unit?: string | null; unit_price_cents?: number | null }[] | null>(null);
   const [pics, setPics] = useState<Record<string, string>>({});
   useEffect(() => {
     rpc<NonNullable<typeof jobs>>("jobs_if_online").then((r) => {
@@ -524,7 +527,7 @@ function OfflineJobs({ onGoOnline }: { onGoOnline: () => void }) {
         <button key={j.id} className="ofj-row" onClick={onGoOnline}>
           <span className="pic" style={j.cover_path && pics[j.cover_path] ? { backgroundImage: `url("${pics[j.cover_path]}")` } : undefined} />
           <span className="t">{j.category && <i>{j.category}</i>}<b>{j.job_name}</b><small>{j.suburb}{j.distance_km != null ? `, ${j.distance_km} km` : ""}. {when(j)}</small></span>
-          <span className="p">{money(j.earn_cents)}</span>
+          {(() => { const [p, w] = pricePair({ price_cents: j.earn_cents, price_unit: j.price_unit, unit_price_cents: j.unit_price_cents }); return <span className="p">{p}{w && <small className="pu">{w}</small>}</span>; })()}
         </button>
       ))}
     </div>

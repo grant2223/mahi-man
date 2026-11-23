@@ -1,3 +1,26 @@
+// How a job's price reads: "$105" for a fixed price, "$50 an hour" (or a day, a visit) otherwise.
+export const UNIT_WORDS = { hour: "an hour", day: "a day", visit: "a visit" } as const;
+export const UNIT_COUNT = { hour: ["hour", "hours"], day: ["day", "days"], visit: ["visit", "visits"] } as const;
+export type PriceUnit = "fixed" | keyof typeof UNIT_WORDS;
+export function priceWords(j: { price_cents: number; price_unit?: string | null; unit_price_cents?: number | null }) {
+  const u = j.price_unit as PriceUnit | null | undefined;
+  if (!u || u === "fixed" || j.unit_price_cents == null) return money(j.price_cents);
+  return `${money(j.unit_price_cents)} ${UNIT_WORDS[u]}`;
+}
+// The rate on its own and the words after it, so a screen can set "$80" big and "an hour" small under it.
+export function pricePair(j: { price_cents: number; price_unit?: string | null; unit_price_cents?: number | null }): [string, string] {
+  const u = j.price_unit as PriceUnit | null | undefined;
+  if (!u || u === "fixed" || j.unit_price_cents == null) return [money(j.price_cents), ""];
+  return [money(j.unit_price_cents), UNIT_WORDS[u]];
+}
+// "About 3 hours, $150 in all" for an hourly, daily or per-visit job; nothing for a fixed price.
+export function priceAbout(j: { price_cents: number; price_unit?: string | null; unit_price_cents?: number | null; unit_qty?: number | null }) {
+  const u = j.price_unit as PriceUnit | null | undefined;
+  if (!u || u === "fixed" || j.unit_price_cents == null) return "";
+  const q = Number(j.unit_qty ?? 1);
+  return `About ${q} ${UNIT_COUNT[u][q === 1 ? 0 : 1]}, ${money(j.price_cents)} in all`;
+}
+
 export const money = (cents: number, decimals = true) =>
   "$" + (cents / 100).toLocaleString("en-AU", { minimumFractionDigits: decimals && cents % 100 !== 0 ? 2 : 0, maximumFractionDigits: 2 });
 

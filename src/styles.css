@@ -3195,3 +3195,11 @@ button.wk-box { cursor: pointer; }
 .wk-box span { display: flex; align-items: center; gap: 1px; width: 100%; font-size: 24px; font-weight: 600; }
 .wk-box input { flex: 1; min-width: 0; width: 100%; border: 0; background: none; font: inherit; color: var(--ink); outline: none; padding: 0; }
 button.wk-box span { font-size: 19px; justify-content: space-between; }
+.wk-qty { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px 12px; margin-top: 12px; padding: 14px 16px; border-radius: 14px; background: var(--ground); }
+.wk-qty > span { font-size: 16px; font-weight: 500; }
+.wk-qty > div { display: flex; align-items: center; gap: 14px; }
+.wk-qty > div b { min-width: 2.5ch; text-align: center; font-size: 24px; font-weight: 600; }
+.wk-qty > div button { width: 44px; height: 44px; border: 0; border-radius: 12px; background: #fff; font: inherit; font-size: 24px; color: var(--ink); cursor: pointer; }
+.wk-qty small { flex-basis: 100%; font-size: 14px; color: var(--muted); }
+.cp2-sub { display: block; margin-top: 2px; font-size: 14px; font-weight: 300; color: var(--muted); }
+.pu { display: block; margin-top: 2px; font-size: 14px; font-weight: 400; color: var(--muted); letter-spacing: 0; text-align: right; }
