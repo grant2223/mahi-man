@@ -3111,7 +3111,7 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 /* Posting steps: a big question, one thing to do, Back and Next. */
 .wk { background: var(--card); }
 .wk-head { padding: calc(var(--safe-top) + 18px) 20px 6px; background: var(--card); }
-.wk-prog { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wk-prog { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .wk-prog i { height: 6px; border-radius: 2px; background: var(--stone-2); }
 .wk-prog i.on { background: var(--emerald); }
 .wk-head h1 { margin: 22px 0 0; font-size: 32px; font-weight: 600; letter-spacing: -0.8px; line-height: 1.1; }
@@ -3122,32 +3122,12 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .wk-say { position: relative; display: block; border-radius: var(--r-control); background: var(--ground); }
 .wk-say textarea { display: block; width: 100%; min-height: 170px; padding: 16px 16px 72px; border: 0; background: none; font: inherit; font-size: 20px; line-height: 1.4; color: var(--ink); resize: none; outline: none; box-sizing: border-box; }
 .wk-mic { position: absolute; right: 12px; bottom: 12px; display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border: 0; border-radius: var(--r-control); background: var(--emerald); cursor: pointer; }
-.wk-pics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
-.wk-pics span { aspect-ratio: 1; border-radius: var(--r-control); background: center / cover; }
-.wk-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-.wk-big { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; height: 180px; border-radius: var(--r-control); background: var(--gold, #f2c418); color: #14211c; cursor: pointer; text-align: center; }
-.wk-big svg { width: 36px; height: 36px; }
-.wk-big b { font-size: 18px; font-weight: 600; }
-.wk-big.alt { background: var(--emerald); color: #fff; }
-.wk-pay { margin-top: 0; padding: 22px 14px; }
-.wk-picks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
-.wk-picks button { height: 56px; border: 0; border-radius: var(--r-control); background: var(--ground); font: inherit; font-size: 18px; font-weight: 500; color: var(--ink); cursor: pointer; }
-.wk-picks button.on { background: var(--emerald); color: #fff; }
 .wk .qk-row:first-child { margin-top: 0; }
 /* Posting, 2027 look: softer corners, white page, big type, rows without boxes (TaskRabbit / hipages / Airtasker). */
 .wk { --r-control: 14px; background: #fff; }
 .wk-head h1 { font-size: 34px; letter-spacing: -1px; }
 .wk-prog i { height: 5px; border-radius: 99px; }
 .wk-say { background: var(--ground); border-radius: 18px; }
-.wk-big { border-radius: 18px; }
-.wk-pics span { border-radius: 14px; }
-.wk-seg { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: var(--ground); }
-.wk-seg button { height: 48px; border: 0; border-radius: 12px; background: none; font: inherit; font-size: 16px; font-weight: 500; color: var(--muted); cursor: pointer; }
-.wk-seg button.on { background: #fff; color: var(--ink); box-shadow: 0 2px 8px rgba(20, 33, 28, 0.12); }
-.wk-amt { display: flex; align-items: baseline; justify-content: center; gap: 4px; margin: 26px 0 6px; cursor: text; }
-.wk-amt span { font-size: 40px; font-weight: 600; }
-.wk-amt input { border: 0; background: none; font: inherit; font-size: 72px; font-weight: 600; letter-spacing: -2px; color: var(--ink); text-align: center; outline: none; padding: 0; }
-.wk-amt em { font-style: normal; font-size: 20px; color: var(--muted); }
 .wk-scale { position: relative; margin: 8px 0 0; }
 .wk-scale::before { content: ""; position: absolute; left: 0; right: 0; top: 19px; height: 6px; border-radius: 99px; background: var(--stone-2); }
 .wk-scale .band { position: absolute; top: 16px; height: 12px; border-radius: 99px; background: var(--emerald); opacity: 0.35; }
@@ -3163,3 +3143,27 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .wk .cp2-rows .qk-row svg:first-child { flex: none; width: 22px; height: 22px; }
 .wk .ck-media .ck-tile, .wk .ck-media .ck-addm { border-radius: 14px; }
 .wk .wk-head { padding-bottom: 10px; }
+
+.wk-hero { display: block; width: 100%; aspect-ratio: 4 / 3; border-radius: 18px; background: var(--ground) center / cover; cursor: pointer; }
+.wk-hero.empty { display: flex; align-items: center; justify-content: center; }
+.wk-hero.empty span { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--emerald); }
+.wk-hero.empty svg { width: 44px; height: 44px; }
+.wk-hero.empty b { font-size: 19px; font-weight: 600; }
+.wk-thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 8px; }
+.wk-thumbs span, .wk-thumbs .add { aspect-ratio: 1; border-radius: 12px; background: var(--ground) center / cover; }
+.wk-thumbs .add { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.wk-amt { display: flex; align-items: baseline; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 18px 0 4px; }
+.wk-amt label { display: flex; align-items: baseline; gap: 2px; cursor: text; }
+.wk-amt label span { font-size: 40px; font-weight: 600; }
+.wk-amt input { border: 0; background: none; font: inherit; font-size: 72px; font-weight: 600; letter-spacing: -2px; color: var(--ink); text-align: center; outline: none; padding: 0; }
+.wk-sel { display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; border: 0; border-radius: 99px; background: var(--ground); font: inherit; font-size: 17px; font-weight: 500; color: var(--ink); cursor: pointer; }
+.wk-pay2 { display: grid; grid-template-columns: auto 1fr 1fr; align-items: center; gap: 8px; margin-top: 22px; }
+.wk-pay2 > span { font-size: 16px; color: var(--muted); padding-right: 6px; }
+.wk-pay2 button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 52px; border: 0; border-radius: 14px; background: var(--ground); font: inherit; font-size: 16px; font-weight: 500; color: var(--ink); white-space: nowrap; cursor: pointer; }
+.wk-pay2 button.on { background: var(--emerald); color: #fff; }
+.wk-ww { display: flex; align-items: center; gap: 16px; width: 100%; min-height: 84px; margin-bottom: 10px; padding: 0 18px; border: 0; border-radius: 18px; background: var(--ground); font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.wk-ww > svg:first-child { flex: none; width: 28px; height: 28px; }
+.wk-ww span { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.wk-ww small { font-size: 14px; color: var(--muted); }
+.wk-ww b { font-size: 19px; font-weight: 600; }
+.wk-ww b.ph { color: var(--muted); font-weight: 400; }

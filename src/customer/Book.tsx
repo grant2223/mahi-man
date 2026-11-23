@@ -39,7 +39,7 @@ interface Draft {
   repeatWeeks?: 0 | 1 | 2 | 4;
 }
 const DRAFT_KEY = "mm-draft-2";
-const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 10, reuse: [], included: [], excluded: [] };
+const blank: Draft = { categoryId: null, priceCents: 8000, suburbId: null, address: "", notes: "", details: "", asap: true, startAt: "", invited: [], openAfter: 10, reuse: [], included: [], excluded: [], payMethod: "cash" };
 const MAX_PHOTOS = 6;
 // The address and pay method from their last job, so the next one starts filled in. Kept on this phone only.
 const LAST_KEY = "mm-last-job";
@@ -309,60 +309,73 @@ export function Book() {
     return <WalkWhat d={d} setD={setD} cats={cats} skillList={skillList} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null} />;
   }
 
-  // Step 2: a photo. Adding one moves on by itself.
+  // Step 2: a photo, shown big. One tap adds one (camera or library, the phone asks). Adding the first moves on by itself.
   if (path === "/book/photo") {
     const urls = [...photos.map((m) => m.url), ...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean)];
-    const take = async (list: FileList | null) => { const had = photoCount; await addPicked(list); if (!had && list?.length) go(isTrade ? "/book/check" : "/book/w-price"); };
+    const nextStep = isTrade ? "/book/when-where" : "/book/w-price";
+    const take = async (list: FileList | null) => { const had = photoCount; await addPicked(list); if (!had && list?.length) go(nextStep); };
     return (
       <WalkShell n={2} title="Add a photo" onBack={() => history.back()} err={err}
-        onNext={() => { if (!photoCount) return setErr("Add a photo so workers can see the job."); setErr(""); go(isTrade ? "/book/check" : "/book/w-price"); }}>
-        {urls.length > 0 && <div className="wk-pics">{urls.map((u) => <span key={u} style={{ backgroundImage: `url("${u}")` }} />)}</div>}
-        <div className="wk-two">
-          <label className="wk-big">{Icon.camera("#14211c")}<b>Take a photo</b>
-            <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} /></label>
-          <label className="wk-big alt">{Icon.frame("#fff", 34)}<b>From your photos</b>
-            <input type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} /></label>
-        </div>
+        onNext={() => { if (!photoCount) return setErr("Add a photo so workers can see the job."); setErr(""); go(nextStep); }}>
+        <label className={urls.length ? "wk-hero" : "wk-hero empty"} style={urls[0] ? { backgroundImage: `url("${urls[0]}")` } : undefined}>
+          {!urls.length && <span>{Icon.camera("var(--emerald)")}<b>Add a photo</b></span>}
+          <input type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} />
+        </label>
+        {urls.length > 0 && (
+          <div className="wk-thumbs">
+            {urls.slice(1).map((u) => <span key={u} style={{ backgroundImage: `url("${u}")` }} />)}
+            {photoCount < MAX_PHOTOS && <label className="add" aria-label="Add another photo">{Icon.plus("var(--emerald)")}
+              <input type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} /></label>}
+          </div>
+        )}
       </WalkShell>
     );
   }
 
-  // Step 3: the price. Slide it or type it, for the job, an hour or something else, with what this kind of job usually pays.
+  // Step 3: the price. Type it or slide it; what it's for and how they'll pay are quick selects beside it.
   if (path === "/book/w-price") {
-    if (isTrade) { go("/book/check", true); return null; }
+    if (isTrade) { go("/book/when-where", true); return null; }
     const unit = d.priceUnit ?? "job";
     const sug = jt?.price_cents ?? 8000;
-    // The usual range: around the suggested price for a whole job; $40 to $60 an hour; for a day, 7 hours.
+    // The usual range: around the suggested price for a whole job; $40 to $60 an hour; $280 to $420 a day.
     const range = unit === "hour" ? [4000, 6000] : unit === "day" ? [28000, 42000] : [Math.round((sug * 0.8) / 500) * 500, Math.round((sug * 1.35) / 500) * 500];
     const max = unit === "hour" ? 15000 : unit === "day" ? 80000 : SLIDER_MAX;
     const min = unit === "hour" ? 2500 : LO;
     const set = (c: number) => setD({ ...d, priceCents: Math.min(HI, Math.max(min, c)), priceSet: true });
     const pct = (c: number) => Math.max(0, Math.min(100, ((c - min) / (max - min)) * 100));
-    const per = unit === "hour" ? " an hour" : unit === "day" ? " a day" : unit === "visit" ? " a visit" : "";
+    const UNITS = [{ id: "job", label: "for the job" }, { id: "hour", label: "an hour" }, { id: "day", label: "a day" }, { id: "visit", label: "a visit" }] as const;
     return (
-      <WalkShell n={3} title="What will you pay?" onBack={() => history.back()} onNext={() => after("/book/check")}>
-        <div className="wk-seg" role="tablist">
-          {([["job", "For the job"], ["hour", "Per hour"], ["other", "Other"]] as const).map(([k, l]) => {
-            const on = k === "other" ? unit === "day" || unit === "visit" : unit === k;
-            return <button key={k} role="tab" aria-selected={on} className={on ? "on" : ""} onClick={() => {
-              if (k === "other") return setPickUnit(true);
-              setD({ ...d, priceUnit: k, priceCents: k === "hour" ? 5000 : sug, priceSet: true });
-            }}>{k === "other" && on ? (unit === "day" ? "Per day" : "Per visit") : l}</button>;
-          })}
+      <WalkShell n={3} title="What will you pay?" onBack={() => history.back()} onNext={() => after("/book/when-where")}>
+        <div className="wk-amt">
+          <label><span>$</span><input inputMode="numeric" value={Math.round(d.priceCents / 100)} style={{ width: `${String(Math.round(d.priceCents / 100)).length + 0.15}ch` }}
+            onChange={(e) => set(Number(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)) * 100)} aria-label="Price" /></label>
+          <button className="wk-sel" onClick={() => setPickUnit(true)}>{UNITS.find((u) => u.id === unit)!.label}{Icon.down("var(--ink)")}</button>
         </div>
-        <label className="wk-amt">
-          <span>$</span>
-          <input inputMode="numeric" value={Math.round(d.priceCents / 100)} style={{ width: `${String(Math.round(d.priceCents / 100)).length + 0.15}ch` }} onChange={(e) => set(Number(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)) * 100)} aria-label="Price" />
-          {per && <em>{per}</em>}
-        </label>
         <div className="wk-scale">
           <i className="band" style={{ left: `${pct(range[0])}%`, width: `${pct(range[1]) - pct(range[0])}%` }} />
           <input className="mm-range" type="range" min={min / 100} max={max / 100} step={5} value={Math.min(d.priceCents, max) / 100} aria-label="Price"
             onChange={(e) => set(Number(e.target.value) * 100)} />
         </div>
-        <p className="wk-rec">{Icon.spark("var(--emerald)", 20)}<span>Usual {per ? per.trim().replace(/^an? /, "per ") : `for ${cat?.name.toLowerCase() ?? "this job"}`}: <b>{money(range[0])} to {money(range[1])}</b></span></p>
-        {pickUnit && <SearchPicker title="Price is for" value={[unit]} options={[{ id: "day", label: "Per day" }, { id: "visit", label: "Per visit" }]}
-          onClose={() => setPickUnit(false)} onChange={(v) => { const u = String(v[0]) as Draft["priceUnit"]; setD({ ...d, priceUnit: u, priceCents: u === "day" ? 35000 : sug, priceSet: true }); }} />}
+        <p className="wk-rec">{Icon.spark("var(--emerald)", 20)}<span>Usual: <b>{money(range[0])} to {money(range[1])}</b> {UNITS.find((u) => u.id === unit)!.label}</span></p>
+        <div className="wk-pay2">
+          <span>Pay by</span>
+          {PAY_METHODS.map((m) => <button key={m.id} className={(d.payMethod ?? "cash") === m.id ? "on" : ""} onClick={() => setD({ ...d, payMethod: m.id })}>{(d.payMethod ?? "cash") === m.id && Icon.tick("#fff", 18)}{m.short}</button>)}
+        </div>
+        {pickUnit && <SearchPicker title="The price is" value={[unit]} options={UNITS.map((u) => ({ id: u.id, label: u.label.replace(/^./, (c) => c.toUpperCase()) }))}
+          onClose={() => setPickUnit(false)} onChange={(v) => { const u = String(v[0]) as NonNullable<Draft["priceUnit"]>; setD({ ...d, priceUnit: u, priceCents: u === "hour" ? 5000 : u === "day" ? 35000 : sug, priceSet: true }); }} />}
+      </WalkShell>
+    );
+  }
+
+  // Step 4: when and where, already filled in. A quick look; tap either to change it.
+  if (path === "/book/when-where") {
+    const when = d.asap ? "As soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+    const where = [d.address?.trim(), suburb?.name].filter(Boolean).join(", ");
+    return (
+      <WalkShell n={4} title="When and where?" onBack={() => history.back()} err={err}
+        onNext={() => { if (!where || !suburb) { retTo("/book/when-where"); return go("/book/where"); } setErr(""); after("/book/check"); }}>
+        <button className="wk-ww" onClick={() => { retTo("/book/when-where"); go("/book/when"); }}>{Icon.clock("var(--emerald)", 28)}<span><small>When</small><b>{when}</b></span>{Icon.chevron("var(--muted)")}</button>
+        <button className="wk-ww" onClick={() => { retTo("/book/when-where"); go("/book/where"); }}>{Icon.pin("var(--emerald)")}<span><small>Where</small><b className={where ? "" : "ph"}>{where || "Add the address"}</b></span>{Icon.chevron("var(--muted)")}</button>
       </WalkShell>
     );
   }
@@ -395,7 +408,7 @@ export function Book() {
           return (<>
             {/* Check and post: the job, then four plain rows. Lists, skills and the rest live in Edit. */}
             <div className="wk-head">
-              <div className="wk-prog" aria-label="Step 4 of 4">{[1, 2, 3, 4].map((i) => <i key={i} className="on" />)}</div>
+              <div className="wk-prog" aria-label="Step 5 of 5">{[1, 2, 3, 4, 5].map((i) => <i key={i} className="on" />)}</div>
               <h1>Check and post</h1>
             </div>
             {/* The photos and video, straight under the job: a job needs at least one photo to post. */}
@@ -832,7 +845,7 @@ function WalkShell({ n, title, children, onBack, onNext, next = "Next", busy = f
   return (
     <div className="app wk">
       <div className="wk-head">
-        <div className="wk-prog" aria-label={`Step ${n} of 4`}>{[1, 2, 3, 4].map((i) => <i key={i} className={i <= n ? "on" : ""} />)}</div>
+        <div className="wk-prog" aria-label={`Step ${n} of 5`}>{[1, 2, 3, 4, 5].map((i) => <i key={i} className={i <= n ? "on" : ""} />)}</div>
         <h1>{title}</h1>
       </div>
       <div className="wk-body">{children}{err && <p className="err" style={{ margin: "12px 0 0" }}>{err}</p>}</div>
