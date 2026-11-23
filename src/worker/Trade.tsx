@@ -284,34 +284,22 @@ function comeTimes() {
   return out;
 }
 
-type QuoteTpl = { id: number; name: string; price_cents: number; items: string[] };
-
-// Send a quote: the job's photos first, the job, then the quote: a saved quote, the price, their time already picked, and a tick list of what's included.
+// Send a quote: the job's photos first, the job, then the quote.
 export function TradeJob({ o, trade, onBack, onSent, onGone, onCreds }: { o: Offer; trade: TradeStatus; onBack: () => void; onSent: () => void; onGone: () => void; onCreds: () => void }) {
   const toast = useToast();
   const [pics, setPics] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
   const [price, setPrice] = useState("");
   const [at, setAt] = useState<string | null>(null);
-  // What the quote covers: the customer's own list, ticked, plus the tradie's saved items. No typing needed.
-  const [items, setItems] = useState<{ t: string; on: boolean }[]>(() => (o.included ?? []).map((t) => ({ t, on: true })));
-  const [adding, setAdding] = useState("");
-  const [saved, setSaved] = useState<QuoteTpl[]>([]);
-  const [tpl, setTpl] = useState(false);
-  const [keep, setKeep] = useState(false);
+  // A note is optional: the quote covers the job as the customer posted it.
+  const [note, setNote] = useState("");
+  const [noting, setNoting] = useState(false);
   const [pick, setPick] = useState(false);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  // The customer's own time comes first and is selected already; any other time is one tap away.
-  const times = [...(o.start_at && !o.asap && new Date(o.start_at).getTime() > Date.now() ? [{ id: o.start_at, label: `Their time: ${dayTime(o.start_at)}` }] : []), ...comeTimes()];
+  // The customer's own time is selected already.
+  const times = [...(o.start_at && !o.asap && new Date(o.start_at).getTime() > Date.now() ? [{ id: o.start_at, label: dayTime(o.start_at).replace(/^./, (c) => c.toUpperCase()) }] : []), ...comeTimes()];
   useEffect(() => { if (!at && times[0]) setAt(times[0].id); }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { rpc<QuoteTpl[]>("my_quote_templates", {}).then((r) => setSaved(r ?? [])).catch(() => {}); }, []);
-  const useTpl = (t: QuoteTpl) => {
-    setPrice(String(Math.round(t.price_cents / 100)));
-    setItems((cur) => { const have = new Set(cur.map((x) => x.t.toLowerCase())); return [...cur, ...t.items.filter((x) => !have.has(x.toLowerCase())).map((x) => ({ t: x, on: true }))]; });
-    setErr("");
-  };
-  const inc = items.filter((x) => x.on).map((x) => x.t).join(", ");
   useEffect(() => {
     sb.from("job_media").select("path,kind,sort").eq("job_id", o.id).eq("kind", "photo").order("sort").then(async ({ data }) => {
       const rows = (data ?? []) as { path: string }[];
@@ -323,11 +311,9 @@ export function TradeJob({ o, trade, onBack, onSent, onGone, onCreds }: { o: Off
     const c = Number(price) * 100;
     if (!c) return setErr("Add your price.");
     if (!at) return setErr("Select when you can come.");
-    if (inc.trim().length < 3) return setErr("Tick what your quote includes.");
     setErr(""); setBusy(true);
     try {
-      await rpc("offer_job", { p_job: o.id, p_price_cents: c, p_included: inc.trim(), p_can_come_at: at });
-      if (keep) await rpc("save_quote_template", { p_name: o.job_name, p_price_cents: c, p_items: items.filter((x) => x.on).map((x) => x.t) }).catch(() => {});
+      await rpc("offer_job", { p_job: o.id, p_price_cents: c, p_included: note.trim() || "The job as posted", p_can_come_at: at });
       toast(`Quote sent to ${o.customer_name.split(" ")[0]}`); onSent();
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
@@ -348,40 +334,24 @@ export function TradeJob({ o, trade, onBack, onSent, onGone, onCreds }: { o: Off
           {o.customer_verified ? <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}{o.customer_name}, ID verified</span> : <span className="t15 light muted">{o.customer_name}</span>}
         </div>
         <div className="fq-body" style={{ paddingBottom: 130 }}>
-          <h2 className="fq-h">Your quote</h2>
-          {saved.length > 0 && (
-            <button className="field sel" style={{ marginBottom: 10 }} onClick={() => setTpl(true)}><span className="k">Start from a saved quote</span><span className="v ph">{saved.length} saved</span></button>
-          )}
-          <div className="row" style={{ gap: 10, alignItems: "stretch" }}>
-            <label className="field" style={{ flex: 1 }}><span className="k">Fixed price</span>
-              <span className="row" style={{ gap: 0 }}><span className="v">$</span><input inputMode="numeric" pattern="[0-9]*" value={price} placeholder="" onChange={(e) => { setPrice(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)); setErr(""); }} /></span></label>
-            <button className="field sel" style={{ flex: 1.3 }} onClick={() => setPick(true)}><span className="k">Can come</span><span className={at ? "v" : "v ph"}>{at ? times.find((t) => t.id === at)?.label ?? dayTime(at) : "Select a time"}</span></button>
-          </div>
-          <h3 className="qq-h">What's included</h3>
-          <div className="qq-items">
-            {items.map((x, i) => (
-              <button key={i} className={x.on ? "qq-i on" : "qq-i"} onClick={() => { setItems(items.map((y, j) => (j === i ? { ...y, on: !y.on } : y))); setErr(""); }}>
-                <span className="qq-box">{x.on && Icon.tick("#fff", 16)}</span>{x.t}
-              </button>
-            ))}
-            <label className="qq-add">
-              <input value={adding} placeholder="Add an item, like Parts and labour" maxLength={60} onChange={(e) => setAdding(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter" && adding.trim()) { setItems([...items, { t: adding.trim(), on: true }]); setAdding(""); } }} />
-              <button className="btn stone small" disabled={!adding.trim()} onClick={() => { setItems([...items, { t: adding.trim(), on: true }]); setAdding(""); }}>Add</button>
-            </label>
-          </div>
-          <button className={keep ? "qq-keep on" : "qq-keep"} onClick={() => setKeep(!keep)}><span className="qq-box">{keep && Icon.tick("#fff", 16)}</span>Save as a quote for next time</button>
+          <label className="qk-price">
+            <span>Your price</span>
+            <span className="qk-amt"><b>$</b><input inputMode="numeric" pattern="[0-9]*" value={price} placeholder="0" style={{ width: `${Math.max(1, price.length) + 0.1}ch` }} onChange={(e) => { setPrice(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)); setErr(""); }} /></span>
+            <small>{premium(trade) ? "$0 fee if you win" : `Fee if you win: ${Number(price) ? cents2(winFee(Number(price) * 100, trade.prices)) : `${trade.prices.win_pct_bp / 100}%`}`}</small>
+          </label>
+          <button className="qk-row" onClick={() => setPick(true)}><span>When</span><b>{at ? times.find((t) => t.id === at)?.label ?? dayTime(at) : "Select a time"}</b>{Icon.chevron("var(--muted)")}</button>
+          {noting
+            ? <label className="field" style={{ marginTop: 10, minHeight: 84, justifyContent: "flex-start" }}><span className="k">Note</span>
+                <textarea autoFocus value={note} rows={2} maxLength={200} placeholder="Anything they should know" onChange={(e) => setNote(e.target.value)} /></label>
+            : <button className="qk-row" onClick={() => setNoting(true)}><span>Note</span><b className="ph">Optional</b>{Icon.chevron("var(--muted)")}</button>}
           {err && <p className="err" style={{ margin: "10px 0 0" }}>{err}</p>}
           {/QBCC|insurance/i.test(err) && <button className="btn stone small" style={{ marginTop: 10, alignSelf: "flex-start" }} onClick={onCreds}>Add your {/QBCC/.test(err) ? "QBCC licence" : "insurance"}</button>}
         </div>
       </div>
       <div className="bottombar">
-        <span className="tj-fee">{premium(trade) ? <><b>$0</b> fee if you win</> : <>Fee if you win: <b>{Number(price) ? cents2(winFee(Number(price) * 100, trade.prices)) : `${trade.prices.win_pct_bp / 100}%`}</b><small>{Number(price) ? feeRule(trade.prices) : `Max ${dollars(trade.prices.win_max_cents)}`}</small></>}</span>
-        <button className="btn primary" disabled={busy} onClick={send}>{busy ? "Sending…" : "Send quote"} {Icon.arrow("#fff")}</button>
+        <button className="btn primary" style={{ width: "100%" }} disabled={busy} onClick={send}>{busy ? "Sending…" : "Send quote"} {Icon.arrow("#fff")}</button>
       </div>
       {pick && <SearchPicker title="When can you come?" value={at ? [at] : []} options={times} onClose={() => setPick(false)} onChange={(v) => setAt(String(v[0]))} />}
-      {tpl && <SearchPicker title="Saved quotes" placeholder="Search your quotes" value={[]} options={saved.map((t) => ({ id: t.id, label: t.name, hint: `$${Math.round(t.price_cents / 100)}, ${t.items.join(", ")}` }))}
-        onClose={() => setTpl(false)} onChange={(v) => { const t = saved.find((x) => x.id === v[0]); if (t) useTpl(t); setTpl(false); }} />}
     </div>
   );
 }
@@ -402,7 +372,7 @@ export function TradeWaiting({ o, onWithdraw, onClose }: { o: MyOffer; onWithdra
       </section>
       <div className="cp-sec">
         <span className="t17 w5">Your quote</span>
-        <span className="t15 light muted">Can come {o.can_come_at ? dayTime(o.can_come_at) : ""}. Includes {o.included ? o.included.charAt(0).toLowerCase() + o.included.slice(1) : ""}.</span>
+        <span className="t15 light muted">Can come {o.can_come_at ? dayTime(o.can_come_at) : ""}.{o.included && o.included !== "The job as posted" ? ` ${o.included}` : ""}</span>
       </div>
       <div className="cp-sec">
         <span className="cp-title" style={{ marginBottom: 2 }}>What happens next</span>
