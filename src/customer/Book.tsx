@@ -33,6 +33,8 @@ interface Draft {
   budgetMin?: number | null; budgetMax?: number | null;
   // The job's name ("Backyard clean-up") and its other kinds of work besides the main one.
   title?: string; extraCats?: number[];
+  // What the price is for: the whole job, an hour, or another unit (a day, a visit).
+  priceUnit?: "job" | "hour" | "day" | "visit";
   // 0 for just once; otherwise it posts itself again every 1, 2 or 4 weeks.
   repeatWeeks?: 0 | 1 | 2 | 4;
 }
@@ -189,6 +191,7 @@ export function Book() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, session?.user.id, media]);
   const mediaIn = useRef<HTMLInputElement>(null);
+  const [pickUnit, setPickUnit] = useState(false);
   const addPicked = async (list: FileList | null) => {
     const all = Array.from(list ?? []);
     const ph = all.filter((f) => f.type.startsWith("image/")), vid = all.filter((f) => f.type.startsWith("video/")).slice(0, 1);
@@ -324,23 +327,42 @@ export function Book() {
     );
   }
 
-  // Step 3: the price, already set to what this kind of job usually pays. A quick pick moves on by itself.
+  // Step 3: the price. Slide it or type it, for the job, an hour or something else, with what this kind of job usually pays.
   if (path === "/book/w-price") {
     if (isTrade) { go("/book/check", true); return null; }
-    const sug = jt?.price_cents ?? null;
-    const picks = [5000, 8000, 12000, 20000];
-    const set = (c: number) => setD({ ...d, priceCents: Math.min(HI, Math.max(LO, c)), priceSet: true });
+    const unit = d.priceUnit ?? "job";
+    const sug = jt?.price_cents ?? 8000;
+    // The usual range: around the suggested price for a whole job; $40 to $60 an hour; for a day, 7 hours.
+    const range = unit === "hour" ? [4000, 6000] : unit === "day" ? [28000, 42000] : [Math.round((sug * 0.8) / 500) * 500, Math.round((sug * 1.35) / 500) * 500];
+    const max = unit === "hour" ? 15000 : unit === "day" ? 80000 : SLIDER_MAX;
+    const min = unit === "hour" ? 2500 : LO;
+    const set = (c: number) => setD({ ...d, priceCents: Math.min(HI, Math.max(min, c)), priceSet: true });
+    const pct = (c: number) => Math.max(0, Math.min(100, ((c - min) / (max - min)) * 100));
+    const per = unit === "hour" ? " an hour" : unit === "day" ? " a day" : unit === "visit" ? " a visit" : "";
     return (
       <WalkShell n={3} title="What will you pay?" onBack={() => history.back()} onNext={() => after("/book/check")}>
-        <div className="cp2-pay wk-pay">
-          <div className="cp2-amt">
-            <button onClick={() => set(d.priceCents - 500)} aria-label="Less">−</button>
-            <b>{money(d.priceCents)}</b>
-            <button onClick={() => set(d.priceCents + 500)} aria-label="More">+</button>
-          </div>
-          {sug != null && <small>{d.priceCents === sug ? `Usual for ${cat?.name.toLowerCase() ?? "this job"}` : `Usual is ${money(sug)}`}</small>}
+        <div className="wk-seg" role="tablist">
+          {([["job", "For the job"], ["hour", "Per hour"], ["other", "Other"]] as const).map(([k, l]) => {
+            const on = k === "other" ? unit === "day" || unit === "visit" : unit === k;
+            return <button key={k} role="tab" aria-selected={on} className={on ? "on" : ""} onClick={() => {
+              if (k === "other") return setPickUnit(true);
+              setD({ ...d, priceUnit: k, priceCents: k === "hour" ? 5000 : sug, priceSet: true });
+            }}>{k === "other" && on ? (unit === "day" ? "Per day" : "Per visit") : l}</button>;
+          })}
         </div>
-        <div className="wk-picks">{picks.map((c) => <button key={c} className={d.priceCents === c ? "on" : ""} onClick={() => { set(c); after("/book/check"); }}>{money(c)}</button>)}</div>
+        <label className="wk-amt">
+          <span>$</span>
+          <input inputMode="numeric" value={Math.round(d.priceCents / 100)} style={{ width: `${String(Math.round(d.priceCents / 100)).length + 0.15}ch` }} onChange={(e) => set(Number(e.target.value.replace(/[^0-9]/g, "").slice(0, 5)) * 100)} aria-label="Price" />
+          {per && <em>{per}</em>}
+        </label>
+        <div className="wk-scale">
+          <i className="band" style={{ left: `${pct(range[0])}%`, width: `${pct(range[1]) - pct(range[0])}%` }} />
+          <input className="mm-range" type="range" min={min / 100} max={max / 100} step={5} value={Math.min(d.priceCents, max) / 100} aria-label="Price"
+            onChange={(e) => set(Number(e.target.value) * 100)} />
+        </div>
+        <p className="wk-rec">{Icon.spark("var(--emerald)", 20)}<span>Usual {per ? per.trim().replace(/^an? /, "per ") : `for ${cat?.name.toLowerCase() ?? "this job"}`}: <b>{money(range[0])} to {money(range[1])}</b></span></p>
+        {pickUnit && <SearchPicker title="Price is for" value={[unit]} options={[{ id: "day", label: "Per day" }, { id: "visit", label: "Per visit" }]}
+          onClose={() => setPickUnit(false)} onChange={(v) => { const u = String(v[0]) as Draft["priceUnit"]; setD({ ...d, priceUnit: u, priceCents: u === "day" ? 35000 : sug, priceSet: true }); }} />}
       </WalkShell>
     );
   }
@@ -363,7 +385,7 @@ export function Book() {
   if (path === "/book/check") {
     const chosen = past.filter((p) => d.invited.includes(p.worker_id));
     return (
-      <div className="app">
+      <div className="app wk">
         {(() => {
           const jobName = d.title?.trim() || jobSkills.map((k) => k.name).join(", ") || cat?.name || "The job";
           const when = d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
@@ -404,23 +426,23 @@ export function Book() {
             </section>
 
             <section className="cp2-rows">
-              <button className="qk-row" onClick={() => go("/book/when")}><span>When</span><b>{when}</b>{Icon.chevron("var(--muted)")}</button>
-              <button className="qk-row" onClick={() => go("/book/where")}><span>Where</span><b className={d.address?.trim() ? "" : "ph"}>{[d.address?.trim(), suburb?.name].filter(Boolean).join(", ") || "Add the address"}</b>{Icon.chevron("var(--muted)")}</button>
+              <button className="qk-row" onClick={() => go("/book/when")}>{Icon.clock("var(--emerald)", 22)}<span>When</span><b>{when}</b>{Icon.chevron("var(--muted)")}</button>
+              <button className="qk-row" onClick={() => go("/book/where")}>{Icon.pin("var(--emerald)")}<span>Where</span><b className={d.address?.trim() ? "" : "ph"}>{[d.address?.trim(), suburb?.name].filter(Boolean).join(", ") || "Add the address"}</b>{Icon.chevron("var(--muted)")}</button>
               {isTrade ? (
-                <div className="cp2-pay"><span>Price</span><b className="cp2-q">Tradies quote you</b><small>Select a quote and pay the tradie directly. $0 fee.</small></div>
+                <div className="cp2-pay">{Icon.card("var(--emerald)")}<span>Price</span><b className="cp2-q">Tradies quote you</b><small>Select a quote and pay the tradie directly. $0 fee.</small></div>
               ) : (<>
-                <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/w-price"); }}><span>Price</span><b>{money(d.priceCents)}</b>{Icon.chevron("var(--muted)")}</button>
-                <button className="qk-row" onClick={() => setPickMethod(true)}><span>Pay by</span><b>{PAY_METHODS.find((m) => m.id === d.payMethod)?.short ?? ""}</b>{Icon.chevron("var(--muted)")}</button>
+                <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/w-price"); }}>{Icon.card("var(--emerald)")}<span>Price</span><b>{money(d.priceCents)}{({ hour: " an hour", day: " a day", visit: " a visit", job: "" } as const)[d.priceUnit ?? "job"]}</b>{Icon.chevron("var(--muted)")}</button>
+                <button className="qk-row" onClick={() => setPickMethod(true)}>{Icon.doc("var(--emerald)", 22)}<span>Pay by</span><b>{PAY_METHODS.find((m) => m.id === d.payMethod)?.short ?? ""}</b>{Icon.chevron("var(--muted)")}</button>
                 {(() => {
                   const first = chosen[0];
-                  return past.length > 0 && <button className="qk-row" onClick={() => setPickWho("people")}><span>Who</span><b>{first ? `${chosen.map((p) => p.full_name.split(" ")[0]).join(", ")} first` : "Anyone nearby"}</b>{Icon.chevron("var(--muted)")}</button>;
+                  return past.length > 0 && <button className="qk-row" onClick={() => setPickWho("people")}>{Icon.person("var(--emerald)")}<span>Who</span><b>{first ? `${chosen.map((p) => p.full_name.split(" ")[0]).join(", ")} first` : "Anyone nearby"}</b>{Icon.chevron("var(--muted)")}</button>;
                 })()}
-                <button className="qk-row" onClick={() => setPickRepeat(true)}><span>Repeat</span><b className={d.repeatWeeks ? "" : "ph"}>{REPEATS.find((r) => r.v === (d.repeatWeeks ?? 0))!.label}</b>{Icon.chevron("var(--muted)")}</button>
+                <button className="qk-row" onClick={() => setPickRepeat(true)}>{Icon.repeat("var(--emerald)")}<span>Repeat</span><b className={d.repeatWeeks ? "" : "ph"}>{REPEATS.find((r) => r.v === (d.repeatWeeks ?? 0))!.label}</b>{Icon.chevron("var(--muted)")}</button>
                 <div className="cp2-fee">
                   <span>Mahi Man fee <b>{invoiceFee?.from === "senior" ? "Free" : connCharged ? money2(connCents) : "Free"}</b>, only when you select a worker</span>
                   <button className="ck-i" onClick={() => go("/pricing")} aria-label="How the fee works">{Icon.help("currentColor", 20)}</button>
                 </div>
-                {bookingFee > 0 && session && <button className="qk-row" onClick={() => setCardScreen(true)}><span>Card</span><b>{profile?.card_last4 ? cardLabel(profile) : "Add a card"}</b>{Icon.chevron("var(--muted)")}</button>}
+                {bookingFee > 0 && session && <button className="qk-row" onClick={() => setCardScreen(true)}>{Icon.card("var(--emerald)")}<span>Card</span><b>{profile?.card_last4 ? cardLabel(profile) : "Add a card"}</b>{Icon.chevron("var(--muted)")}</button>}
               </>)}
             </section>
           </>);
