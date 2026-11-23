@@ -3093,3 +3093,44 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .wk-tabs button.on { background: var(--emerald); color: #fff; }
 .wk-tabs .n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 3px; background: var(--lime); color: var(--ink); font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
 .tq { margin-top: 10px; }
+/* Post a job, check and post: the job, then plain rows. */
+.cp2-job { padding: 6px 20px 4px; background: var(--card); }
+.cp2-jh { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.cp2-jh .cp2-t { display: block; flex: 1; margin: 4px 0 0; font-size: 26px; font-weight: 600; letter-spacing: -0.5px; line-height: 1.15; }
+.cp2-job p { margin: 8px 0 0; font-size: 16px; font-weight: 300; line-height: 1.45; color: var(--ink); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.cp2-rows { padding: 8px 20px 16px; background: var(--card); }
+.cp2-pay { display: flex; flex-direction: column; align-items: center; gap: 4px; margin-top: 10px; padding: 14px; border-radius: var(--r-control); background: var(--ground); }
+.cp2-pay > span { font-size: 15px; color: var(--muted); }
+.cp2-pay small { font-size: 14px; font-weight: 300; color: var(--muted); }
+.cp2-amt { display: flex; align-items: center; gap: 22px; }
+.cp2-amt b { font-size: 44px; font-weight: 600; letter-spacing: -1px; min-width: 4ch; text-align: center; }
+.cp2-amt button { width: 52px; height: 52px; border: 0; border-radius: var(--r-control); background: var(--card); color: var(--ink); font-size: 28px; font-weight: 500; cursor: pointer; }
+.cp2-q { font-size: 22px; font-weight: 600; }
+.cp2-fee { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; font-size: 15px; font-weight: 300; color: var(--muted); }
+.cp2-fee b { font-weight: 600; color: var(--ink); }
+/* Posting steps: a big question, one thing to do, Back and Next. */
+.wk { background: var(--card); }
+.wk-head { padding: calc(var(--safe-top) + 18px) 20px 6px; background: var(--card); }
+.wk-prog { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.wk-prog i { height: 6px; border-radius: 2px; background: var(--stone-2); }
+.wk-prog i.on { background: var(--emerald); }
+.wk-head h1 { margin: 22px 0 0; font-size: 32px; font-weight: 600; letter-spacing: -0.8px; line-height: 1.1; }
+.wk-body { flex: 1; padding: 18px 20px 120px; }
+.wk-bar { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.6fr); gap: 10px; }
+.wk-bar .btn { width: 100%; padding: 0 14px; }
+.wk-bar .btn svg { flex: none; }
+.wk-say { position: relative; display: block; border-radius: var(--r-control); background: var(--ground); }
+.wk-say textarea { display: block; width: 100%; min-height: 170px; padding: 16px 16px 72px; border: 0; background: none; font: inherit; font-size: 20px; line-height: 1.4; color: var(--ink); resize: none; outline: none; box-sizing: border-box; }
+.wk-mic { position: absolute; right: 12px; bottom: 12px; display: inline-flex; align-items: center; justify-content: center; width: 56px; height: 56px; border: 0; border-radius: var(--r-control); background: var(--emerald); cursor: pointer; }
+.wk-pics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+.wk-pics span { aspect-ratio: 1; border-radius: var(--r-control); background: center / cover; }
+.wk-two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wk-big { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; height: 180px; border-radius: var(--r-control); background: var(--gold, #f2c418); color: #14211c; cursor: pointer; text-align: center; }
+.wk-big svg { width: 36px; height: 36px; }
+.wk-big b { font-size: 18px; font-weight: 600; }
+.wk-big.alt { background: var(--emerald); color: #fff; }
+.wk-pay { margin-top: 0; padding: 22px 14px; }
+.wk-picks { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 12px; }
+.wk-picks button { height: 56px; border: 0; border-radius: var(--r-control); background: var(--ground); font: inherit; font-size: 18px; font-weight: 500; color: var(--ink); cursor: pointer; }
+.wk-picks button.on { background: var(--emerald); color: #fff; }
+.wk .qk-row:first-child { margin-top: 0; }

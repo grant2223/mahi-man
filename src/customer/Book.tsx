@@ -16,7 +16,6 @@ import { VoiceScreen, voiceSupported } from "../ui/Voice";
 import { JobCamera } from "../ui/JobCamera";
 import { PayScreen } from "./Pay";
 import { AddCardScreen, cardLabel } from "./Cards";
-import { PlaceMap } from "../ui/PlaceMap";
 import { lc } from "../worker/Skills";
 import { SetSide, SideSwitch } from "../ui/SideSwitch";
 import { TabBar } from "../ui/TabBar";
@@ -304,7 +303,46 @@ export function Book() {
   }
 
   if (path === "/book/start") {
-    return <StartStep d={d} setD={setD} cats={cats} skillList={skillList} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null} addPhotos={addBlobs} />;
+    return <WalkWhat d={d} setD={setD} cats={cats} skillList={skillList} suggest={(id) => types.find((t) => t.category_id === id)?.price_cents ?? null} />;
+  }
+
+  // Step 2: a photo. Adding one moves on by itself.
+  if (path === "/book/photo") {
+    const urls = [...photos.map((m) => m.url), ...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean)];
+    const take = async (list: FileList | null) => { const had = photoCount; await addPicked(list); if (!had && list?.length) go(isTrade ? "/book/check" : "/book/w-price"); };
+    return (
+      <WalkShell n={2} title="Add a photo" onBack={() => history.back()} err={err}
+        onNext={() => { if (!photoCount) return setErr("Add a photo so workers can see the job."); setErr(""); go(isTrade ? "/book/check" : "/book/w-price"); }}>
+        {urls.length > 0 && <div className="wk-pics">{urls.map((u) => <span key={u} style={{ backgroundImage: `url("${u}")` }} />)}</div>}
+        <div className="wk-two">
+          <label className="wk-big">{Icon.camera("#14211c")}<b>Take a photo</b>
+            <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} /></label>
+          <label className="wk-big alt">{Icon.frame("#fff", 34)}<b>From your photos</b>
+            <input type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { take(e.target.files); e.target.value = ""; }} /></label>
+        </div>
+      </WalkShell>
+    );
+  }
+
+  // Step 3: the price, already set to what this kind of job usually pays. A quick pick moves on by itself.
+  if (path === "/book/w-price") {
+    if (isTrade) { go("/book/check", true); return null; }
+    const sug = jt?.price_cents ?? null;
+    const picks = [5000, 8000, 12000, 20000];
+    const set = (c: number) => setD({ ...d, priceCents: Math.min(HI, Math.max(LO, c)), priceSet: true });
+    return (
+      <WalkShell n={3} title="What will you pay?" onBack={() => history.back()} onNext={() => after("/book/check")}>
+        <div className="cp2-pay wk-pay">
+          <div className="cp2-amt">
+            <button onClick={() => set(d.priceCents - 500)} aria-label="Less">−</button>
+            <b>{money(d.priceCents)}</b>
+            <button onClick={() => set(d.priceCents + 500)} aria-label="More">+</button>
+          </div>
+          {sug != null && <small>{d.priceCents === sug ? `Usual for ${cat?.name.toLowerCase() ?? "this job"}` : `Usual is ${money(sug)}`}</small>}
+        </div>
+        <div className="wk-picks">{picks.map((c) => <button key={c} className={d.priceCents === c ? "on" : ""} onClick={() => { set(c); after("/book/check"); }}>{money(c)}</button>)}</div>
+      </WalkShell>
+    );
   }
 
   if (path === "/book/details") {
@@ -324,33 +362,20 @@ export function Book() {
 
   if (path === "/book/check") {
     const chosen = past.filter((p) => d.invited.includes(p.worker_id));
-    const suggested = isTrade ? null : jt?.price_cents ?? null;
     return (
       <div className="app">
         {(() => {
           const jobName = d.title?.trim() || jobSkills.map((k) => k.name).join(", ") || cat?.name || "The job";
-          const typeNames = typeIds.map((id) => cats.find((c) => c.id === id)?.name).filter(Boolean).join(", ");
           const when = d.asap ? "Today, as soon as possible" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
           // The connection fee Mahi Man charges. Invoiced (bank transfer) in the pilot, by card after it.
           const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : connFee(d.priceCents, feePct, feeMin, feeMax);
           const connCharged = !isTrade && (invoiceFee ? true : bookingFee > 0);
           return (<>
-            {/* Where it is, on a map, the way Uber, DoorDash and TaskRabbit start their confirm screens. */}
-            <div className="ck-map">
-              <PlaceMap lat={suburb?.lat ?? null} lng={suburb?.lng ?? null} />
-              <button className="ck-mback" onClick={() => history.back()} aria-label="Back">{Icon.back("#14181c")}</button>
-              <button className="ck-addr" onClick={() => go("/book/where")}>
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></svg>
-                {[d.address?.trim(), suburb?.name].filter(Boolean).join(", ") || <b>Add the address</b>}</button>
+            {/* Check and post: the job, then four plain rows. Lists, skills and the rest live in Edit. */}
+            <div className="wk-head">
+              <div className="wk-prog" aria-label="Step 4 of 4">{[1, 2, 3, 4].map((i) => <i key={i} className="on" />)}</div>
+              <h1>Check and post</h1>
             </div>
-
-            {/* The job and when. */}
-            <button className="ck-head" onClick={() => go("/book/details")}>
-              <span className="k">{[typeNames, "Check and post"].filter(Boolean).join(", ")}</span>
-              <b>{jobName}</b>
-              <span className="w">{when}</span>
-            </button>
-
             {/* The photos and video, straight under the job: a job needs at least one photo to post. */}
             <section className="ck-media">
               {reusedPhotos.map((r) => reuseUrls[r.path] && (
@@ -373,89 +398,31 @@ export function Book() {
               <input ref={mediaIn} type="file" accept="image/*,video/*" multiple hidden onChange={(e) => { addPicked(e.target.files); e.target.value = ""; }} />
             </section>
 
-            {/* The job, straight under its photos: what workers read. */}
-            <section className="ck-job">
-              <div className="ck-jh"><h2>The job</h2><button className="btn stone small" onClick={() => go("/book/details")}>Edit</button></div>
-              <p className="ck-desc">{d.details}</p>
-              <div className="ck-ie2">
-              <CheckList title="Included" kind="yes" items={d.included ?? []} placeholder="Like: Mow the back lawn" onChange={(v) => { setD({ ...d, included: v }); setErr(""); }} />
-              <CheckList title="Not included" kind="no" items={d.excluded ?? []} placeholder="Like: The front lawn" onChange={(v) => setD({ ...d, excluded: v })} />
-              </div>
-              {d.notes ? <div className="ck-list"><h3>Notes for your worker</h3><span className="plain">{d.notes}</span></div> : null}
-              {isTrade && <div className="ck-list"><h3>Who can take it</h3>
-                <button className="ck-who" onClick={() => go("/book/details")}>{tradeSkill!.licence ? `Licensed tradies, ${lc(tradeSkill!.licence)} checked` : "Tradies with an ABN and insurance, checked"}</button></div>}
+            <section className="cp2-job">
+              <div className="cp2-jh"><b className="cp2-t">{jobName}</b><button className="btn stone small" onClick={() => go("/book/details")}>Edit</button></div>
+              <p>{d.details}</p>
             </section>
 
-
-
-
-            {/* The money: big, plain, and nothing hidden. TaskRabbit and DoorDash both list each line, then a bold total. */}
-            <section className="ck-money">
-              {isTrade ? (<>
-                <div className="ck-m"><span>Connection fee</span><b>$0</b></div>
-                <p>Tradies send you a fixed quote. Select one and pay the tradie directly.</p>
-              </>) : (<>
-                {/* Two people get paid, so two groups: your worker, then Mahi Man. */}
-                <div className="ck-grp">
-                  <button className="ck-m ck-gh" onClick={() => go("/book/price")}><span>Pay your worker</span><b>{money(d.priceCents)}</b></button>
-                  {suggested != null && <p className="ck-hint">{d.priceCents === suggested ? `Suggested for ${cat?.name.toLowerCase() ?? "this job"}` : `Suggested ${money(suggested)} for ${cat?.name.toLowerCase() ?? "this job"}`}</p>}
-                  {(() => {
-                    const v = Math.min(Math.max(d.priceCents, LO), SLIDER_MAX);
-                    const pct = ((v - LO) / (SLIDER_MAX - LO)) * 100;
-                    return <input className="mm-range ck-range" type="range" min={LO / 100} max={SLIDER_MAX / 100} step={5} value={v / 100} aria-label="Price"
-                      onChange={(e) => setD({ ...d, priceCents: Number(e.target.value) * 100, priceSet: true })}
-                      style={{ background: `linear-gradient(90deg, var(--emerald) ${pct}%, var(--stone-2) ${pct}%) center / 100% 10px no-repeat` }} />;
-                  })()}
-                  {/* The customer says how they'll pay, so the worker knows before they offer. */}
-                  <button className="ck-method" onClick={() => setPickMethod(true)}>
-                    <span className="k">How will you pay?</span><span className="v">{PAY_METHODS.find((m) => m.id === d.payMethod)?.short ?? ""}</span>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 9l6 6 6-6" /></svg></button>
-                  <p className="ck-due">Paid straight to your worker when the job is done</p>
-                </div>
-                {/* Mahi Man's fee: one line, charged later, never added to the worker's price. */}
-                <div className="ck-grp">
-                  <div className="ck-m ck-gh"><span className="ck-fee">Mahi Man fee<button className="ck-i" onClick={() => go("/pricing")} aria-label="How the fee works">{Icon.help("currentColor", 20)}</button></span>
-                    {invoiceFee?.from === "senior" ? <b><em>Free</em></b> : connCharged ? <b>{money2(connCents)}</b> : <b><s>{money2(connCents)}</s> <em>Free</em></b>}</div>
-                  <p className="ck-due">{invoiceFee?.from === "senior" ? "No fee for customers 60 and over"
-                    : bookingFee > 0 ? "Charged to your card only when you select a worker"
-                    : invoiceFee?.from === "balance" ? "Taken from your credit only when you select a worker"
-                    : "Only charged when you select a worker"}</p>
-                </div>
-                {bookingFee > 0 && session && <button className="ck-m ck-card" onClick={() => setCardScreen(true)}><span>Card</span><b>{profile?.card_last4 ? cardLabel(profile) : "Add a card"}</b></button>}
-              </>)}
-            </section>
-            {!isTrade && (
-              <section className="ck-money ck-more" style={{ paddingBottom: 4 }}>
+            <section className="cp2-rows">
+              <button className="qk-row" onClick={() => go("/book/when")}><span>When</span><b>{when}</b>{Icon.chevron("var(--muted)")}</button>
+              <button className="qk-row" onClick={() => go("/book/where")}><span>Where</span><b className={d.address?.trim() ? "" : "ph"}>{[d.address?.trim(), suburb?.name].filter(Boolean).join(", ") || "Add the address"}</b>{Icon.chevron("var(--muted)")}</button>
+              {isTrade ? (
+                <div className="cp2-pay"><span>Price</span><b className="cp2-q">Tradies quote you</b><small>Select a quote and pay the tradie directly. $0 fee.</small></div>
+              ) : (<>
+                <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/w-price"); }}><span>Price</span><b>{money(d.priceCents)}</b>{Icon.chevron("var(--muted)")}</button>
+                <button className="qk-row" onClick={() => setPickMethod(true)}><span>Pay by</span><b>{PAY_METHODS.find((m) => m.id === d.payMethod)?.short ?? ""}</b>{Icon.chevron("var(--muted)")}</button>
                 {(() => {
                   const first = chosen[0];
-                  const ph = first ? avatarUrl(first.photo_path) : null;
-                  // A job wanted now never waits on one person: it opens to everyone nearby if they don't take it.
-                  const openAfter = d.asap && d.openAfter == null ? 10 : d.openAfter;
-                  const after = openAfter == null ? "Only them" : `Then anyone after ${afterLabel(openAfter)}`;
-                  return past.length ? (
-                    <button className="ck-method ck-who2" onClick={() => setPickWho("people")}>
-                      {first ? <>{ph ? <i style={{ backgroundImage: `url("${ph}")` }} /> : <i className="no">{first.full_name.charAt(0)}</i>}
-                        <span className="v">{chosen.map((p) => p.full_name).join(", ")} first<small>{after}</small></span></>
-                        : <><span className="k">Who</span><span className="v">Anyone nearby</span></>}
-                      {Icon.down("var(--muted)")}
-                    </button>
-                  ) : <div className="ck-method"><span className="k">Who</span><span className="v">Anyone nearby</span></div>;
+                  return past.length > 0 && <button className="qk-row" onClick={() => setPickWho("people")}><span>Who</span><b>{first ? `${chosen.map((p) => p.full_name.split(" ")[0]).join(", ")} first` : "Anyone nearby"}</b>{Icon.chevron("var(--muted)")}</button>;
                 })()}
-                {(() => {
-                  const off = chosen.filter((p) => !p.online);
-                  if (!off.length) return null;
-                  const names = off.map((p) => p.full_name.split(" ")[0]).join(" and ");
-                  return <p className="ck-off">{names} {off.length === 1 ? "isn't" : "aren't"} working right now. {d.asap
-                    ? `They'll get an alert. If they don't take it in 10 minutes, it opens to everyone nearby.`
-                    : `They'll get an alert and can take it when they're back.`}</p>;
-                })()}
-                <button className={d.repeatWeeks ? "ck-method rp-on" : "ck-method"} onClick={() => setPickRepeat(true)}>
-                  {Icon.repeat("#c99a06")}<span className="k">Repeat</span><span className="v">{REPEATS.find((r) => r.v === (d.repeatWeeks ?? 0))!.label}</span>{Icon.down("var(--muted)")}
-                </button>
-                {!!d.repeatWeeks && <p className="ck-due">Next one posts itself {nextLabel(firstRepeatAt(d, d.repeatWeeks))}. Skip or stop any time.</p>}
-              </section>
-            )}
-
+                <button className="qk-row" onClick={() => setPickRepeat(true)}><span>Repeat</span><b className={d.repeatWeeks ? "" : "ph"}>{REPEATS.find((r) => r.v === (d.repeatWeeks ?? 0))!.label}</b>{Icon.chevron("var(--muted)")}</button>
+                <div className="cp2-fee">
+                  <span>Mahi Man fee <b>{invoiceFee?.from === "senior" ? "Free" : connCharged ? money2(connCents) : "Free"}</b>, only when you select a worker</span>
+                  <button className="ck-i" onClick={() => go("/pricing")} aria-label="How the fee works">{Icon.help("currentColor", 20)}</button>
+                </div>
+                {bookingFee > 0 && session && <button className="qk-row" onClick={() => setCardScreen(true)}><span>Card</span><b>{profile?.card_last4 ? cardLabel(profile) : "Add a card"}</b>{Icon.chevron("var(--muted)")}</button>}
+              </>)}
+            </section>
           </>);
         })()}
 
@@ -501,7 +468,6 @@ export function Book() {
   return <PostHome cats={cats} signedIn={!!session} uid={session?.user.id ?? null} onStart={startNew} />;
 }
 
-const afterLabel = (m: number) => (m >= 60 ? `${m / 60} hour${m === 60 ? "" : "s"}` : `${m} minutes`);
 
 // Repeats: the job posts itself again every 1, 2 or 4 weeks, on the same weekday. An as-soon-as-possible job repeats at 8am.
 const REPEATS = [{ v: 0, label: "Just once" }, { v: 1, label: "Every week" }, { v: 2, label: "Every 2 weeks" }, { v: 4, label: "Every 4 weeks" }] as const;
@@ -533,32 +499,6 @@ function VideoTile({ src, onRemove }: { src: string; onRemove: () => void }) {
   );
 }
 
-// Included / not included on Check and post: each line is typed into straight away; Add puts in a new line ready to type.
-function CheckList({ title, kind, items, onChange, placeholder }: { title: string; kind: "yes" | "no"; items: string[]; onChange: (v: string[]) => void; placeholder: string }) {
-  const [focus, setFocus] = useState<number | null>(null);
-  const refs = useRef<(HTMLInputElement | null)[]>([]);
-  useEffect(() => { if (focus != null) refs.current[focus]?.focus(); }, [focus, items.length]);
-  const drop = (i: number) => onChange(items.filter((_, n) => n !== i));
-  const mark = kind === "yes"
-    ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--emerald)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 12l5 5 9-10" /></svg>
-    : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#b3402f" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" /></svg>;
-  return (
-    <div className="cl">
-      <div className="cl-h"><b>{title}</b>
-        {items.length < 12 && <button className="btn stone small" onClick={() => { onChange([...items.filter((x) => x.trim()), ""]); setFocus(items.filter((x) => x.trim()).length); }}>Add</button>}</div>
-      {items.map((x, i) => (
-        <label key={i} className="cl-r">
-          {mark}
-          <input ref={(el) => { refs.current[i] = el; }} value={x} maxLength={80} placeholder={placeholder} enterKeyHint="done"
-            onChange={(e) => onChange(items.map((y, n) => (n === i ? e.target.value : y)))}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
-            onBlur={() => { setFocus(null); if (!x.trim()) drop(i); }} />
-          <button onMouseDown={(e) => e.preventDefault()} onClick={() => drop(i)} aria-label={`Remove ${x || "this one"}`}>{Icon.cross("var(--faint)")}</button>
-        </label>
-      ))}
-    </div>
-  );
-}
 
 // ---------- Get help: one button, then your recent jobs ----------
 // Jobs still under way, and what the customer sees about each one.
@@ -853,6 +793,58 @@ function RepeatScreen({ r, pic, onClose, onSaved }: { r: Repeat; pic?: string; o
 const QUICK = [3000, 5000, 8000, 12000, 20000];
 const LO = 2500, HI = 200000, SLIDER_MAX = 30000;
 
+// Editing one thing from a step (where, when) comes back to that step; otherwise back to Check and post.
+const RET = "mm-post-ret";
+const retTo = (p: string) => { try { sessionStorage.setItem(RET, p); } catch { /* private mode */ } };
+function stepOn(_from?: string, _trade?: boolean) {
+  let to = "/book/check";
+  try { to = sessionStorage.getItem(RET) || to; sessionStorage.removeItem(RET); } catch { /* private mode */ }
+  go(to);
+}
+const nextLabel2 = () => "Done";
+// Where a step goes next: back to the screen it was opened from, or on to the given one.
+const after = (def: string) => { let to = def; try { to = sessionStorage.getItem(RET) || def; sessionStorage.removeItem(RET); } catch { /* private mode */ } go(to); };
+
+// The posting steps (what, photo, price, then Check and post with the extras already filled in): a big question, one thing to do, Back and Next side by side. Tapping a choice moves on by itself.
+function WalkShell({ n, title, children, onBack, onNext, next = "Next", busy = false, err }: { n: number; title: string; children: ReactNode; onBack: () => void; onNext: () => void; next?: string; busy?: boolean; err?: string }) {
+  return (
+    <div className="app wk">
+      <div className="wk-head">
+        <div className="wk-prog" aria-label={`Step ${n} of 4`}>{[1, 2, 3, 4].map((i) => <i key={i} className={i <= n ? "on" : ""} />)}</div>
+        <h1>{title}</h1>
+      </div>
+      <div className="wk-body">{children}{err && <p className="err" style={{ margin: "12px 0 0" }}>{err}</p>}</div>
+      <div className="bottombar wk-bar">
+        <button className="btn stone" onClick={onBack}>{Icon.back("currentColor")}Back</button>
+        <button className="btn primary" disabled={busy} onClick={onNext}>{busy ? "One sec…" : next} {Icon.arrow("#fff")}</button>
+      </div>
+    </div>
+  );
+}
+
+// Step 1: what needs doing, typed or said. Claude writes up the job and suggests a price.
+function WalkWhat({ d, setD, cats, skillList, suggest }: {
+  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string }[]; suggest: (catId: number) => number | null;
+}) {
+  const { fill, filling } = useFill(d, setD, cats, skillList, suggest);
+  const [text, setText] = useState(d.details);
+  const [voice, setVoice] = useState(false);
+  const [err, setErr] = useState("");
+  const go2 = async (t: string) => {
+    if (t.trim().length < 4) return setErr("Say what you need done.");
+    setErr(""); await fill(t.trim()); go("/book/photo");
+  };
+  return (
+    <WalkShell n={1} title="What do you need done?" onBack={() => history.back()} onNext={() => go2(text)} busy={filling} err={err}>
+      <label className="wk-say">
+        <textarea autoFocus value={text} rows={4} placeholder="Like: mow the back lawn and clear the rubbish" onChange={(e) => { setText(e.target.value); setErr(""); }} />
+        {voiceSupported() && <button type="button" className="wk-mic" onClick={() => setVoice(true)} aria-label="Say it">{Icon.mic("#fff")}</button>}
+      </label>
+      {voice && <VoiceScreen jobName="Job" onBack={() => setVoice(false)} raw onDone={(t) => { setVoice(false); setText(t); go2(t); }} />}
+    </WalkShell>
+  );
+}
+
 function PriceStep({ value, catName, onChange }: { value: number; catName: string | null; onChange: (v: number) => void }) {
   const [text, setText] = useState(String(Math.round(value / 100)));
   const [err, setErr] = useState("");
@@ -863,7 +855,7 @@ function PriceStep({ value, catName, onChange }: { value: number; catName: strin
     const c = Math.round(dollars) * 100;
     if (c < LO) return setErr(`The lowest price is ${money(LO)}.`);
     if (c > HI) return setErr(`The highest price is ${money(HI)}.`);
-    onChange(c); go("/book/check");
+    onChange(c); stepOn("price");
   };
   return (
     <div className="app" style={{ background: "var(--card)" }}>
@@ -898,7 +890,7 @@ function PriceStep({ value, catName, onChange }: { value: number; catName: strin
       <div style={{ flex: 1 }} />
       <div className="bottombar">
         <span />
-        <button className="btn primary" onClick={next}>Done</button>
+        <button className="btn primary" onClick={next}>{nextLabel2()} {Icon.arrow("#fff")}</button>
       </div>
     </div>
   );
@@ -953,54 +945,6 @@ function useFill(d: Draft, setD: (d: Draft) => void, cats: Category[], skillList
   return { fill, filling, filledFrom, filled };
 }
 
-// ---------- Start: snap it, say it or type it. The job gets written, then straight to Check and post ----------
-function StartStep({ d, setD, cats, skillList, suggest, addPhotos }: {
-  d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string }[];
-  suggest: (catId: number) => number | null; addPhotos: (b: Blob[]) => Promise<void>;
-}) {
-  const { fill, filling } = useFill(d, setD, cats, skillList, suggest);
-  const [voice, setVoice] = useState(false);
-  const [snap, setSnap] = useState(false);
-  const [dictate, setDictate] = useState(false);
-  const [text, setText] = useState("");
-  const [err, setErr] = useState("");
-  const box = useRef<HTMLInputElement>(null);
-  // Written: on to Check and post. If the kind of work couldn't be worked out, the full job form to select it.
-  const run = async (t: string, images: string[] = []) => { setErr(""); const ok = await fill(t, images); go(ok ? "/book/check" : "/book/details"); };
-  async function snapped(blobs: Blob[]) {
-    setSnap(false);
-    await addPhotos(blobs);
-    const images = await Promise.all(blobs.slice(0, 6).map((b) => photoForReading(b, 1024).catch(() => "")));
-    run("", images.filter(Boolean));
-  }
-  const typed = () => { if (text.trim().length < 8) { setErr("Say a bit more about the job."); return; } run(text.trim()); };
-  return (
-    <div className="app" style={{ background: "var(--card)" }}>
-      <StepHero title="What needs doing?" onBack={() => history.back()} />
-      <div className="st-body">
-        {filling ? (
-          <div className="st-writing">{Icon.spark("#8a6d00", 28)}<b>Writing your job…</b><span>A few seconds. You can change anything next.</span></div>
-        ) : (<>
-          <button className="st-big gold" onClick={() => setSnap(true)}>
-            <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#14211c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
-            <span><b>Snap it</b><small>Take a photo. We write the job</small></span></button>
-          <button className="st-big em" onClick={() => { if (voiceSupported()) return setVoice(true); setDictate(true); box.current?.focus(); }}>
-            {Icon.mic("var(--lime)", 34)}
-            <span><b>Just say it</b><small>Talk it through. We write the job</small></span></button>
-          <label className="st-type">
-            <input ref={box} value={text} onChange={(e) => { setText(e.target.value); setErr(""); }} placeholder="Or type it, e.g. mow the back lawn" enterKeyHint="go"
-              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); typed(); } }} />
-            <button onClick={typed}>Go</button>
-          </label>
-          {dictate && <span className="t15 em" style={{ lineHeight: 1.4 }}>Tap the microphone on your keyboard and talk, then tap Go.</span>}
-          {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
-        </>)}
-      </div>
-      {voice && <VoiceScreen jobName="Job" onBack={() => setVoice(false)} raw onDone={(t) => { setVoice(false); run(t); }} />}
-      {snap && <JobCamera max={MAX_PHOTOS} onBack={() => setSnap(false)} onDone={snapped} />}
-    </div>
-  );
-}
 
 function DetailsStep({ d, setD, cats, skillList, suggest, driving = false, photoUrls, photoCount, addPhotos, err, setErr, bar }: {
   d: Draft; setD: (d: Draft) => void; cats: Category[]; skillList: { id: number; category_id: number; name: string; needs: string | null; trade: boolean }[]; suggest: (catId: number) => number | null; driving?: boolean;
@@ -1040,7 +984,7 @@ function DetailsStep({ d, setD, cats, skillList, suggest, driving = false, photo
     if (!(d.included ?? []).filter((x) => x.trim()).length) return setErr("Add at least one task.");
     setErr("");
     setD({ ...d, included: (d.included ?? []).map((x) => x.trim()).filter(Boolean), excluded: (d.excluded ?? []).map((x) => x.trim()).filter(Boolean) });
-    go("/book/check");
+    stepOn("details");
   };
   return (
     <div className="app">
@@ -1120,7 +1064,7 @@ function DetailsStep({ d, setD, cats, skillList, suggest, driving = false, photo
         </div>
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Done", next, filling)}
+      {bar(nextLabel2(), next, filling)}
       {pickCat && <SearchPicker title="Job type" multi placeholder="Search job types" value={typeIds}
         options={cats.map((c) => ({ id: c.id, label: c.name }))} onClose={() => setPickCat(false)}
         onChange={(v) => { const ids = v.map(Number); setTypes([...typeIds.filter((x) => ids.includes(x)), ...ids.filter((x) => !typeIds.includes(x))].slice(0, 4)); }} />}
@@ -1282,7 +1226,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
     if (!d.asap && (!selDay || !selTime)) return setErr("Select a day and a start time.");
     if (!d.asap && new Date(d.startAt) < earliest) return setErr("Select a time at least an hour from now.");
     setErr("");
-    go("/book/check");
+    stepOn("where", trade);
   };
   return (
     <div className="app">
@@ -1344,7 +1288,7 @@ function WhereStep({ d, setD, suburbs, suburb, past, bar, trade }: {
         )}
         {err && <p className="err" style={{ margin: 0 }}>{err}</p>}
       </div>
-      {bar("Done", next)}
+      {bar(nextLabel2(), next)}
       {changeArea.picker}
       {pick === "suburb" && <SearchPicker title="Suburb" placeholder={`Search ${area?.name ?? ""} suburbs`} value={d.suburbId ? [d.suburbId] : []}
         options={[...(changeArea.option ? [changeArea.option] : []), ...suburbs.map((s) => ({ id: s.id, label: s.name }))]} onChange={(v) => { setD({ ...d, suburbId: Number(v[0]) }); setErr(""); }} onClose={() => setPick(null)} />}
