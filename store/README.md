@@ -50,7 +50,7 @@ Mahi Man gift cards are the same: they only pay for real-world jobs (the worker 
 
 ## 4. Submit
 
-- [x] **App Store:** version 1.0 submitted (now with build 51, resubmitted 23 Nov 2026, waiting for review; App Review notes and sign-in unchanged since 22 Nov).
+- [x] **App Store:** version 1.0 submitted (now with build 52, resubmitted 23 Nov 2026, waiting for review; App Review notes and sign-in unchanged since 22 Nov).
 - [x] **Google Play:** live in Australia and New Zealand.
 - [x] `play_store_url` and `testflight_url` are set in Admin → Settings, so the website shows Google Play and the iPhone beta. `app_store_url` stays empty until Apple approves 1.0.
 
@@ -64,9 +64,10 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 
 ## Building new versions
 
-- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 51 on 23 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 28 on 23 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
-- **Latest (23 Nov 2026, from 98af849):** iOS build 51 is the build on App Store 1.0, waiting for review (50 removed from review), and is in TestFlight (Cairns pilot, approved for external testing, on the public link). Android versionCode 28 is sent for Play review in Production; 27 went live on 22 Nov. Release notes: "Post a job in five quick steps. Pay fixed, hourly, daily or per visit, with the usual price shown. Use your current location or pick from address suggestions. Tradie quotes are quicker, and you can follow every quote in My quotes."
+- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 52 on 23 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 29 on 23 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Latest (23 Nov 2026, from 16923b8):** iOS build 52 is the build on App Store 1.0, waiting for review (51 removed from review), and is in TestFlight (Cairns pilot). Android versionCode 29 is sent for Play review in Production; 28 went live on 23 Nov. Release notes: "Fixes to posting a job."
+- **Before that (23 Nov 2026, from 98af849):** iOS build 51 is the build on App Store 1.0, waiting for review (50 removed from review), and is in TestFlight (Cairns pilot, approved for external testing, on the public link). Android versionCode 28 went live in Production on 23 Nov. Release notes: "Post a job in five quick steps. Pay fixed, hourly, daily or per visit, with the usual price shown. Use your current location or pick from address suggestions. Tradie quotes are quicker, and you can follow every quote in My quotes."
 - **Before that (22 Nov 2026, from a13225f):** iOS build 50 is the build on App Store 1.0, waiting for review (49 removed from review), and is in TestFlight (Cairns pilot, waiting for beta review). Android versionCode 27 replaced 26 in Production and went live on 22 Nov. They carry the current pricing: 15% connection fee (minimum $9.95), Plus $99 a year with half fees (7.5%, minimum $4.95), no Top up, Tradie Standard free with a 12.5% finder's fee (max $250), and the $999 lifetime Premium launch offer. Release notes: "Updated pricing and payment options".
 - **Before that (17 Nov):** build 46 / versionCode 23 (51543aa): Plus, bonus top-ups, bank transfer screen, payment history, branded PDFs. 46 is the build in App Store review.
 - **Before that:** build 45 / versionCode 22 (17 Nov, eb5704a); 45 was swapped for 46 in App Store review, and 22 was never sent (replaced by 23). Build 44 / 21 (c834400) and 43 / 20 (07076c9).
