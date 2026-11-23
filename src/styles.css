@@ -3181,3 +3181,14 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .wk-type .wk-sel { background: #fff; flex: none; }
 .wk-map { position: relative; height: 170px; overflow: hidden; }
 .wk-map .pm { position: absolute; inset: 0; }
+.wk-h { margin: 22px 0 8px; font-size: 18px; font-weight: 600; }
+.wk-h:first-child { margin-top: 4px; }
+.wk-in { cursor: text; }
+.wk-in input { width: 100%; border: 0; background: none; font: inherit; font-size: 19px; font-weight: 600; color: var(--ink); outline: none; padding: 0; }
+.wk-in input::placeholder { color: var(--muted); font-weight: 400; }
+.wk-loc { display: flex; align-items: center; gap: 12px; width: 100%; height: 52px; padding: 0 18px; border: 0; background: none; font: inherit; font-size: 17px; font-weight: 500; color: var(--emerald); cursor: pointer; }
+.wk-loc svg { width: 22px; height: 22px; }
+.wk-where { margin-top: 4px; }
+.wk-scale { margin-top: 44px; }
+.wk-band-l { position: absolute; top: -30px; transform: translateX(-50%); padding: 4px 10px; border-radius: 99px; background: var(--emerald); color: #fff; font-size: 14px; font-weight: 600; white-space: nowrap; }
+.wk-ends { display: flex; justify-content: space-between; margin-top: 2px; font-size: 14px; color: var(--muted); }

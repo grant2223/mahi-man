@@ -193,6 +193,7 @@ export function Book() {
   }, [path, session?.user.id, media]);
   const mediaIn = useRef<HTMLInputElement>(null);
   const [pickUnit, setPickUnit] = useState(false);
+  const [pickWhen, setPickWhen] = useState(false);
   // Current location: the phone's position, matched to the nearest suburb.
   const useMyLocation = () => {
     navigator.geolocation?.getCurrentPosition((p) => {
@@ -350,7 +351,9 @@ export function Book() {
     const max = unit === "hour" ? 20000 : 100000;
     const min = unit === "hour" ? 2500 : LO;
     const set = (c: number) => setD({ ...d, priceCents: Math.min(HI, Math.max(min, c)), priceSet: true });
-    const pct = (c: number) => Math.max(0, Math.min(100, ((c - min) / (max - min)) * 100));
+    // The scale runs to $1,000 but spreads out the everyday prices: position is the square root of the share.
+    const pct = (c: number) => Math.sqrt(Math.max(0, Math.min(1, (c - min) / (max - min)))) * 100;
+    const fromPct = (p: number) => Math.round((min + (p / 100) ** 2 * (max - min)) / 500) * 500;
     const UNITS = [{ id: "job", label: "for the job" }, { id: "hour", label: "an hour" }, { id: "day", label: "a day" }, { id: "visit", label: "a visit" }] as const;
     return (
       <WalkShell n={3} title="What will you pay?" onBack={() => history.back()} onNext={() => after("/book/when-where")}>
@@ -360,11 +363,12 @@ export function Book() {
           <button className="wk-sel" onClick={() => setPickUnit(true)}>{UNITS.find((u) => u.id === unit)!.label}{Icon.down("var(--ink)")}</button>
         </div>
         <div className="wk-scale">
+          <span className="wk-band-l" style={{ left: `${Math.min(80, Math.max(20, (pct(range[0]) + pct(range[1])) / 2))}%` }}>Usual {money(range[0])} to {money(range[1])}</span>
           <i className="band" style={{ left: `${pct(range[0])}%`, width: `${pct(range[1]) - pct(range[0])}%` }} />
-          <input className="mm-range" type="range" min={min / 100} max={max / 100} step={5} value={Math.min(d.priceCents, max) / 100} aria-label="Price"
-            onChange={(e) => set(Number(e.target.value) * 100)} />
+          <input className="mm-range" type="range" min={0} max={100} step={0.5} value={pct(d.priceCents)} aria-label="Price"
+            onChange={(e) => set(fromPct(Number(e.target.value)))} />
         </div>
-        <p className="wk-rec">{Icon.spark("var(--emerald)", 20)}<span>Usual: <b>{money(range[0])} to {money(range[1])}</b> {UNITS.find((u) => u.id === unit)!.label}</span></p>
+        <div className="wk-ends"><span>{money(min)}</span><span>{money(max)}{max >= 100000 ? "+" : ""}</span></div>
         <div className="wk-pay2">
           <span>Pay by</span>
           {PAY_METHODS.map((m) => <button key={m.id} className={(d.payMethod ?? "cash") === m.id ? "on" : ""} onClick={() => setD({ ...d, payMethod: m.id })}>{(d.payMethod ?? "cash") === m.id && Icon.tick("#fff", 18)}{m.short}</button>)}
@@ -375,26 +379,23 @@ export function Book() {
     );
   }
 
-  // Step 4: when and where. Now is selected; Pick a time if not. Where starts on their current location, shown on the map to confirm,
-  // or they type the address. (Uber and DoorDash: Now or Schedule, and Current location first.)
+  // Step 4: when and where, the Uber way: When is one quick select, starting on Now. Where is the address itself, typed straight in,
+  // with Use my current location under it, and the pin on the map to confirm.
   if (path === "/book/when-where") {
     const when = d.asap ? "Now" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-    const where = [d.address?.trim(), suburb?.name].filter(Boolean).join(", ");
     return (
       <WalkShell n={4} title="When and where?" onBack={() => history.back()} err={err}
-        onNext={() => { if (!where || !suburb) return setErr("Use your location or type the address."); setErr(""); after("/book/check"); }}>
-        <div className="wk-two2">
-          <button className={d.asap ? "on" : ""} onClick={() => setD({ ...d, asap: true })}>{d.asap && Icon.tick("#fff", 18)}Now</button>
-          <button className={!d.asap ? "on" : ""} onClick={() => { retTo("/book/when-where"); go("/book/when"); }}>{!d.asap && Icon.tick("#fff", 18)}{d.asap ? "Pick a time" : when}</button>
-        </div>
-        <div className="wk-where">
-          <div className="wk-map"><PlaceMap lat={suburb?.lat ?? null} lng={suburb?.lng ?? null} /></div>
-          <div className="wk-addr">{Icon.pin("var(--emerald)")}<b className={where ? "" : "ph"}>{where || "No address yet"}</b></div>
-        </div>
-        <div className="wk-two2 alt">
-          <button onClick={useMyLocation}>{Icon.pin("currentColor")}Current location</button>
-          <button onClick={() => { retTo("/book/when-where"); go("/book/where"); }}>{Icon.search("currentColor")}Type address</button>
-        </div>
+        onNext={() => { if (d.address.trim().length < 3 || !suburb) return setErr("Add the address, or use your current location."); setErr(""); after("/book/check"); }}>
+        <h2 className="wk-h">When</h2>
+        <button className="wk-ww" onClick={() => setPickWhen(true)}>{Icon.clock("var(--emerald)", 26)}<span><b>{when}</b></span>{Icon.down("var(--ink)")}</button>
+        <h2 className="wk-h">Where</h2>
+        <label className="wk-ww wk-in">{Icon.pin("var(--emerald)")}
+          <span><input value={d.address} placeholder="Street address" onChange={(e) => { setD({ ...d, address: e.target.value }); setErr(""); }} />
+            {suburb && <small>{suburb.name}</small>}</span></label>
+        <button className="wk-loc" onClick={useMyLocation}>{Icon.pin("var(--emerald)")}Use my current location</button>
+        <div className="wk-where"><div className="wk-map"><PlaceMap lat={suburb?.lat ?? null} lng={suburb?.lng ?? null} /></div></div>
+        {pickWhen && <SearchPicker title="When" value={[d.asap ? "now" : "pick"]} options={[{ id: "now", label: "Now" }, { id: "pick", label: "Pick a day and time" }]}
+          onClose={() => setPickWhen(false)} onChange={(v) => { if (v[0] === "now") setD({ ...d, asap: true }); else { setPickWhen(false); retTo("/book/when-where"); go("/book/when"); } }} />}
       </WalkShell>
     );
   }
