@@ -25,8 +25,8 @@ function Photo({ src, alt, className }: { src: string; alt: string; className: s
 // The three most booked kinds of odd job in Australia (Airtasker's own numbers: removals, cleaning, rubbish removal).
 // Eight of the most common jobs, behind the hero headline. [photo id, which part of the photo to keep in view]
 const MOSAIC: [string, string][] = [
-  [CAT_PHOTO.fitness, "30% 50%"], [CAT_PHOTO.cleaning, "35% 50%"], [CAT_PHOTO.design, "45% 50%"], [CAT_PHOTO.barber, "55% 40%"],
-  [CAT_PHOTO.cooking, "35% 50%"], [CAT_PHOTO.pets, "65% 50%"], [CAT_PHOTO.camera, "70% 50%"], [CAT_PHOTO.garden, "50% 50%"],
+  ["1616279969722-d81a5a3944ef", "50% 40%"], ["1581578731548-c64695cc6952", "50% 40%"], ["1744686909434-fd158fca1c35", "45% 50%"], ["1647140655214-e4a2d914971f", "50% 40%"],
+  ["1577219492769-b63a779fac28", "40% 50%"], ["1648304887391-a6c2cf2228e4", "50% 60%"], ["1587050265310-1a2d98ccce5f", "45% 40%"], ["1780419748459-075ce111534a", "55% 60%"],
 ];
 const USES: [string, string, string][] = [
   ["Moving", "Extra hands to lift, carry and load. Bring a ute or van if you need one.", "1769972557854-7eae6f95585b"],
