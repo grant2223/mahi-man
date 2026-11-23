@@ -21,7 +21,7 @@ import { Standby } from "./Standby";
 import { Offline } from "./Offline";
 import { Feed } from "../customer/Feed";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
-import { joined, TradeFeed, TradeJob, TradeJoin, TradePlan, TradeWaiting, useTrade } from "./Trade";
+import { joined, TradeFeed, TradeJob, TradeJoin, TradePlan, TradeQuotes, TradeWaiting, useTrade } from "./Trade";
 
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
@@ -140,7 +140,7 @@ export interface Offer {
 
 export interface MyOffer {
   job_id: string; title: string; category: string | null; icon: string; suburb: string; pay_cents: number; eta_minutes: number;
-  expires_at: string; status: string; customer_name: string; trade?: boolean; can_come_at?: string | null; included?: string | null;
+  expires_at: string; status: string; customer_name: string; trade?: boolean; can_come_at?: string | null; included?: string | null; cover_path?: string | null;
 }
 
 const startLabel = (o: Offer) => o.asap ? "Now" : new Date(o.start_at).toLocaleString("en-AU", { weekday: "short", hour: "numeric", minute: "2-digit" });
@@ -191,7 +191,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         fresh.forEach((o) => seen.current.add(o.id));
         if (seen.current.size > fresh.length) { try { navigator.vibrate?.([200, 100, 200]); } catch { /* not supported */ } }
       }
-      const need = list.map((o) => o.cover_path).filter((p): p is string => !!p && !covers[p]);
+      const need = [...list.map((o) => o.cover_path), ...my.map((m) => m.cover_path)].filter((p): p is string => !!p && !covers[p]);
       if (need.length) { const urls = await mediaUrls(need); setCovers((c) => ({ ...c, ...urls })); }
     } catch { /* keep last list */ }
   }, [covers, onTaken]);
@@ -251,6 +251,8 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         </div>
       )}
 
+      <TradeQuotes quotes={mine.filter((m) => m.trade)} covers={covers} onOpen={setWaiting} />
+
       {mine.filter((m) => !m.trade && m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).length > 0 && (
         <div className="wrap-list">
           {mine.filter((m) => !m.trade && m.status === "pending" && new Date(m.expires_at).getTime() > Date.now()).map((m) => (
@@ -293,7 +295,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         onJoined={(plan) => { reloadTrade(); poll(); setTradeScreen(plan === "premium" ? "plan" : "feed"); }} onNeedPay={() => setNeedPay("trade")} ready={ready} />}
       {needPay && <AbnStep onBack={() => setNeedPay(null)} onSaved={() => { const was = needPay; setNeedPay(null); toast("Saved"); reloadTrade(); if (was === "online") toggle(); }} />}
       {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={tradeLeave} onChanged={reloadTrade} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
-      {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} quotes={mine.filter((m) => m.trade && m.status === "pending")} onQuote={setWaiting} covers={covers} onBack={tradeLeave} onOpen={setTradeOpen} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
+      {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} quotes={mine.filter((m) => m.trade)} onQuote={setWaiting} covers={covers} onBack={tradeLeave} onOpen={setTradeOpen} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
       {tradeOpen && trade && <TradeJob o={tradeOpen} trade={trade} onBack={() => setTradeOpen(null)}
         onSent={() => { const id = tradeOpen.id; setTradeOpen(null); reloadTrade(); poll(); setWaiting(id); }} onGone={() => { setTradeOpen(null); poll(); }} onCreds={() => setTradeCreds(true)} />}
       {waiting && (() => {

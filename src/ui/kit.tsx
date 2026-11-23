@@ -220,7 +220,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastCtx.Provider value={show}>
       {children}
-      {msg && <div className="toast" role="status">{msg}</div>}
+      {msg && <div className="toast" role="status">{Icon.tick("#fff")}{msg}</div>}
     </ToastCtx.Provider>
   );
 }

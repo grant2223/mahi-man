@@ -1,11 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { mediaUrls, rpc, sb } from "../lib/supabase";
-import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { dayTime, money } from "../lib/format";
 import { Icon, Screen, SearchPicker, useNow, useToast } from "../ui/kit";
 import { ActionBar, Note } from "../ui/Completion";
-import { ChatScreen } from "../ui/Chat";
 import { BankPay, claimArgs } from "../ui/Payments";
 import type { Offer, MyOffer } from "./Work";
 
@@ -240,16 +238,7 @@ export function TradeFeed({ trade, jobs, quotes = [], onQuote, covers, onBack, o
           <h1>Trade jobs</h1>
         </section>
         {missing(trade).length > 0 && <div className="tj-sec" style={{ background: "var(--card)" }}><TradeReady trade={trade} /></div>}
-        {quotes.length > 0 && (
-          <div className="wrap-list">
-            {quotes.map((m) => (
-              <button key={m.job_id} className="wrap-row" onClick={() => onQuote?.(m.job_id)}>
-                <span className="t"><b>Quote sent to {m.customer_name}</b><span>{m.title}, {dollars(m.pay_cents)}</span></span>
-                {Icon.chevron("var(--faint)")}
-              </button>
-            ))}
-          </div>
-        )}
+        <TradeQuotes quotes={quotes} covers={covers} onOpen={(id) => onQuote?.(id)} />
         {!premium(trade) && hidden.n > 0 && (
           <button className="fu-blur" onClick={onUpgrade}>
             <span className="fu-pics">{(blur.length ? blur : [null, null, null].slice(0, Math.min(3, hidden.n))).map((u, i) => <i key={i} style={u ? { backgroundImage: `url("${u}")` } : undefined} />)}</span>
@@ -356,11 +345,38 @@ export function TradeJob({ o, trade, onBack, onSent, onGone, onCreds }: { o: Off
   );
 }
 
-// After sending a quote: waiting for the customer, and a way to message them.
+// The tradie's quotes, with where each one stands. Lost ones stay for 3 days so they know.
+export function TradeQuotes({ quotes, covers, onOpen }: { quotes: MyOffer[]; covers: Record<string, string>; onOpen: (job: string) => void }) {
+  const now = useNow(60000);
+  if (!quotes.length) return null;
+  return (
+    <div className="tq">
+      <h2 className="tq-h">Your quotes</h2>
+      {quotes.map((m) => {
+        const left = Math.max(0, Math.ceil((new Date(m.expires_at).getTime() - now) / 3600e3));
+        const live = m.status === "pending" && left > 0;
+        const pic = m.cover_path && covers[m.cover_path];
+        return (
+          <button key={m.job_id} className={`job-row tq-row${live ? "" : " off"}`} onClick={() => live && onOpen(m.job_id)} disabled={!live}>
+            <span className="pic" style={pic ? { backgroundImage: `url("${pic}")` } : undefined} />
+            <span className="t">
+              <b>{m.title}</b>
+              <span className="tq-amt">{dollars(m.pay_cents)}</span>
+              {live
+                ? <span className="tq-st wait">{Icon.clock("currentColor", 16)} Waiting for {m.customer_name}, {left} h left</span>
+                : <span className="tq-st lost">{m.status === "expired" || (m.status === "pending" && !left) ? `Closed, ${m.customer_name} didn't choose anyone` : `${m.customer_name} went with someone else`}</span>}
+            </span>
+            {live && Icon.chevron("var(--faint)")}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// After sending a quote: waiting for the customer.
 export function TradeWaiting({ o, onWithdraw, onClose }: { o: MyOffer; onWithdraw: () => void; onClose: () => void }) {
-  const { session } = useSession();
   const now = useNow(30000);
-  const [chat, setChat] = useState(false);
   const hoursLeft = Math.max(0, Math.ceil((new Date(o.expires_at).getTime() - now) / 3600e3));
   return (
     <div className="screen" role="dialog" aria-label="Quote sent" style={{ background: "var(--card)" }}>
@@ -380,10 +396,8 @@ export function TradeWaiting({ o, onWithdraw, onClose }: { o: MyOffer; onWithdra
       </div>
       <div style={{ flex: 1 }} />
       <ActionBar>
-        <button className="btn stone" style={{ flex: 1 }} onClick={onWithdraw}>Withdraw</button>
-        <button className="btn primary" style={{ flex: 1 }} onClick={() => setChat(true)}>{Icon.msg("#fff")} Message {o.customer_name}</button>
+        <button className="btn stone" style={{ flex: 1 }} onClick={onWithdraw}>Withdraw quote</button>
       </ActionBar>
-      {chat && session && <ChatScreen jobId={o.job_id} me={session.user.id} workerId={session.user.id} otherName={o.customer_name} sub={`${money(o.pay_cents)}, ${o.title}`} onBack={() => setChat(false)} />}
     </div>
   );
 }
