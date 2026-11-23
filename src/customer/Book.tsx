@@ -86,6 +86,8 @@ export function Book() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [discard, setDiscard] = useState(false);
+  // "Keep it / Throw away" belongs to that one moment on Check and post: leaving the screen always puts Post my job back.
+  useEffect(() => { if (path !== "/book/check") setDiscard(false); }, [path]);
   const [pickMethod, setPickMethod] = useState(false);
   const [pickWho, setPickWho] = useState<null | "people" | "after">(null);
   const [pickRepeat, setPickRepeat] = useState(false);
@@ -165,6 +167,7 @@ export function Book() {
 
   // A new job starts on the one-tap start screen; a job posted again goes straight to Check and post.
   async function startNew(prefill?: Partial<Draft>, to = "/book/start") {
+    setDiscard(false);
     await draftMedia.clear();
     setMedia([]);
     setReuseUrls({});
@@ -194,6 +197,7 @@ export function Book() {
   const mediaIn = useRef<HTMLInputElement>(null);
   const [pickUnit, setPickUnit] = useState(false);
   const [pickWhen, setPickWhen] = useState(false);
+  const [pickSuburb, setPickSuburb] = useState(false);
   // Pick a day and time, right here: the next 6 days, then a start time from 6am to 8pm, at least an hour away.
   const [pickDay, setPickDay] = useState(false);
   const [pickTime, setPickTime] = useState(false);
@@ -272,7 +276,7 @@ export function Book() {
     if (!mk) return;
     new mk.Search({ language: "en-AU" }).search(raw, (e: unknown, r: { places?: Place[] }) => { if (!e && r?.places?.length) applyPlace(r.places[0]); });
   };
-  const addPicked = async (list: FileList | null) => {
+  const addPicked = async (list: FileList | File[] | null) => {
     const all = Array.from(list ?? []);
     const ph = all.filter((f) => f.type.startsWith("image/")), vid = all.filter((f) => f.type.startsWith("video/")).slice(0, 1);
     if (ph.length) await addFiles(ph, "photo");
@@ -326,7 +330,6 @@ export function Book() {
     setErr("");
     if (!jt) return go("/book/details");
     if (d.details.trim().length < 15) return go("/book/details");
-    if (!(d.included ?? []).some((x) => x.trim())) { setErr("Add at least one thing that's included."); return; }
     if (!photoCount && !video && !reusedVideo) { mediaIn.current?.click(); return; }
     if (!photoCount) { setErr("Add at least one photo. A video on its own isn't enough."); return; }
     if (!isTrade && (d.priceCents < LO || jobCents > HI)) { setErr(`Set a price from ${money(LO)} to ${money(HI)}.`); return; }
@@ -354,7 +357,8 @@ export function Book() {
         p_details: d.details, p_media: uploaded, p_price_cents: jobCents,
         p_price_unit: unit, p_unit_price_cents: unit === "fixed" ? null : d.priceCents, p_unit_qty: qty,
         p_invited: invited, p_open_after_minutes: invited.length ? d.openAfter : null,
-        p_included: (d.included ?? []).map((x) => x.trim()).filter(Boolean), p_excluded: (d.excluded ?? []).map((x) => x.trim()).filter(Boolean), p_skills: jobSkills.map((k) => k.id),
+        // What's included: the list Claude wrote, or if there isn't one, the job itself (the list isn't on Check and post, so it can't block posting).
+        p_included: (() => { const inc = (d.included ?? []).map((x) => x.trim()).filter(Boolean); return inc.length ? inc : [(d.title?.trim() || jt?.name || "The job as described").slice(0, 80)]; })(), p_excluded: (d.excluded ?? []).map((x) => x.trim()).filter(Boolean), p_skills: jobSkills.map((k) => k.id),
         p_title: d.title?.trim() || null, p_extra_categories: d.extraCats ?? [],
         p_budget_min_cents: null, p_budget_max_cents: null,
         p_pay_method: isTrade ? null : d.payMethod ?? null,
@@ -393,7 +397,8 @@ export function Book() {
   if (path === "/book/photo") {
     const urls = [...photos.map((m) => m.url), ...reusedPhotos.map((r) => reuseUrls[r.path]).filter(Boolean)];
     const nextStep = isTrade ? "/book/when-where" : "/book/w-price";
-    const take = async (list: FileList | null) => { const had = photoCount; await addPicked(list); if (!had && list?.length) go(nextStep); };
+    // Copy the files first: the input is cleared straight after, which empties its live FileList.
+    const take = async (list: FileList | null) => { const files = Array.from(list ?? []); const had = photoCount; await addPicked(files); if (!had && files.length) go(nextStep); };
     return (
       <WalkShell n={2} title="Add a photo" onBack={() => history.back()} err={err}
         onNext={() => { if (!photoCount) return setErr("Add a photo so workers can see the job."); setErr(""); go(nextStep); }}>
@@ -476,18 +481,22 @@ export function Book() {
     const when = d.asap ? "Now" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
     return (
       <WalkShell n={4} title="When and where?" onBack={() => history.back()} err={err}
-        onNext={() => { if (d.address.trim().length < 3 || !suburb) return setErr("Add the address, or use your current location."); setErr(""); after("/book/check"); }}>
+        onNext={() => { if (d.address.trim().length < 3) return setErr("Add the street address, or use your current location."); if (!suburb) return setErr("Select your suburb."); setErr(""); after("/book/check"); }}>
         <h2 className="wk-h">When</h2>
         <button className="wk-ww" onClick={() => setPickWhen(true)}>{Icon.clock("var(--emerald)", 26)}<span><b>{when}</b></span>{Icon.down("var(--ink)")}</button>
         <h2 className="wk-h">Where</h2>
         <label className="wk-ww wk-in">{Icon.pin("var(--emerald)")}
           <span><input ref={addrBox} value={d.address} placeholder="Street address" autoComplete="street-address" onChange={(e) => { setNeedNumber(false); typeAddress(e.target.value); }} />
-            {needNumber ? <small className="em">{needNumber === "number" ? "Add your street number" : "Type your street address"}</small> : suburb && <small>{suburb.name}</small>}</span></label>
+            {needNumber && <small className="em">{needNumber === "number" ? "Add your street number" : "Type your street address"}</small>}</span></label>
+        {/* The suburb, always selectable: filled in by a suggestion or current location, or picked here if Apple Maps can't help. */}
+        <button className="wk-ww wk-suburb" onClick={() => setPickSuburb(true)}><span><small>Suburb</small><b className={suburb ? "" : "ph"}>{suburb?.name ?? "Select your suburb"}</b></span>{Icon.down("var(--ink)")}</button>
         {addrSug.length > 0 && (
           <div className="wk-sug">{addrSug.map((x, k) => <button key={k} onClick={() => pickSuggestion(x.raw)}>{Icon.pin("var(--muted)")}<span><b>{x.line1}</b><small>{x.line2}</small></span></button>)}</div>
         )}
         <button className="wk-loc" onClick={useMyLocation} disabled={locating}>{Icon.pin("var(--emerald)")}{locating ? "Finding you…" : "Use my current location"}</button>
         <div className="wk-where"><div className="wk-map"><PlaceMap lat={suburb?.lat ?? null} lng={suburb?.lng ?? null} /></div></div>
+        {pickSuburb && <SearchPicker title="Suburb" value={suburb ? [suburb.id] : []} options={suburbs.map((x) => ({ id: x.id, label: x.name }))}
+          onClose={() => setPickSuburb(false)} onChange={(v) => { setPickSuburb(false); setD({ ...d, suburbId: Number(v[0]) }); setErr(""); }} />}
         {pickWhen && <SearchPicker title="When" value={[d.asap ? "now" : "pick"]} options={[{ id: "now", label: "Now" }, { id: "pick", label: "Pick a day and time" }]}
           onClose={() => setPickWhen(false)} onChange={(v) => { if (v[0] === "now") setD({ ...d, asap: true }); else { setPickWhen(false); setPickDay(true); } }} />}
         {pickDay && <SearchPicker title="Which day?" value={[]} options={walkDays} onClose={() => setPickDay(false)}
@@ -557,8 +566,8 @@ export function Book() {
             </section>
 
             <section className="cp2-rows">
-              <button className="qk-row" onClick={() => go("/book/when")}>{Icon.clock("var(--emerald)", 22)}<span>When</span><b>{when}</b>{Icon.chevron("var(--muted)")}</button>
-              <button className="qk-row" onClick={() => go("/book/where")}>{Icon.pin("var(--emerald)")}<span>Where</span><b className={d.address?.trim() ? "" : "ph"}>{[d.address?.trim(), suburb?.name].filter(Boolean).join(", ") || "Add the address"}</b>{Icon.chevron("var(--muted)")}</button>
+              <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/when-where"); }}>{Icon.clock("var(--emerald)", 22)}<span>When</span><b>{when}</b>{Icon.chevron("var(--muted)")}</button>
+              <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/when-where"); }}>{Icon.pin("var(--emerald)")}<span>Where</span><b className={d.address?.trim() ? "" : "ph"}>{[d.address?.trim(), suburb?.name].filter(Boolean).join(", ") || "Add the address"}</b>{Icon.chevron("var(--muted)")}</button>
               {isTrade ? (
                 <div className="cp2-pay">{Icon.card("var(--emerald)")}<span>Price</span><b className="cp2-q">Tradies quote you</b><small>Select a quote and pay the tradie directly. $0 fee.</small></div>
               ) : (<>
@@ -585,7 +594,12 @@ export function Book() {
           <div className="ck-btns">
             {discard
               ? <><button className="btn stone" onClick={() => setDiscard(false)}>{Icon.back("currentColor")}Keep it</button>
-                <button className="btn out" onClick={async () => { sessionStorage.removeItem(DRAFT_KEY); await draftMedia.clear(); go("/post", true); }}>{Icon.cancel("currentColor")}Throw away</button></>
+                <button className="btn out" onClick={async () => {
+                  // Throw it all away: the saved draft, its photos, and this screen's state, so the next job starts clean.
+                  sessionStorage.removeItem(DRAFT_KEY); await draftMedia.clear();
+                  setDiscard(false); setMedia([]); setReuseUrls({}); uploads.current = {}; setErr(""); setD(blank);
+                  go("/post", true);
+                }}>{Icon.cancel("currentColor")}Throw away</button></>
               : <><button className="btn stone" onClick={() => setDiscard(true)}>{Icon.cancel("currentColor")}Cancel</button>
                 <button className="btn primary" disabled={busy} onClick={book}>
                   {busy ? "Posting…" : photoCount === 0 ? "Add a photo" : session && bookingFee > 0 && !profile?.card_last4 ? "Add a card" : <>Post my job {Icon.arrow("#fff")}</>}

@@ -3210,3 +3210,5 @@ button.wk-box span { font-size: 19px; justify-content: space-between; }
 .wk-sug b { font-size: 16px; font-weight: 500; }
 .wk-sug small { font-size: 14px; color: var(--muted); }
 .cp-rate { display: block; margin-top: 2px; font-size: 14px; font-weight: 300; color: var(--muted); }
+.wk-suburb { min-height: 64px; margin-top: 8px; }
+.wk-suburb > svg { flex: none; }
