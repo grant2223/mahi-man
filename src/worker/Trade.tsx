@@ -311,7 +311,7 @@ export function TradeJob({ o, trade, onBack, onSent, onGone, onCreds }: { o: Off
     if (!at) return setErr("Select when you can come.");
     setErr(""); setBusy(true);
     try {
-      await rpc("offer_job", { p_job: o.id, p_price_cents: c, p_included: note.trim() || "The job as posted", p_can_come_at: at });
+      await rpc("offer_job", { p_job: o.id, p_price_cents: c, p_included: note.trim() || null, p_can_come_at: at });
       toast(`Quote sent to ${o.customer_name.split(" ")[0]}`); onSent();
     } catch (e) {
       const m = e instanceof Error ? e.message : String(e);
@@ -396,7 +396,7 @@ export function TradeWaiting({ o, onWithdraw, onClose }: { o: MyOffer; onWithdra
       </section>
       <div className="cp-sec">
         <span className="t17 w5">Your quote</span>
-        <span className="t15 light muted">Can come {o.can_come_at ? dayTime(o.can_come_at) : ""}.{o.included && o.included !== "The job as posted" ? ` ${o.included}` : ""}</span>
+        <span className="t15 light muted">Can come {o.can_come_at ? dayTime(o.can_come_at) : ""}.{o.included ? ` ${o.included}` : ""}</span>
       </div>
       <div className="cp-sec">
         <span className="cp-title" style={{ marginBottom: 2 }}>What happens next</span>

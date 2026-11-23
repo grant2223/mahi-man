@@ -177,7 +177,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
                       <span className="badge-ver">{Icon.shieldTick("var(--emerald)")}Insured</span>
                     </span>
                     <span className="m">{o.business_name ? `${o.full_name}, ` : ""}{rec || (o.is_new ? "New to Mahi Man" : `${o.jobs_done} jobs`)}</span>
-                    {o.included && <span className="m">Includes {o.included.charAt(0).toLowerCase() + o.included.slice(1)}</span>}
+                    {o.included && <span className="m">{o.included}</span>}
                     {o.can_come_at && <span className="m em">Can come {dayTime(o.can_come_at)}</span>}
                   </span>
                 </div>
