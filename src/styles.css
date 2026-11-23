@@ -3059,3 +3059,15 @@ input.of-v { flex: 1; max-width: 60%; padding: 0 12px; }
 .bz-who .bz-who-i b { font-size: 17px; }
 .bz-who .bz-who-i span { font-size: 14px; }
 @media (max-width: 899px) { .bz-who { grid-template-columns: 1fr 1fr; } }
+
+/* Quote: what's included as a tick list, and save for next time */
+.qq-h { margin: 20px 0 10px; font-size: 17px; font-weight: 600; }
+.qq-items { display: flex; flex-direction: column; gap: 8px; }
+.qq-i, .qq-keep { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 54px; padding: 0 14px; border: 0; border-radius: var(--r-control); background: var(--ground); font: inherit; font-size: 16px; color: var(--ink); text-align: left; cursor: pointer; }
+.qq-i.on { background: var(--emerald-tint); }
+.qq-box { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; background: #fff; }
+.qq-i.on .qq-box, .qq-keep.on .qq-box { background: var(--emerald); }
+.qq-add { display: flex; align-items: center; gap: 8px; min-height: 54px; padding: 0 8px 0 14px; border-radius: var(--r-control); background: var(--ground); }
+.qq-add input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; font: inherit; font-size: 16px; color: var(--ink); }
+.qq-keep { margin-top: 14px; background: none; padding: 0; min-height: 44px; font-weight: 500; }
+.qq-keep .qq-box { background: var(--ground); }
