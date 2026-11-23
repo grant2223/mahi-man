@@ -2,7 +2,7 @@ import { Capacitor } from "@capacitor/core";
 import { useCallback, useEffect, useState } from "react";
 import { isDirectPay, mediaUrls, payWay, rpc, sb, type Job, type JobType, type PersonCard, myId } from "../lib/supabase";
 import { useSession } from "../lib/session";
-import { elapsed, firstName, money, shrinkImage } from "../lib/format";
+import { elapsed, firstName, money, rateLine, shrinkImage } from "../lib/format";
 import { Icon, Loading, Perf, Screen, SearchPicker, Tile, useNow, useToast } from "../ui/kit";
 import { ChatScreen } from "../ui/Chat";
 import { currentPosition, resumeTrip, startTrip, stopTrip, tripJob } from "../lib/trip";
@@ -141,7 +141,7 @@ export function WorkerJob({ job, onChanged, onLeave }: { job: Job; onChanged: ()
           </div>
         ) : (
           <>
-            <PriceRows title={`What ${cName} pays you`} jobName={jobName} priceCents={j.price_cents} extras={approved} totalLabel={gift > 0 ? "Job price" : "Total"} />
+            <PriceRows title={`What ${cName} pays you`} jobName={jobName} priceCents={j.price_cents} extras={approved} totalLabel={gift > 0 ? "Job price" : "Total"} rate={rateLine(j)} />
             {gift > 0 && (
               <div className="cp-sec" style={{ paddingTop: 0 }}>
                 <div className="cp-row"><span>Paid by {cName}'s gift card</span><span>{money(gift)}</span></div>

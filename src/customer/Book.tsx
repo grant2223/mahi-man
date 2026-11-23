@@ -18,6 +18,7 @@ import { PayScreen } from "./Pay";
 import { AddCardScreen, cardLabel } from "./Cards";
 import { lc } from "../worker/Skills";
 import { PlaceMap } from "../ui/PlaceMap";
+import { loadMapKit } from "../ui/LiveMap";
 import { SetSide, SideSwitch } from "../ui/SideSwitch";
 import { TabBar } from "../ui/TabBar";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
@@ -198,12 +199,63 @@ export function Book() {
   const mediaIn = useRef<HTMLInputElement>(null);
   const [pickUnit, setPickUnit] = useState(false);
   const [pickWhen, setPickWhen] = useState(false);
-  // Current location: the phone's position, matched to the nearest suburb.
+  // The suburb for a place: by name first, otherwise the nearest one we serve.
+  const suburbFor = (locality: string | null | undefined, lat: number, lng: number) => {
+    const byName = locality ? suburbs.find((x) => x.name.toLowerCase() === locality.toLowerCase()) : undefined;
+    if (byName) return byName;
+    return [...(suburbs as (Suburb & { lat: number; lng: number })[])].filter((x) => x.lat != null)
+      .sort((a, b) => ((a.lat - lat) ** 2 + (a.lng - lng) ** 2) - ((b.lat - lat) ** 2 + (b.lng - lng) ** 2))[0];
+  };
+  // A place from Apple Maps into the draft: street number and street, and the suburb.
+  type Place = { coordinate: { latitude: number; longitude: number }; subThoroughfare?: string; thoroughfare?: string; locality?: string; name?: string };
+  const applyPlace = (pl: Place) => {
+    const street = [pl.subThoroughfare, pl.thoroughfare].filter(Boolean).join(" ") || pl.name || "";
+    const sub = suburbFor(pl.locality, pl.coordinate.latitude, pl.coordinate.longitude);
+    setD({ ...d, address: street || d.address, suburbId: sub?.id ?? d.suburbId });
+    setAddrSug([]); setErr("");
+    // No house number from the map: put the cursor at the start of the street so they just add it.
+    if (!pl.subThoroughfare) { setNeedNumber(true); window.setTimeout(() => { addrBox.current?.focus(); addrBox.current?.setSelectionRange(0, 0); }, 50); }
+  };
+  const [needNumber, setNeedNumber] = useState(false);
+  const addrBox = useRef<HTMLInputElement>(null);
+  // Current location: the phone's position, turned into the street address by Apple Maps (Uber's "Current location").
+  const [locating, setLocating] = useState(false);
   const useMyLocation = () => {
-    navigator.geolocation?.getCurrentPosition((p) => {
-      const near = [...(suburbs as (Suburb & { lat: number; lng: number })[])].sort((a, b) => ((a.lat - p.coords.latitude) ** 2 + (a.lng - p.coords.longitude) ** 2) - ((b.lat - p.coords.latitude) ** 2 + (b.lng - p.coords.longitude) ** 2))[0];
-      if (near) setD({ ...d, suburbId: near.id });
-    }, () => setErr("Couldn't get your location. Type the address instead."), { enableHighAccuracy: true, timeout: 10000 });
+    if (!navigator.geolocation) return setErr("Location isn't available on this phone. Type the address instead.");
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(async (p) => {
+      const { latitude, longitude } = p.coords;
+      const mk = await loadMapKit();
+      if (!mk) { const sub = suburbFor(null, latitude, longitude); if (sub) setD({ ...d, suburbId: sub.id }); setLocating(false); return; }
+      new mk.Geocoder({ language: "en-AU" }).reverseLookup(new mk.Coordinate(latitude, longitude), (e: unknown, r: { results?: Place[] }) => {
+        setLocating(false);
+        if (e || !r?.results?.length) { const sub = suburbFor(null, latitude, longitude); if (sub) setD({ ...d, suburbId: sub.id }); return; }
+        applyPlace(r.results[0]);
+      });
+    }, () => { setLocating(false); setErr("Couldn't get your location. Type the address instead."); }, { enableHighAccuracy: true, timeout: 10000 });
+  };
+  // Typing the address: Apple Maps suggestions under the box, the way Uber's "Enter destination" works.
+  const [addrSug, setAddrSug] = useState<{ line1: string; line2: string; raw: unknown }[]>([]);
+  const sugTimer = useRef<number | undefined>(undefined);
+  const typeAddress = (q: string) => {
+    setD({ ...d, address: q }); setErr("");
+    window.clearTimeout(sugTimer.current);
+    if (q.trim().length < 3) { setAddrSug([]); return; }
+    sugTimer.current = window.setTimeout(async () => {
+      const mk = await loadMapKit();
+      if (!mk) return;
+      const near = suburb as (Suburb & { lat?: number; lng?: number }) | null;
+      const search = new mk.Search({ language: "en-AU", ...(near?.lat != null ? { region: new mk.CoordinateRegion(new mk.Coordinate(near.lat, near.lng), new mk.CoordinateSpan(0.6, 0.6)) } : {}) });
+      search.autocomplete(q, (e: unknown, r: { results?: { displayLines: string[] }[] }) => {
+        if (e || !r?.results) return setAddrSug([]);
+        setAddrSug(r.results.slice(0, 5).map((x) => ({ line1: x.displayLines[0] ?? "", line2: x.displayLines[1] ?? "", raw: x })));
+      });
+    }, 250);
+  };
+  const pickSuggestion = async (raw: unknown) => {
+    const mk = await loadMapKit();
+    if (!mk) return;
+    new mk.Search({ language: "en-AU" }).search(raw, (e: unknown, r: { places?: Place[] }) => { if (!e && r?.places?.length) applyPlace(r.places[0]); });
   };
   const addPicked = async (list: FileList | null) => {
     const all = Array.from(list ?? []);
@@ -415,9 +467,12 @@ export function Book() {
         <button className="wk-ww" onClick={() => setPickWhen(true)}>{Icon.clock("var(--emerald)", 26)}<span><b>{when}</b></span>{Icon.down("var(--ink)")}</button>
         <h2 className="wk-h">Where</h2>
         <label className="wk-ww wk-in">{Icon.pin("var(--emerald)")}
-          <span><input value={d.address} placeholder="Street address" onChange={(e) => { setD({ ...d, address: e.target.value }); setErr(""); }} />
-            {suburb && <small>{suburb.name}</small>}</span></label>
-        <button className="wk-loc" onClick={useMyLocation}>{Icon.pin("var(--emerald)")}Use my current location</button>
+          <span><input ref={addrBox} value={d.address} placeholder="Street address" autoComplete="street-address" onChange={(e) => { setNeedNumber(false); typeAddress(e.target.value); }} />
+            {needNumber ? <small className="em">Add your street number</small> : suburb && <small>{suburb.name}</small>}</span></label>
+        {addrSug.length > 0 && (
+          <div className="wk-sug">{addrSug.map((x, k) => <button key={k} onClick={() => pickSuggestion(x.raw)}>{Icon.pin("var(--muted)")}<span><b>{x.line1}</b><small>{x.line2}</small></span></button>)}</div>
+        )}
+        <button className="wk-loc" onClick={useMyLocation} disabled={locating}>{Icon.pin("var(--emerald)")}{locating ? "Finding you…" : "Use my current location"}</button>
         <div className="wk-where"><div className="wk-map"><PlaceMap lat={suburb?.lat ?? null} lng={suburb?.lng ?? null} /></div></div>
         {pickWhen && <SearchPicker title="When" value={[d.asap ? "now" : "pick"]} options={[{ id: "now", label: "Now" }, { id: "pick", label: "Pick a day and time" }]}
           onClose={() => setPickWhen(false)} onChange={(v) => { if (v[0] === "now") setD({ ...d, asap: true }); else { setPickWhen(false); retTo("/book/when-where"); go("/book/when"); } }} />}
@@ -585,7 +640,7 @@ function VideoTile({ src, onRemove }: { src: string; onRemove: () => void }) {
 const LIVE: Record<string, string> = { searching: "Finding people near you", accepted: "Booked", in_progress: "Under way", finished: "Done. Check it and confirm", disputed: "Problem reported" };
 
 interface Recent {
-  id: string; title: string | null; extra_categories: number[] | null; details: string; skill_ids: number[] | null; included: string[] | null; excluded: string[] | null; price_cents: number; suburb_id: number; address: string; notes: string; created_at: string;
+  id: string; title: string | null; extra_categories: number[] | null; details: string; skill_ids: number[] | null; included: string[] | null; excluded: string[] | null; price_cents: number; price_unit: "fixed" | "hour" | "day" | "visit" | null; unit_price_cents: number | null; unit_qty: number | null; suburb_id: number; address: string; notes: string; created_at: string;
   status: string; worker_id: string | null; job_types: { category_id: number | null } | null; suburbs: { name: string } | null;
   job_media: { path: string; kind: "photo" | "video"; sort: number }[];
 }
@@ -623,7 +678,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   const feedOffer = useFeedOffer(true, "help");
   useEffect(() => {
     if (!uid) { setRecent([]); return; }
-    sb.from("jobs").select("id,title,extra_categories,details,skill_ids,included,excluded,price_cents,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
+    sb.from("jobs").select("id,title,extra_categories,details,skill_ids,included,excluded,price_cents,price_unit,unit_price_cents,unit_qty,suburb_id,address,notes,created_at,status,worker_id,job_types(category_id),suburbs(name),job_media(path,kind,sort)")
       .eq("customer_id", uid).neq("status", "awaiting_payment").order("created_at", { ascending: false }).limit(5)
       .then(({ data }) => setRecent((data ?? []) as unknown as Recent[]));
   }, [uid]);
@@ -651,7 +706,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   const [paying, setPaying] = useState<OwedFee | null>(null);
 
   const again = (r: Recent) => onStart({ repeatWeeks: 0,
-    categoryId: r.job_types?.category_id ?? null, extraCats: r.extra_categories ?? [], title: r.title ?? "", priceCents: r.price_cents, suburbId: r.suburb_id, address: r.address, notes: r.notes,
+    categoryId: r.job_types?.category_id ?? null, extraCats: r.extra_categories ?? [], title: r.title ?? "", priceCents: r.price_unit && r.price_unit !== "fixed" && r.unit_price_cents != null ? r.unit_price_cents : r.price_cents, priceUnit: r.price_unit ?? "fixed", unitQty: Number(r.unit_qty ?? 1), suburbId: r.suburb_id, address: r.address, notes: r.notes,
     details: r.details, skills: r.skill_ids ?? [], included: r.included ?? [], excluded: r.excluded ?? [], reuse: [...r.job_media].sort((a, b) => a.sort - b.sort).map((m) => ({ path: m.path, kind: m.kind })),
     invited: r.worker_id && ["finished", "confirmed"].includes(r.status) ? [r.worker_id] : [],
   }, "/book/check");

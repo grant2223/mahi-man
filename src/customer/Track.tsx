@@ -1,4 +1,4 @@
-import { cardName, priceWords } from "../lib/format";
+import { cardName, priceWords, rateLine } from "../lib/format";
 import { AfterJobOffer } from "../ui/LocalOffers";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { api, isDirectPay, payWay, rpc, sb, type Job, type JobType, type PersonCard } from "../lib/supabase";
@@ -199,7 +199,7 @@ export function Track({ id }: { id: string }) {
             ))}
           </div>
         )}
-        <PriceRows jobName={jobName} priceCents={job.price_cents} extras={approved} totalLabel={gift > 0 ? "Job price" : `Pay ${wName}`} />
+        <PriceRows jobName={jobName} priceCents={job.price_cents} extras={approved} totalLabel={gift > 0 ? "Job price" : `Pay ${wName}`} rate={rateLine(job)} />
         {gift > 0 && <GiftPaidSection worker={wName} gift={gift} rest={rest} fee={jobFee} />}
         {!giftAll && job.pay_method !== "cash" && <div className="cp-payid">
           {Icon.card("var(--emerald)")}

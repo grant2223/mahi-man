@@ -31,12 +31,13 @@ export function DoneHero({ jobName, label, big, lime, sub, step, onBack }: { job
   );
 }
 
-export function PriceRows({ title, jobName, priceCents, extras, totalLabel }: { title?: string; jobName: string; priceCents: number; extras: { reason: string; amount_cents: number }[]; totalLabel: string }) {
+// rate: for an hourly, daily or per-visit job, "About 2 hours at $80 an hour", shown under the job.
+export function PriceRows({ title, jobName, priceCents, extras, totalLabel, rate }: { title?: string; jobName: string; priceCents: number; extras: { reason: string; amount_cents: number }[]; totalLabel: string; rate?: string }) {
   const total = priceCents + extras.reduce((a, e) => a + e.amount_cents, 0);
   return (
     <div className="cp-sec">
       {title && <span className="cp-title">{title}</span>}
-      <div className="cp-row"><span>{jobName}</span><span>{money(priceCents)}</span></div>
+      <div className="cp-row"><span>{jobName}{rate && <small className="cp-rate">{rate}</small>}</span><span>{money(priceCents)}</span></div>
       {extras.map((e, i) => <div key={i} className="cp-row"><span>Extra approved: {e.reason}</span><span>{money(e.amount_cents)}</span></div>)}
       <div className="cp-total"><span>{totalLabel}</span><span>{money(total)}</span></div>
     </div>

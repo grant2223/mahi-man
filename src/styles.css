@@ -3203,3 +3203,10 @@ button.wk-box span { font-size: 19px; justify-content: space-between; }
 .wk-qty small { flex-basis: 100%; font-size: 14px; color: var(--muted); }
 .cp2-sub { display: block; margin-top: 2px; font-size: 14px; font-weight: 300; color: var(--muted); }
 .pu { display: block; margin-top: 2px; font-size: 14px; font-weight: 400; color: var(--muted); letter-spacing: 0; text-align: right; }
+.wk-sug { display: flex; flex-direction: column; margin-top: 4px; }
+.wk-sug button { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 6px 18px; border: 0; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
+.wk-sug button svg { flex: none; width: 20px; height: 20px; }
+.wk-sug span { display: flex; flex-direction: column; gap: 1px; }
+.wk-sug b { font-size: 16px; font-weight: 500; }
+.wk-sug small { font-size: 14px; color: var(--muted); }
+.cp-rate { display: block; margin-top: 2px; font-size: 14px; font-weight: 300; color: var(--muted); }

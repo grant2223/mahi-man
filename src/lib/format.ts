@@ -13,6 +13,13 @@ export function pricePair(j: { price_cents: number; price_unit?: string | null; 
   if (!u || u === "fixed" || j.unit_price_cents == null) return [money(j.price_cents), ""];
   return [money(j.unit_price_cents), UNIT_WORDS[u]];
 }
+// "About 2 hours at $80 an hour" for the price breakdown; nothing for a fixed price.
+export function rateLine(j: { price_unit?: string | null; unit_price_cents?: number | null; unit_qty?: number | null }) {
+  const u = j.price_unit as PriceUnit | null | undefined;
+  if (!u || u === "fixed" || j.unit_price_cents == null) return undefined;
+  const q = Number(j.unit_qty ?? 1);
+  return `About ${q} ${UNIT_COUNT[u][q === 1 ? 0 : 1]} at ${money(j.unit_price_cents)} ${UNIT_WORDS[u]}`;
+}
 // "About 3 hours, $150 in all" for an hourly, daily or per-visit job; nothing for a fixed price.
 export function priceAbout(j: { price_cents: number; price_unit?: string | null; unit_price_cents?: number | null; unit_qty?: number | null }) {
   const u = j.price_unit as PriceUnit | null | undefined;
