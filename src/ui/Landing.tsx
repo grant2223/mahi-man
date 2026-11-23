@@ -157,6 +157,7 @@ export function Landing() {
               ))}
               <a className="all" href="/services" onClick={(e) => { e.preventDefault(); go("/services"); }}>All {cats.length} services {Icon.arrow("currentColor")}</a>
             </div>
+            <a className="btn ghost ld-work" href="/find" onClick={link("/find")}>Want work? Keep 100% of every job {Icon.arrow("#fff")}</a>
           </div>
           <div className="ld-mosaic" aria-hidden="true">
             {MOSAIC.map(([id, pos]) => <img key={id} src={UNS(id, 500)} alt="" style={{ objectPosition: pos }} loading="eager" />)}
