@@ -5,6 +5,7 @@ import { money, money2 } from "../lib/format";
 import { pctLabel } from "../lib/fee";
 import { go } from "../lib/router";
 import { CatIcon, Icon, Logo } from "./kit";
+import { CAT_PHOTO, UNS } from "../lib/catPhotos";
 
 /* mahiman.app for first-time visitors on the web. Sells to locals with jobs on their list first,
    then to people who want extra work. The app itself opens straight on Get help. */
@@ -21,13 +22,15 @@ function Photo({ src, alt, className }: { src: string; alt: string; className: s
 }
 
 // Free photos from Unsplash (Unsplash License), served by Unsplash at the size each frame needs.
-const UNS = (id: string, w: number) => `https://images.unsplash.com/photo-${id}?w=${w}&q=75&auto=format&fit=crop`;
 // The three most booked kinds of odd job in Australia (Airtasker's own numbers: removals, cleaning, rubbish removal).
 // Eight of the most common jobs, behind the hero headline. [photo id, which part of the photo to keep in view]
 const MOSAIC: [string, string][] = [
   ["1493135637657-c2411b3497ad", "50% 40%"], ["1758273705627-937374bfa978", "38% 50%"], ["1781425009053-2baffa997d8c", "50% 50%"], ["1743130940714-91b221fa49ec", "72% 30%"],
   ["1779636489740-6077a4198be6", "45% 60%"], ["1724556295135-ff92b9aa0a55", "45% 40%"], ["1571018400279-7f33252d0ad6", "40% 55%"], ["1688372199140-cade7ae820fe", "50% 40%"],
 ];
+// What people might type in the hero box, one after another. And the kinds of work named under it.
+const ASK = ["Mow the back lawn", "Design a logo for my café", "Stand in line for concert tickets", "Install an EV charger", "Personal training at the park", "Film my event"];
+const HERO_CATS = ["cleaning", "garden", "fitness", "camera", "social", "barber"];
 const USES: [string, string, string][] = [
   ["Moving", "Extra hands to lift, carry and load. Bring a ute or van if you need one.", "1769972557854-7eae6f95585b"],
   ["Cleaning", "Bond cleans, regular cleans and Airbnb turnovers, booked for today.", "1758273238415-01ec03d9ef27"],
@@ -39,7 +42,7 @@ type Fee = { pct: number; min: number; max: number; plmax: number; plus: number;
 const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
   ["Getting help", [
     ["How fast can someone come?", "The moment you post, workers who are switched on near you get an alert. If nobody says they're keen within 10 minutes, workers further out can see your job too."],
-    ["What jobs can I post?", "Cleaning, moving, pick-up and delivery, rubbish removal, garden, assembly, handyman, pets, errands, events, babysitting and tutoring, tech help, and anything else you need a hand with. No passenger transport."],
+    ["What jobs can I post?", "Almost anything: cleaning, garden, moving, rubbish, handyman, personal training, haircuts, beauty, cooking, social media, design, websites, photos and video, admin, bookkeeping and more. See all services on mahiman.app/services. No passenger transport."],
     ["Who sets the price?", "You do. Your price covers what you list as included. Anything extra needs your OK in the app before it's done."],
     ["Do I get to choose who comes?", "Yes. People who are available say they're keen, and you see their photo, skills, verified licences, how often they turn up, and how past customers rated them before you choose one."],
     ["Can I post jobs and do work?", "Yes. One account does both. Switch between Get help and Do work any time."],
@@ -109,6 +112,9 @@ const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
 export function Landing() {
   useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
+  // The hero box cycles through things people get done.
+  const [ask, setAsk] = useState(0);
+  useEffect(() => { const t = window.setInterval(() => setAsk((i) => (i + 1) % ASK.length), 2600); return () => window.clearInterval(t); }, []);
   // The connection fee customers pay from launch, from the live settings.
   const [fee, setFee] = useState<Fee>({ pct: 15, min: 995, max: 5995, plmax: 2995, plus: 9900, pl: 7.5, plmin: 495, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, tpct: 1250, tmax: 25000, tmonth: 24900, tyear: 249900, tafter: 60, tquiet: 48 });
   useEffect(() => {
@@ -138,11 +144,18 @@ export function Landing() {
       <section className="ld-hero">
         <div className="ld-wrap ld-hero-in">
           <div className="ld-hero-text">
-            <span className="ld-pin">{Icon.pin("#d4f04c")} Australia wide</span>
-            <h1>Get the help you need within minutes.</h1>
-            <div className="row ld-ctas">
-              <a className="btn lime" href="/post" onClick={link("/post")}>Post a job, free {Icon.arrow("var(--ink)")}</a>
-              <a className="btn ghost" href="/find" onClick={link("/find")}>Want work?</a>
+            <span className="ld-pin">{Icon.pin("#d4f04c")} On demand, Australia wide</span>
+            <h1>Get help with anything.</h1>
+            <p className="ld-sub">From the lawn to your logo. Post it free and locals say they're keen in minutes.</p>
+            <form className="ld-ask" onSubmit={(e) => { e.preventDefault(); toApp(); }}>
+              <input placeholder={ASK[ask]} aria-label="What do you need done?" />
+              <button className="btn lime" type="submit">Post it {Icon.arrow("var(--ink)")}</button>
+            </form>
+            <div className="ld-hcats">
+              {cats.filter((c) => HERO_CATS.includes(c.icon ?? "")).map((c) => (
+                <a key={c.id} href="/services" onClick={(e) => { e.preventDefault(); go("/services"); }}>{c.name}</a>
+              ))}
+              <a className="all" href="/services" onClick={(e) => { e.preventDefault(); go("/services"); }}>All {cats.length} services {Icon.arrow("currentColor")}</a>
             </div>
           </div>
           <div className="ld-mosaic" aria-hidden="true">
@@ -173,15 +186,15 @@ export function Landing() {
               </a>
             ))}
           </div>
-          <span className="ld-kicker">Everything else</span>
-          <div className="ld-cats">
-            {cats.filter((c) => !USES.some(([t]) => t === c.name)).map((c) => (
-              <a key={c.id} className="ld-cat" href="/post" onClick={link("/post")}>
-                <CatIcon name={c.icon} size={26} color="var(--emerald)" />
-                <span>{c.name}</span>
+          <span className="ld-kicker">And plenty more</span>
+          <div className="ld-more">
+            {cats.filter((c) => !USES.some(([t]) => t === c.name) && CAT_PHOTO[c.icon ?? ""]).slice(0, 8).map((c) => (
+              <a key={c.id} href="/services" onClick={(e) => { e.preventDefault(); go("/services"); }}>
+                <img src={UNS(CAT_PHOTO[c.icon!], 500)} alt="" loading="lazy" /><b>{c.name}</b>
               </a>
             ))}
           </div>
+          <a className="btn stone ld-allbtn" href="/services" onClick={(e) => { e.preventDefault(); go("/services"); }}>See all {cats.length} services {Icon.arrow("currentColor")}</a>
         </div>
       </section>
 
@@ -240,6 +253,8 @@ export function LdLinks({ cta }: { cta?: React.ReactNode }) {
   return (
     <>
       <nav className="ld-links"><a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a>
+        <a href="/services" onClick={(e) => { e.preventDefault(); go("/services"); }}>Services</a>
+        <a href="/business" onClick={(e) => { e.preventDefault(); go("/business"); }}>For business</a>
         {location.pathname !== "/tradies" && <a className="ld-tr" href="/tradies" onClick={(e) => { e.preventDefault(); go("/tradies"); }}>For tradies</a>}</nav>
       {cta ?? (urls && STORES.some(([, k]) => urls[k])
         ? <StoreBadges small />
@@ -333,12 +348,14 @@ export function SiteFooter() {
       <div className="ld-wrap ld-foot-grid">
         <div className="ld-foot-brand">
           <a className="brand" href="/" onClick={nav("/")}><Logo /> Mahi Man</a>
-          <p>Get the help you need within minutes.</p>
+          <p>Get help with anything, on demand.</p>
           <StoreBadges stack />
         </div>
         <nav className="ld-foot-col">
           <b>Mahi Man</b>
           <a href="/#how" onClick={(e) => { if (location.pathname === "/") return; e.preventDefault(); go("/"); }}>How it works</a>
+          <a href="/services" onClick={nav("/services")}>All services</a>
+          <a href="/business" onClick={nav("/business")}>For business</a>
           <a href="/tradies" onClick={nav("/tradies")}>For tradies</a>
           <a href="/partners" onClick={nav("/partners")}>Partner with us</a>
           <a href="/gift" onClick={nav("/gift")}>Buy a gift card</a>

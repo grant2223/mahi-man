@@ -21,6 +21,8 @@ import { PayoutsDone, Privacy, Support, Terms } from "./ui/Legal";
 import { AddCodePage, ClaimPage, GiftPage, GiveHelpPage } from "./ui/Gifts";
 import { HistoryPage, ReceiptPage } from "./ui/History";
 import { TradiesPage } from "./ui/Tradies";
+import { ServicesPage } from "./ui/Services";
+import { BusinessPage } from "./ui/Business";
 import { HowYouPay, InvoicePage, PaymentsPage, PlusPage } from "./ui/Payments";
 import { lastSide } from "./ui/SideSwitch";
 import { GetAppPage, Landing } from "./ui/Landing";
@@ -73,6 +75,8 @@ function Routes() {
   if (path === "/pricing") return <HowYouPay />;
   if (path === "/partners") return <PartnerPage />;
   if (path === "/tradies") return <TradiesPage />;
+  if (path === "/services") return <ServicesPage />;
+  if (path === "/business") return <BusinessPage />;
   // A worker's card or link. Mahi Man is app only: with the app installed the link opens their page in the app
   // (Book starts a job sent to them); in a browser it goes straight to the App Store or Google Play.
   const wk = path.match(/^\/w\/([A-Za-z0-9-]{2,60})$/);

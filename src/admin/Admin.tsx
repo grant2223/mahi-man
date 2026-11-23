@@ -9,7 +9,7 @@ import { CatIcon, Icon, Loading, Logo, Screen, SearchPicker, useToast } from "..
 import { UsersPage } from "./Users";
 import { BroadcastPage } from "./Broadcast";
 
-const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["delivery", "Parcel"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["other", "Sparkle"]];
+const CAT_ICONS: [string, string][] = [["cleaning", "Spray bottle"], ["garden", "Seedling"], ["moving", "Truck"], ["delivery", "Parcel"], ["rubbish", "Bin"], ["maintenance", "Aircon"], ["events", "Glass"], ["kids", "Blocks"], ["tech", "Laptop"], ["assembly", "Wrench"], ["handyman", "Hammer"], ["pets", "Paw"], ["errands", "Bag"], ["car", "Car"], ["pool", "Pool"], ["design", "Pen nib"], ["web", "Browser"], ["writing", "Pencil"], ["camera", "Camera"], ["admin", "Document"], ["accounting", "Calculator"], ["social", "Megaphone"], ["fitness", "Dumbbell"], ["barber", "Scissors"], ["beauty", "Lipstick"], ["cooking", "Pot"], ["bike", "Bike"], ["sewing", "Needle"], ["other", "Sparkle"]];
 
 type Tab = "overview" | "jobs" | "ids" | "licences" | "reports" | "problems" | "people" | "launch" | "areas" | "types" | "skills" | "settings" | "cancels" | "strikes" | "reviews" | "tradies" | "partners" | "money" | "gifts" | "staff" | "broadcast" | "ato";
 
