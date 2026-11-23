@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api, rpc } from "../lib/supabase";
+import { rpc, SUPABASE_KEY, SUPABASE_URL } from "../lib/supabase";
 
 /* The worker's trip, as the customer sees it: polled every 5 seconds, drawn on Apple Maps with the driving
    route and a live ETA. Without a map key it still reports the trip, just without the map. */
@@ -8,10 +8,14 @@ import { api, rpc } from "../lib/supabase";
 type MK = any;
 declare global { interface Window { mapkit?: MK; __mkReady?: Promise<MK | null> } }
 
+// The Apple Maps token, for anyone: someone posting their first job reaches the address step before signing in.
+const mapToken = (): Promise<{ token: string | null }> =>
+  fetch(`${SUPABASE_URL}/functions/v1/map-token`, { headers: { apikey: SUPABASE_KEY } }).then((x) => x.json()).catch(() => ({ token: null }));
+
 export function loadMapKit(): Promise<MK | null> {
   if (window.__mkReady) return window.__mkReady;
   window.__mkReady = (async () => {
-    const r = await api<{ token: string | null }>("map_token").catch(() => ({ token: null }));
+    const r = await mapToken();
     if (!r.token) return null;
     await new Promise<void>((resolve, reject) => {
       const s = document.createElement("script");
@@ -24,7 +28,7 @@ export function loadMapKit(): Promise<MK | null> {
       document.head.appendChild(s);
     });
     const mk = window.mapkit!;
-    mk.init({ authorizationCallback: (done: (t: string) => void) => { api<{ token: string | null }>("map_token").then((x) => x.token && done(x.token)); }, language: "en-AU" });
+    mk.init({ authorizationCallback: (done: (t: string) => void) => { mapToken().then((x) => x.token && done(x.token)); }, language: "en-AU" });
     return mk;
   })().catch(() => null).then((mk) => {
     // A failed load (no signal, token not ready) isn't remembered, so the next map tries again.

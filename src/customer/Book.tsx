@@ -234,9 +234,9 @@ export function Book() {
     setD({ ...d, address: street || d.address, suburbId: sub?.id ?? d.suburbId });
     setAddrSug([]); setErr("");
     // No house number from the map: put the cursor at the start of the street so they just add it.
-    if (!pl.subThoroughfare) { setNeedNumber(true); window.setTimeout(() => { addrBox.current?.focus(); addrBox.current?.setSelectionRange(0, 0); }, 50); }
+    if (!pl.subThoroughfare) { setNeedNumber(pl.thoroughfare ? "number" : "street"); window.setTimeout(() => { addrBox.current?.focus(); addrBox.current?.setSelectionRange(0, 0); }, 50); }
   };
-  const [needNumber, setNeedNumber] = useState(false);
+  const [needNumber, setNeedNumber] = useState<false | "number" | "street">(false);
   const addrBox = useRef<HTMLInputElement>(null);
   // Current location: the phone's position, turned into the street address by Apple Maps (Uber's "Current location").
   const [locating, setLocating] = useState(false);
@@ -488,7 +488,7 @@ export function Book() {
         <h2 className="wk-h">Where</h2>
         <label className="wk-ww wk-in">{Icon.pin("var(--emerald)")}
           <span><input ref={addrBox} value={d.address} placeholder="Street address" autoComplete="street-address" onChange={(e) => { setNeedNumber(false); typeAddress(e.target.value); }} />
-            {needNumber ? <small className="em">Add your street number</small> : suburb && <small>{suburb.name}</small>}</span></label>
+            {needNumber ? <small className="em">{needNumber === "number" ? "Add your street number" : "Type your street address"}</small> : suburb && <small>{suburb.name}</small>}</span></label>
         {addrSug.length > 0 && (
           <div className="wk-sug">{addrSug.map((x, k) => <button key={k} onClick={() => pickSuggestion(x.raw)}>{Icon.pin("var(--muted)")}<span><b>{x.line1}</b><small>{x.line2}</small></span></button>)}</div>
         )}
