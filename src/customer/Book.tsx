@@ -199,6 +199,26 @@ export function Book() {
   const mediaIn = useRef<HTMLInputElement>(null);
   const [pickUnit, setPickUnit] = useState(false);
   const [pickWhen, setPickWhen] = useState(false);
+  // Pick a day and time, right here: the next 6 days, then a start time from 6am to 8pm, at least an hour away.
+  const [pickDay, setPickDay] = useState(false);
+  const [pickTime, setPickTime] = useState(false);
+  const [dayPick, setDayPick] = useState("");
+  const pad2 = (n: number) => String(n).padStart(2, "0");
+  const walkDays = Array.from({ length: 6 }, (_, i) => {
+    const x = new Date(); x.setDate(x.getDate() + i);
+    const nice = x.toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short" });
+    return { id: `${x.getFullYear()}-${pad2(x.getMonth() + 1)}-${pad2(x.getDate())}`, label: i === 0 ? `Today, ${nice}` : i === 1 ? `Tomorrow, ${nice}` : nice };
+  });
+  const walkTimes = (day: string) => {
+    const out: { id: string; label: string }[] = [];
+    const earliest = Date.now() + 60 * 60 * 1000;
+    for (let m = 6 * 60; m <= 20 * 60; m += 30) {
+      const id = `${pad2(Math.floor(m / 60))}:${pad2(m % 60)}`;
+      if (new Date(`${day}T${id}`).getTime() < earliest) continue;
+      out.push({ id, label: new Date(2000, 0, 1, m / 60, m % 60).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" }).replace(/\s?([ap])\.?m\.?/i, " $1m").toLowerCase() });
+    }
+    return out;
+  };
   // The suburb for a place: by name first, otherwise the nearest one we serve.
   const suburbFor = (locality: string | null | undefined, lat: number, lng: number) => {
     const byName = locality ? suburbs.find((x) => x.name.toLowerCase() === locality.toLowerCase()) : undefined;
@@ -475,7 +495,11 @@ export function Book() {
         <button className="wk-loc" onClick={useMyLocation} disabled={locating}>{Icon.pin("var(--emerald)")}{locating ? "Finding you…" : "Use my current location"}</button>
         <div className="wk-where"><div className="wk-map"><PlaceMap lat={suburb?.lat ?? null} lng={suburb?.lng ?? null} /></div></div>
         {pickWhen && <SearchPicker title="When" value={[d.asap ? "now" : "pick"]} options={[{ id: "now", label: "Now" }, { id: "pick", label: "Pick a day and time" }]}
-          onClose={() => setPickWhen(false)} onChange={(v) => { if (v[0] === "now") setD({ ...d, asap: true }); else { setPickWhen(false); retTo("/book/when-where"); go("/book/when"); } }} />}
+          onClose={() => setPickWhen(false)} onChange={(v) => { if (v[0] === "now") setD({ ...d, asap: true }); else { setPickWhen(false); setPickDay(true); } }} />}
+        {pickDay && <SearchPicker title="Which day?" value={[]} options={walkDays} onClose={() => setPickDay(false)}
+          onChange={(v) => { setPickDay(false); setDayPick(String(v[0])); window.setTimeout(() => setPickTime(true), 0); }} />}
+        {pickTime && dayPick && <SearchPicker title="What time?" value={[]} options={walkTimes(dayPick)} onClose={() => setPickTime(false)}
+          onChange={(v) => { setPickTime(false); setD({ ...d, asap: false, startAt: `${dayPick}T${v[0]}` }); }} />}
       </WalkShell>
     );
   }
