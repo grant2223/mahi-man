@@ -25,8 +25,8 @@ function Photo({ src, alt, className }: { src: string; alt: string; className: s
 // The three most booked kinds of odd job in Australia (Airtasker's own numbers: removals, cleaning, rubbish removal).
 // Eight of the most common jobs, behind the hero headline. [photo id, which part of the photo to keep in view]
 const MOSAIC: [string, string][] = [
-  ["1493135637657-c2411b3497ad", "50% 40%"], ["1758273705627-937374bfa978", "38% 50%"], ["1781425009053-2baffa997d8c", "50% 50%"], ["1743130940714-91b221fa49ec", "72% 30%"],
-  ["1779636489740-6077a4198be6", "45% 60%"], ["1724556295135-ff92b9aa0a55", "45% 40%"], ["1571018400279-7f33252d0ad6", "40% 55%"], ["1688372199140-cade7ae820fe", "50% 40%"],
+  [CAT_PHOTO.fitness, "30% 50%"], [CAT_PHOTO.cleaning, "35% 50%"], [CAT_PHOTO.design, "45% 50%"], [CAT_PHOTO.barber, "55% 40%"],
+  [CAT_PHOTO.cooking, "35% 50%"], [CAT_PHOTO.pets, "65% 50%"], [CAT_PHOTO.camera, "70% 50%"], [CAT_PHOTO.garden, "50% 50%"],
 ];
 const USES: [string, string, string][] = [
   ["Moving", "Extra hands to lift, carry and load. Bring a ute or van if you need one.", "1769972557854-7eae6f95585b"],
@@ -138,8 +138,8 @@ export function Landing() {
       <section className="ld-hero">
         <div className="ld-wrap ld-hero-in">
           <div className="ld-hero-text">
-            <h1>Get help with anything.</h1>
-            <p className="ld-sub">Post it free. Locals say they're keen in minutes.</p>
+            <h1>Get the right help, right now.</h1>
+            <p className="ld-sub">Verified locals with real reviews, ready today. No spam, no chasing.</p>
             <div className="row ld-ctas">
               <a className="btn lime" href="/post" onClick={link("/post")}>Post a job, free {Icon.arrow("var(--ink)")}</a>
               <a className="btn ghost" href="/find" onClick={link("/find")}>Want work?</a>

@@ -15,12 +15,22 @@ const EMAIL = "hello@mahiman.app";
 
 // Who books odd jobs every week, and what they book. [who, typical jobs, photo]
 const WHO: [string, string, string][] = [
-  ["Holiday rentals and Airbnb hosts", "Turnover cleans, linen runs, lawns, pool care", CAT_PHOTO.pool],
-  ["Property managers", "Vacate cleans, rubbish removal, mowing, small repairs", CAT_PHOTO.rubbish],
-  ["Cafés and restaurants", "Extra hands, kitchen help, deliveries, social media", CAT_PHOTO.cooking],
-  ["Offices and shops", "Admin, desk moves, tech help, flyers and signage", CAT_PHOTO.admin],
-  ["Builders and trades", "Labourers, site cleans, tip runs, pick-ups", CAT_PHOTO.handyman],
-  ["Events and venues", "Bar staff, set-up and pack-down, catering, photos", CAT_PHOTO.events],
+  ["Cafés and restaurants", "Kitchen hands, waiting staff, deliveries", CAT_PHOTO.cooking],
+  ["Pubs, bars and venues", "Bar staff, glassies, set-up and pack-down", CAT_PHOTO.events],
+  ["Holiday rentals and Airbnb hosts", "Turnover cleans, linen runs, pool care", CAT_PHOTO.pool],
+  ["Hotels and backpackers", "Room cleans, laundry runs, odd repairs", CAT_PHOTO.cleaning],
+  ["Property managers", "Vacate cleans, mowing, rubbish removal", CAT_PHOTO.garden],
+  ["Real estate agents", "Listing photos and video, styling help", CAT_PHOTO.camera],
+  ["Builders and trades", "Labourers, site cleans, tip runs", CAT_PHOTO.handyman],
+  ["Shops and retail", "Stocktake help, fit-outs, flat-pack builds", CAT_PHOTO.assembly],
+  ["Offices", "Admin, data entry, desk moves, tech help", CAT_PHOTO.admin],
+  ["Gyms and studios", "Trainers, class cover, social media", CAT_PHOTO.fitness],
+  ["Salons and barbers", "Extra hands on busy days, bookings help", CAT_PHOTO.barber],
+  ["Tour operators", "Vehicle cleans, drivers' runs, guest set-up", CAT_PHOTO.car],
+  ["Online stores", "Product photos, social posts, packing orders", CAT_PHOTO.social],
+  ["Accountants and professionals", "Data entry, filing, typing, bookkeeping", CAT_PHOTO.accounting],
+  ["Schools and childcare", "Set-up for events, tutoring, cleaning", CAT_PHOTO.kids],
+  ["Warehouses and removals", "Packing, heavy lifting, loading", CAT_PHOTO.moving],
 ];
 
 export function BusinessPage() {
@@ -48,8 +58,8 @@ export function BusinessPage() {
       <section className="bz-hero">
         <div className="ld-wrap bz-hero-in">
           <div>
-            <h1>Short-staffed? Get a hand today.</h1>
-            <p>Casual help for your business, booked in minutes. No agency, no hiring, no rosters.</p>
+            <h1>Extra hands for your business, on demand.</h1>
+            <p>A busy shift, social media posts, a delivery or a quick clean-up. Verified locals, booked in minutes. No agency, no hiring.</p>
             <div className="row ld-ctas">
               <a className="btn lime" href="/post" onClick={nav("/post")}>Post a job, free {Icon.arrow("var(--ink)")}</a>
               <a className="btn ghost" href={mail}>{Icon.mail("#fff")} Email us</a>
