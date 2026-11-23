@@ -15,9 +15,9 @@ const EMAIL = "hello@mahiman.app";
 
 // Who books odd jobs every week, and what they book. [who, typical jobs, photo]
 const WHO: [string, string, string][] = [
-  ["Holiday rentals and Airbnb hosts", "Turnover cleans, linen runs, lawns, pool care", CAT_PHOTO.cleaning],
+  ["Holiday rentals and Airbnb hosts", "Turnover cleans, linen runs, lawns, pool care", CAT_PHOTO.pool],
   ["Property managers", "Vacate cleans, rubbish removal, mowing, small repairs", CAT_PHOTO.rubbish],
-  ["Cafés and restaurants", "Extra hands, kitchen help, deliveries, social media", "1551529563-fce9529e67ac"],
+  ["Cafés and restaurants", "Extra hands, kitchen help, deliveries, social media", CAT_PHOTO.cooking],
   ["Offices and shops", "Admin, desk moves, tech help, flyers and signage", CAT_PHOTO.admin],
   ["Builders and trades", "Labourers, site cleans, tip runs, pick-ups", CAT_PHOTO.handyman],
   ["Events and venues", "Bar staff, set-up and pack-down, catering, photos", CAT_PHOTO.events],
@@ -48,25 +48,39 @@ export function BusinessPage() {
       <section className="bz-hero">
         <div className="ld-wrap bz-hero-in">
           <div>
-            <span className="ld-pin">{Icon.pin("#d4f04c")} Mahi Man for Business</span>
-            <h1>Every odd job your business has. No fees.</h1>
-            <p>Book cleaners, labourers, designers and more on demand, for one yearly price.</p>
-            <div className="bz-price"><b>{money(s.price)}</b><span>a year</span></div>
+            <h1>Short-staffed? Get a hand today.</h1>
+            <p>Casual help for your business, booked in minutes. No agency, no hiring, no rosters.</p>
             <div className="row ld-ctas">
-              <a className="btn lime" href={mail}>{Icon.mail("var(--ink)")} Email us</a>
-              <a className="btn ghost" href="/services" onClick={nav("/services")}>See all services</a>
+              <a className="btn lime" href="/post" onClick={nav("/post")}>Post a job, free {Icon.arrow("var(--ink)")}</a>
+              <a className="btn ghost" href={mail}>{Icon.mail("#fff")} Email us</a>
             </div>
-            <span className="bz-mail">{EMAIL}</span>
           </div>
           <img className="bz-hero-img" src={UNS("1743130940714-91b221fa49ec", 900)} alt="A local worker in hi-vis" />
         </div>
       </section>
 
       <section className="ld-wrap bz-sec">
-        <h2>What you get</h2>
+        <h2>Why businesses use Mahi Man</h2>
+        <div className="bz-why">
+          {([
+            ["Extra hands on a busy day", "Kitchen help, bar staff, set-up and pack-down when it's flat out.", "1551529563-fce9529e67ac"],
+            ["The jobs nobody has time for", "Cleans, deliveries, tip runs, flyers and social media posts.", CAT_PHOTO.delivery],
+            ["No agency, no hiring", "Pick a checked local, pay them for the job, done.", "1688372199140-cade7ae820fe"],
+          ] as const).map(([b, t, id]) => (
+            <div key={b} className="bz-who-i">
+              <img src={UNS(id, 700)} alt="" loading="lazy" />
+              <b>{b}</b><span>{t}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="ld-wrap bz-sec">
+        <h2>Book often? Mahi Man for Business</h2>
+        <div className="bz-price"><b>{money(s.price)}</b><span>a year</span></div>
         <div className="bz-get">
           {([
-            ["$0 connection fees", "On every job, all year. You pay workers directly, like always."],
+            ["$0 connection fees", "On every job, all year. You still pay workers directly."],
             [`Up to ${s.seats} staff`, "Managers and staff post and select on one business account."],
             ["One statement a month", "Every job, every worker's ABN, ready for your bookkeeper."],
             ["ABN-only workers", "Choose to only take workers with an ABN, so their invoices are in order."],
@@ -94,7 +108,7 @@ export function BusinessPage() {
       </section>
 
       <section className="ld-wrap bz-sec">
-        <h2>Made for businesses like yours</h2>
+        <h2>Who uses it</h2>
         <div className="bz-who">
           {WHO.map(([w, t, id]) => (
             <div key={w} className="bz-who-i">

@@ -28,9 +28,6 @@ const MOSAIC: [string, string][] = [
   ["1493135637657-c2411b3497ad", "50% 40%"], ["1758273705627-937374bfa978", "38% 50%"], ["1781425009053-2baffa997d8c", "50% 50%"], ["1743130940714-91b221fa49ec", "72% 30%"],
   ["1779636489740-6077a4198be6", "45% 60%"], ["1724556295135-ff92b9aa0a55", "45% 40%"], ["1571018400279-7f33252d0ad6", "40% 55%"], ["1688372199140-cade7ae820fe", "50% 40%"],
 ];
-// What people might type in the hero box, one after another. And the kinds of work named under it.
-const ASK = ["Mow the back lawn", "Design a logo for my café", "Stand in line for concert tickets", "Install an EV charger", "Personal training at the park", "Film my event"];
-const HERO_CATS = ["cleaning", "garden", "fitness", "camera", "social", "barber"];
 const USES: [string, string, string][] = [
   ["Moving", "Extra hands to lift, carry and load. Bring a ute or van if you need one.", "1769972557854-7eae6f95585b"],
   ["Cleaning", "Bond cleans, regular cleans and Airbnb turnovers, booked for today.", "1758273238415-01ec03d9ef27"],
@@ -112,9 +109,6 @@ const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
 export function Landing() {
   useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
-  // The hero box cycles through things people get done.
-  const [ask, setAsk] = useState(0);
-  useEffect(() => { const t = window.setInterval(() => setAsk((i) => (i + 1) % ASK.length), 2600); return () => window.clearInterval(t); }, []);
   // The connection fee customers pay from launch, from the live settings.
   const [fee, setFee] = useState<Fee>({ pct: 15, min: 995, max: 5995, plmax: 2995, plus: 9900, pl: 7.5, plmin: 495, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, tpct: 1250, tmax: 25000, tmonth: 24900, tyear: 249900, tafter: 60, tquiet: 48 });
   useEffect(() => {
@@ -144,20 +138,12 @@ export function Landing() {
       <section className="ld-hero">
         <div className="ld-wrap ld-hero-in">
           <div className="ld-hero-text">
-            <span className="ld-pin">{Icon.pin("#d4f04c")} On demand, Australia wide</span>
             <h1>Get help with anything.</h1>
-            <p className="ld-sub">From the lawn to your logo. Post it free and locals say they're keen in minutes.</p>
-            <form className="ld-ask" onSubmit={(e) => { e.preventDefault(); toApp(); }}>
-              <input placeholder={ASK[ask]} aria-label="What do you need done?" />
-              <button className="btn lime" type="submit">Post it {Icon.arrow("var(--ink)")}</button>
-            </form>
-            <div className="ld-hcats">
-              {cats.filter((c) => HERO_CATS.includes(c.icon ?? "")).map((c) => (
-                <a key={c.id} href="/services" onClick={(e) => { e.preventDefault(); go("/services"); }}>{c.name}</a>
-              ))}
-              <a className="all" href="/services" onClick={(e) => { e.preventDefault(); go("/services"); }}>All {cats.length} services {Icon.arrow("currentColor")}</a>
+            <p className="ld-sub">Post it free. Locals say they're keen in minutes.</p>
+            <div className="row ld-ctas">
+              <a className="btn lime" href="/post" onClick={link("/post")}>Post a job, free {Icon.arrow("var(--ink)")}</a>
+              <a className="btn ghost" href="/find" onClick={link("/find")}>Want work?</a>
             </div>
-            <a className="btn ghost ld-work" href="/find" onClick={link("/find")}>Want work? Keep 100% of every job {Icon.arrow("#fff")}</a>
           </div>
           <div className="ld-mosaic" aria-hidden="true">
             {MOSAIC.map(([id, pos]) => <img key={id} src={UNS(id, 500)} alt="" style={{ objectPosition: pos }} loading="eager" />)}

@@ -50,24 +50,28 @@ export function ServicesPage() {
         </div>
       </section>
 
-      <div className="ld-wrap sv-body">
-        {[...grouped, ["Something else?", rest] as const].map(([g, list]) => list.length ? (
-          <section key={g} id={slug(g)} className="sv-group">
-            <h2>{g}</h2>
-            <div className="sv-grid">
-              {list.map((c) => <Card key={c.id} c={c} skills={skills.filter((s) => s.category_id === c.id)} />)}
+      <div className="sv-body">
+        {[...grouped, ["Something else?", rest] as const].filter(([, list]) => list.length).map(([g, list], i) => (
+          <section key={g} id={slug(g)} className={i % 2 ? "sv-group alt" : "sv-group"}>
+            <div className="ld-wrap">
+              <div className="sv-gh"><h2>{g}</h2>{g !== "Something else?" && <span>{list.length} services</span>}</div>
+              <div className="sv-grid">
+                {list.map((c) => <Card key={c.id} c={c} skills={skills.filter((s) => s.category_id === c.id)} />)}
+              </div>
             </div>
           </section>
-        ) : null)}
-        {!shown.length && (
-          <div className="sv-none">
-            <b>Not listed? Post it anyway.</b>
-            <span>Say what you need and we'll match the right people.</span>
+        ))}
+        <div className="ld-wrap sv-end">
+          {!shown.length && (
+            <div className="sv-none">
+              <b>Not listed? Post it anyway.</b>
+              <span>Say what you need and we'll match the right people.</span>
+            </div>
+          )}
+          <div className="sv-cta">
+            <a className="btn primary" href="/post" onClick={nav("/post")}>Post a job, free {Icon.arrow("#fff")}</a>
+            <a className="btn stone" href="/business" onClick={nav("/business")}>For business {Icon.arrow("currentColor")}</a>
           </div>
-        )}
-        <div className="sv-cta">
-          <a className="btn primary" href="/post" onClick={nav("/post")}>Post a job, free {Icon.arrow("#fff")}</a>
-          <a className="btn stone" href="/business" onClick={nav("/business")}>For business {Icon.arrow("currentColor")}</a>
         </div>
       </div>
       <SiteFooter />
