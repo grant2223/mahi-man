@@ -57,7 +57,7 @@ Mahi Man gift cards are the same: they only pay for real-world jobs (the worker 
 
 ## 4. Submit
 
-- [x] **App Store:** version 1.0 submitted (now with build 52, resubmitted 23 Nov 2026, waiting for review; App Review notes and sign-in unchanged since 22 Nov).
+- [x] **App Store:** version 1.0 submitted (now with build 53, resubmitted 24 Nov 2026, waiting for review; App Review notes and sign-in unchanged since 22 Nov).
 - [x] **Google Play:** live in Australia and New Zealand.
 - [x] `play_store_url` and `testflight_url` are set in Admin → Settings, so the website shows Google Play and the iPhone beta. `app_store_url` stays empty until Apple approves 1.0.
 
@@ -71,9 +71,10 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 
 ## Building new versions
 
-- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 52 on 23 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
-- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 29 on 23 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
-- **Latest (23 Nov 2026, from 16923b8):** iOS build 52 is the build on App Store 1.0, waiting for review (51 removed from review), and is in TestFlight (Cairns pilot). Android versionCode 29 is sent for Play review in Production; 28 went live on 23 Nov. Release notes: "Fixes to posting a job."
+- **iOS:** `npm run ios`, bump `CURRENT_PROJECT_VERSION` (last uploaded: 53 on 24 Nov 2026), then archive and upload (Claude does this with the API key) and add the build to the Cairns pilot group.
+- **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 30 on 24 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
+- **Latest (24 Nov 2026, from 1203452, new pricing):** iOS build 53 is the build on App Store 1.0, waiting for review (52 removed from review), and is in TestFlight (Cairns pilot). Android versionCode 30 is sent for Play review in Production; 29 went live on 24 Nov. Release notes: "Updated pricing." Edge functions send-email, documents, api and stripe-webhook redeployed the same day.
+- **Before that (23 Nov 2026, from 16923b8):** iOS build 52 is the build on App Store 1.0, waiting for review (51 removed from review), and is in TestFlight (Cairns pilot). Android versionCode 29 went live in Production on 24 Nov. Release notes: "Fixes to posting a job."
 - **Before that (23 Nov 2026, from 98af849):** iOS build 51 is the build on App Store 1.0, waiting for review (50 removed from review), and is in TestFlight (Cairns pilot, approved for external testing, on the public link). Android versionCode 28 went live in Production on 23 Nov. Release notes: "Post a job in five quick steps. Pay fixed, hourly, daily or per visit, with the usual price shown. Use your current location or pick from address suggestions. Tradie quotes are quicker, and you can follow every quote in My quotes."
 - **Before that (22 Nov 2026, from a13225f):** iOS build 50 is the build on App Store 1.0, waiting for review (49 removed from review), and is in TestFlight (Cairns pilot, waiting for beta review). Android versionCode 27 replaced 26 in Production and went live on 22 Nov. They carried the pricing of that time, since replaced (see Pricing below). Release notes: "Updated pricing and payment options".
 - **Before that (17 Nov):** build 46 / versionCode 23 (51543aa): Plus, bonus top-ups, bank transfer screen, payment history, branded PDFs. 46 is the build in App Store review.
