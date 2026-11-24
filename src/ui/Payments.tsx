@@ -10,7 +10,7 @@ import { ActionBar } from "./Completion";
 import { AuthScreen } from "./Auth";
 import { HistList, glyph, saveDocument, useHistory } from "./History";
 
-/* How customers pay Mahi Man: pay as you go (invoiced by bank transfer) or Plus. Credit (gifts, cancellations) still pays fees first.
+/* How customers pay Mahi Man: a booking fee per job (invoiced by bank transfer in the pilot), or Plus with no booking fees. Credit (gifts, cancellations) still pays fees first.
    Every number comes from the live settings through my_payments(). */
 
 export interface PayDetails { gst?: string; trading_name?: string; legal_name?: string; abn?: string; payid?: string; bsb?: string; account?: string; account_name?: string }
@@ -94,15 +94,8 @@ const Badge = ({ s }: { s: string }) => <span className={`badge ${STATUS[s]?.[0]
 /* ---------- How you pay (was Pricing) ---------- */
 export function HowYouPay() {
   const { session } = useSession();
-  const [r, setR] = useState({ payg: 15, payg_min: 995, payg_max: 5995, plus: 7.5, plus_min: 495, plus_max: 2995, plus_year: 9900 });
+  const r = useBookingPrices();
   const [auth, setAuth] = useState<string | null>(null);
-  useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "booking_fee_max_cents", "plus_fee_percent", "plus_fee_min_cents", "plus_fee_max_cents", "plus_year_cents"]).then(({ data }) => {
-      const m = Object.fromEntries((data ?? []).map((x) => [x.key, Number(x.value)]));
-      setR((c) => ({ payg: m.booking_fee_percent || c.payg, payg_min: m.booking_fee_min_cents || c.payg_min, payg_max: m.booking_fee_max_cents || c.payg_max, plus_max: m.plus_fee_max_cents || c.plus_max,
-        plus: m.plus_fee_percent || c.plus, plus_min: m.plus_fee_min_cents || c.plus_min, plus_year: m.plus_year_cents || c.plus_year }));
-    });
-  }, []);
   const dollars = (c: number) => `$${Math.round(c / 100)}`;
   const open = (to: string) => (session ? go(to) : setAuth(to));
   return (
@@ -116,24 +109,22 @@ export function HowYouPay() {
           <div className="hp-row"><i>When</i><span>When the job's done, straight to them. It never goes through us.</span></div>
         </section>
         <section>
-          <h2>Mahi Man</h2><p className="amt">The connection fee</p>
+          <h2>Mahi Man</h2><p className="amt">The booking fee</p>
           <div className="hp-row"><i>How</i><span>An invoice, paid by bank transfer. If you have credit, it comes off your credit instead.</span></div>
           <div className="hp-row"><i>When</i><span>When you select a worker. Pay within 3 days, or weekly or every 2 weeks on your payday. If the job doesn't go ahead, you get it back.</span></div>
         </section>
       </div>
-      <h2 className="hp-plans">Pay less with a plan</h2>
+      <h2 className="hp-plans">Use it a lot? Get Plus</h2>
       <div className="pl-table pl-two">
         <div className="pl-row pl-head"><span /><b>Pay as you go</b><b><span className="pl-badge">Plus</span></b></div>
-        <div className="pl-row"><span>Connection fee</span><b>{pctLabel(r.payg)}</b><b className="pl-plus">{pctLabel(r.plus)}</b></div>
-        <div className="pl-row"><span>Minimum fee</span><span>{money2(r.payg_min)}</span><span className="pl-plus">{money2(r.plus_min)}</span></div>
-        <div className="pl-row"><span>Most you'll pay</span><span>{money2(r.payg_max)}</span><span className="pl-plus">{money2(r.plus_max)}</span></div>
-        <div className="pl-row"><span>To join</span><span>Free</span><span className="pl-plus">{dollars(r.plus_year)} a year</span></div>
-        <div className="pl-row"><span>Workers alerted when you post</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
+        <div className="pl-row"><span>Booking fee</span><b>{dollars(r.min)} to {dollars(r.max)}</b><b className="pl-plus">None</b></div>
+        <div className="pl-row"><span>To join</span><span>Free</span><span className="pl-plus">{dollars(r.month)} a month</span></div>
+        <div className="pl-row"><span>Everyone nearby alerted</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
         <div className="pl-row"><span>Save your favourites</span><span>—</span><span className="pl-plus">{Icon.tick("var(--emerald)", 20)}</span></div>
       </div>
       <div className="cp-sec" style={{ paddingBottom: Capacitor.isNativePlatform() ? 18 : "calc(var(--safe-bottom) + 32px)" }}>
-        <Li b="Pay as you go" s="Nothing upfront. Pay the fee by bank transfer, after each job, weekly or every 2 weeks on your payday." />
-        <Li b="Plus" s={`For our loyal customers. Half the connection fee (${pctLabel(r.plus)}, ${money2(r.plus_min)} to ${money2(r.plus_max)}), workers nearby alerted the moment you post, and your favourite workers saved to book again.`} />
+        <Li b="Pay as you go" s={`${pctLabel(r.pct)} of the job price, ${dollars(r.min)} to ${dollars(r.max)}, only when you select someone. Paid by bank transfer.`} />
+        <Li b="Plus" s={`${dollars(r.month)} a month or ${dollars(r.year)} a year. No booking fees on any job. 60 and over? It's free.`} />
       </div>
       {Capacitor.isNativePlatform() && (
         <ActionBar>
@@ -143,6 +134,17 @@ export function HowYouPay() {
       {auth && <AuthScreen title="Get Plus" reason="Sign in to get Plus." onBack={() => setAuth(null)} onDone={() => { const to = auth; setAuth(null); go(to); }} />}
     </div>
   );
+}
+// The live booking fee and Plus prices, from the settings Admin edits.
+export function useBookingPrices() {
+  const [r, setR] = useState({ pct: 20, min: 500, max: 2000, month: 2700, year: 27000 });
+  useEffect(() => {
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "booking_fee_max_cents", "plus_cents", "plus_year_cents"]).then(({ data }) => {
+      const m = Object.fromEntries((data ?? []).map((x) => [x.key, Number(x.value)]));
+      setR((c) => ({ pct: m.booking_fee_percent || c.pct, min: m.booking_fee_min_cents || c.min, max: m.booking_fee_max_cents || c.max, month: m.plus_cents || c.month, year: m.plus_year_cents || c.year }));
+    });
+  }, []);
+  return r;
 }
 const Li = ({ b, s }: { b: string; s: string }) => <div className="price-li">{Icon.tick("var(--emerald)", 20)}<span><b>{b}</b>{s}</span></div>;
 
@@ -166,9 +168,9 @@ export function PaymentsPage() {
   if (!p) return <Page title="Payments"><Waiting failed={failed} onRetry={reload} /></Page>;
 
   const plus = isPlus(p);
-  const line = p.senior ? "Plus, no connection fee, as you're 60 or over"
-    : plus ? `Plus, fees are ${pctLabel(p.rates.plus)}${p.plus_renew ? `, renews ${dayShort(p.plus_until!)}` : `, ends ${dayShort(p.plus_until!)}`}`
-    : p.balance > 0 ? "Connection fees come off your credit first" : `Pay as you go, fees are ${pctLabel(p.rates.payg)}`;
+  const line = p.senior ? "Plus, no booking fees, as you're 60 or over"
+    : plus ? `Plus, no booking fees${p.plus_renew ? `, renews ${dayShort(p.plus_until!)}` : `, ends ${dayShort(p.plus_until!)}`}`
+    : p.balance > 0 ? "Booking fees come off your credit first" : `Pay as you go, ${money(p.rates.payg_min)} to ${money(p.rates.payg_max ?? 2000)} a booking`;
   // Fortnightly needs to know which week: the next two of that weekday.
   const anchorOpts = [7, 14].map((n) => { const t = brisDate(); const d = new Date(t.getTime() + 86400_000 * (((payday - t.getUTCDay() + 7) % 7) || 7)); return new Date(d.getTime() + (n - 7) * 86400_000); });
   const dirty = plan !== p.plan || (plan !== "now" && payday !== p.payday) || (plan === "fortnightly" && anchor !== p.anchor);
@@ -204,7 +206,7 @@ export function PaymentsPage() {
         {p.gift_balance > 0 ? (
           <div className="gf-split">
             <span><b className="w5">{money2(p.gift_balance)}</b> gift{p.gift_from ? ` from ${p.gift_from}` : ""}<br /><span className="light muted">Pays jobs and fees</span></span>
-            {p.balance - p.gift_balance > 0 && <span><b className="w5">{money2(p.balance - p.gift_balance)}</b> credit<br /><span className="light muted">Pays connection fees</span></span>}
+            {p.balance - p.gift_balance > 0 && <span><b className="w5">{money2(p.balance - p.gift_balance)}</b> credit<br /><span className="light muted">Pays booking fees</span></span>}
           </div>
         ) : <span className="t15 light">{line}</span>}
         {plus && !p.senior && (
@@ -277,14 +279,14 @@ export function InvoicePage({ id }: { id: number }) {
   if (thanks) return (
     <div className="app pq">
       <button className="back pq-back" onClick={() => setThanks(false)} aria-label="Back">{Icon.back("#fff")}</button>
-      <PaidThanks first={profile?.full_name?.split(" ")[0]} amount={inv.total} reference={inv.number} what={`${n} connection fee${n === 1 ? "" : "s"}`} last="Invoice marked paid" />
+      <PaidThanks first={profile?.full_name?.split(" ")[0]} amount={inv.total} reference={inv.number} what={`${n} booking fee${n === 1 ? "" : "s"}`} last="Invoice marked paid" />
       <div className="pq-foot"><button className="pq-gold" onClick={() => go("/payments", true)}><span>Done</span></button></div>
     </div>
   );
   if ((st === "due" || st === "late") && !showInv) return (
     <div className="app pq">
       <button className="back pq-back" onClick={back("/payments")} aria-label="Back">{Icon.back("#fff")}</button>
-      <BankPay title={`Invoice ${inv.number}`} sub={`${n} connection fee${n === 1 ? "" : "s"}, ${st === "late" ? "was due" : "due"} ${dayShort(inv.due_at)}`} amount={inv.total} pay={pay} reference={inv.number}
+      <BankPay title={`Invoice ${inv.number}`} sub={`${n} booking fee${n === 1 ? "" : "s"}, ${st === "late" ? "was due" : "due"} ${dayShort(inv.due_at)}`} amount={inv.total} pay={pay} reference={inv.number}
         note="We confirm your payment within 24 hours, usually faster."
         onConfirm={async (c) => { await rpc("invoice_claim_paid", { p_id: inv.id, ...claimArgs(c) }); setThanks(true); await load(); }}
         onCancel={() => setShowInv(true)} cancelLabel="See the invoice" />
@@ -445,7 +447,7 @@ export function PaidThanks({ first, amount, reference, what, last }: { first?: s
 }
 
 /* ---------- Get Plus ---------- */
-// Plus: one payment for a year. In beta it's a bank transfer; card payments switch on when Stripe is connected.
+// Plus: monthly or yearly, no booking fees. In beta it's a bank transfer; card payments switch on when Stripe is connected.
 export function PlusPage() {
   const toast = useToast();
   const { profile, reload: reloadMe } = useSession();
@@ -454,13 +456,13 @@ export function PlusPage() {
   const [busy, setBusy] = useState(false);
   if (!p) return <Page title="Mahi Man Plus" onBack={back("/payments")}><Waiting failed={failed} onRetry={reloadP} /></Page>;
   const plus = isPlus(p);
-  const year = p.rates.plus_year;
+  const year = p.rates.plus_year, month = p.rates.plus_cents;
   const until = p.plus_until ? new Date(p.plus_until).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric", timeZone: TZ }) : "";
   const waiting = p.plus_order;
 
-  async function start() {
+  async function start(months: 1 | 12) {
     setBusy(true);
-    try { setOrder(await rpc<PlusOrder & { pay: PayDetails }>("plus_request", { p_months: 12 })); }
+    try { setOrder(await rpc<PlusOrder & { pay: PayDetails }>("plus_request", { p_months: months })); }
     catch (e) { toast(e instanceof Error ? e.message : String(e)); } finally { setBusy(false); }
   }
 
@@ -477,14 +479,14 @@ export function PlusPage() {
             <span className="pq-name">{profile?.full_name || "Member"}</span><span className="pq-since">Member</span>
           </div>
           <h1 className="pq-pt">Thank you for <em>joining Plus.</em></h1>
-          <p className="pq-lead">Plus is on for the next 24 hours while we check your transfer. Once it lands, it's yours for the year.</p>
+          <p className="pq-lead">Plus is on for the next 24 hours while we check your transfer. Once it lands, it's yours.</p>
           <div className="pq-steps">
             <div><b className="pq-plus">+</b><span><b>Our team has been notified</b><small>We'll confirm your payment within 24 hours</small></span></div>
-            <div><b className="pq-plus">+</b><span><b>Use Plus straight away</b><small>Half fees, faster help and your favourites</small></span></div>
+            <div><b className="pq-plus">+</b><span><b>Use Plus straight away</b><small>No booking fees, and your favourites saved</small></span></div>
           </div>
           <div className="pq-foot"><button className="pq-gold" onClick={() => go("/")}><span>Post a job</span></button></div>
         </> : <>
-          <BankPay title="Mahi Man Plus" sub={`12 months, ${order.reference}`} amount={order.amount} pay={pay} reference={order.reference}
+          <BankPay title="Mahi Man Plus" sub={`${order.months === 1 ? "1 month" : `${order.months} months`}, ${order.reference}`} amount={order.amount} pay={pay} reference={order.reference}
             note="Plus starts as soon as you confirm. We check your payment within 24 hours."
             onConfirm={async (c) => { await rpc("plus_claim", { p_id: order.id, ...claimArgs(c) }); setOrder({ ...order, status: "claimed" }); reloadP(); reloadMe(); }} />
         </>}
@@ -510,8 +512,7 @@ export function PlusPage() {
       <h1 className="pq-h">For our <em>loyal customers.</em></h1>
 
       <div className="pq-perks">
-        <div><i className="pq-plus" aria-hidden="true">+</i>{p.senior ? <span><b>No connection fee</b><small>As you're 60 or over</small></span> : <span><b>Half the fees</b><small>{pctLabel(p.rates.plus)} instead of {pctLabel(p.rates.payg)}, never more than {money2(p.rates.plus_max ?? 2995)}</small></span>}</div>
-        <div><i className="pq-plus" aria-hidden="true">+</i><span><b>Get help faster</b><small>Workers nearby are alerted when you post</small></span></div>
+        <div><i className="pq-plus" aria-hidden="true">+</i>{p.senior ? <span><b>No booking fees</b><small>As you're 60 or over</small></span> : <span><b>No booking fees</b><small>Instead of {money(p.rates.payg_min)} to {money(p.rates.payg_max ?? 2000)} every job</small></span>}</div>
         <div><i className="pq-plus" aria-hidden="true">+</i><span><b>Save your favourites</b><small>Book the workers you like, again and again</small></span></div>
       </div>
 
@@ -519,15 +520,18 @@ export function PlusPage() {
         {p.senior ? (
           <p className="pq-lead" style={{ textAlign: "center" }}>Plus is on us.</p>
         ) : waiting ? (
-          <button className="pq-waiting" onClick={start}>
+          <button className="pq-waiting" onClick={() => start(waiting.months === 1 ? 1 : 12)}>
             {Icon.clock("#f5c518")}
             <span><b>{waiting.status === "claimed" ? "We're checking for your transfer" : `Waiting for your ${money(waiting.amount)} transfer`}</b>
               <small>{waiting.reference}</small></span>
             {Icon.chevron("rgba(255,255,255,.5)")}
           </button>
         ) : <>
-          <button className="pq-gold" disabled={busy} onClick={start}><span>{busy ? "One moment…" : plus ? `Add a year – ${money(year)}` : `Get Plus – ${money(year)} per year`}</span></button>
-          <span className="pq-small">About {money(Math.round(year / 52))} a week<br /><b>BETA</b>Bank transfer for now. No auto-renew.</span>
+          <div className="pq-two">
+            <button className="pq-gold" disabled={busy} onClick={() => start(1)}><span><b>{money(month)}</b>a month</span></button>
+            <button className="pq-gold" disabled={busy} onClick={() => start(12)}><span><b>{money(year)}</b>a year</span></button>
+          </div>
+          <span className="pq-small"><b>BETA</b>Bank transfer for now. No auto-renew.</span>
         </>}
       </div>
     </div>
@@ -582,7 +586,7 @@ export function JobFeeSection({ fee }: { fee: JobFee }) {
   const owed = fee.amount_cents - fee.from_balance_cents;
   const inv = fee.customer_invoices;
   const title = (
-    <div className="iv-fee-top"><span className="cp-title" style={{ margin: 0 }}>Mahi Man connection fee</span><span className="iv-amt">{money2(fee.amount_cents)}</span></div>
+    <div className="iv-fee-top"><span className="cp-title" style={{ margin: 0 }}>Mahi Man booking fee</span><span className="iv-amt">{money2(fee.amount_cents)}</span></div>
   );
   // Fees come off credit first; whatever credit didn't cover goes on an invoice. Say plainly which happened.
   const used = fee.from_balance_cents;
@@ -615,7 +619,7 @@ export function GiftPaidSection({ worker, gift, rest, fee }: { worker: string; g
     <div className="iv-fee">
       <div className="iv-fee-top"><span className="cp-title" style={{ margin: 0 }}>Paid from your gift</span><span className="iv-amt">{money2(gift + (feeFromGift?.amount_cents ?? 0))}</span></div>
       <div className="cp-row"><span>{worker}, for the job</span><span>{money2(gift)}</span></div>
-      {feeFromGift && <div className="cp-row"><span>Mahi Man connection fee</span><span>{money2(feeFromGift.amount_cents)}</span></div>}
+      {feeFromGift && <div className="cp-row"><span>Mahi Man booking fee</span><span>{money2(feeFromGift.amount_cents)}</span></div>}
       {rest > 0 && <div className="cp-row"><span className="w5">Pay {worker} the rest</span><span className="w5">{money2(rest)}</span></div>}
       {p && p.gift_balance > 0 && <div className="cp-row"><span className="light muted">Left on your gift</span><span className="light muted">{money2(p.gift_balance)}</span></div>}
     </div>

@@ -172,11 +172,18 @@ export function WorkerHome({ d, onlineBusy, onOnline, onStep, onSkills, onBadge,
 
     {trade && (
       <section className="pr-sec">
-        <h2>Trade work</h2>
-        {!trade.tradie ? <button className="btn tr-ask-go" onClick={() => go("/work/trade")}>Create Tradie Profile</button> : <>
-          <button className="pr-line" onClick={() => go("/work?trade=start")}><span><b>Trade jobs</b><small>{trade.plan ? "New jobs and your quotes" : "Select how you pay to start quoting"}</small></span>{Icon.chevron("var(--faint)")}</button>
-          <button className="pr-line" onClick={() => go(trade.plan ? "/work?trade=plan" : "/work?trade=join")}><span><b>How you pay</b><small>{trade.plan === "premium" ? "Premium" : trade.plan ? "Standard" : "Not selected yet"}</small></span>{Icon.chevron("var(--faint)")}</button>
-          <button className="pr-line" onClick={() => go("/work/trade")}><span><b>Tradie profile</b><small>{trade.business ?? "Your business, services and licences"}</small></span>{Icon.chevron("var(--faint)")}</button>
+        <h2>Fees</h2>
+        <button className="pr-line" onClick={() => go("/work?trade=plan")}><span><b>How you pay</b><small>{trade.plan === "premium" ? "Premium, you keep 100%" : "Pay per job"}</small></span>{Icon.chevron("var(--faint)")}</button>
+        {trade.plan !== "premium" && <button className="pr-line" onClick={() => go("/work?trade=premium")}><span><b>Premium</b><small>Keep 100% of every job</small></span>{Icon.chevron("var(--faint)")}</button>}
+      </section>
+    )}
+
+    {trade && (
+      <section className="pr-sec">
+        <h2>Business</h2>
+        {!trade.tradie ? <button className="btn tr-ask-go" onClick={() => go("/work/trade")}>Create Business Profile</button> : <>
+          <button className="pr-line" onClick={() => go("/work?trade=start")}><span><b>Licensed jobs</b><small>{trade.plan ? "New jobs and your quotes" : "Finish setting up to start quoting"}</small></span>{Icon.chevron("var(--faint)")}</button>
+          <button className="pr-line" onClick={() => go("/work/trade")}><span><b>Business profile</b><small>{trade.business ?? "Your business, services and licences"}</small></span>{Icon.chevron("var(--faint)")}</button>
         </>}
       </section>
     )}

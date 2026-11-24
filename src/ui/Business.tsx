@@ -7,7 +7,7 @@ import { CAT_PHOTO, UNS } from "../lib/catPhotos";
 import { Icon, Logo } from "./kit";
 import { LdLinks, SiteFooter } from "./Landing";
 
-/* mahiman.app/business: Mahi Man for Business. One yearly price, no connection fees, a few staff on one account
+/* mahiman.app/business: Mahi Man for Business. One yearly price, no booking fees, a few staff on one account
    and one statement a month. Sold by Mahi Man directly, so the button opens an email. */
 
 const nav = (to: string) => (e: React.MouseEvent) => { e.preventDefault(); go(to); };
@@ -34,7 +34,7 @@ const WHO: [string, string, string][] = [
 ];
 
 export function BusinessPage() {
-  const [s, setS] = useState({ price: 49900, pct: 15, min: 995, max: 5995, seats: 5 });
+  const [s, setS] = useState({ price: 49900, pct: 20, min: 500, max: 2000, seats: 5 });
   const [jobs, setJobs] = useState(4);
   useEffect(() => {
     sb.from("settings").select("key,value").in("key", ["business_year_cents", "business_seats", "booking_fee_percent", "booking_fee_min_cents", "booking_fee_max_cents"]).then(({ data }) => {
@@ -90,7 +90,7 @@ export function BusinessPage() {
         <div className="bz-price"><b>{money(s.price)}</b><span>a year</span></div>
         <div className="bz-get">
           {([
-            ["$0 connection fees", "On every job, all year. You still pay workers directly."],
+            ["$0 booking fees", "On every job, all year. You still pay workers directly."],
             [`Up to ${s.seats} staff`, "Managers and staff post and select on one business account."],
             ["One statement a month", "Every job, every worker's ABN, ready for your bookkeeper."],
             ["ABN-only workers", "Choose to only take workers with an ABN, so their invoices are in order."],
@@ -110,7 +110,7 @@ export function BusinessPage() {
               style={{ background: `linear-gradient(90deg, var(--lime) ${((jobs - 1) / 19) * 100}%, rgba(255,255,255,.2) ${((jobs - 1) / 19) * 100}%) center / 100% 10px no-repeat` }} />
           </div>
           <div className="bz-calc-out">
-            <div><span>Connection fees in a year</span><b>{money(fees)}</b></div>
+            <div><span>Booking fees in a year</span><b>{money(fees)}</b></div>
             <div><span>Mahi Man for Business</span><b>{money(s.price)}</b></div>
             <div className="bz-save"><span>{saved > 0 ? "You save" : "Worth it from about 2 jobs a month"}</span><b>{saved > 0 ? money(saved) : ""}</b></div>
           </div>

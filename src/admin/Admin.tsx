@@ -5,7 +5,7 @@ import { useSession } from "../lib/session";
 import { go } from "../lib/router";
 import { money2, shrinkImage, validAbn } from "../lib/format";
 import { AuthScreen } from "../ui/Auth";
-import { CatIcon, Icon, Loading, Logo, Screen, SearchPicker, useToast } from "../ui/kit";
+import { CatIcon, Icon, Loading, Logo, SearchPicker, useToast } from "../ui/kit";
 import { UsersPage } from "./Users";
 import { BroadcastPage } from "./Broadcast";
 
@@ -70,7 +70,7 @@ export function Admin() {
     { label: "Marketplace", items: [["jobs", "Jobs"], ["people", "Users"], ["broadcast", "Broadcast"], ["launch", "Launch list"]] },
     { label: "Trust", items: [["cancels", "Cancellations", counts.fees], ["strikes", "Strikes", counts.strikes], ["reviews", "Reviews"]] },
     { label: "Money", items: [["money", "Invoices", counts.money], ["gifts", "Gift cards", counts.gifts], ["ato", "ATO report", 0]] },
-    { label: "Partners", items: [["partners", "Partners", counts.partners], ["tradies", "Tradies", counts.invoices]] },
+    { label: "Partners", items: [["partners", "Partners", counts.partners], ["tradies", "Worker fees", counts.invoices]] },
     { label: "Setup", items: [["areas", "Areas"], ["types", "Job types"], ["skills", "Skills"], ["settings", "Settings"], ["staff", "Staff"]] },
   ] as Group[]).map((g) => ({ ...g, items: g.items.filter(([k]) => allowed(k)) })).filter((g) => g.items.length);
   const TITLE = Object.fromEntries(GROUPS.flatMap((g) => g.items.map(([k, l]) => [k, l]))) as Record<Tab, string>;
@@ -184,7 +184,7 @@ function Overview({ open, allowed }: { open: (t: Tab, day?: string) => void; all
     ["money", t.claimed, "Payments to confirm", "Customers say they've paid"],
     ["cancels", t.fees, "Cancellation fees", "Owed and not yet paid"],
     ["strikes", t.strikes, "Workers to review", "Too many strikes"],
-    ["tradies", t.tradies, "Tradie orders", "Waiting for payment"],
+    ["tradies", t.tradies, "Worker fees and Premium", "Waiting for payment"],
     ["partners", t.partners, "Partner applications", "Waiting for approval"],
     ["jobs", tr?.no_quote_jobs ?? 0, "Trade jobs with no quote", "After 2 hours"],
   ] as [Tab, number, string, string][]).filter((r) => r[1] > 0 && allowed(r[0]));
@@ -333,7 +333,7 @@ function Jobs({ day, onAll }: { day: string | null; onAll: () => void }) {
                 <td><span className="row" style={{ gap: 6 }}>
                   {["searching", "accepted", "awaiting_payment"].includes(j.status) && (
                   <button className="btn stone small" onClick={async () => {
-                    if (!confirm(j.fee_status === "paid" ? "Remove this job? It will be cancelled for both sides and the connection fee refunded." : "Remove this job? It will be cancelled for both sides.")) return;
+                    if (!confirm(j.fee_status === "paid" ? "Remove this job? It will be cancelled for both sides and the booking fee refunded." : "Remove this job? It will be cancelled for both sides.")) return;
                     try {
                       await rpc("admin_cancel_job", { p_job: j.id });
                       if (j.fee_status === "paid") await api("admin_fee_refund", { job_id: j.id });
@@ -342,7 +342,7 @@ function Jobs({ day, onAll }: { day: string | null; onAll: () => void }) {
                   }}>Remove</button>)}
                   {j.fee_status === "paid" && !["searching", "accepted", "awaiting_payment"].includes(j.status) && (
                   <button className="btn stone small" onClick={async () => {
-                    if (!confirm(`Refund the ${money2(j.fee_cents)} connection fee to the customer?`)) return;
+                    if (!confirm(`Refund the ${money2(j.fee_cents)} booking fee to the customer?`)) return;
                     try { await api("admin_fee_refund", { job_id: j.id }); load(); } catch (e) { alert((e as Error).message); }
                   }}>Refund fee</button>)}
                 </span></td>
@@ -812,7 +812,7 @@ function Skills() {
         </span>
         <button className="btn primary" disabled={!Object.keys(dirty).length} onClick={save}>Save</button>
       </div>
-      <p className="small muted">Job: Normal (workers) jobs have the customer's price and workers say they're available. Trade (quoted) jobs go to tradies with a tradie profile, who quote a fixed price at the customer's place. Nothing switches by itself.</p>
+      <p className="small muted">Job: Normal (workers) jobs have the customer's price and workers say they're available. Licensed (quoted) jobs go to businesses with a business profile, who quote a fixed price at the customer's place. Nothing switches by itself.</p>
       <p className="small muted">Needs: a licence the worker must always have. Over $3,300: quotes above $3,300 (labour, materials and GST) need a verified QBCC licence.</p>
     </>
   );
@@ -1245,24 +1245,29 @@ const FEE_LABEL: Record<string, string> = { paid: "paid", refunded: "refunded", 
 // Settings in groups, each with a plain explanation. Money is shown in dollars; nothing saves until Save.
 type SetField = { k: string; label: string; hint?: string } & ({ t: "toggle"; on: string; off: string } | { t: "num"; unit: "%" | "$" | "hours" | "minutes" | "days" | "strikes" | "cancels" | "jobs" | "tradies" | "km" | "seats" } | { t: "text"; ph: string });
 const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
-  { title: "Payments", text: "Customers pay workers directly. The connection fee is billed when the customer selects a worker, with the rate the job was posted with, and paid by bank transfer on an invoice or from their balance. It's given back if the job doesn't go ahead.", fields: [
+  { title: "Payments", text: "Customers pay workers directly. The booking fee is billed when the customer selects a worker, with the rate the job was posted with, and paid by bank transfer on an invoice or from their balance. It's given back if the job doesn't go ahead.", fields: [
     { k: "pilot_mode", label: "Pilot mode", hint: "Customers pay workers directly by bank transfer or cash, and Mahi Man fees are invoiced. Turn off to hold the full price on a card.", t: "toggle", on: "true", off: "false" },
-    { k: "fee_mode", label: "Charge the connection fee", hint: "After the pilot. While pilot mode is on, fees are always invoiced and paid by bank transfer.", t: "toggle", on: "invoice", off: "off" },
+    { k: "fee_mode", label: "Charge the booking fee", hint: "After the pilot. While pilot mode is on, fees are always invoiced and paid by bank transfer.", t: "toggle", on: "invoice", off: "off" },
     { k: "stripe_publishable_key", label: "Stripe publishable key", hint: "Starts with pk_. Needed before card payments.", t: "text", ph: "pk_live_…" },
   ] },
-  { title: "Connection fee", text: "Two ways to pay, pay as you go or Plus, shown side by side on How you pay. Invoices show GST only once you turn on Registered for GST under Payment details.", fields: [
-
-    { k: "booking_fee_percent", label: "Connection fee", hint: "A share of the job price. New jobs use it; jobs already posted keep theirs.", t: "num", unit: "%" },
-    { k: "booking_fee_min_cents", label: "Connection fee, minimum", t: "num", unit: "$" },
-    { k: "booking_fee_max_cents", label: "Connection fee, most", t: "num", unit: "$" },
-    { k: "plus_fee_percent", label: "Plus, connection fee", t: "num", unit: "%" },
-    { k: "plus_fee_min_cents", label: "Plus, minimum", t: "num", unit: "$" },
-    { k: "plus_fee_max_cents", label: "Plus, most", t: "num", unit: "$" },
-    { k: "plus_year_cents", label: "Plus, per year", hint: "One payment, by bank transfer in beta.", t: "num", unit: "$" },
-    { k: "plus_cents", label: "Plus, monthly value", hint: "Only used to show the yearly saving.", t: "num", unit: "$" },
+  { title: "Customers: booking fee and Plus", text: "Customers pay a booking fee when they select someone. Plus and customers 60 and over pay none. Invoices show GST only once you turn on Registered for GST under Payment details.", fields: [
+    { k: "booking_fee_percent", label: "Booking fee", hint: "A share of the job price. New jobs use it; jobs already posted keep theirs.", t: "num", unit: "%" },
+    { k: "booking_fee_min_cents", label: "Booking fee, minimum", t: "num", unit: "$" },
+    { k: "booking_fee_max_cents", label: "Booking fee, most", t: "num", unit: "$" },
+    { k: "plus_cents", label: "Plus, per month", hint: "No booking fees. By bank transfer in beta.", t: "num", unit: "$" },
+    { k: "plus_year_cents", label: "Plus, per year", t: "num", unit: "$" },
+    { k: "plus_upsell_jobs", label: "Offer Plus on their job number", hint: "In a month, once they've paid booking fees. Shown once a month.", t: "num", unit: "jobs" },
     { k: "invoice_due_days", label: "Invoice after each job is due in", t: "num", unit: "days" },
     { k: "invoice_pause_days", label: "Posting pauses once overdue by", t: "num", unit: "days" },
     { k: "fee_percent", label: "Fee when the card is held", hint: "Only used with pilot mode off.", t: "num", unit: "%" },
+  ] },
+  { title: "Workers and businesses: fees and Premium", text: "One rule for everyone who works: a share of the agreed price, capped, invoiced when the customer selects them, with 7 days to pay. Premium pays none.", fields: [
+    { k: "provider_fee_percent", label: "Mahi Man takes", hint: "A share of the agreed job price.", t: "num", unit: "%" },
+    { k: "provider_fee_max_cents", label: "Most per job", t: "num", unit: "$" },
+    { k: "provider_block_owing_cents", label: "No new jobs or quotes once owing", t: "num", unit: "$" },
+    { k: "premium_month_cents", label: "Premium, per month", hint: "0% on every job. By bank transfer.", t: "num", unit: "$" },
+    { k: "premium_year_cents", label: "Premium, per year", t: "num", unit: "$" },
+    { k: "premium_upsell_cents", label: "Offer Premium once a month's jobs pass", hint: "Shown once a month, with what they've paid in fees.", t: "num", unit: "$" },
   ] },
   { title: "Payment details", text: "Shown on every invoice and bank transfer. Customers pay to this account with the invoice number as the reference.", fields: [
     { k: "pay_trading_name", label: "Trading name", t: "text", ph: "Mahi Man" },
@@ -1275,7 +1280,7 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "pay_account_name", label: "Account name", t: "text", ph: "Company Pty Ltd" },
   ] },
   { title: "Jobs", text: "Timing rules for every job.", fields: [
-    { k: "widen_after_minutes", label: "Alert workers and widen the search after", hint: "Plus jobs alert nearby workers the moment they're posted. Other jobs alert every worker in range once nobody has offered by this time.", t: "num", unit: "minutes" },
+    { k: "widen_after_minutes", label: "Widen the search after", hint: "Every job alerts everyone available nearby the moment it's posted. If nobody has offered by this time, workers further out are alerted too.", t: "num", unit: "minutes" },
     { k: "widen_max_km", label: "Furthest a widened job goes", t: "num", unit: "km" },
     { k: "auto_release_hours", label: "Close as done if the customer does nothing for", t: "num", unit: "hours" },
   ] },
@@ -1295,18 +1300,8 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "offline_days", label: "Offline for", t: "num", unit: "days" },
     { k: "strikes_review_90", label: "Account reviewed after", hint: "Strikes in 90 days.", t: "num", unit: "strikes" },
   ] },
-  { title: "Trade jobs", text: "Jobs with a trade skill (set per skill in Skills). Tradies send a fixed price; customers pay Mahi Man nothing.", fields: [
+  { title: "Licensed jobs", text: "Jobs with a licensed skill (set per skill in Skills). Businesses send a fixed price; the booking fee and the Mahi Man share work like every other job.", fields: [
     { k: "qbcc_over_cents", label: "QBCC licence needed over", hint: "Quotes above this need a verified QBCC licence.", t: "num", unit: "$" },
-    { k: "trade_win_percent", label: "Standard, fee if they win", hint: "A share of the quote the customer selects.", t: "num", unit: "%" },
-    { k: "trade_win_max_cents", label: "Standard, most a fee can be", t: "num", unit: "$" },
-    { k: "trade_premium_month_cents", label: "Premium, monthly", t: "num", unit: "$" },
-    { k: "trade_premium_year_cents", label: "Premium, yearly", t: "num", unit: "$" },
-    { k: "trade_first_quotes", label: "Quotes a job takes at first", hint: "Tradies on Premium quote first.", t: "num", unit: "tradies" },
-    { k: "trade_more_quotes", label: "More quotes that open", t: "num", unit: "tradies" },
-    { k: "trade_more_every_minutes", label: "More quotes open every", hint: "Until the customer selects one.", t: "num", unit: "minutes" },
-    { k: "trade_max_quotes", label: "Most quotes on a job", t: "num", unit: "tradies" },
-    { k: "trade_standard_after_minutes", label: "On Standard, they see new jobs after", t: "num", unit: "minutes" },
-    { k: "trade_standard_early_minutes", label: "Or after, if no one on Premium has quoted", t: "num", unit: "minutes" },
     { k: "trade_quiet_hours", label: "A quote stays open for", t: "num", unit: "hours" },
   ] },
   { title: "Partners", text: "Local businesses that pay monthly to show one offer in the app.", fields: [
@@ -1686,11 +1681,11 @@ function Reviews() {
   );
 }
 
-// ---------- Tradies: what they owe (monthly and jobs won) to mark paid, and every tradie ----------
+// ---------- Worker fees: what workers and businesses owe (Mahi Man's share of jobs, and Premium) to mark paid, and every business ----------
 interface TradeSummary { orders_waiting: number; waiting_cents: number; premium: number; standard: number; paid_30_cents: number; trade_jobs_30: number; no_quote_jobs: number }
 interface TradeOrder { id: number; created_at: string; worker_id: string; worker_name: string; business_name: string | null; email: string | null; kind: "plan" | "win" | "offer"; launch?: boolean; billing: "month" | "year" | null; job: string | null; amount_cents: number; status: string; renewal: boolean; paid_at: string | null; note: string | null }
 interface Tradie { worker_id: string; full_name: string; business_name: string | null; licences: string[]; plan: "standard" | "premium" | null; premium: boolean; billing: "month" | "year" | null; launch?: boolean; renews_at: string | null; quotes_30: number; won_30: number; owed_cents: number; paid_cents: number }
-const TRADE_VIEWS: [string, string][] = [["requested", "To be paid"], ["tradies", "Tradies"], ["offers", "Offers"], ["paid", "Paid"], ["all", "Everything"]];
+const TRADE_VIEWS: [string, string][] = [["requested", "To be paid"], ["tradies", "Businesses"], ["paid", "Paid"], ["all", "Everything"]];
 
 function Tradies({ onChanged }: { onChanged: () => void }) {
   const toast = useToast();
@@ -1701,22 +1696,21 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
   const [tradies, setTradies] = useState<Tradie[] | null>(null);
   const load = useCallback(() => {
     rpc<TradeSummary>("admin_trade_summary").then(setSum).catch(() => {});
-    if (view === "offers") return;
     if (view === "tradies") rpc<Tradie[]>("admin_tradies").then(setTradies).catch((e) => toast((e as Error).message));
     else rpc<TradeOrder[]>("admin_trade_orders", { p_status: view }).then(setOrders).catch((e) => toast((e as Error).message));
   }, [view, toast]);
   useEffect(() => { load(); }, [load]);
   const act = async (fn: () => Promise<unknown>, msg: string) => { try { await fn(); toast(msg); load(); onChanged(); } catch (e) { toast((e as Error).message); } };
-  const what = (o: TradeOrder) => o.kind === "offer" ? "Offer" : o.kind === "plan" ? `${o.launch ? "Premium for life" : o.billing === "year" ? "Premium, yearly" : "Premium, monthly"}${o.renewal ? ", renewal" : ""}` : `Fee for a job won${o.job ? `: ${o.job}` : ""}`;
-  const plan = (t: Tradie) => t.premium ? (t.launch ? "Premium for life" : t.billing === "year" ? "Premium, yearly" : "Premium, monthly") : t.plan ? "Standard" : "Not joined";
+  const what = (o: TradeOrder) => o.kind === "offer" ? "Offer" : o.kind === "plan" ? `${o.billing === "year" ? "Premium, yearly" : "Premium, monthly"}${o.renewal ? ", renewal" : ""}` : `Mahi Man fee${o.job ? `: ${o.job}` : ""}`;
+  const plan = (t: Tradie) => t.premium ? (t.billing === "year" ? "Premium, yearly" : "Premium, monthly") : "Pay per job";
   return (
     <>
       {sum && (
         <div className="stats">
           <Stat n={money2(sum.waiting_cents)} l={`${sum.orders_waiting} to be paid`} />
-          <Stat n={sum.premium} l={`On Premium, ${sum.standard} on Standard`} />
+          <Stat n={sum.premium} l="On Premium" />
           <Stat n={money2(sum.paid_30_cents)} l="Paid, 30 days" />
-          <Stat n={sum.trade_jobs_30} l="Trade jobs posted, 30 days" />
+          <Stat n={sum.trade_jobs_30} l="Licensed jobs posted, 30 days" />
         </div>
       )}
       <div className="row between" style={{ marginBottom: 12, alignItems: "flex-end", gap: 16, flexWrap: "wrap" }}>
@@ -1724,20 +1718,16 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
           <span>{TRADE_VIEWS.find(([k]) => k === view)?.[1]}</span>{Icon.down("var(--muted)")}
         </button>
       </div>
-      {view === "offers" ? <TradeOffers /> : view === "tradies" ? (
-        !tradies ? <Loading /> : !tradies.length ? <AdmEmpty text="No tradies yet. They show here once they join or send in a trade licence." /> : (
+      {view === "tradies" ? (
+        !tradies ? <Loading /> : !tradies.length ? <AdmEmpty text="No businesses yet. They show here once they finish a business profile or send in a licence." /> : (
           <div className="table-wrap"><table className="rows">
-            <thead><tr><th>Tradie</th><th>Licences</th><th>Plan</th><th>Quotes, 30 days</th><th>Won</th><th>To pay</th><th>Paid in total</th></tr></thead>
+            <thead><tr><th>Business</th><th>Licences</th><th>Plan</th><th>Quotes, 30 days</th><th>Won</th><th>To pay</th><th>Paid in total</th></tr></thead>
             <tbody>{tradies.map((t) => (
               <tr key={t.worker_id}>
                 <td><span className="w5">{t.business_name ?? t.full_name}</span>{t.business_name && <span className="small muted light" style={{ display: "block" }}>{t.full_name}</span>}</td>
                 <td className="light">{t.licences.length ? t.licences.join(", ") : "Being checked"}</td>
                 <td><span className={`badge ${t.premium ? "y" : t.plan ? "g" : ""}`}>{plan(t)}</span>{t.premium && t.renews_at && <span className="small muted light" style={{ display: "block" }}>Renews {day(t.renews_at)}</span>}
-                  {t.premium && t.launch && <button className="btn stone small" style={{ display: "block", marginTop: 6 }} onClick={async () => {
-                    if (!confirm(`Refund ${t.business_name ?? t.full_name} under the money-back guarantee? Send the money back by bank transfer first. Lifetime Premium ends and they move to Standard.`)) return;
-                    try { await rpc("admin_trade_launch_refund", { p_worker: t.worker_id, p_note: null }); toast("Premium ended. They're on Standard now."); rpc<Tradie[]>("admin_tradies").then(setTradies); }
-                    catch (e) { toast((e as Error).message); }
-                  }}>Refund</button>}</td>
+</td>
                 <td>{t.quotes_30}</td>
                 <td>{t.won_30}</td>
                 <td className="w5">{t.owed_cents ? money2(t.owed_cents) : "—"}</td>
@@ -1747,7 +1737,7 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
         )
       ) : !orders ? <Loading /> : !orders.length ? <AdmEmpty text={view === "requested" ? "Nothing waiting to be paid." : "Nothing yet."} /> : (
         <div className="table-wrap"><table className="rows">
-          <thead><tr><th>Date</th><th>Reference</th><th>Tradie</th><th>For</th><th>Amount</th><th>Status</th><th /></tr></thead>
+          <thead><tr><th>Date</th><th>Reference</th><th>Worker</th><th>For</th><th>Amount</th><th>Status</th><th /></tr></thead>
           <tbody>{orders.map((o) => (
             <tr key={o.id}>
               <td className="light" style={{ whiteSpace: "nowrap" }}>{dayTime(o.created_at)}</td>
@@ -1765,7 +1755,7 @@ function Tradies({ onChanged }: { onChanged: () => void }) {
             </tr>))}</tbody>
         </table></div>
       )}
-      {view === "requested" && orders && orders.length > 0 && <p className="light muted" style={{ marginTop: 14 }}>Tradies see what they owe, your bank details and the reference in How you pay. Mark it paid when the money arrives. Premium starts as soon as it's marked paid.</p>}
+      {view === "requested" && orders && orders.length > 0 && <p className="light muted" style={{ marginTop: 14 }}>Workers and businesses see what they owe, your bank details and the reference in How you pay. Mark it paid when the money arrives. Premium starts as soon as it's marked paid.</p>}
       {pick && <SearchPicker title="Show" placeholder="Search" options={TRADE_VIEWS.map(([id, label]) => ({ id, label }))} value={[view]}
         onClose={() => setPick(false)} onChange={(v) => setView(String(v[0]))} />}
     </>
@@ -1950,7 +1940,7 @@ function PartnerDetail({ p, onBack, onChanged }: { p: PartnerRow; onBack: () => 
   );
 }
 
-// Every invoice in one place: customer connection fees, customer bank top-ups, tradie plans and partner months.
+// Every invoice in one place: customer booking fees, customer bank top-ups, worker fees, Premium and partner months.
 // Match the reference on the bank statement, then mark it paid. "They say paid" means the customer confirmed they've paid.
 interface MoneyRow { kind: "invoice" | "topup" | "gift" | "plus" | "tradie" | "partner"; id: number; ref: string; who: string; what: string; item: string; amount: number; due: string; state: "due" | "late" | "claimed" | "paid"; paused: boolean; created: string; paid_at: string | null;
   proof?: string | null; paid_on?: string | null; paid_part?: string | null; paid_from?: string | null; claimed_at?: string | null;
@@ -1982,7 +1972,7 @@ function MoneyInvoices({ onChanged }: { onChanged: () => void }) {
   const [urls, setUrls] = useState<Record<string, string>>({});
   const [big, setBig] = useState<MoneyRow | null>(null);
   const [open, setOpen] = useState<MoneyRow | null>(null);
-  const KIND: Record<MoneyRow["kind"], string> = { invoice: "Invoice", topup: "Top-up", gift: "Gift card", plus: "Plus", tradie: "Tradie", partner: "Partner" };
+  const KIND: Record<MoneyRow["kind"], string> = { invoice: "Invoice", topup: "Top-up", gift: "Gift card", plus: "Plus", tradie: "Worker fee", partner: "Partner" };
   const dayTime = (iso: string) => `${day(iso)}, ${new Date(iso).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit", timeZone: "Australia/Brisbane" }).toLowerCase()}`;
   useEffect(() => {
     const paths = (d?.rows ?? []).map((r) => r.proof).filter((x): x is string => !!x);
@@ -2132,7 +2122,7 @@ const ROLE_INFO: Record<StaffRole, { name: string; text: string }> = {
 const ROLES = Object.keys(ROLE_INFO) as StaffRole[];
 const ROLE_PAGES: [string, StaffArea | "paydetails"][] = [
   ["Overview", "all"], ["ID and licence checks", "checks"], ["Reports and disputes", "people"], ["Users and jobs", "people"], ["Broadcast", "broadcast"],
-  ["Cancellations, strikes, reviews", "people"], ["Invoices and gift cards", "money"], ["Workers to pay", "money"], ["Tradies and partners", "money"],
+  ["Cancellations, strikes, reviews", "people"], ["Invoices and gift cards", "money"], ["Workers to pay", "money"], ["Worker fees and partners", "money"],
   ["Areas, job types, skills", "setup"], ["Settings", "settings"], ["Payment details", "paydetails"], ["Staff", "staff"],
 ];
 type StaffRow = { email: string; role: StaffRole; added_at: string; last_seen_at: string | null; name: string | null; photo_path: string | null; me: boolean };
@@ -2226,165 +2216,6 @@ function AddStaff({ onBack, onDone }: { onBack: () => void; onDone: (email: stri
         </div>
       </div>
       {picking && <SearchPicker title="Role" options={roleOptions()} value={[role]} onClose={() => setPicking(false)} onChange={(v) => setRole(String(v[0]) as StaffRole)} />}
-    </div>
-  );
-}
-
-// Tradie offers: a price for some months of Premium, on sale between two dates, with an optional start day, spots and who can claim it.
-type TOffer = { id: number | null; name: string; price_cents: number; months: number; sale_from: string; sale_to: string; starts_on: string | null; spots: number | null; who: "new" | "any"; taken: number; paid: number; state: "live" | "scheduled" | "ended" };
-const bneToday = () => new Date().toLocaleDateString("en-CA", { timeZone: "Australia/Brisbane" });
-const dShort = (iso: string) => new Date(iso + "T12:00:00+10:00").toLocaleDateString("en-AU", { weekday: "short", day: "numeric", month: "short", timeZone: "Australia/Brisbane" }).replace(",", "");
-// The launch offer: one yearly price, locked in while they stay subscribed, for the first few tradies in each trade.
-type Launch = { price_cents: number; open: boolean; guarantee_days: number; paid: number; waiting: number };
-function TradeLaunch() {
-  const toast = useToast();
-  const [d, setD] = useState<Launch | null>(null);
-  const [edit, setEdit] = useState(false);
-  const [info, setInfo] = useState(false);
-  const load = useCallback(() => { rpc<Launch>("admin_trade_launch").then(setD).catch((e) => toast((e as Error).message)); }, [toast]);
-  useEffect(load, [load]);
-  if (!d) return <Loading />;
-  return <>
-    <div className="row between" style={{ margin: "20px 0 12px", gap: 12 }}>
-      <span className="stack" style={{ gap: 2 }}>
-        <span className="row" style={{ gap: 6 }}><h3 className="ln-h">Launch offer</h3><button className="of-i" onClick={() => setInfo(true)} aria-label="About the launch offer">{Icon.info("var(--muted)", 18)}</button></span>
-        <span className="t15 light muted">{dollars(d.price_cents)} once, Premium for life</span>
-      </span>
-      <button className="btn stone" onClick={() => setEdit(true)}>Change</button>
-    </div>
-    <div className="of-list">
-      <div className="of-r ln-r"><span className="of-k">Status</span><span className="ln-v"><b className={d.open ? "" : "full"}>{d.open ? "On sale" : "Ended"}</b></span></div>
-      <div className="of-r ln-r"><span className="of-k">Tradies on lifetime Premium</span><span className="ln-v"><b>{d.paid}</b></span></div>
-      <div className="of-r ln-r"><span className="of-k">Waiting to pay</span><span className="ln-v"><b>{d.waiting}</b></span></div>
-    </div>
-    {info && <Screen title="Launch offer" onBack={() => setInfo(false)}><div className="screen-body of-info">
-      <p>One payment of {dollars(d.price_cents)} for lifetime Premium, paid by bank transfer like every tradie invoice. Nothing renews.</p>
-      <p>Tradies see it as a limited launch offer, never with a number of spots. It's for tradies who haven't had Premium before. End it any time with Change; anyone who's paid keeps it.</p>
-      <p>Money-back guarantee: within {d.guarantee_days} days of paying, a tradie can ask for the full amount back. Send the money back by bank transfer, then press Refund on them under Tradies. Their Premium ends and they move to Standard.</p>
-    </div></Screen>}
-    {edit && <LaunchEdit d={d} onClose={() => setEdit(false)} onSaved={() => { setEdit(false); load(); }} />}
-  </>;
-}
-function LaunchEdit({ d, onClose, onSaved }: { d: Launch; onClose: () => void; onSaved: () => void }) {
-  const toast = useToast();
-  const [price, setPrice] = useState(String(d.price_cents / 100));
-  const [open, setOpen] = useState(d.open);
-  const [busy, setBusy] = useState(false);
-  const save = async () => {
-    setBusy(true);
-    try { await rpc("admin_trade_launch_save", { p_price_cents: Math.round(Number(price || 0) * 100), p_open: open }); toast("Saved"); onSaved(); }
-    catch (e) { toast((e as Error).message); setBusy(false); }
-  };
-  return (
-    <div className="mn-detail">
-      <div className="mn-top">
-        <button className="cx-back" onClick={onClose} aria-label="Back">{Icon.back("var(--ink)")}</button>
-        <span><b>Launch offer</b><small>Lifetime Premium, one payment</small></span>
-      </div>
-      <div className="mn-body">
-        <div className="of-list">
-          <label className="of-r"><span className="of-k">Price, once</span><span className="of-v"><span className="of-pre">$</span><input className="of-in of-amt" inputMode="decimal" value={price} size={Math.max(2, price.length)} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} /></span></label>
-          <div className="of-r"><span className="of-k">On sale</span>
-            <span className="seg" style={{ display: "inline-flex", gap: 6 }}>
-              <button className={`btn small ${open ? "primary" : "stone"}`} onClick={() => setOpen(true)}>On</button>
-              <button className={`btn small ${!open ? "primary" : "stone"}`} onClick={() => setOpen(false)}>Ended</button>
-            </span></div>
-        </div>
-      </div>
-      <div className="mn-foot ps-btns one"><button className="btn primary" disabled={busy} onClick={save}>{Icon.tick("currentColor", 20)}Save</button></div>
-    </div>
-  );
-}
-function TradeOffers() {
-  const toast = useToast();
-  const [d, setD] = useState<{ offers: TOffer[]; month_cents: number } | null>(null);
-  const [edit, setEdit] = useState<TOffer | null>(null);
-  const load = useCallback(() => { rpc<{ offers: TOffer[]; month_cents: number }>("admin_trade_offers").then(setD).catch((e) => toast((e as Error).message)); }, [toast]);
-  useEffect(load, [load]);
-  if (!d) return <Loading />;
-  const blank: TOffer = { id: null, name: "", price_cents: 0, months: 3, sale_from: bneToday(), sale_to: "", starts_on: null, spots: null, who: "new", taken: 0, paid: 0, state: "scheduled" };
-  return <>
-    <TradeLaunch />
-    <div className="row between" style={{ margin: "28px 0 12px" }}>
-      <h3 className="ln-h">Other offers</h3>
-      <button className="btn primary" onClick={() => setEdit(blank)}>{Icon.plus("currentColor")}New offer</button>
-    </div>
-    {d.offers.length === 0 ? <AdmEmpty text="No other offers." /> : (
-      <div className="mn-list">{d.offers.map((o) => (
-        <button key={o.id} className="mn-row of-row" onClick={() => setEdit(o)}>
-          <span className="mn-mid"><b>{o.name}</b><small>{money2(o.price_cents)} for {o.months} months of Premium</small>
-            <small>{o.state === "scheduled" ? `On sale ${dShort(o.sale_from)}` : o.state === "live" ? `Ends ${dShort(o.sale_to)}` : `Ended`}{o.starts_on ? `, Premium from ${dShort(o.starts_on)}` : ""}</small></span>
-          <span className="mn-end"><span className={`badge ${o.state === "live" ? "g" : o.state === "scheduled" ? "y" : ""}`}>{o.state === "live" ? "On sale" : o.state === "scheduled" ? "Scheduled" : "Ended"}</span>
-            <b>{o.spots ? `${o.taken} of ${o.spots}` : o.taken}</b><small className="of-sm">claimed</small></span>
-        </button>
-      ))}</div>
-    )}
-    {edit && <OfferEdit o={edit} month={d.month_cents} onClose={() => setEdit(null)} onSaved={() => { setEdit(null); load(); }} />}
-  </>;
-}
-function OfferEdit({ o: start, month, onClose, onSaved }: { o: TOffer; month: number; onClose: () => void; onSaved: () => void }) {
-  const toast = useToast();
-  const [o, setO] = useState(start);
-  const [price, setPrice] = useState(start.price_cents ? String(start.price_cents / 100) : "");
-  const [spots, setSpots] = useState(start.spots ? String(start.spots) : "");
-  const [pick, setPick] = useState<null | "months" | "who">(null);
-  const [info, setInfo] = useState<null | "starts" | "who" | "after">(null);
-  const [busy, setBusy] = useState(false);
-  const set = (p: Partial<TOffer>) => setO({ ...o, ...p });
-  const cents = Math.round(Number(price || 0) * 100);
-  const INFO = {
-    starts: ["Premium starts", "Pick a day, or leave it as when they pay. Until the day, they're signed up and ready to go. Tap the cross to go back to when they pay."],
-    who: ["Who can claim it", "New tradies only, or any tradie who isn't on Premium yet. Each tradie can claim an offer once."],
-    after: ["After the offer", `They move to monthly Premium at ${money2(month)} a month. They get a reminder 7 days before and can stop or switch to Standard any time.`],
-  } as const;
-  const k = (label: string, i?: keyof typeof INFO) => <span className="of-k">{label}{i && <button className="of-i" onClick={() => setInfo(i)} aria-label={`About ${label}`}>{Icon.info("var(--muted)", 18)}</button>}</span>;
-  const save = async () => {
-    setBusy(true);
-    try {
-      await rpc("admin_trade_offer_save", { p_id: o.id, p_name: o.name, p_price_cents: cents, p_months: o.months, p_from: o.sale_from, p_to: o.sale_to || null,
-        p_starts: o.starts_on, p_spots: spots ? Number(spots) : null, p_who: o.who });
-      toast("Saved"); onSaved();
-    } catch (e) { toast((e as Error).message); } finally { setBusy(false); }
-  };
-  const end = async () => {
-    setBusy(true);
-    try { await rpc("admin_trade_offer_end", { p_id: o.id }); toast("Offer ended"); onSaved(); }
-    catch (e) { toast((e as Error).message); } finally { setBusy(false); }
-  };
-  const left = o.spots ? o.spots - o.taken : spots ? Number(spots) - o.taken : null;
-  return (
-    <div className="mn-detail">
-      <div className="mn-top">
-        <button className="cx-back" onClick={onClose} aria-label="Back">{Icon.back("var(--ink)")}</button>
-        <span><b>{o.id ? o.name : "New offer"}</b>{o.id ? <small>{o.taken} claimed, {o.paid} paid</small> : null}</span>
-      </div>
-      <div className="mn-body">
-        <div className="of-prev">
-          <span className="hx-tag">{o.name || "Offer"}{left !== null ? `, ${left} left` : ""}</span>
-          <span className="of-big">{cents ? `$${(cents / 100).toLocaleString("en-AU", { maximumFractionDigits: 2 })}` : "$0"}<small>{o.months} months of Premium</small></span>
-        </div>
-        <div className="of-list">
-          <label className="of-r">{k("Name")}<input className="of-v of-in" value={o.name} maxLength={40} placeholder="Add a name" onChange={(e) => set({ name: e.target.value })} /></label>
-          <label className="of-r">{k("Price")}<span className="of-v"><span className="of-pre">$</span><input className="of-in of-amt" inputMode="decimal" value={price} placeholder="0" size={Math.max(2, price.length)} onChange={(e) => setPrice(e.target.value.replace(/[^0-9.]/g, ""))} /></span></label>
-          <div className="of-r">{k("Premium for")}<button className="of-v" onClick={() => setPick("months")}>{o.months} months{Icon.chevron("var(--faint)")}</button></div>
-          <label className="of-r">{k("On sale from")}<span className="of-v of-dpick">{o.sale_from ? dShort(o.sale_from) : "Select a day"}{Icon.chevron("var(--faint)")}<input type="date" value={o.sale_from ?? ""} onChange={(e) => set({ sale_from: e.target.value })} /></span></label>
-          <label className="of-r">{k("Until")}<span className="of-v of-dpick">{o.sale_to ? dShort(o.sale_to) : "Select a day"}{Icon.chevron("var(--faint)")}<input type="date" value={o.sale_to ?? ""} min={o.sale_from} onChange={(e) => set({ sale_to: e.target.value })} /></span></label>
-          <label className="of-r">{k("Premium starts", "starts")}<span className="of-v of-dpick">{o.starts_on ? dShort(o.starts_on) : "When they pay"}{Icon.chevron("var(--faint)")}<input type="date" value={o.starts_on ?? ""} min={o.sale_from} onChange={(e) => set({ starts_on: e.target.value || null })} /></span>
-            {o.starts_on && <button className="of-i" onClick={(e) => { e.preventDefault(); set({ starts_on: null }); }} aria-label="Start when they pay">{Icon.x("var(--muted)")}</button>}</label>
-          <label className="of-r">{k("Spots")}<input className="of-v of-in of-num" inputMode="numeric" value={spots} placeholder="No limit" onChange={(e) => setSpots(e.target.value.replace(/\D/g, ""))} /></label>
-          <div className="of-r">{k("Who", "who")}<button className="of-v" onClick={() => setPick("who")}>{o.who === "new" ? "New tradies" : "Not on Premium"}{Icon.chevron("var(--faint)")}</button></div>
-          <div className="of-r">{k("After", "after")}<span className="of-v">{money2(month)} a month</span></div>
-        </div>
-      </div>
-      <div className={`mn-foot ps-btns${o.id && o.state !== "ended" ? "" : " one"}`}>
-        {o.id && o.state !== "ended" && <button className="btn stone" disabled={busy} onClick={end}>{Icon.x("currentColor")}End offer</button>}
-        <button className="btn primary" disabled={busy} onClick={save}>{Icon.tick("currentColor", 20)}Save</button>
-      </div>
-      {pick === "months" && <SearchPicker title="Premium for" options={Array.from({ length: 12 }, (_, i) => ({ id: i + 1, label: `${i + 1} month${i ? "s" : ""}` }))} value={[o.months]}
-        onClose={() => setPick(null)} onChange={(v) => set({ months: Number(v[0]) })} />}
-      {pick === "who" && <SearchPicker title="Who can claim it" options={[{ id: "new", label: "New tradies" }, { id: "any", label: "Any tradie not on Premium" }]} value={[o.who]}
-        onClose={() => setPick(null)} onChange={(v) => set({ who: v[0] as TOffer["who"] })} />}
-      {info && <Screen title={INFO[info][0]} onBack={() => setInfo(null)}><div className="screen-body of-info"><p>{INFO[info][1]}</p></div></Screen>}
     </div>
   );
 }

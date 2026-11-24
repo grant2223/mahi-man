@@ -55,7 +55,7 @@ Deno.serve(async (req) => {
       const label = String(body.label ?? "Your payments");
       doc = { ...base, kind: "statement", number: String(body.period_label ?? "Statement"), issued: dayY(new Date().toISOString()), title: label,
         credit_cents: Number(mp?.balance ?? 0), heads: { job: "What", who: "Detail" }, lines, total_cents: 0,
-        note: "+ adds to your connection fee credit, − is taken from it. Other amounts are payments you made to Mahi Man." };
+        note: "+ adds to your booking fee credit, − is taken from it. Other amounts are payments you made to Mahi Man." };
       name = "Mahi-Man-statement.pdf";
     } else return json({ error: "Unknown document" }, 400);
 

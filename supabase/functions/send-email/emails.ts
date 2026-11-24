@@ -105,7 +105,7 @@ ${ctx.play ? `<td class="stack" valign="top" width="50%" style="padding-left:6px
   if (kind === "invoice") {
     const total = Number(d.total_cents), n = (d.lines ?? []).length;
     const body = pdfNote(`Invoice ${d.number}.pdf`)
-      + p(d.intro ? `Hi ${first}, ${esc(d.intro)} Your invoice is attached.` : `Hi ${first}, here are your connection fees for ${n} job${n === 1 ? "" : "s"}. Your invoice is attached.`)
+      + p(d.intro ? `Hi ${first}, ${esc(d.intro)} Your invoice is attached.` : `Hi ${first}, here are your booking fees for ${n} job${n === 1 ? "" : "s"}. Your invoice is attached.`)
       + `<div style="margin:4px 0 26px">${btn(d.link ? `${site}${d.link}` : `${site}/invoice/${d.id ?? ""}`, "View and pay")}</div>`
       + payBlock(ctx.pay, d.number);
     return { subject: `Invoice ${d.number}: ${money(total)} due ${d.due}`, html: layout(ctx, `${money(total)} due ${d.due}. Your invoice is attached.`, { eyebrow: `Invoice ${esc(d.number)}`, title: `${money(total)}<br><span style="color:${C.lime}">due ${esc(d.due)}</span>` }, body) };

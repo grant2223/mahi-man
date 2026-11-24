@@ -70,7 +70,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
   const [extras, setExtras] = useState<Record<string, Extra>>({});
   const [openCard, setOpenCard] = useState<string | null>(null);
   // How the customer wants the list: soonest there, closest, most recommended or most jobs. The top 10 show; ignoring one brings in the next.
-  const [sortBy, setSortBy] = useState<SortKey>("soon");
+  const [sortBy, setSortBy] = useState<SortKey>("cheap");
   const [gender, setGender] = useState<GenderKey>("any");
   const [pickSort, setPickSort] = useState(false);
   const picked = gender === "any" ? shown : shown.filter((o) => o.gender === gender);
@@ -152,15 +152,19 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
   if (trade) {
     return (
       <div className="app" style={{ background: "var(--card)" }}>
-        <StepHero title="Quotes from tradies" sub={title} onBack={() => go("/")} />
+        <StepHero title="Quotes" sub={title} onBack={() => go("/")} />
+        {shown.length > 1 && (
+          <div className="of-sortbar"><span>{shown.length} quotes</span>
+            <button className="btn stone small" onClick={() => setPickSort(true)}>{Icon.filter("var(--ink)")}{SORTS.find((x) => x.id === sortBy)!.label}</button></div>
+        )}
         {!shown.length && (
           <div className="cp-sec">
             <span className="cp-title">Waiting for quotes</span>
-            <span className="t15 light muted" style={{ lineHeight: 1.45 }}>Licensed tradies near you have been told. Their quotes show here, and you get an alert for each one.</span>
+            <span className="t15 light muted" style={{ lineHeight: 1.45 }}>Licensed businesses near you have been told. Their quotes show here, and you get an alert for each one.</span>
           </div>
         )}
         <div className="offers">
-          {shown.map((o) => {
+          {sortOffers(shown, sortBy, work).map((o) => {
             const creds = (extras[o.worker_id]?.creds ?? []).filter((c) => c !== "Insured");
             const rec = recLine(o.scores, "customers");
             return (
@@ -189,7 +193,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
             );
           })}
         </div>
-        <Note icon="lock">You pay the tradie directly when the job's done. Selecting one tells the others straight away.</Note>
+        <Note icon="lock">You pay the business directly when the job's done. Selecting one tells the others straight away.</Note>
         <div style={{ flex: 1 }} />
         <div className="ps-foot" style={{ paddingTop: 16 }}>
           <div className="ps-btns">
@@ -198,6 +202,8 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
           </div>
         </div>
         {profile && <WorkerProfile workerId={profile} onBack={() => setProfile(null)} />}
+        {pickSort && <SearchPicker title="Sort by" placeholder="Search" value={[sortBy]} options={SORTS.map((x) => ({ id: x.id, label: x.label }))} onClose={() => setPickSort(false)}
+          onChange={(v) => { setSortBy(v[0] as SortKey); setPickSort(false); }} />}
         {chat && me && <ChatScreen jobId={jobId} me={me.id} workerId={chat.worker_id} otherName={chat.business_name ?? chat.full_name} otherPhoto={chat.photo_path}
           sub={`${money(chat.price_cents ?? 0)}, ${title}`} onBack={() => setChat(null)} />}
       </div>
@@ -237,12 +243,6 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
             <div className="rs-opt">
               <span className="t"><b>Pick a time instead</b><small>More people are free later today or tomorrow.</small></span>
               <button className="btn stone" disabled={rescueBusy} onClick={() => setPickWhen("day")}>Pick a time</button>
-            </div>
-          )}
-          {!onPlus && (
-            <div className="rs-opt">
-              <span className="t"><b>Join Plus</b><small>This job goes to workers nearby straight away, and every job after.</small></span>
-              <button className="btn stone" onClick={() => go("/plus")}>See Plus</button>
             </div>
           )}
           {unverified && (
@@ -299,7 +299,7 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
           </div>
           {!onPlus && (
             <div className="rs-opt">
-              <span className="t"><b>Get help faster with Plus</b><small>Workers nearby are alerted the moment you post.</small></span>
+              <span className="t"><b>No booking fees with Plus</b><small>For people who use Mahi Man a lot.</small></span>
               <button className="btn rs-gold" onClick={() => go("/plus")}>See Plus</button>
             </div>
           )}
@@ -328,13 +328,13 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
         <div className="row" style={{ gap: 10, padding: "14px 16px", borderBottom: "1px solid var(--line)", alignItems: "center", background: "var(--card)" }}>
           {me?.card_last4 && <CardMark brand={me.card_brand} />}
           <span className="t15 light" style={{ flex: 1 }}>
-            {me?.card_last4 ? <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> connection fee to {cardLabel(me)}.</> : <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> connection fee. You'll add a card first.</>}
+            {me?.card_last4 ? <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> booking fee to {cardLabel(me)}.</> : <>Choosing someone charges the <b className="w5">{money2(feeDue)}</b> booking fee. You'll add a card first.</>}
           </span>
         </div>
       )}
       {feeInvoice > 0 && feeDue === 0 && shown.length > 0 && (
         <div className="row" style={{ gap: 10, padding: "14px 16px", alignItems: "center", background: "var(--card)" }}>
-          <span className="t15 light" style={{ flex: 1 }}>Selecting someone adds your <b className="w5">{money2(feeInvoice)}</b> connection fee. You get it back if the job doesn't go ahead.</span>
+          <span className="t15 light" style={{ flex: 1 }}>Selecting someone adds your <b className="w5">{money2(feeInvoice)}</b> booking fee. You get it back if the job doesn't go ahead.</span>
         </div>
       )}
       <div className="offers">
@@ -466,12 +466,12 @@ export function OffersView({ jobId, title, price, priceCents = 0, asap, startAt,
   );
 }
 
-type SortKey = "soon" | "near" | "rate";
+type SortKey = "cheap" | "rate" | "soon";
 type GenderKey = "any" | "woman" | "man";
 const SORTS: { id: SortKey; label: string }[] = [
-  { id: "soon", label: "Arrival time" },
-  { id: "near", label: "Distance" },
-  { id: "rate", label: "Rating" },
+  { id: "cheap", label: "Cheapest" },
+  { id: "rate", label: "Highest rated" },
+  { id: "soon", label: "Earliest arrival" },
 ];
 const GENDER_OPTS: { id: GenderKey; label: string }[] = [
   { id: "any", label: "Any" },
@@ -499,12 +499,13 @@ function FilterScreen(props: { sortBy: SortKey; gender: GenderKey; onClose: () =
     </Screen>
   );
 }
-function sortOffers<T extends { worker_id: string; eta_minutes: number; distance_km: number | null; can_come_at?: string | null; rating: number | null; cat_rating: number | null }>(list: T[], by: SortKey, work: Record<string, Work | undefined>): T[] {
+function sortOffers<T extends { worker_id: string; eta_minutes: number; distance_km: number | null; can_come_at?: string | null; rating: number | null; cat_rating: number | null; price_cents: number | null }>(list: T[], by: SortKey, work: Record<string, Work | undefined>): T[] {
   const eta = (o: T) => (o.can_come_at ? new Date(o.can_come_at).getTime() : Date.now() + o.eta_minutes * 60000);
-  const km = (o: T) => o.distance_km ?? 999;
+  const cost = (o: T) => o.price_cents ?? 0; // A worker's own price (a quote); otherwise everyone is at the job's price.
   const rec = (o: T) => work[o.worker_id]?.recommended ?? 0;
   const jobs = (o: T) => work[o.worker_id]?.jobs ?? 0;
   const rate = (o: T) => o.cat_rating ?? o.rating ?? 0;
-  const by2 = (a: T, b: T) => (by === "soon" ? eta(a) - eta(b) : by === "near" ? km(a) - km(b) : rate(b) - rate(a) || rec(b) - rec(a) || jobs(b) - jobs(a)) || eta(a) - eta(b);
+  const byRate = (a: T, b: T) => rate(b) - rate(a) || rec(b) - rec(a) || jobs(b) - jobs(a);
+  const by2 = (a: T, b: T) => (by === "soon" ? eta(a) - eta(b) : by === "cheap" ? cost(a) - cost(b) || byRate(a, b) : byRate(a, b)) || eta(a) - eta(b);
   return [...list].sort(by2);
 }

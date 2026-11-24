@@ -44,7 +44,7 @@ async function handle(event: Stripe.Event) {
       }
       return;
     }
-    // Money taken straight away: top-ups, gift cards, connection fees and cancellation fees.
+    // Money taken straight away: top-ups, gift cards, booking fees and cancellation fees.
     case "payment_intent.succeeded": {
       const pi = event.data.object as Stripe.PaymentIntent;
       const kind = pi.metadata?.kind;

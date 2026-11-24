@@ -10,7 +10,7 @@ What's ready, and what's left. Ticked items are done.
 - [x] Reviewer sign-in: review@mahiman.app. Its code is in `~/Mahi Man Android Keys/store-review-sign-in.txt` (no email is sent for this address).
 - [x] Android notifications: Firebase project "mahi-man" (no Analytics), `android/app/google-services.json`, key in the Supabase secret `FCM_SERVICE_ACCOUNT`.
 - [x] Location foreground-service declaration with the demo video (`google-play/location-sharing-demo.mp4`, shared from Google Drive).
-- [x] **Live on Google Play** in Australia and New Zealand since 12 Nov 2026. **versionCode 15** (Your profile at sign-up, with its Data safety update) live 14 Nov 2026. **versionCode 18** (Snap it, licence scan, Profile tab) live 16 Nov 2026. **versionCode 19** (Plus as one yearly $99 payment by bank transfer) sent for review 16 Nov 2026. Earlier releases: 3, 4, 5, 6, 7, 8 (replaced by 10 in review), 10, 12, 14, 15, 16, 17. 9, 11 and 13 were never uploaded.
+- [x] **Live on Google Play** in Australia and New Zealand since 12 Nov 2026. **versionCode 15** (Your profile at sign-up, with its Data safety update) live 14 Nov 2026. **versionCode 18** (Snap it, licence scan, Profile tab) live 16 Nov 2026. **versionCode 19** (Plus paid by bank transfer) sent for review 16 Nov 2026. Earlier releases: 3, 4, 5, 6, 7, 8 (replaced by 10 in review), 10, 12, 14, 15, 16, 17. 9, 11 and 13 were never uploaded.
 - [x] **Store icon and feature graphic** updated 14 Nov 2026: house logo off the shirt, and the feature graphic uses the splash slogan "Get the help you need within minutes." Both are live.
 - [ ] Play needs the **trader status declaration** by February 2027 (Play Console banner). It's a legal declaration, so you do it.
 - [ ] Optional: App content, Target audience, tick "Restrict users that Google has determined to be minors".
@@ -46,7 +46,14 @@ What's ready, and what's left. Ticked items are done.
 - [x] Worker payout setup works from the apps (Stripe returns to mahiman.app/payouts-done, and the app re-checks).
 
 Card payments for real-world services (jobs done in person) are allowed outside Apple's and Google's in-app purchase systems, so Stripe is fine on both stores.
-Mahi Man gift cards are the same: they only pay for real-world jobs (the worker and the connection fee), so they're sold outside in-app purchase too. If a reviewer asks, say that.
+Mahi Man gift cards are the same: they only pay for real-world jobs (the worker and the booking fee), so they're sold outside in-app purchase too. If a reviewer asks, say that.
+
+## Pricing (from 24 Nov 2026, all set in Admin → Settings)
+
+- Customers: booking fee 20% of the job price, $5 minimum, $20 maximum, when they select someone (invoiced in the pilot). Plus $27 a month or $270 a year, no booking fees. 60 and over pay none.
+- Workers and businesses: Mahi Man takes 20% of the agreed price, never more than $200 a job, invoiced when selected, 7 days to pay. Owing $50 or more stops new jobs and quotes. Premium $97 a month or $970 a year, 0%.
+- Every job alerts everyone available nearby at once.
+- Store wording: "Post it, and everyone available nearby gets alerted now. $5 to $20 to book. Use it a lot? Plus is $27 a month with no booking fees." and "Jobs near you, straight to your phone. Mahi Man takes 20%, never more than $200 a job. Or go Premium for $97 a month and keep 100%."
 
 ## 4. Submit
 
@@ -68,6 +75,6 @@ NZ areas (Auckland, Wellington, Christchurch and 11 more) are in the `areas` tab
 - **Android:** `npm run android`, bump `versionCode` in `android/app/build.gradle` (last uploaded: 29 on 23 Nov 2026), then `cd android && ./gradlew bundleRelease`. The .aab is in `android/app/build/outputs/bundle/release/`.
 - **Latest (23 Nov 2026, from 16923b8):** iOS build 52 is the build on App Store 1.0, waiting for review (51 removed from review), and is in TestFlight (Cairns pilot). Android versionCode 29 is sent for Play review in Production; 28 went live on 23 Nov. Release notes: "Fixes to posting a job."
 - **Before that (23 Nov 2026, from 98af849):** iOS build 51 is the build on App Store 1.0, waiting for review (50 removed from review), and is in TestFlight (Cairns pilot, approved for external testing, on the public link). Android versionCode 28 went live in Production on 23 Nov. Release notes: "Post a job in five quick steps. Pay fixed, hourly, daily or per visit, with the usual price shown. Use your current location or pick from address suggestions. Tradie quotes are quicker, and you can follow every quote in My quotes."
-- **Before that (22 Nov 2026, from a13225f):** iOS build 50 is the build on App Store 1.0, waiting for review (49 removed from review), and is in TestFlight (Cairns pilot, waiting for beta review). Android versionCode 27 replaced 26 in Production and went live on 22 Nov. They carry the current pricing: 15% connection fee (minimum $9.95), Plus $99 a year with half fees (7.5%, minimum $4.95), no Top up, Tradie Standard free with a 12.5% finder's fee (max $250), and the $999 lifetime Premium launch offer. Release notes: "Updated pricing and payment options".
+- **Before that (22 Nov 2026, from a13225f):** iOS build 50 is the build on App Store 1.0, waiting for review (49 removed from review), and is in TestFlight (Cairns pilot, waiting for beta review). Android versionCode 27 replaced 26 in Production and went live on 22 Nov. They carried the pricing of that time, since replaced (see Pricing below). Release notes: "Updated pricing and payment options".
 - **Before that (17 Nov):** build 46 / versionCode 23 (51543aa): Plus, bonus top-ups, bank transfer screen, payment history, branded PDFs. 46 is the build in App Store review.
 - **Before that:** build 45 / versionCode 22 (17 Nov, eb5704a); 45 was swapped for 46 in App Store review, and 22 was never sent (replaced by 23). Build 44 / 21 (c834400) and 43 / 20 (07076c9).

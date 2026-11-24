@@ -88,7 +88,7 @@ export async function makePdf(d: DocData, a: Assets): Promise<Uint8Array> {
   const bw = text(big, M, y, F.bold, 34, C.ink);
   text(stmt ? "credit now" : d.pending === "checking" ? "being checked" : d.pending === "waiting" ? "not paid yet" : receipt ? "paid in full" : `due ${d.due}`, M + bw + 12, y + 2, F.med, 17, C.emerald);
   y -= 18;
-  text(stmt ? `${d.title ?? "Your payments"}. Newest first.` : d.kind === "payment" ? (d.pending === "checking" ? `${d.title ?? ""}. We're checking your transfer with our bank, usually within a day.` : d.pending === "waiting" ? `${d.title ?? ""}. We haven't received this transfer yet.` : `Thank you. ${d.title ?? ""}.`) : receipt ? "Thank you. This receipt is for the invoice below." : (d.title ?? "Connection fees for jobs booked on Mahi Man."), M, y, F.light, 10.5, C.body);
+  text(stmt ? `${d.title ?? "Your payments"}. Newest first.` : d.kind === "payment" ? (d.pending === "checking" ? `${d.title ?? ""}. We're checking your transfer with our bank, usually within a day.` : d.pending === "waiting" ? `${d.title ?? ""}. We haven't received this transfer yet.` : `Thank you. ${d.title ?? ""}.`) : receipt ? "Thank you. This receipt is for the invoice below." : (d.title ?? "Booking fees for jobs booked on Mahi Man."), M, y, F.light, 10.5, C.body);
 
   // Lines. Long invoices carry on to more pages, each with the column headings again.
   y -= 34;

@@ -15,16 +15,16 @@ Post a job, pick who comes, watch them arrive. Or earn doing jobs.
 Get the help you need within minutes, anywhere in Australia. Or earn by doing jobs.
 
 GET HELP
-Post a job in a minute. Add photos, a video or just say what you need and Mahi Man writes it up for you. Set your price and what's included. Workers who are switched on nearby get an alert straight away.
+Post a job in a minute. Add photos, a video or just say what you need and Mahi Man writes it up for you. Set your price. Post it, and everyone available nearby gets alerted now.
 
-Pick who comes. Before you choose, see each worker's photo, skills, verified licences, how often they turn up on time, and how past customers rated them. Message them in the app; your phone number and email are never shown.
+Pick who comes. Sort by cheapest, highest rated or earliest arrival. Before you choose, see each worker's photo, skills, verified licences, how often they turn up on time, and how past customers rated them. Message them in the app; your phone number and email are never shown.
 
 Watch them on the way. When your worker taps I'm on my way, you see them on a map until they arrive.
 
-Pay when it's done. You pay your worker directly by bank transfer or cash once the job is finished, never before. Mahi Man's connection fee is shown before you post: pay as you go, top up your balance for a lower fee, or join Plus if you book every week. Workers keep 100%.
+Pay when it's done. You pay your worker directly by bank transfer or cash once the job is finished, never before. $5 to $20 to book. Use it a lot? Plus is $27 a month with no booking fees.
 
 DO WORK
-Pick the jobs you're good at, switch on when you're free and take only the jobs you want. Workers keep 100% of the job price. Jobs that need a licence, like electrical work or an RSA, only go to workers whose licence we've checked.
+Jobs near you, straight to your phone. Mahi Man takes 20%, never more than $200 a job. Or go Premium for $97 a month and keep 100%. Switch on when you're free and take only the jobs you want. Jobs that need a licence, like electrical work or an RSA, only go to workers whose licence we've checked.
 
 JOBS PEOPLE POST
 Cleaning, moving and lifting, rubbish and tip runs, garden, furniture assembly, handyman, pets, errands, events, babysitting and tutoring, tech help, and anything else you need a hand with.
@@ -53,7 +53,7 @@ One account does both. Switch between Get help and Do work whenever you like.
 **Privacy policy**: as above.
 
 **App access**: "All or some functionality is restricted." Instructions for the reviewer:
-> Sign in details ("Store review account"): username review@mahiman.app, password = the code in `~/Mahi Man Android Keys/store-review-sign-in.txt`. Instructions: No email is needed for this account. Open the app, tap Get help > Post a job (or Do work > Start earning), enter review@mahiman.app and tap Email me a code. On the next screen type the 6-digit code given as the password above. Browsing jobs works without signing in. There are no in-app card payments in this version. Customers pay workers directly, and Mahi Man's connection fee for the service is invoiced and paid by bank transfer (Settings > Payments). Digital purchases: none.
+> Sign in details ("Store review account"): username review@mahiman.app, password = the code in `~/Mahi Man Android Keys/store-review-sign-in.txt`. Instructions: No email is needed for this account. Open the app, tap Get help > Post a job (or Do work > Start earning), enter review@mahiman.app and tap Email me a code. On the next screen type the 6-digit code given as the password above. Browsing jobs works without signing in. There are no in-app card payments in this version. Customers pay workers directly, and Mahi Man's booking fee for the service is invoiced and paid by bank transfer (Settings > Payments). Digital purchases: none.
 
 **Ads**: No, the app has no ads.
 
@@ -66,7 +66,7 @@ One account does both. Switch between Get help and Do work whenever you like.
 
 **Target audience**: 18 and over only. Not designed for children.
 
-**News app**: No. **COVID-19 app**: No. **Government app**: No. **Financial features**: None. The connection fee is a fee for a real-world service, invoiced and paid by bank transfer; the app holds no money and offers no financial products. When Stripe card top-ups go on, update this to "Payments: service fees processed by a third party".
+**News app**: No. **COVID-19 app**: No. **Government app**: No. **Financial features**: None. The booking fee is a fee for a real-world service, invoiced and paid by bank transfer; the app holds no money and offers no financial products. When Stripe card top-ups go on, update this to "Payments: service fees processed by a third party".
 
 **Health apps**: No.
 
@@ -95,7 +95,7 @@ Data is encrypted in transit: **Yes**. Users can request deletion: **Yes**. No d
 | Personal info: Other info (date of birth, gender, nationality, how they heard about us; plus ID type, ABN, licences for workers) | Yes | Required | App functionality, Analytics, Fraud prevention, security and compliance |
 | Financial info: Payment info (card brand, last 4, via Stripe) | Yes | Optional | App functionality |
 | Financial info: Other financial info (worker PayID or bank account) | Yes | Required for workers | App functionality |
-| Financial info: Purchase history (connection fee invoices, top-ups, balance) | Yes | Required for customers who book | App functionality |
+| Financial info: Purchase history (booking fee and worker fee invoices, balance) | Yes | Required for customers who book | App functionality |
 | Location: Approximate location | Yes | Optional | App functionality |
 | Location: Precise location | Yes | Optional | App functionality |
 | Messages: Other in-app messages | Yes | Optional | App functionality |

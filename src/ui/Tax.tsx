@@ -55,7 +55,7 @@ export function TaxDetails({ onBack, onBank }: { onBack: () => void; onBank: () 
           {row("Date of birth", t.birth_date ? dob(t.birth_date) : null, "From your ID check", { lock: true })}
           {row("Home address", address, "Add your address", { go: () => setAddr(true) })}
           <label className="of-r tx-r"><span className="of-k">{t.tradie ? "ABN" : "ABN (if you have one)"}</span>
-            <input className="of-v of-in" inputMode="numeric" value={abnNow} placeholder={t.tradie ? "Needed for trade jobs" : "Optional"} maxLength={14}
+            <input className="of-v of-in" inputMode="numeric" value={abnNow} placeholder={t.tradie ? "Needed for licensed jobs" : "Optional"} maxLength={14}
               onChange={(e) => setAbn(e.target.value.replace(/[^\d ]/g, ""))} /></label>
           {!changed && t.abn && t.abn_name && <div className={`tx-abn${t.abn_status === "active" ? "" : " off"}`}>{t.abn_status === "active" ? Icon.tick("var(--emerald)", 18) : Icon.x("currentColor")}<span>{t.abn_name}, {t.abn_status === "active" ? "active" : "cancelled"}</span></div>}
           {row("Bank account", bank, "Add your bank account", { go: onBank })}

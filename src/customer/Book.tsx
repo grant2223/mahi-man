@@ -2,7 +2,7 @@ import { connFee } from "../lib/fee";
 import { AlertsBell } from "../ui/Alerts";
 import { areaSuburbs } from "../lib/suburbs";
 import { FeePayScreen, OwedBanner, useOwed, type OwedFee } from "./Fees";
-import { claimGifts, InvoiceBanner, useDueInvoices, usePayments } from "../ui/Payments";
+import { claimGifts, InvoiceBanner, useBookingPrices, useDueInvoices, usePayments } from "../ui/Payments";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { api, avatarUrl, firstPhoto, mediaUrls, rpc, sb, type Category, type JobType, type Suburb } from "../lib/supabase";
 import { useSession } from "../lib/session";
@@ -22,6 +22,7 @@ import { loadMapKit } from "../ui/LiveMap";
 import { SetSide, SideSwitch } from "../ui/SideSwitch";
 import { TabBar } from "../ui/TabBar";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
+import { UpsellScreen, upsellStatus, wantsPlusUpsell, type UpsellStatus } from "../ui/Upsell";
 import { PhotoStep } from "../worker/Signup";
 import { AreaPin, ComingSoon, isSoon, useArea, useChangeArea, useHere } from "../lib/area";
 
@@ -63,7 +64,7 @@ export function Book() {
         .map((k) => ({ id: k.id, category_id: k.category_id, name: k.name, needs: k.credential_types?.name ?? null, licence: k.credential_types?.trade ? k.credential_types.name : null, trade: !!k.trade }))));
   }, []);
   const [suburbs, setSuburbs] = useState<Suburb[]>([]);
-  const [fee, setFee] = useState(15);
+  const [fee, setFee] = useState(20);
   const [pilot, setPilot] = useState(true);
   const [feeSetting, setFeeMode] = useState("off");
   // Fees always apply. During the pilot they're invoiced and paid by bank transfer; after it, the fee setting decides (card through Stripe).
@@ -74,9 +75,9 @@ export function Book() {
   const photoAdded = useRef(false);
   const [verifyScreen, setVerifyScreen] = useState(false);
   const verifySent = useRef(false);
-  const [feePct, setFeePct] = useState(15);
-  const [feeMin, setFeeMin] = useState(995);
-  const [feeMax, setFeeMax] = useState(5995);
+  const [feePct, setFeePct] = useState(20);
+  const [feeMin, setFeeMin] = useState(500);
+  const [feeMax, setFeeMax] = useState(2000);
   const [d, setD] = useState<Draft>(() => { try { return { ...blank, ...JSON.parse(sessionStorage.getItem(DRAFT_KEY) || "{}") }; } catch { return blank; } });
   const [media, setMedia] = useState<(DraftItem & { url: string })[]>([]);
   const [reuseUrls, setReuseUrls] = useState<Record<string, string>>({});
@@ -141,11 +142,11 @@ export function Book() {
   const qty = unit === "fixed" ? 1 : d.unitQty ?? 1;
   const jobCents = unit === "fixed" ? d.priceCents : Math.round(d.priceCents * qty);
   const total = jobCents + Math.round((jobCents * fee) / 100);
-  // Invoice mode: the connection fee is billed when the customer selects a worker, at the rate their plan gives them.
+  // Invoice mode: the booking fee is billed when the customer selects a worker, at the rate their plan gives them.
   const { p: payInfo } = usePayments(feeMode === "invoice" && !!session);
   const invoiceFee = (() => {
     if (feeMode !== "invoice" || isTrade) return null;
-    const r = payInfo?.rates ?? { payg: feePct, payg_min: feeMin, payg_max: feeMax, topup: 0, topup_min: 0, plus: 0, plus_min: 0, plus_max: 0 };
+    const r = payInfo?.rates ?? { payg: feePct, payg_min: feeMin, payg_max: feeMax, plus: 0, plus_min: 0, plus_max: 0 };
     const amt = (pct: number, min: number, max?: number) => connFee(jobCents, pct, min, max);
     const plan = (payInfo?.plan ?? "now") as "now" | "weekly" | "fortnightly";
     if (payInfo?.senior) return { cents: 0, pct: 0, min: false, from: "senior" as const };
@@ -159,6 +160,7 @@ export function Book() {
     return { cents: c, pct: r.payg, min, from: plan };
   })();
   const bookingFee = feeMode === "on_choose" && !isTrade ? connFee(jobCents, feePct, feeMin, feeMax) : 0;
+  const plusNow = !!profile?.plus_until && new Date(profile.plus_until) > new Date();
   const photos = media.filter((m) => m.kind === "photo");
   const video = media.find((m) => m.kind === "video") ?? null;
   const reusedPhotos = d.reuse.filter((r) => r.kind === "photo");
@@ -325,6 +327,8 @@ export function Book() {
   }
   const removeReused = (p: string) => setD({ ...d, reuse: d.reuse.filter((r) => r.path !== p) });
 
+  const upsellDone = useRef(false);
+  const [upsell, setUpsell] = useState<UpsellStatus | null>(null);
   async function book() {
     if (!isTrade && !d.payMethod) { setPickMethod(true); return; }
     setErr("");
@@ -343,6 +347,12 @@ export function Book() {
     if (profile?.id_status !== "verified" && profile?.id_status !== "pending" && !verifySent.current) {
       const g = await rpc<{ verify_now: boolean } | null>("booking_gate").catch(() => null);
       if (g?.verify_now) { setVerifyScreen(true); return; }
+    }
+    // Their 2nd job this month: what they've paid in booking fees, and Plus. Once a month; Not now posts the job.
+    if (!upsellDone.current) {
+      upsellDone.current = true;
+      const s = await upsellStatus().catch(() => null);
+      if (wantsPlusUpsell(s)) { setUpsell(s); return; }
     }
     setBusy(true);
     try {
@@ -529,7 +539,7 @@ export function Book() {
         {(() => {
           const jobName = d.title?.trim() || jobSkills.map((k) => k.name).join(", ") || cat?.name || "The job";
           const when = d.asap ? "Now" : new Date(d.startAt).toLocaleString("en-AU", { weekday: "long", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
-          // The connection fee Mahi Man charges. Invoiced (bank transfer) in the pilot, by card after it.
+          // The booking fee Mahi Man charges. Invoiced (bank transfer) in the pilot, by card after it.
           const connCents = invoiceFee ? invoiceFee.cents : bookingFee > 0 ? bookingFee : connFee(jobCents, feePct, feeMin, feeMax);
           const connCharged = !isTrade && (invoiceFee ? true : bookingFee > 0);
           return (<>
@@ -568,9 +578,13 @@ export function Book() {
             <section className="cp2-rows">
               <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/when-where"); }}>{Icon.clock("var(--emerald)", 22)}<span>When</span><b>{when}</b>{Icon.chevron("var(--muted)")}</button>
               <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/when-where"); }}>{Icon.pin("var(--emerald)")}<span>Where</span><b className={d.address?.trim() ? "" : "ph"}>{[d.address?.trim(), suburb?.name].filter(Boolean).join(", ") || "Add the address"}</b>{Icon.chevron("var(--muted)")}</button>
-              {isTrade ? (
-                <div className="cp2-pay">{Icon.card("var(--emerald)")}<span>Price</span><b className="cp2-q">Tradies quote you</b><small>Select a quote and pay the tradie directly. $0 fee.</small></div>
-              ) : (<>
+              {isTrade ? (<>
+                <div className="cp2-pay">{Icon.card("var(--emerald)")}<span>Price</span><b className="cp2-q">Businesses quote you</b><small>Select a quote and pay the business directly.</small></div>
+                <div className="cp2-fee">
+                  <span>Booking fee <b>{invoiceFee?.from === "senior" || plusNow ? "Free" : `${money(feeMin)} to ${money(feeMax)}`}</b>, only when you select someone</span>
+                  <button className="ck-i" onClick={() => go("/pricing")} aria-label="How the fee works">{Icon.help("currentColor", 20)}</button>
+                </div>
+              </>) : (<>
                 <button className="qk-row" onClick={() => { retTo("/book/check"); go("/book/w-price"); }}>{Icon.card("var(--emerald)")}<span>Price</span><b>{priceWords({ price_cents: jobCents, price_unit: unit, unit_price_cents: d.priceCents })}{unit !== "fixed" && <small className="cp2-sub">{priceAbout({ price_cents: jobCents, price_unit: unit, unit_price_cents: d.priceCents, unit_qty: qty })}</small>}</b>{Icon.chevron("var(--muted)")}</button>
                 <button className="qk-row" onClick={() => setPickMethod(true)}>{Icon.doc("var(--emerald)", 22)}<span>Pay by</span><b>{PAY_METHODS.find((m) => m.id === d.payMethod)?.short ?? ""}</b>{Icon.chevron("var(--muted)")}</button>
                 {(() => {
@@ -579,7 +593,7 @@ export function Book() {
                 })()}
                 <button className="qk-row" onClick={() => setPickRepeat(true)}>{Icon.repeat("var(--emerald)")}<span>Repeat</span><b className={d.repeatWeeks ? "" : "ph"}>{REPEATS.find((r) => r.v === (d.repeatWeeks ?? 0))!.label}</b>{Icon.chevron("var(--muted)")}</button>
                 <div className="cp2-fee">
-                  <span>Mahi Man fee <b>{invoiceFee?.from === "senior" ? "Free" : connCharged ? money2(connCents) : "Free"}</b>, only when you select a worker</span>
+                  <span>Booking fee <b>{invoiceFee?.from === "senior" || plusNow ? "Free" : connCharged ? money2(connCents) : "Free"}</b>, only when you select someone</span>
                   <button className="ck-i" onClick={() => go("/pricing")} aria-label="How the fee works">{Icon.help("currentColor", 20)}</button>
                 </div>
                 {bookingFee > 0 && session && <button className="qk-row" onClick={() => setCardScreen(true)}>{Icon.card("var(--emerald)")}<span>Card</span><b>{profile?.card_last4 ? cardLabel(profile) : "Add a card"}</b>{Icon.chevron("var(--muted)")}</button>}
@@ -607,6 +621,7 @@ export function Book() {
           </div>
           <span className="ck-terms">{discard ? "This job and its photos will be deleted." : <>By posting, you agree to the <a href="/terms" onClick={(e) => { e.preventDefault(); go("/terms"); }}>terms and conditions</a>.</>}</span>
         </div>
+        {upsell && <UpsellScreen kind="plus" s={upsell} onSelect={() => { setUpsell(null); go("/plus"); }} onLater={() => { setUpsell(null); book(); }} />}
         {pickWho === "people" && <SearchPicker title="Ask first" multi placeholder="Search by name" value={d.invited}
           options={past.map((p) => ({ id: p.worker_id, label: p.full_name, hint: p.jobs_for_me ? `Did ${p.jobs_for_me} job${p.jobs_for_me === 1 ? "" : "s"} for you` : "Saved from their code" }))}
           onClose={() => setPickWho(null)} onChange={(v) => { setD({ ...d, invited: v.map(String) }); if (v.length) window.setTimeout(() => setPickWho("after"), 0); }} />}
@@ -706,6 +721,8 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
   const soon = isSoon(useArea().area);
   const { profile: me } = useSession();
   const onPlus = !!me?.plus_until && new Date(me.plus_until) > new Date();
+  const bp = useBookingPrices();
+  const plusPrice = `${money(bp.month)} a month`;
   const [recent, setRecent] = useState<Recent[] | null>(null);
   const feedOffer = useFeedOffer(true, "help");
   useEffect(() => {
@@ -781,7 +798,7 @@ function PostHome({ cats, signedIn, uid, onStart }: { cats: Category[]; signedIn
         {signedIn && !onPlus && !soon && (
           <button className="plus-band" onClick={() => go("/plus")}>
             <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.6 1.9 3.2-.1 1 3.1 2.6 1.9-1 3.1 1 3.1-2.6 1.9-1 3.1-3.2-.1L12 22.5l-2.6-1.9-3.2.1-1-3.1-2.6-1.9 1-3.1-1-3.1 2.6-1.9 1-3.1 3.2.1z" fill="#f5c518" /><path d="M12 7.5v9M7.5 12h9" stroke="#14211c" strokeWidth="2.4" strokeLinecap="round" /></svg>
-            <span><span className="pw">PLUS</span><b>Half fees, faster help</b><small>For our loyal customers</small></span>
+            <span><span className="pw">PLUS</span><b>No booking fees</b><small>{plusPrice}</small></span>
             <span className="go">Try it</span>
           </button>
         )}

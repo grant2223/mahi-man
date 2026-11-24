@@ -4,9 +4,11 @@ import { useSession } from "../lib/session";
 import { DeleteAccount } from "./Settings";
 import { go } from "../lib/router";
 import { StepHero } from "./kit";
+import { money } from "../lib/format";
+import { useSiteFees } from "./Landing";
 
 export const SUPPORT_EMAIL = "hello@mahiman.app";
-const UPDATED = "11 November 2026";
+const UPDATED = "24 November 2026";
 
 function Page({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -47,7 +49,7 @@ export function Privacy() {
         <li>Location when you open the app: your phone's location is used on your phone to open on your area and the jobs near you. It isn't sent to us.</li>
         <li>Setting your suburb: if you tap "Use my location" or move the map, that spot is sent to us only to find the suburb. We keep the suburb, not the spot.</li>
         <li>Location on the way to a job: when a worker taps "I'm on my way", their phone's location is shared with that job's customer until they enter the start code. It is never collected at any other time, and the trip is deleted when it ends. We keep where and when the trip started, and where the worker was when they tapped "I'm here", so we can settle a late arrival or a customer who wasn't home.</li>
-        <li>Trade jobs: each tradie's quote, what it includes and when they can come; a tradie's business name if they give one; whether they're on Standard or Premium, and their invoices and payments.</li>
+        <li>Licensed jobs: each business's quote, any note and when they can come; a business name if they give one. For every worker and business: whether they're on Premium, and their Mahi Man fee invoices and payments.</li>
         <li>Local offers: which partner offers you see, open and use (call, get directions or copy the code), counted once a day. Partners only ever see totals, never who you are.</li>
         <li>Partners: the business name, ABN, contact name, email, phone and offer a business sends us when it applies, and its invoices.</li>
         <li>Reliability and cancellations: when a job is cancelled, who cancelled, when, and any fee; a worker's strikes and their "Turns up" score; and any credit a customer has.</li>
@@ -58,14 +60,14 @@ export function Privacy() {
       <p>We do not track you across other apps or websites and we do not sell your information.</p>
       <h2>Why we use it</h2>
       <p>To match jobs with nearby workers, show each side who they are dealing with, keep people safe, handle reports and disputes, and meet our legal obligations.</p>
-      <p>Tax reporting: the law requires Mahi Man to report what workers and tradies earn on jobs through the app to the Australian Taxation Office twice a year. For each worker and tradie we send their name, date of birth, home address, email, phone, ABN if they have one, bank details, and their jobs and total earned in that half-year. We never ask for or keep a tax file number.</p>
+      <p>Tax reporting: the law requires Mahi Man to report what workers and businesses earn on jobs through the app to the Australian Taxation Office twice a year. For each worker and business we send their name, date of birth, home address, email, phone, ABN if they have one, bank details, and their jobs and total earned in that half-year. We never ask for or keep a tax file number.</p>
       <h2>Who sees what</h2>
       <ul>
         <li>Workers who can take a job see its photos, video, description, suburb and the customer's first name, last initial, photo, whether they are ID verified, and their average ratings and how many workers recommend them. The street address is only shown to the worker who takes the job.</li>
         <li>Customers see their worker's first name, last initial, photo, average ratings, how many customers recommend them, their "Turns up" score, skills, experience, gear, verified licences and whether they are ID verified. While the worker is on the way to their job, the customer also sees the worker's location on a map.</li>
         <li>A worker's work: customers who see that worker is available see the after photos from their finished jobs, with the suburb only and never the address, and the reviews they were given. The customer of each job can keep their after photos off it when they leave their review. Photos a worker adds of their own past work are always shown as added by them.</li>
-        <li>On trade jobs, the customer sees each tradie's quote, what it includes, when they can come and their business name. A customer and a tradie who sent a quote can message each other before the customer selects one.</li>
-        <li>A tradie's plan and invoices are only shown to that tradie and the Mahi Man team.</li>
+        <li>On licensed jobs, the customer sees each business's quote, any note, when they can come and their business name.</li>
+        <li>A worker's or business's plan and fee invoices are only shown to them and the Mahi Man team.</li>
         <li>A worker's strikes are only shown to that worker and the Mahi Man team.</li>
         <li>Phone numbers and email addresses are never shown to the other person.</li>
       </ul>
@@ -84,6 +86,7 @@ export function Privacy() {
 }
 
 export function Terms() {
+  const f = useSiteFees();
   return (
     <Page title="Terms of use">
       <p>These terms apply when you use Mahi Man ("we"). By creating an account you agree to them.</p>
@@ -108,22 +111,29 @@ export function Terms() {
         <li>Storms, emergencies and safety problems are handled through Get help, with no cancellation fee for either side.</li>
         <li>The amounts and times above can change. The app always shows what applies before you cancel.</li>
       </ul>
-      <h2>Connection fee</h2>
+      <h2>Fees for customers</h2>
       <ul>
-        <li>Customers pay Mahi Man a connection fee on each job that goes ahead: 15% of the job price, minimum $9.95 and never more than $59.95. With Plus it's half: 7.5%, from $4.95 to $29.95. The fee is shown before you post the job. Trade jobs have no customer fee. Workers keep 100% of the job price.</li>
-        <li>The fee is charged when you select a worker. If you cancel once your worker is on the way, the fee stays. If your worker cancels, or you cancel before they're on the way, it comes off your invoice, or back as credit if you've already paid it.</li>
-        <li>Customers aged 60 and over pay no connection fee and get Plus at no cost. It switches on automatically once your ID confirms your age.</li>
-        <li>Every job shows in the list of available jobs for workers nearby, newest first. Jobs posted by Plus members also send those workers an alert the moment they're posted.</li>
+        <li>Customers pay Mahi Man a booking fee on each job that goes ahead: {f.pct}% of the job price, minimum {money(f.min)} and never more than {money(f.max)}. It's the same on every kind of job, including licensed jobs, where it's worked out on the quote you select. The fee is shown before you post.</li>
+        <li>The fee is charged when you select someone. If you cancel once your worker is on the way, the fee stays. If your worker cancels, or you cancel before they're on the way, it comes off your invoice, or back as credit if you've already paid it.</li>
+        <li>Plus: {money(f.plus)} a month or {money(f.plusYear)} a year, with no booking fees on any job, and saved favourite workers. While we're in beta it's paid by bank transfer. Once you confirm you've paid, Plus is on for 24 hours while we check, and for the month or year from the day your payment is confirmed. If the payment doesn't arrive, Plus is switched off. A false or misleading confirmation may lead to your Plus membership being cancelled and your account being suspended. Plus doesn't renew by itself.</li>
+        <li>Customers aged 60 and over pay no booking fees and get Plus at no cost. It switches on automatically once your ID confirms your age.</li>
+        <li>Every job alerts everyone available nearby the moment it's posted, whoever posted it.</li>
         <li>Pay as you go: the fee is invoiced and paid by bank transfer, using the invoice number as the reference. You choose to be invoiced after each job (due in 3 days), weekly or every 2 weeks (made the evening before your payday and due on your payday). No fee waits more than about 2 weeks to be invoiced.</li>
         <li>If an invoice is not paid by its due date we send one reminder. If it is still unpaid 3 days after the due date, you can't post new jobs until it is paid.</li>
-        <li>Credit: you may get credit, for example when a worker cancels late. Gift cards work differently, see below. Connection fees are taken from your credit while it covers them. Credit only pays Mahi Man connection fees. It can't be used to pay workers, transferred, exchanged for cash or refunded, except where Australian Consumer Law requires it.</li>
-        <li>Plus: a yearly membership, paid upfront in one payment, with half the connection fee, alerts to nearby workers when you post, and saved favourite workers. While we're in beta it's paid by bank transfer. Once you confirm you've paid, Plus is on for 24 hours while we check, and for a year from the day your payment is confirmed. If the payment doesn't arrive, Plus is switched off. A false or misleading confirmation may lead to your Plus membership being cancelled and your account being suspended. Plus doesn't renew by itself.</li>
-        <li>Mahi Man is owned and operated by Find Fit People Pty Ltd, which is not registered for GST, so no GST is charged on our fees or memberships. Rates, minimums, caps and prices are shown on the How you pay page and can change; the fee shown when you post a job is the one that applies to it.</li>
-        <li>By saving a card you allow us to charge the connection fees and purchases you agree to. You can remove a saved card at any time in the app, under You, Payment methods.</li>
+        <li>Credit: you may get credit, for example when a worker cancels late. Gift cards work differently, see below. Booking fees are taken from your credit while it covers them. Credit only pays Mahi Man booking fees. It can't be used to pay workers, transferred, exchanged for cash or refunded, except where Australian Consumer Law requires it.</li>
+        <li>By saving a card you allow us to charge the booking fees and purchases you agree to. You can remove a saved card at any time in the app, under You, Payment methods.</li>
       </ul>
+      <h2>Fees for workers and businesses</h2>
+      <ul>
+        <li>One rule for everyone who works on Mahi Man: when a customer selects you, Mahi Man takes {f.wpct}% of the agreed job price, never more than {money(f.wmax)} a job. It's invoiced when you're selected and payable by bank transfer within 7 days, with a reminder before it's due. If the job then doesn't go ahead through no fault of yours, the fee is cancelled.</li>
+        <li>Owing {money(f.block)} or more in Mahi Man fees stops you saying you're available and sending quotes until it's paid. The app shows what you owe and how to pay it.</li>
+        <li>Premium: {money(f.pmonth)} a month or {money(f.pyear)} a year, and Mahi Man takes nothing on any job. Monthly and yearly Premium renew until stopped, with no contract. If stopped, Premium runs to the end of what's paid. Until card payments start, Premium is paid by bank transfer and starts once it's paid. If a renewal isn't paid within 7 days, you go back to paying per job.</li>
+        <li>Customers pay you the job price directly, by bank transfer or cash. Mahi Man never holds your money, except for jobs paid by gift card (see below).</li>
+      </ul>
+      <p>Mahi Man is owned and operated by Find Fit People Pty Ltd, which is not registered for GST, so no GST is charged on our fees or memberships. Rates, minimums, caps and prices are shown in the app and can change with notice; the fee shown when a job is posted or a quote is selected is the one that applies to it.</p>
       <h2>Gift cards</h2>
       <ul>
-        <li>A Mahi Man gift card pays for jobs booked on Mahi Man: the price agreed with the worker, any approved extras, and the connection fee. It can't be swapped for cash.</li>
+        <li>A Mahi Man gift card pays for jobs booked on Mahi Man: the price agreed with the worker, any approved extras, and the booking fee. It can't be swapped for cash.</li>
         <li>Each gift card lasts 3 years from the day it's paid for. The expiry date is shown with the gift code. There are no fees once it's bought.</li>
         <li>A gift card is added to one Mahi Man account, by opening its link, entering its code, or signing up with the email it was sent to. Keep the code private: anyone with it can add it to their account.</li>
         <li>When a job paid by a gift card is finished, Mahi Man holds the money until the customer confirms the job is done, or 2 days pass without a report, and then pays the worker on the following Friday. If the job doesn't go ahead or is refunded, the money goes back onto the gift card.</li>
@@ -136,17 +146,12 @@ export function Terms() {
         <li>We remind the worker 30 days before their licence runs out. If it lapses, they stop getting driving jobs until the new one is checked.</li>
         <li>Driving jobs are for goods only. Mahi Man doesn't offer passenger transport: no job on Mahi Man is for driving people anywhere.</li>
       </ul>
-      <h2>Trade jobs</h2>
+      <h2>Licensed jobs</h2>
       <ul>
-        <li>A trade job is work done by a tradie at the customer's place, such as landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, electrical, plumbing and gas work, air conditioning, bond cleaning, carpet cleaning, pressure washing, window cleaning, a mobile mechanic, appliance repair and locksmithing. The tradie always comes to the customer. Mahi Man decides which kinds of work are trade jobs. Lawn mowing, yard tidy-ups, regular house cleaning, moving help, rubbish and tip runs, flat-pack assembly and small handyman jobs stay normal jobs: the customer sets the price and workers take them; tradies and businesses don't quote on them.</li>
-        <li>A tradie quotes once their tradie profile is complete: sole trader or company, ABN, business name, address, phone and email, and their services. Only tradies whose ABN and public liability insurance we have checked can quote on a trade job. Work that always needs a licence, such as electrical, plumbing, gas, air conditioning (a refrigerant handling licence) or locksmith work, also needs that licence checked. A tradie can also take normal jobs at the customer's price, like any other worker. In Queensland, a quote over $3,300 for building work, including labour, materials and GST, needs a QBCC licence; under $3,300, an ABN and insurance are enough.</li>
-        <li>The customer describes the job and adds photos. Tradies each send a fixed quote, what it includes and when they can come. The quote the customer selects becomes the job's fixed price, and the customer pays the tradie directly. Customers pay Mahi Man nothing for trade jobs.</li>
-        <li>Tradies are on Standard or Premium. Standard is free to join and free to quote. When a customer selects a Standard tradie's quote, Mahi Man invoices the tradie a fee of 12.5% of the quote, never more than $250 a job, payable within 7 days. Premium is $249 a month or $2,499 a year, with no fee on jobs won. Mahi Man never takes a commission.</li>
-        <li>Limited launch offer: one payment of $999 for lifetime Premium. Lifetime means for as long as the tradie's account stays open and Mahi Man runs trade jobs. Nothing renews and there's nothing to stop. It belongs to the tradie's account and can't be transferred. The offer is limited and Mahi Man can end it at any time; anyone who has already paid keeps it.</li>
-        <li>Money-back guarantee on the launch offer: a tradie who isn't happy can ask for their money back by emailing hello@mahiman.app within 90 days of the payment being confirmed. We refund the full $999 by bank transfer to the account it was paid from, usually within 5 business days, and lifetime Premium ends when the refund is made. The tradie stays on Standard from then on. The guarantee applies once per tradie and per business. It doesn't limit any rights you have under Australian Consumer Law.</li>
-        <li>Premium tradies get job alerts first and their quotes are listed first, so they always have a place in the first 10 quotes a customer sees. If no Premium tradie responds to a job within 10 minutes, it goes out to Standard tradies; otherwise Standard tradies can quote after an hour. A job takes a set number of quotes at first, and more open over time until the customer selects one.</li>
-        <li>Monthly and yearly Premium renew until stopped, with no contract. If stopped, Premium runs to the end of what's paid. Until card payments start, tradie fees and Premium are paid by bank transfer, and Premium starts once it's paid. If a renewal isn't paid within 7 days, the tradie moves to Standard. Prices include GST where it applies and can change with notice in the app.</li>
-        <li>Once a customer selects a tradie, the job follows the same rules as every other job, including Cancelling.</li>
+        <li>A licensed job is work done by a business at the customer's place, such as landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, electrical, plumbing and gas work, air conditioning, bond cleaning, carpet cleaning, pressure washing, window cleaning, a mobile mechanic, appliance repair and locksmithing. The business always comes to the customer. Mahi Man decides which kinds of work are licensed jobs. Lawn mowing, yard tidy-ups, regular house cleaning, moving help, rubbish and tip runs, flat-pack assembly and small handyman jobs stay normal jobs: the customer sets the price and workers take them.</li>
+        <li>A business quotes once its business profile is complete: sole trader or company, ABN, business name, address, phone and email, and its services. Only businesses whose ABN and public liability insurance we have checked can quote on a licensed job. Work that always needs a licence, such as electrical, plumbing, gas, air conditioning (a refrigerant handling licence) or locksmith work, also needs that licence checked. A business can also take normal jobs at the customer's price, like any other worker. In Queensland, a quote over $3,300 for building work, including labour, materials and GST, needs a QBCC licence; under $3,300, an ABN and insurance are enough.</li>
+        <li>The customer describes the job and adds photos. Every business available nearby is alerted at once and can send a fixed quote and when they can come. The quote the customer selects becomes the job's fixed price, and the customer pays the business directly. The fees are the same as on every other job.</li>
+        <li>Once a customer selects a business, the job follows the same rules as every other job, including Cancelling.</li>
       </ul>
       <h2>Local offers</h2>
       <ul>
@@ -159,10 +164,10 @@ export function Terms() {
         <li>Some skills need a licence or certificate, such as an electrical licence or an RSA. Only workers whose licence we have checked and is in date can take those jobs. Workers must keep their licences current and tell us if one is suspended or cancelled.</li>
         <li>A worker's location is shared with the customer only between tapping "I'm on my way" and entering the start code.</li>
       </ul>
-      <h2>Workers, tradies and tax</h2>
+      <h2>Workers, businesses and tax</h2>
       <ul>
-        <li>Workers and tradies are independent contractors, not employees of Mahi Man or of the customer. You are responsible for your own tax, including declaring what you earn, and for GST if you are registered for it.</li>
-        <li>Mahi Man reports what you earn on jobs through the app to the Australian Taxation Office twice a year, as required by law (the Sharing Economy Reporting Regime). Keep your tax details in Settings up to date: your home address, your ABN if you have one (tradies must have one) and your bank details.</li>
+        <li>Workers and businesses are independent contractors, not employees of Mahi Man or of the customer. You are responsible for your own tax, including declaring what you earn, and for GST if you are registered for it.</li>
+        <li>Mahi Man reports what you earn on jobs through the app to the Australian Taxation Office twice a year, as required by law (the Sharing Economy Reporting Regime). Keep your tax details in Settings up to date: your home address, your ABN if you have one (businesses must have one) and your bank details.</li>
         <li>We never ask for your tax file number. If your tax details are missing we'll remind you; your account keeps working.</li>
       </ul>
       <h2>Your account</h2>

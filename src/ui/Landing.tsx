@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { rpc, sb, type Category } from "../lib/supabase";
-import { money, money2 } from "../lib/format";
+import { money } from "../lib/format";
 import { pctLabel } from "../lib/fee";
 import { go } from "../lib/router";
 import { CatIcon, Icon, Logo } from "./kit";
@@ -35,42 +35,63 @@ const USES: [string, string, string][] = [
 ];
 
 // Every answer here is how the platform actually works (the terms and privacy policy say the same). Fees and windows come from the live settings.
-type Fee = { pct: number; min: number; max: number; plmax: number; plus: number; pl: number; plmin: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number; tpct: number; tmax: number; tmonth: number; tyear: number; tafter: number; tquiet: number };
+type Fee = { pct: number; min: number; max: number; plus: number; plusYear: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number;
+  wpct: number; wmax: number; pmonth: number; pyear: number; block: number; widen: number; tquiet: number };
+const FEE0: Fee = { pct: 20, min: 500, max: 2000, plus: 2700, plusYear: 27000, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3,
+  wpct: 20, wmax: 20000, pmonth: 9700, pyear: 97000, block: 5000, widen: 10, tquiet: 48 };
+// The live prices and rules, from the settings Admin edits. Every number on the website comes from here.
+export function useSiteFees() {
+  const [fee, setFee] = useState<Fee>(FEE0);
+  useEffect(() => {
+    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "booking_fee_max_cents", "plus_cents", "plus_year_cents", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
+      "noshow_wait_minutes", "worker_cancel_window_minutes", "strikes_offline_30", "offline_days", "strikes_review_90", "customer_late_cancels_30",
+      "provider_fee_percent", "provider_fee_max_cents", "premium_month_cents", "premium_year_cents", "provider_block_owing_cents", "widen_after_minutes", "trade_quiet_hours"]).then(({ data }) => {
+      const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
+      setFee((f) => ({ pct: m.booking_fee_percent || f.pct, min: m.booking_fee_min_cents || f.min, max: m.booking_fee_max_cents || f.max, plus: m.plus_cents || f.plus, plusYear: m.plus_year_cents || f.plusYear,
+        cancel: m.cancel_fee_cents || f.cancel, soon: m.worker_late_cancel_cents || f.soon, late: m.late_minutes || f.late, wait: m.noshow_wait_minutes || f.wait,
+        window: m.worker_cancel_window_minutes || f.window, s30: m.strikes_offline_30 || f.s30, off: m.offline_days || f.off, s90: m.strikes_review_90 || f.s90,
+        lc30: m.customer_late_cancels_30 || f.lc30, wpct: m.provider_fee_percent || f.wpct, wmax: m.provider_fee_max_cents || f.wmax, pmonth: m.premium_month_cents || f.pmonth, pyear: m.premium_year_cents || f.pyear,
+        block: m.provider_block_owing_cents || f.block, widen: m.widen_after_minutes || f.widen, tquiet: m.trade_quiet_hours || f.tquiet }));
+    });
+  }, []);
+  return fee;
+}
+// The two lines that say it all, word for word wherever pricing is explained.
+export const customerLine = (f: Fee) => `Post it, and everyone available nearby gets alerted now. ${money(f.min)} to ${money(f.max)} to book. Use it a lot? Plus is ${money(f.plus)} a month with no booking fees.`;
+export const workerLine = (f: Fee) => `Jobs near you, straight to your phone. Mahi Man takes ${pctLabel(f.wpct)}, never more than ${money(f.wmax)} a job. Or go Premium for ${money(f.pmonth)} a month and keep 100%.`;
 const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
   ["Getting help", [
-    ["How fast can someone come?", "The moment you post, workers who are switched on near you get an alert. If nobody says they're keen within 10 minutes, workers further out can see your job too."],
+    ["How fast can someone come?", `The moment you post, everyone available near you gets an alert, all at the same time. If nobody says they're keen within ${fee.widen} minutes, workers further out are alerted too.`],
     ["What jobs can I post?", "Almost anything: cleaning, garden, moving, rubbish, handyman, personal training, haircuts, beauty, cooking, social media, design, websites, photos and video, admin, bookkeeping and more. See all services on mahiman.app/services. No passenger transport."],
     ["Who sets the price?", "You do. Your price covers what you list as included. Anything extra needs your OK in the app before it's done."],
-    ["Do I get to choose who comes?", "Yes. People who are available say they're keen, and you see their photo, skills, verified licences, how often they turn up, and how past customers rated them before you choose one."],
+    ["Do I get to choose who comes?", "Yes. People who are available say they're keen, and you see their photo, skills, verified licences, how often they turn up, and how past customers rated them. Sort by cheapest, highest rated or earliest arrival, then choose."],
     ["Can I post jobs and do work?", "Yes. One account does both. Switch between Get help and Do work any time."],
   ]],
   ["Doing work", [
     ["Who can work on Mahi Man?", "Anyone 18 or over with their real name and photo. You verify your ID before you take your first job."],
     ["Do I need an ABN?", "No. You can start without one."],
-    ["Do you take a cut of my pay?", "No. Workers keep 100% of the job price, now and after launch. The connection fee is paid by the customer."],
-    ["How do I get paid?", "The customer pays you directly by bank transfer or cash when the job is finished. You keep 100% of the job price."],
+    ["What does Mahi Man take?", `${pctLabel(fee.wpct)} of the agreed price, never more than ${money(fee.wmax)} a job, and only when a customer selects you. We invoice it and you have 7 days to pay. Owing ${money(fee.block)} or more pauses new jobs until it's paid. Or go Premium for ${money(fee.pmonth)} a month (${money(fee.pyear)} a year) and keep 100%.`],
+    ["How do I get paid?", "The customer pays you directly by bank transfer or cash when the job is finished."],
     ["Can I choose when I work?", "Yes. Switch on when you're available, take only the jobs you want, and switch off when you're done."],
     ["What about jobs that need a licence?", "Electrical work, an RSA and similar jobs only go to workers whose licence we've checked and is in date."],
     ["Can I do deliveries?", "Yes, once we've checked your driver licence. Pick-up and delivery, moving and tip runs only go to licensed drivers. Goods only, never passengers."],
   ]],
-  ["Trade jobs", [
-    ["What's a trade job?", "Work for a tradie at your place: landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, electrical, plumbing, gas, pest control, air conditioning, bond cleaning, carpet cleaning, pressure washing, window cleaning, a mobile mechanic, appliance repair and locksmiths. Tradies quote a fixed price and come to you."],
+  ["Licensed jobs", [
+    ["What's a licensed job?", "Work for a business at your place: landscaping, carpentry, concreting, roofing, painting, tiling, fencing, decking, electrical, plumbing, gas, pest control, air conditioning, bond cleaning, carpet cleaning, pressure washing, window cleaning, a mobile mechanic, appliance repair and locksmiths. Businesses quote a fixed price and come to you."],
     ["Which jobs stay normal jobs?", "Lawn mowing, yard tidy-ups, regular house cleaning, moving help, rubbish and tip runs, flat-pack assembly and small handyman jobs. You set the price and local workers take them."],
-    ["Who can quote?", "Tradies with a complete tradie profile, whose ABN and insurance we've checked. Licensed work like electrical, plumbing, air conditioning or locksmith work needs that licence too, and in Queensland any quote over $3,300 for building work needs a QBCC licence."],
-    ["How do I get a quote?", "Post the job with photos. Tradies send you a fixed quote, what it includes and when they can come. Select one, or say no to all of them."],
-    ["Can I ask the tradie questions first?", "Yes. Message any tradie from their quote before you select one. Your number is never shared."],
-    ["What does it cost me?", "Nothing to Mahi Man. You pay the tradie their quote directly when the job's done."],
-    ["I'm a tradie. How does it work?", <>Join free on Standard and get job alerts on your phone. If a customer selects your quote, the fee is {fee.tpct / 100}% of it, never more than {money(fee.tmax)}.
-      Or go Premium for {money(fee.tmonth)} a month or {money(fee.tyear)} a year: alerts first, a guaranteed place in the first 10 quotes and $0 when you win. Standard members get new jobs up to {fee.tafter === 60 ? "1 hour" : `${fee.tafter} minutes`} later.{" "}
-      <a href="/tradies" onClick={(e) => { e.preventDefault(); go("/tradies"); }} style={{ color: "var(--emerald)", fontWeight: 500 }}>See the tradie page</a></>],
-    ["What if the customer goes quiet?", `Your quote stays open for ${fee.tquiet} hours. Sending a quote is free, so there's nothing to get back. No contract.`],
+    ["Who can quote?", "Businesses with a complete business profile, whose ABN and insurance we've checked. Licensed work like electrical, plumbing, air conditioning or locksmith work needs that licence too, and in Queensland any quote over $3,300 for building work needs a QBCC licence."],
+    ["How do I get a quote?", "Post the job with photos. Every business available nearby is alerted at once and sends a fixed quote, what it includes and when they can come. Select one, or say no to all of them."],
+    ["What does it cost me?", `The same booking fee as any job, ${money(fee.min)} to ${money(fee.max)}, only when you select a quote. You pay the business their quote directly when the job's done.`],
+    ["I'm a business. How does it work?", <>{workerLine(fee)}{" "}
+      <a href="/tradies" onClick={(e) => { e.preventDefault(); go("/tradies"); }} style={{ color: "var(--emerald)", fontWeight: 500 }}>See the business page</a></>],
+    ["What if the customer goes quiet?", `Your quote stays open for ${fee.tquiet} hours. Sending a quote is free. No contract.`],
   ]],
   ["Cancelling: customers", [
     ["Can I cancel?", `Yes. It's free until your worker is on the way. After that it's ${money(fee.cancel)}, and all of it goes to your worker for their time.`],
     ["What if my worker is late?", `If they're more than ${fee.late} minutes past the time they gave you, you can cancel for free. If they change their time, you can accept it or cancel for free.`],
     ["What if my worker cancels or doesn't turn up?", "Your job goes straight back to the top and everyone who can take it is told. If they cancel close to the start or don't turn up, you get credit and they get a strike."],
     ["What if I'm not home when they arrive?", `Your worker waits ${fee.wait} minutes. If they still can't get in, the job is cancelled and the ${money(fee.cancel)} fee goes to them.`],
-    ["Is the connection fee refunded?", "Yes, if you cancel before your worker is on the way, or if they cancel. Once they're on the way, it isn't."],
+    ["Is the booking fee refunded?", "Yes, if you cancel before your worker is on the way, or if they cancel. Once they're on the way, it isn't."],
     ["What if I cancel a lot?", `After ${fee.lc30} late cancels in 30 days, you pay for your next jobs upfront.`],
     ["What about storms or emergencies?", "Tell us through Get help. Nobody pays a cancellation fee."],
   ]],
@@ -84,10 +105,10 @@ const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
     ["What's my Turns up score?", "How often you turn up on time for the jobs you take. Customers see it every time you say you're available."],
   ]],
   ["Payments and fees", [
-    ["What does it cost?", `You pay your worker directly by bank transfer or cash. When you select a worker, customers pay Mahi Man a connection fee of ${pctLabel(fee.pct)} of the job price, minimum ${money2(fee.min)}, never more than ${money2(fee.max)}. Posting is free and workers keep 100%.`],
+    ["What does it cost?", `Posting is free. When you select someone, the booking fee is ${pctLabel(fee.pct)} of the job price, ${money(fee.min)} to ${money(fee.max)}. You pay your worker directly by bank transfer or cash.`],
     ["How do I pay the fee?", `By bank transfer. Pick an invoice after each job, weekly, or every 2 weeks on your payday. If you have credit, your fees come off it first.`],
     ["Is my card safe?", "Cards are stored by Stripe, our payment provider. We never see or keep your full card number."],
-    ["Is there a way to pay less?", `Mahi Man Plus, $${Math.round(fee.plus / 100)} a year, halves the fee to ${pctLabel(fee.pl)} (${money2(fee.plmin)} to ${money2(fee.plmax)}), alerts workers nearby when you post, and lets you save your favourite workers. It suits people who book often. Customers 60 and over pay no connection fee.`],
+    ["Is there a way to pay less?", `Mahi Man Plus is ${money(fee.plus)} a month or ${money(fee.plusYear)} a year, with no booking fees on any job, and your favourite workers saved. It suits people who book often. Customers 60 and over pay no booking fees.`],
     ["Can I give Mahi Man as a gift?", "Yes. A Mahi Man gift card of $50, $100 or $200 pays for any job, the worker and the fee. Text it from your phone or we email it on the day you pick, like Christmas morning. Buy one in the app under You, Buy a gift card, or at mahiman.app/gift. It lasts 3 years."],
   ]],
   ["Local offers", [
@@ -109,19 +130,8 @@ const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
 export function Landing() {
   useEffect(() => { if (location.hash === "#app") window.setTimeout(toApp, 300); }, []);
   const [cats, setCats] = useState<Category[]>([]);
-  // The connection fee customers pay from launch, from the live settings.
-  const [fee, setFee] = useState<Fee>({ pct: 15, min: 995, max: 5995, plmax: 2995, plus: 9900, pl: 7.5, plmin: 495, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3, tpct: 1250, tmax: 25000, tmonth: 24900, tyear: 249900, tafter: 60, tquiet: 48 });
-  useEffect(() => {
-    sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "booking_fee_max_cents", "plus_fee_max_cents", "plus_fee_min_cents", "plus_year_cents", "plus_fee_percent", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
-      "noshow_wait_minutes", "worker_cancel_window_minutes", "strikes_offline_30", "offline_days", "strikes_review_90", "customer_late_cancels_30",
-      "trade_win_percent", "trade_win_max_cents", "trade_premium_month_cents", "trade_premium_year_cents", "trade_standard_after_minutes", "trade_quiet_hours"]).then(({ data }) => {
-      const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
-      setFee((f) => ({ pct: m.booking_fee_percent || f.pct, min: m.booking_fee_min_cents || f.min, max: m.booking_fee_max_cents || f.max, plmax: m.plus_fee_max_cents || f.plmax, plmin: m.plus_fee_min_cents || f.plmin, plus: m.plus_year_cents || f.plus, pl: m.plus_fee_percent || f.pl,
-        cancel: m.cancel_fee_cents || f.cancel, soon: m.worker_late_cancel_cents || f.soon, late: m.late_minutes || f.late, wait: m.noshow_wait_minutes || f.wait,
-        window: m.worker_cancel_window_minutes || f.window, s30: m.strikes_offline_30 || f.s30, off: m.offline_days || f.off, s90: m.strikes_review_90 || f.s90,
-        lc30: m.customer_late_cancels_30 || f.lc30, tpct: m.trade_win_percent ? m.trade_win_percent * 100 : f.tpct, tmax: m.trade_win_max_cents || f.tmax, tmonth: m.trade_premium_month_cents || f.tmonth, tyear: m.trade_premium_year_cents || f.tyear, tafter: m.trade_standard_after_minutes || f.tafter, tquiet: m.trade_quiet_hours || f.tquiet }));
-    });
-  }, []);
+  // Every price and rule, from the live settings.
+  const fee = useSiteFees();
   const [open, setOpen] = useState<{ id: string; job_name: string; category: string | null; icon: string; suburb: string; asap: boolean; pay_cents: number }[]>([]);
   useEffect(() => {
     sb.from("categories").select("*").eq("active", true).order("sort").then(({ data }) => setCats((data ?? []) as Category[]));
@@ -139,7 +149,7 @@ export function Landing() {
         <div className="ld-wrap ld-hero-in">
           <div className="ld-hero-text">
             <h1>Get help with anything.</h1>
-            <p className="ld-sub">Verified locals with real reviews, ready today. No spam, no chasing.</p>
+            <p className="ld-sub">{customerLine(fee)}</p>
             <div className="row ld-ctas">
               <a className="btn lime" href="/post" onClick={link("/post")}>Post a job, free {Icon.arrow("var(--ink)")}</a>
               <a className="btn ghost" href="/find" onClick={link("/find")}>Want work?</a>
@@ -187,13 +197,15 @@ export function Landing() {
 
       <HowItWorks link={link} />
 
+      <WhyUs fee={fee} />
+
       <section className="ld-earn" id="earn">
         <div className="ld-wrap ld-earn-in">
           <div className="ld-earn-text">
             <h2>Make more mahi.</h2>
-            <p>Turn spare hours into cash. Pick the jobs you like, close to where you are, whenever it suits you.</p>
+            <p>{workerLine(fee)}</p>
             <ul>
-              <li>{Icon.tick("var(--lime)", 18)} Keep 100% of every job</li>
+              <li>{Icon.tick("var(--lime)", 18)} Every new job, the moment it's posted</li>
               <li>{Icon.tick("var(--lime)", 18)} Paid straight to your bank</li>
               <li>{Icon.tick("var(--lime)", 18)} No ABN needed to start</li>
             </ul>
@@ -457,6 +469,54 @@ const HOW = {
     ["Get paid", "Do the job, add the after photos, and get paid to your bank.", "/how/paid.jpg"]] },
 } as const;
 type Side = keyof typeof HOW;
+
+// Why Mahi Man: faster, easier, safer, more reliable, and what it costs next to the others.
+// Airtasker and TaskRabbit figures are from their own help pages (Nov 2026): Airtasker AU connection fee $29.95 on a $150 task;
+// Airtasker Tasker service fee 12.5% to 20% plus GST by tier; TaskRabbit clients pay a service fee and a Trust & Support fee, Taskers keep their rate.
+const AT_FEE_150 = 2995, AT_LO = 0.125 * 1.1, AT_HI = 0.2 * 1.1;
+function WhyUs({ fee }: { fee: Fee }) {
+  const cust = Math.min(Math.max(Math.round(15000 * fee.pct / 100), fee.min), fee.max);
+  const work = Math.min(Math.round(150000 * fee.wpct / 100), fee.wmax);
+  const bar = (v: number, top: number) => ({ width: `${Math.max(8, (v / top) * 100)}%` });
+  const BEN: [string, string][] = [
+    ["Faster", "Everyone available nearby is alerted the moment you post. No waiting for offers."],
+    ["Easier", "Five quick steps with a photo. Sort who's available by cheapest, best rated or soonest."],
+    ["Safer", "Every worker's ID checked by hand. Licences, ABN and insurance checked for licensed work."],
+    ["More reliable", "See how often each person turns up. Late cancels and no-shows cost them."],
+  ];
+  const ROWS: [string, string, string, string, string][] = [
+    ["Finding help", "Everyone nearby alerted at once", "Post, then wait for offers", "Browse and book one Tasker", "Hope the right person sees it"],
+    ["You pay to book", `${money(fee.min)} to ${money(fee.max)}`, `${money(AT_FEE_150)} on a $150 task`, "Service fee plus a Trust & Support fee", "Nothing, and no protection"],
+    ["Workers pay", `${pctLabel(fee.wpct)}, never more than ${money(fee.wmax)}. Premium 0%`, "12.5% to 20%, plus GST", "Nothing on their rate", "Nothing"],
+  ];
+  return (
+    <section className="ld-sec" id="why"><div className="ld-wrap">
+      <h2>Why Mahi Man.</h2>
+      <div className="wy-ben">
+        {BEN.map(([t, x]) => <div key={t}><b>{t}.</b><span>{x}</span></div>)}
+      </div>
+      <div className="wy-bars">
+        <div>
+          <h3>Booking a $150 job</h3>
+          <div className="wy-bar me"><span>Mahi Man</span><i style={bar(cust, AT_FEE_150)} /><b>{money(cust)}</b></div>
+          <div className="wy-bar"><span>Airtasker</span><i style={bar(AT_FEE_150, AT_FEE_150)} /><b>{money(AT_FEE_150)}</b></div>
+        </div>
+        <div>
+          <h3>Doing a $1,500 job</h3>
+          <div className="wy-bar me"><span>Mahi Man</span><i style={bar(work, 150000 * AT_HI)} /><b>{money(work)}</b></div>
+          <div className="wy-bar"><span>Airtasker</span><i style={bar(150000 * AT_HI, 150000 * AT_HI)} /><b>{money(Math.round(150000 * AT_LO))} to {money(Math.round(150000 * AT_HI))}</b></div>
+        </div>
+      </div>
+      <div className="wy-tbl" role="table">
+        <div className="wy-r wy-h" role="row"><span /><b className="me">Mahi Man</b><b>Airtasker</b><b>TaskRabbit</b><b>Facebook and WhatsApp groups</b></div>
+        {ROWS.map(([k, ...v]) => (
+          <div key={k} className="wy-r" role="row"><span className="k">{k}</span>{v.map((x, i) => <span key={i} className={i === 0 ? "me" : ""}>{x}</span>)}</div>
+        ))}
+      </div>
+      <p className="wy-src">Airtasker and TaskRabbit fees from their own help pages, November 2026. Their fees can change.</p>
+    </div></section>
+  );
+}
 
 function HowItWorks({ link }: { link: (to: string) => (e: React.MouseEvent) => void }) {
   const [side, setSide] = useState<Side>("help");

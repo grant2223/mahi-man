@@ -21,7 +21,8 @@ import { Standby } from "./Standby";
 import { Offline } from "./Offline";
 import { Feed } from "../customer/Feed";
 import { FeedOfferCard, useFeedOffer } from "../ui/LocalOffers";
-import { joined, TradeFeed, TradeJob, TradeJoin, TradePlan, TradeQuotes, TradeWaiting, useTrade } from "./Trade";
+import { feesBlocked, joined, PayFees, TradeFeed, TradeJob, TradeJoin, TradePlan, TradeQuotes, TradeWaiting, useTrade } from "./Trade";
+import { UpsellScreen, upsellStatus, wantsPremiumUpsell, type UpsellStatus } from "../ui/Upsell";
 
 
 interface WorkerStatus { steps: Steps; approved: boolean; suspended: boolean; pilot: boolean; id_status: IdStatus; id_note: string | null }
@@ -88,7 +89,7 @@ export function Work() {
   }, []);
 
   const [setupOpen, setSetupOpen] = useState(false);
-  // Just signed up: ask once whether they're a trades person.
+  // Just signed up: ask once whether they're a business.
   const [askTradie, setAskTradie] = useState(() => location.search.includes("asktradie"));
   if (!ready) return <div className="app"><section className="hero short"><span className="brand"><Logo /> Mahi Man</span></section><Loading /></div>;
 
@@ -105,7 +106,7 @@ export function Work() {
   }
   if (!profile?.is_worker) return <BecomeWorker onDone={reload} />;
   if (askTradie) return <div className="app"><TradieAsk onYes={() => { setAskTradie(false); go("/work/trade"); }} onNo={() => { setAskTradie(false); go("/work", true); }} /></div>;
-  // The tradie profile: from Are you a trades person? or Create Tradie Profile on their profile. Then how they pay, then trade jobs.
+  // The business profile: from Are you a business? or Create Business Profile on their profile. Then licensed jobs.
   if (location.pathname === "/work/trade") return <div className="app"><TradeSetup onBack={() => (history.length > 1 ? history.back() : go("/work"))} onDone={() => go("/work?trade=start", true)} /></div>;
 
   if (!status || current === undefined) return <div className="app"><section className="hero short"><span className="brand"><Logo /> Mahi Man</span>{err && <p className="lede" style={{ marginTop: 16 }}>{err}</p>}</section>{!err && <Loading />}</div>;
@@ -162,20 +163,26 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const pending = useRef(0);
   const { trade, reload: reloadTrade } = useTrade();
   const isTradie = joined(trade);
-  const [tradeScreen, setTradeScreen] = useState<null | "join" | "plan" | "feed">(null);
-  // Trade jobs aren't on Do work. They open from the profile page (Trade work) or a trade alert: /work?trade=feed, plan, join or start.
-  const [tradeAsk] = useState(() => new URLSearchParams(location.search).get("trade"));
+  const [tradeScreen, setTradeScreen] = useState<null | "join" | "plan" | "feed" | "premium" | "fees">(null);
+  // Licensed jobs aren't on Do work. They open from the profile page or an alert: /work?trade=feed, plan, join, premium or start; /work?pay=fees from a fee invoice.
+  const [tradeAsk] = useState(() => { const q = new URLSearchParams(location.search); return q.get("pay") === "fees" ? "fees" : q.get("trade"); });
   const tradeLeave = () => { setTradeScreen(null); if (tradeAsk) { history.replaceState(null, "", "/work"); go("/settings"); } };
   useEffect(() => {
     if (!tradeAsk || !trade) return;
     const t = tradeAsk === "start" ? (joined(trade) ? "feed" : "join") : tradeAsk;
-    if (t === "feed" || t === "plan" || t === "join") setTradeScreen(joined(trade) || t === "join" ? t : "join");
+    // How you pay, Premium and fees are for everyone; the licensed jobs feed needs the business set up first.
+    if (t === "plan" || t === "premium" || t === "fees") setTradeScreen(t);
+    else if (t === "feed" || t === "join") setTradeScreen(joined(trade) || t === "join" ? t : "join");
   }, [tradeAsk, !!trade]); // eslint-disable-line react-hooks/exhaustive-deps
   const [tradeCreds, setTradeCreds] = useState(false);
   const ready = { onChanged: reloadTrade, onAbn: () => setNeedPay("trade"), onCreds: () => setTradeCreds(true) };
   const [tradeOpen, setTradeOpen] = useState<Offer | null>(null);
   const tradeJobs = offers.filter((o) => o.trade);
   const feedOffer = useFeedOffer(online);
+  const blocked = feesBlocked(trade);
+  // Once this month's jobs pass the Premium line: what they've paid in fees, and Premium. Once a month.
+  const [upsell, setUpsell] = useState<UpsellStatus | null>(null);
+  useEffect(() => { upsellStatus().then((s) => { if (wantsPremiumUpsell(s)) setUpsell(s); }).catch(() => {}); }, []);
   const jobs = offers.filter((o) => !o.trade);
 
   useEffect(() => {
@@ -215,6 +222,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
   const [needPay, setNeedPay] = useState<null | "online" | "trade">(null);
   const needsPay = (e: unknown) => e instanceof Error && e.message.startsWith("Add your PayID");
   async function toggle() {
+    if (!online && blocked) { setTradeScreen("fees"); return; }
     try {
       await rpc("set_online", { p_online: !online }); setOnline(!online); if (online) setOffers((x) => x.filter((o) => o.trade));
       if (!online && !askedFor("work") && (await alertsState()) === "prompt") setAsk(true);
@@ -252,6 +260,12 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
         </div>
       )}
       {view === "quotes" && tq.length > 0 ? <TradeQuotes quotes={tq} covers={covers} onOpen={setWaiting} /> : (<>
+      {blocked && trade && (
+        <div className="pf-band">
+          <span><b>You owe {money(trade.owing_cents ?? 0)}</b><small>Pay it to keep taking jobs</small></span>
+          <button className="btn primary" onClick={() => setTradeScreen("fees")}>{Icon.card("#fff")}Pay now</button>
+        </div>
+      )}
       {wrapups.length > 0 && (
         <div className="wrap-list">
           {wrapups.map((j) => (
@@ -298,17 +312,21 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
       </>)}
       <History />
       <TabBar on="work" />
-      {open && <OfferScreen o={open} pilot={pilot} onBack={() => setOpen(null)}
+      {open && <OfferScreen o={open} pilot={pilot} onBack={() => setOpen(null)} onOwing={() => { setOpen(null); reloadTrade(); setTradeScreen("fees"); }}
         onPass={async () => { await rpc("pass_job", { p_job: open.id }); setOpen(null); poll(); }}
         onOffered={() => { const id = open.id; setOpen(null); setWaiting(id); poll(); }} onGone={() => { setOpen(null); poll(); }} />}
       {ask && <AlertsAsk role="work" onDone={() => setAsk(false)} />}
       {trade && tradeScreen === "join" && <TradeJoin trade={trade} onBack={() => (isTradie ? setTradeScreen("plan") : tradeLeave())}
         onJoined={(plan) => { reloadTrade(); poll(); setTradeScreen(plan === "premium" ? "plan" : "feed"); }} onNeedPay={() => setNeedPay("trade")} ready={ready} />}
+      {trade && tradeScreen === "premium" && <TradeJoin trade={trade} joining={false} onBack={tradeLeave} onJoined={() => { reloadTrade(); setTradeScreen("plan"); }} />}
+      {trade && tradeScreen === "fees" && <PayFees trade={trade} onBack={tradeLeave} onChanged={() => { reloadTrade(); tradeLeave(); }} />}
+      {upsell && !tradeScreen && <UpsellScreen kind="premium" s={upsell} onSelect={() => { setUpsell(null); setTradeScreen("premium"); }} onLater={() => setUpsell(null)} />}
       {needPay && <AbnStep onBack={() => setNeedPay(null)} onSaved={() => { const was = needPay; setNeedPay(null); toast("Saved"); reloadTrade(); if (was === "online") toggle(); }} />}
       {trade && tradeScreen === "plan" && <TradePlan trade={trade} onBack={tradeLeave} onChanged={reloadTrade} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
-      {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} quotes={mine.filter((m) => m.trade)} onQuote={setWaiting} covers={covers} onBack={tradeLeave} onOpen={setTradeOpen} onUpgrade={() => setTradeScreen("join")} ready={ready} />}
+      {trade && tradeScreen === "feed" && <TradeFeed trade={trade} jobs={tradeJobs} quotes={mine.filter((m) => m.trade)} onQuote={setWaiting} covers={covers} onBack={tradeLeave} onOpen={(o) => (blocked ? setTradeScreen("fees") : setTradeOpen(o))} ready={ready} />}
       {tradeOpen && trade && <TradeJob o={tradeOpen} trade={trade} onBack={() => setTradeOpen(null)}
-        onSent={() => { const id = tradeOpen.id; setTradeOpen(null); reloadTrade(); poll(); setWaiting(id); }} onGone={() => { setTradeOpen(null); poll(); }} onCreds={() => setTradeCreds(true)} />}
+        onSent={() => { const id = tradeOpen.id; setTradeOpen(null); reloadTrade(); poll(); setWaiting(id); }} onGone={() => { setTradeOpen(null); poll(); }} onCreds={() => setTradeCreds(true)}
+        onOwing={() => { setTradeOpen(null); reloadTrade(); setTradeScreen("fees"); }} />}
       {waiting && (() => {
         const m = mine.find((x) => x.job_id === waiting);
         if (m?.trade) return <TradeWaiting o={m} onWithdraw={async () => { await rpc("withdraw_offer", { p_job: m.job_id }); setWaiting(null); poll(); }} onClose={() => setWaiting(null)} />;
@@ -321,7 +339,7 @@ function Home({ pilot, onTaken, wrapups, onOpen }: { pilot: boolean; onTaken: ()
 }
 
 // Full-bleed job detail: everything a worker needs to decide before taking it.
-function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer; pilot: boolean; onBack: () => void; onPass: () => void; onOffered: () => void; onGone: () => void }) {
+function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone, onOwing }: { o: Offer; pilot: boolean; onBack: () => void; onPass: () => void; onOffered: () => void; onGone: () => void; onOwing: () => void }) {
   const toast = useToast();
   const [items, setItems] = useState<{ kind: string; url: string }[]>([]);
   const [idx, setIdx] = useState(0);
@@ -351,7 +369,12 @@ function OfferScreen({ o, pilot, onBack, onPass, onOffered, onGone }: { o: Offer
     if (!mins) { setEta(true); return; }
     setBusy(true);
     try { await rpc("offer_job", { p_job: o.id, p_eta_minutes: mins }); toast(`${o.customer_name.split(" ")[0]} can see you're available`); onOffered(); }
-    catch (e) { toast(e instanceof Error ? e.message : String(e)); onGone(); } finally { setBusy(false); }
+    catch (e) {
+      const m = e instanceof Error ? e.message : String(e);
+      // Owing past the limit: straight to paying it.
+      if (m.startsWith("PAY_FEES")) { onOwing(); return; }
+      toast(m); onGone();
+    } finally { setBusy(false); }
   }
   const at = (n: number) => new Date(Date.now() + n * 60000).toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
 

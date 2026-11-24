@@ -70,7 +70,7 @@ export function Track({ id }: { id: string }) {
   const owedHere = owed.find((f) => f.job_id === id) ?? null;
   const [paying, setPaying] = useState(false);
   const rules = useRules();
-  // The Mahi Man connection fee on this job, once it's been billed.
+  // The Mahi Man booking fee on this job, once it's been billed.
   const jobFee = useJobFee(id, !!job && ["invoiced", "paid"].includes(job.fee_status ?? ""));
 
   const load = useCallback(async () => {
@@ -385,7 +385,7 @@ export function Track({ id }: { id: string }) {
           <>
             <Perf />
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 4 }}>
-              <span className="row between"><span className="t17 w5">Connection fee</span><span className="t17 w5">{money2(jobFee.amount_cents)}</span></span>
+              <span className="row between"><span className="t17 w5">Booking fee</span><span className="t17 w5">{money2(jobFee.amount_cents)}</span></span>
               <span className="small light muted" style={{ lineHeight: 1.45 }}>
                 {jobFee.amount_cents <= jobFee.from_balance_cents ? "Taken from your credit."
                   : jobFee.customer_invoices ? `${jobFee.from_balance_cents > 0 ? `${money2(jobFee.from_balance_cents)} from your credit, ${money2(jobFee.amount_cents - jobFee.from_balance_cents)} ${jobFee.customer_invoices.status === "paid" ? "paid" : "to pay"}` : jobFee.customer_invoices.status === "paid" ? "Paid" : "To pay"} on invoice ${jobFee.customer_invoices.number}. It's in You, Payments.`
@@ -398,7 +398,7 @@ export function Track({ id }: { id: string }) {
           <>
             <Perf />
             <div className="stack" style={{ padding: "8px 16px 18px", gap: 4 }}>
-              <span className="row between"><span className="t17 w5">Connection fee</span><span className="t17 w5">{money2(job.fee_cents)}</span></span>
+              <span className="row between"><span className="t17 w5">Booking fee</span><span className="t17 w5">{money2(job.fee_cents)}</span></span>
               <span className="small light muted" style={{ lineHeight: 1.45 }}>
                 {job.fee_status === "refunded"
                   ? "Refunded to your card. It can take 5 to 10 days to show."
@@ -615,11 +615,11 @@ function CancelScreen({ job, title, onBack, onDone }: { job: Job; title: string;
   const nth = (t.cancels_30 ?? 0) + 1, limit = t.cancel_limit ?? 3, days = t.pause_days ?? 7;
   const items: { icon: ReactNode; head: string; body: string; warn?: boolean }[] = [];
   if (t.kind === "fee") {
-    items.push({ icon: Icon.warn("#b8860b"), warn: true, head: `Cancelling costs ${money(t.fee_cents ?? 0)}`, body: `${W} set off at ${hm(t.set_off_at)}. The fee goes to ${w} for their time${t.booking_fee_cents ? ", and the connection fee isn't refunded" : ""}.${t.card && t.payments_live ? ` Charged to your ${t.card}.` : ""}` });
+    items.push({ icon: Icon.warn("#b8860b"), warn: true, head: `Cancelling costs ${money(t.fee_cents ?? 0)}`, body: `${W} set off at ${hm(t.set_off_at)}. The fee goes to ${w} for their time${t.booking_fee_cents ? ", and the booking fee isn't refunded" : ""}.${t.card && t.payments_live ? ` Charged to your ${t.card}.` : ""}` });
   } else {
     const free = t.kind === "new_time" ? `${W} changed the time to ${hm(t.eta_at)}, so it's free.` : t.kind === "not_moving" ? `${W} hasn't moved in 10 minutes, so it's free.`
       : job.worker_id ? `${W} hasn't set off yet, so nothing is charged.` : "Nobody has taken it yet, so nothing is charged.";
-    items.push({ icon: Icon.tick("var(--emerald)", 22), head: "Free to cancel", body: free + (t.booking_fee_cents ? ` Your ${money2(t.booking_fee_cents)} connection fee is refunded.` : "") });
+    items.push({ icon: Icon.tick("var(--emerald)", 22), head: "Free to cancel", body: free + (t.booking_fee_cents ? ` Your ${money2(t.booking_fee_cents)} booking fee is refunded.` : "") });
   }
   items.push(job.worker_id
     ? { icon: Icon.bell("var(--emerald)"), head: `${W} is told straight away`, body: "They won't come." }

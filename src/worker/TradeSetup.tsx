@@ -6,8 +6,8 @@ import { Icon, SearchPicker, StepHero, useToast } from "../ui/kit";
 import { GoldTick } from "../customer/Offers";
 import { AddCredential, latestCreds, lc, useCatalog, useMine } from "./Skills";
 
-/* The tradie profile: sole trader or company, business details, services, licences and certificates, done.
-   Opened from Are you a trades person? straight after sign-up, or Create Tradie Profile on their profile.
+/* The business profile: sole trader or company, business details, services, licences and certificates, done.
+   Opened from Are you a business? straight after sign-up, or Create Business Profile on their profile.
    Their ID is already checked at sign-up, so it isn't asked again. Everything is saved before they can quote. */
 
 type Kind = "sole" | "company";
@@ -174,7 +174,7 @@ export function TradeSetup({ onBack, onDone }: { onBack: () => void; onDone: () 
             const c = latest.get(id);
             return (
               <div key={id} className="ts-doc">
-                <span className="ts-dt"><b>{t?.name}</b>{t?.name === INSURANCE && !c && <span className="ts-st">Needed for trade jobs</span>}</span>
+                <span className="ts-dt"><b>{t?.name}</b>{t?.name === INSURANCE && !c && <span className="ts-st">Needed for licensed jobs</span>}</span>
                 {c?.status === "verified" ? <span className="ts-up">{Icon.tick("var(--emerald)", 20)}Verified</span>
                   : c?.status === "pending" ? <span className="ts-up">{Icon.tick("var(--emerald)", 20)}Uploaded</span>
                   : <button className="btn primary small" onClick={() => setAdd(id)}>{Icon.camera("#fff")} {c ? "Send again" : "Upload proof"}</button>}
@@ -214,16 +214,16 @@ export function TradeSetup({ onBack, onDone }: { onBack: () => void; onDone: () 
   );
 }
 
-/* Straight after sign-up, once: are they a trades person? Yes opens the tradie profile; No I am not goes to jobs.
-   Later, Create Tradie Profile on their profile page opens the same steps. */
+/* Straight after sign-up, once: are they a business? Yes opens the business profile; No I am not goes to jobs.
+   Later, Create Business Profile on their profile page opens the same steps. */
 export function TradieAsk({ onYes, onNo }: { onYes: () => void; onNo: () => void }) {
   return (
     <div className="screen ta">
       <section className="hero ta-hero">
         <img className="mascot" src="/mascot.png" alt="" />
-        <h1 className="mid">Are you a<br />trades person?</h1>
+        <h1 className="mid">Are you a<br />business?</h1>
         <div className="ta-go">
-          <button className="btn ta-yes" onClick={onYes}>Complete Tradie profile</button>
+          <button className="btn ta-yes" onClick={onYes}>Complete Business profile</button>
           <button className="btn ta-no" onClick={onNo}>No I am not</button>
         </div>
       </section>
