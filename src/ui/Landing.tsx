@@ -36,29 +36,36 @@ const USES: [string, string, string][] = [
 
 // Every answer here is how the platform actually works (the terms and privacy policy say the same). Fees and windows come from the live settings.
 type Fee = { pct: number; min: number; max: number; plus: number; plusYear: number; cancel: number; soon: number; late: number; wait: number; window: number; s30: number; off: number; s90: number; lc30: number;
-  wpct: number; wmax: number; pmonth: number; pyear: number; block: number; widen: number; tquiet: number };
+  wpct: number; wmax: number; pmonth: number; pyear: number; block: number; widen: number; tquiet: number; copyCustomer: string; copyWorker: string };
 const FEE0: Fee = { pct: 20, min: 500, max: 2000, plus: 2700, plusYear: 27000, cancel: 2000, soon: 1000, late: 15, wait: 15, window: 120, s30: 3, off: 7, s90: 5, lc30: 3,
-  wpct: 20, wmax: 20000, pmonth: 9700, pyear: 97000, block: 5000, widen: 10, tquiet: 48 };
+  wpct: 20, wmax: 20000, pmonth: 9700, pyear: 97000, block: 5000, widen: 10, tquiet: 48,
+  copyCustomer: "Post it, and everyone available nearby gets alerted now. {min} to {max} to book. Use it a lot? Plus is {plus} a month with no booking fees.",
+  copyWorker: "Jobs near you, straight to your phone. Mahi Man takes {pct}, never more than {wmax} a job. Or go Premium for {premium} a month and keep 100%." };
 // The live prices and rules, from the settings Admin edits. Every number on the website comes from here.
 export function useSiteFees() {
   const [fee, setFee] = useState<Fee>(FEE0);
   useEffect(() => {
     sb.from("settings").select("key,value").in("key", ["booking_fee_percent", "booking_fee_min_cents", "booking_fee_max_cents", "plus_cents", "plus_year_cents", "cancel_fee_cents", "worker_late_cancel_cents", "late_minutes",
       "noshow_wait_minutes", "worker_cancel_window_minutes", "strikes_offline_30", "offline_days", "strikes_review_90", "customer_late_cancels_30",
-      "provider_fee_percent", "provider_fee_max_cents", "premium_month_cents", "premium_year_cents", "provider_block_owing_cents", "widen_after_minutes", "trade_quiet_hours"]).then(({ data }) => {
+      "provider_fee_percent", "provider_fee_max_cents", "premium_month_cents", "premium_year_cents", "provider_block_owing_cents", "widen_after_minutes", "trade_quiet_hours", "copy_customer_line", "copy_worker_line"]).then(({ data }) => {
       const m = Object.fromEntries((data ?? []).map((r) => [r.key, Number(r.value)]));
+      const t = Object.fromEntries((data ?? []).map((r) => [r.key, String(r.value ?? "")]));
       setFee((f) => ({ pct: m.booking_fee_percent || f.pct, min: m.booking_fee_min_cents || f.min, max: m.booking_fee_max_cents || f.max, plus: m.plus_cents || f.plus, plusYear: m.plus_year_cents || f.plusYear,
         cancel: m.cancel_fee_cents || f.cancel, soon: m.worker_late_cancel_cents || f.soon, late: m.late_minutes || f.late, wait: m.noshow_wait_minutes || f.wait,
         window: m.worker_cancel_window_minutes || f.window, s30: m.strikes_offline_30 || f.s30, off: m.offline_days || f.off, s90: m.strikes_review_90 || f.s90,
         lc30: m.customer_late_cancels_30 || f.lc30, wpct: m.provider_fee_percent || f.wpct, wmax: m.provider_fee_max_cents || f.wmax, pmonth: m.premium_month_cents || f.pmonth, pyear: m.premium_year_cents || f.pyear,
-        block: m.provider_block_owing_cents || f.block, widen: m.widen_after_minutes || f.widen, tquiet: m.trade_quiet_hours || f.tquiet }));
+        block: m.provider_block_owing_cents || f.block, widen: m.widen_after_minutes || f.widen, tquiet: m.trade_quiet_hours || f.tquiet,
+        copyCustomer: t.copy_customer_line?.trim() || f.copyCustomer, copyWorker: t.copy_worker_line?.trim() || f.copyWorker }));
     });
   }, []);
   return fee;
 }
-// The two lines that say it all, word for word wherever pricing is explained.
-export const customerLine = (f: Fee) => `Post it, and everyone available nearby gets alerted now. ${money(f.min)} to ${money(f.max)} to book. Use it a lot? Plus is ${money(f.plus)} a month with no booking fees.`;
-export const workerLine = (f: Fee) => `Jobs near you, straight to your phone. Mahi Man takes ${pctLabel(f.wpct)}, never more than ${money(f.wmax)} a job. Or go Premium for ${money(f.pmonth)} a month and keep 100%.`;
+// The two lines that say it all, wherever pricing is explained. The wording is edited in Admin, Settings, Wording;
+// {min} {max} {plus} {pct} {wmax} {premium} fill in from the live prices.
+const fill = (text: string, f: Fee) => text.replace(/\{(\w+)\}/g, (all, k: string) => ({ min: money(f.min), max: money(f.max), plus: money(f.plus), plusyear: money(f.plusYear),
+  pct: pctLabel(f.wpct), wmax: money(f.wmax), premium: money(f.pmonth), premiumyear: money(f.pyear) } as Record<string, string>)[k.toLowerCase()] ?? all);
+export const customerLine = (f: Fee) => fill(f.copyCustomer, f);
+export const workerLine = (f: Fee) => fill(f.copyWorker, f);
 const faq = (fee: Fee): [string, [string, React.ReactNode][]][] => [
   ["Getting help", [
     ["How fast can someone come?", `The moment you post, everyone available near you gets an alert, all at the same time. If nobody says they're keen within ${fee.widen} minutes, workers further out are alerted too.`],
@@ -197,7 +204,7 @@ export function Landing() {
 
       <HowItWorks link={link} />
 
-      <WhyUs fee={fee} />
+      <WhyUs />
 
       <section className="ld-earn" id="earn">
         <div className="ld-wrap ld-earn-in">
@@ -470,24 +477,13 @@ const HOW = {
 } as const;
 type Side = keyof typeof HOW;
 
-// Why Mahi Man: faster, easier, safer, more reliable, and what it costs next to the others.
-// Airtasker and TaskRabbit figures are from their own help pages (Nov 2026): Airtasker AU connection fee $29.95 on a $150 task;
-// Airtasker Tasker service fee 12.5% to 20% plus GST by tier; TaskRabbit clients pay a service fee and a Trust & Support fee, Taskers keep their rate.
-const AT_FEE_150 = 2995, AT_LO = 0.125 * 1.1, AT_HI = 0.2 * 1.1;
-function WhyUs({ fee }: { fee: Fee }) {
-  const cust = Math.min(Math.max(Math.round(15000 * fee.pct / 100), fee.min), fee.max);
-  const work = Math.min(Math.round(150000 * fee.wpct / 100), fee.wmax);
-  const bar = (v: number, top: number) => ({ width: `${Math.max(8, (v / top) * 100)}%` });
+// Why Mahi Man: faster, easier, safer, more reliable.
+function WhyUs() {
   const BEN: [string, string][] = [
-    ["Faster", "Everyone available nearby is alerted the moment you post. No waiting for offers."],
+    ["Faster", "Everyone available nearby is alerted the moment you post."],
     ["Easier", "Five quick steps with a photo. Sort who's available by cheapest, best rated or soonest."],
     ["Safer", "Every worker's ID checked by hand. Licences, ABN and insurance checked for licensed work."],
     ["More reliable", "See how often each person turns up. Late cancels and no-shows cost them."],
-  ];
-  const ROWS: [string, string, string, string, string][] = [
-    ["Finding help", "Everyone nearby alerted at once", "Post, then wait for offers", "Browse and book one Tasker", "Hope the right person sees it"],
-    ["You pay to book", `${money(fee.min)} to ${money(fee.max)}`, `${money(AT_FEE_150)} on a $150 task`, "Service fee plus a Trust & Support fee", "Nothing, and no protection"],
-    ["Workers pay", `${pctLabel(fee.wpct)}, never more than ${money(fee.wmax)}. Premium 0%`, "12.5% to 20%, plus GST", "Nothing on their rate", "Nothing"],
   ];
   return (
     <section className="ld-sec" id="why"><div className="ld-wrap">
@@ -495,25 +491,6 @@ function WhyUs({ fee }: { fee: Fee }) {
       <div className="wy-ben">
         {BEN.map(([t, x]) => <div key={t}><b>{t}.</b><span>{x}</span></div>)}
       </div>
-      <div className="wy-bars">
-        <div>
-          <h3>Booking a $150 job</h3>
-          <div className="wy-bar me"><span>Mahi Man</span><i style={bar(cust, AT_FEE_150)} /><b>{money(cust)}</b></div>
-          <div className="wy-bar"><span>Airtasker</span><i style={bar(AT_FEE_150, AT_FEE_150)} /><b>{money(AT_FEE_150)}</b></div>
-        </div>
-        <div>
-          <h3>Doing a $1,500 job</h3>
-          <div className="wy-bar me"><span>Mahi Man</span><i style={bar(work, 150000 * AT_HI)} /><b>{money(work)}</b></div>
-          <div className="wy-bar"><span>Airtasker</span><i style={bar(150000 * AT_HI, 150000 * AT_HI)} /><b>{money(Math.round(150000 * AT_LO))} to {money(Math.round(150000 * AT_HI))}</b></div>
-        </div>
-      </div>
-      <div className="wy-tbl" role="table">
-        <div className="wy-r wy-h" role="row"><span /><b className="me">Mahi Man</b><b>Airtasker</b><b>TaskRabbit</b><b>Facebook and WhatsApp groups</b></div>
-        {ROWS.map(([k, ...v]) => (
-          <div key={k} className="wy-r" role="row"><span className="k">{k}</span>{v.map((x, i) => <span key={i} className={i === 0 ? "me" : ""}>{x}</span>)}</div>
-        ))}
-      </div>
-      <p className="wy-src">Airtasker and TaskRabbit fees from their own help pages, November 2026. Their fees can change.</p>
     </div></section>
   );
 }

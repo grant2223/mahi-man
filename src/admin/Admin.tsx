@@ -1300,6 +1300,10 @@ const SETTING_GROUPS: { title: string; text: string; fields: SetField[] }[] = [
     { k: "offline_days", label: "Offline for", t: "num", unit: "days" },
     { k: "strikes_review_90", label: "Account reviewed after", hint: "Strikes in 90 days.", t: "num", unit: "strikes" },
   ] },
+  { title: "Wording", text: "The two pricing lines on the website. {min}, {max}, {plus}, {pct}, {wmax} and {premium} fill in from the prices above, so they stay right when a price changes.", fields: [
+    { k: "copy_customer_line", label: "For customers", t: "text", ph: "Post it, and everyone available nearby gets alerted now…" },
+    { k: "copy_worker_line", label: "For workers and businesses", t: "text", ph: "Jobs near you, straight to your phone…" },
+  ] },
   { title: "Licensed jobs", text: "Jobs with a licensed skill (set per skill in Skills). Businesses send a fixed price; the booking fee and the Mahi Man share work like every other job.", fields: [
     { k: "qbcc_over_cents", label: "QBCC licence needed over", hint: "Quotes above this need a verified QBCC licence.", t: "num", unit: "$" },
     { k: "trade_quiet_hours", label: "A quote stays open for", t: "num", unit: "hours" },

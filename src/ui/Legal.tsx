@@ -6,6 +6,7 @@ import { go } from "../lib/router";
 import { StepHero } from "./kit";
 import { money } from "../lib/format";
 import { useSiteFees } from "./Landing";
+const hrs = (min: number) => min % 60 === 0 ? `${min / 60} hour${min === 60 ? "" : "s"}` : `${min} minutes`;
 
 export const SUPPORT_EMAIL = "hello@mahiman.app";
 const UPDATED = "24 November 2026";
@@ -99,15 +100,15 @@ export function Terms() {
       </ul>
       <h2>Cancelling</h2>
       <ul>
-        <li>Customers can cancel free of charge until their worker is on the way. Once the worker is on the way, a cancellation fee applies (shown in the app before you cancel, currently $20), and all of it goes to the worker for their time.</li>
+        <li>Customers can cancel free of charge until their worker is on the way. Once the worker is on the way, a cancellation fee applies (shown in the app before you cancel, currently {money(f.cancel)}), and all of it goes to the worker for their time.</li>
         <li>A worker is on the way from when they tap "I'm on my way". For a job booked for later, this only counts from 60 minutes before the start time.</li>
-        <li>Cancelling is free for the customer if the worker is more than 15 minutes past the arrival time they gave, if the worker hasn't moved, or if the worker changed their arrival time and the customer doesn't accept the new time.</li>
-        <li>If the customer isn't there or the worker can't get in, the worker waits 15 minutes and can then cancel. The customer pays the cancellation fee to the worker.</li>
+        <li>Cancelling is free for the customer if the worker is more than {f.late} minutes past the arrival time they gave, if the worker hasn't moved, or if the worker changed their arrival time and the customer doesn't accept the new time.</li>
+        <li>If the customer isn't there or the worker can't get in, the worker waits {f.wait} minutes and can then cancel. The customer pays the cancellation fee to the worker.</li>
         <li>During the pilot, a customer pays a cancellation fee directly to the worker, and can't post another job until it's marked paid. Once card payments start, it's charged to the customer's saved card.</li>
-        <li>After 3 late cancellations in 30 days, a customer pays for their next jobs upfront in the app.</li>
-        <li>Workers can cancel free of charge more than 2 hours before the start. Within 2 hours it costs the worker $10, and once they're on the way or if they don't turn up, $20. The fee goes to the customer as credit against Mahi Man fees.</li>
+        <li>After {f.lc30} late cancellations in 30 days, a customer pays for their next jobs upfront in the app.</li>
+        <li>Workers can cancel free of charge more than {hrs(f.window)} before the start. Within {hrs(f.window)} it costs the worker {money(f.soon)}, and once they're on the way or if they don't turn up, {money(f.cancel)}. The fee goes to the customer as credit against Mahi Man fees.</li>
         <li>A worker can change their arrival time once per job, before it passes. Their first emergency in 90 days, told to us when they cancel, has no fee.</li>
-        <li>A worker gets a strike for cancelling within 2 hours, cancelling on the way, not turning up, or arriving more than 15 minutes after their arrival time. 3 strikes in 30 days takes them offline for 7 days, and 5 in 90 days means we review their account. Strikes last 90 days.</li>
+        <li>A worker gets a strike for cancelling within {hrs(f.window)}, cancelling on the way, not turning up, or arriving more than {f.late} minutes after their arrival time. {f.s30} strikes in 30 days takes them offline for {f.off} days, and {f.s90} in 90 days means we review their account. Strikes last 90 days.</li>
         <li>Storms, emergencies and safety problems are handled through Get help, with no cancellation fee for either side.</li>
         <li>The amounts and times above can change. The app always shows what applies before you cancel.</li>
       </ul>
